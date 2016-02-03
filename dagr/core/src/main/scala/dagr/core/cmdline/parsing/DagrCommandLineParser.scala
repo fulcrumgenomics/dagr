@@ -187,7 +187,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
     args.indexOf("--") match {
       case -1 =>
         // check for Pipeline name
-        pipelines.view.map { p => args.indexOf(p.getSimpleName) }.find(_ != -1) match {
+        pipelines.view.map { p => args.indexOf(p.getSimpleName) }.filter(_ != -1).reduceOption(_ min _) match {
           case Some(n) => args.splitAt(n)
           case None => (args, Array[String]())
         }
