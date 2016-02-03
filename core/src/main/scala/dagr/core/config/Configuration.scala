@@ -121,7 +121,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
         case t if t =:= typeOf[BigInt] => BigInt(config.getString(path)).asInstanceOf[T]
         case t if t =:= typeOf[BigDecimal] => BigDecimal(config.getString(path)).asInstanceOf[T]
         case t if t =:= typeOf[Path] => Paths.get(config.getString(path)).asInstanceOf[T]
-        case t if t =:= typeOf[Cores] => Cores(config.getDouble(path).toFloat).asInstanceOf[T]
+        case t if t =:= typeOf[Cores] => Cores(config.getDouble(path)).asInstanceOf[T]
         case t if t =:= typeOf[Memory] => Memory(config.getString(path)).asInstanceOf[T]
         case t if t =:= typeOf[Duration] => config.getDuration(path).asInstanceOf[T]
         case _ => throw new IllegalArgumentException("Don't know how to configure a " + typeOf[T])

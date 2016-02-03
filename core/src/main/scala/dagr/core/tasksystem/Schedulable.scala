@@ -78,10 +78,7 @@ trait FixedResources extends ScheduleWithEmptyDefaultResources {
   def requires(cores: Cores = Cores(0), memory: Memory = Memory(0)) : this.type = requires(ResourceSet(cores, memory))
 
   /** Sets the resources that are required by this task, overriding all previous values. */
-  def requires(cores: Float, memory: String) : this.type = { requires(Cores(cores), Memory(memory)) }
-
-  /** Sets the resources that are required by this task, overriding all previous values. */
-  def requires(cores: Double, memory: String) : this.type = { requires(Cores(cores.toFloat), Memory(memory)) }
+  def requires(cores: Double, memory: String) : this.type = { requires(Cores(cores), Memory(memory)) }
 
   /**
     * Implemented to take the the fixed amount of cores and memory from the provided resource set.

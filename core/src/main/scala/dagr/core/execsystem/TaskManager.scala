@@ -40,7 +40,7 @@ object TaskManagerResources {
   }
 
   /** Creates a new TaskManagerResources with the specified values. */
-  def apply(cores: Float, systemMemory: Long, jvmMemory: Long): TaskManagerResources = {
+  def apply(cores: Double, systemMemory: Long, jvmMemory: Long): TaskManagerResources = {
     new TaskManagerResources(cores = Cores(cores), systemMemory = Memory(systemMemory), jvmMemory = Memory(jvmMemory))
   }
 
@@ -60,7 +60,7 @@ object TaskManagerResources {
     new TaskManagerResources(cores.getOrElse(Resource.systemCores), system, jvm)
   }
 
-  val infinite: TaskManagerResources = TaskManagerResources(Float.MaxValue, Long.MaxValue, Long.MaxValue)
+  val infinite: TaskManagerResources = TaskManagerResources(Double.MaxValue, Long.MaxValue, Long.MaxValue)
 }
 
 class TaskManagerResources(val cores: Cores, val systemMemory: Memory, val jvmMemory: Memory)

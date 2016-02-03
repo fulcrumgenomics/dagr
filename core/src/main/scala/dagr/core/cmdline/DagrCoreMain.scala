@@ -92,7 +92,7 @@ class DagrCoreMain(
   @Arg(doc = "Dagr scala scripts to compile and add to the list of programs.", common = true, minElements=0)
   val scripts: List[Path] = Nil,
   @Arg(doc = "Set the number of cores available to dagr.", common = true)
-  val cores: Option[Float] = None,
+  val cores: Option[Double] = None,
   @Arg(doc = "Set the memory available to dagr.", common = true)
   val memory: Option[String] = None,
   @Arg(doc = "Write an execution report to this file, otherwise write to the stdout", common = true)
@@ -123,7 +123,7 @@ class DagrCoreMain(
       val config = new Configuration { }
 
       // System and JVM resources
-      val systemCores  = config.optionallyConfigure[Float](Configuration.Keys.SystemCores) orElse this.cores
+      val systemCores  = config.optionallyConfigure[Double](Configuration.Keys.SystemCores) orElse this.cores
       val systemMemory = config.optionallyConfigure[String](Configuration.Keys.SystemMemory) orElse this.memory
 
       // scripts & logs directories
