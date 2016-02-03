@@ -27,32 +27,79 @@ import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.time.Duration
 
+import com.typesafe.config.{ConfigParseOptions, ConfigFactory, Config}
 import com.typesafe.config.ConfigException.Generic
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.util.{Io, LazyLogging}
 
+import scala.collection.SortedSet
 import scala.reflect.runtime.universe._
 
 /**
   * Companion object to the Configuration trait that keeps track of all configuration keys
   * that have been requested so that they can be reported later if desired.
   */
-private[core] object Configuration {
-  private val RequestedKeys = collection.mutable.TreeSet[String]()
+private[core] object Configuration extends ConfigurationLike {
+  // A sorted set tracking all the configuration keys that are requested
+  private[config] val RequestedKeys = collection.mutable.TreeSet[String]()
+
+  // The global configuration instance for dagr
+  private[config] var _config: Config = ConfigFactory.load()
+
+  /** Implement the abstract method from BaseConfiguration to return the actual config instance. */
+  override private[config] def config = _config
+
+  // Keys for configuration values used in dagr core
+  object Keys {
+    val CommandLineName = "dagr.command-line-name"
+    val ScriptDirectory = "dagr.script-directory"
+    val LogDirectory    = "dagr.log-directory"
+    val SystemCores     = "dagr.system-cores"
+    val SystemMemory    = "dagr.system-memory"
+  }
+
+  /**
+    * Initialize the configuration by loading configuration from the supplied path, and combining it with
+    * configuration information from the system properties (higher priority), application.conf and
+    * reference.conf files (lower priority).
+    */
+  def initialize(path: Option[Path]): Unit = path match {
+    case None    =>
+      this._config = ConfigFactory.load()
+    case Some(p) =>
+      // setAllowMissing(false) refers to allowing the file(!) to be missing, not values within the file
+      val options = ConfigParseOptions.defaults().setAllowMissing(false)
+      val localConfig = ConfigFactory.parseFile(p.toFile, options)
+
+      // This mimics the behaviour of ConfigFactory.load() but with the localConfig sandwiched in
+      this._config = ConfigFactory.defaultOverrides()
+        .withFallback(localConfig)
+        .withFallback(ConfigFactory.defaultApplication())
+        .withFallback(ConfigFactory.defaultReference())
+        .resolve()
+  }
+
+  /** Allows initialization with a custom configuration. */
+  def initialize(customConfig : Config) : Unit = this._config = customConfig
 
   /** Returns a sorted set of all keys that have been requested up to this point in time. */
-  def requestedKeys : Set[String] = {
+  def requestedKeys : SortedSet[String] = {
     var keys = collection.immutable.TreeSet[String]()
     keys ++= RequestedKeys
     keys
   }
+
+  /** The name of this unified command line program **/
+  def commandLineName: String = configure(Keys.CommandLineName, "Dagr")
 }
 
 /**
-  * Trait that provides Tasks and other non-core classes with access to configuration.
+  * Trait that provides useful methods for resolving all kinds of things in configuration,
+  * that is then mixed into the Configuration object above, and used to create a concrete
+  * Configuration trait below.
   */
-trait Configuration extends LazyLogging {
-  private[config] val config = DagrConfig.config
+private[config] trait ConfigurationLike extends LazyLogging {
+  private[config] def config : Config
 
   /**
     * Looks up a single value of a specific type in configuration. If the configuration key
@@ -164,4 +211,9 @@ trait Configuration extends LazyLogging {
     * PATH, splits it on the path separator and returns it as a Seq[String]
     */
   private def systemPath : Seq[Path] = config.getString("dagr.path").split(File.pathSeparatorChar).view.map(Paths get _)
+}
+
+trait Configuration extends ConfigurationLike {
+  /** Grabs a reference to the global configuration at creation time. */
+  override private[config] val config: Config = Configuration.config
 }

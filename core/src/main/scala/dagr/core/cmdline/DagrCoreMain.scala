@@ -27,7 +27,7 @@ import java.io.PrintWriter
 import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline.parsing.DagrCommandLineParser
-import dagr.core.config.{Configuration, DagrConfig, DagrConfigPaths}
+import dagr.core.config.Configuration
 import dagr.core.execsystem._
 import dagr.core.tasksystem.{Pipeline, ValidationException, Task}
 import dagr.core.util.{LazyLogging, BiMap, LogLevel, Logger, Io}
@@ -44,7 +44,7 @@ object DagrCoreMain {
   }
 
   def makeItSo(args: Array[String], packageList: List[String] = getPackageList): Unit = {
-    val parser: DagrCommandLineParser = new DagrCommandLineParser(DagrConfig.getCommandLineName)
+    val parser: DagrCommandLineParser = new DagrCommandLineParser(Configuration.commandLineName)
     parser.parse(args, getPackageList) match {
       case Some((clp, pipeline)) => System.exit(clp.execute(pipeline))
       case None => System.exit(1)
@@ -56,9 +56,9 @@ object DagrCoreMain {
     val extraMsg: String = if (msgOption.isDefined) s"\nmessage: ${msgOption.get}" else ""
     exceptionOption match {
       case Some(e) =>
-        s"${e.getClass.getCanonicalName}: ${DagrConfig.getCommandLineName} command line validation error: ${e.getMessage}$extraMsg"
+        s"${e.getClass.getCanonicalName}: ${Configuration.commandLineName} command line validation error: ${e.getMessage}$extraMsg"
       case None =>
-        s"${DagrConfig.getCommandLineName} command line validation error$extraMsg"
+        s"${Configuration.commandLineName} command line validation error$extraMsg"
     }
   }
 }
@@ -66,7 +66,7 @@ object DagrCoreMain {
 /** The main class for Dagr.  Command line arguments are parsed here, and the given pipeline or task
   * is subsequently executed.
   *
-  * @param config the path to an configuration file for any tasks-specific options.  See [[DagrConfig]] to
+  * @param config the path to an configuration file for any tasks-specific options.  See [[Configuration]] to
   *               access the parsed configuration.  The file may be a Java properties or JSON file.  See
   *               https://github.com/typesafehub/config for more information.
   * @param scriptDir the path to where scripts will be stored, holding the commands for
@@ -104,7 +104,7 @@ class DagrCoreMain(
   private var reportPath  : Option[Path] = None
 
   // Initialize the configuration as early as possible
-  DagrConfig.initialize(this.config)
+  Configuration.initialize(this.config)
 
   /** Takes a series of things that return Option[T] and returns the first defined one or None if none are defined. */
   private def pick[T](things : Option[T]*) : Option[T] = {
@@ -123,12 +123,12 @@ class DagrCoreMain(
       val config = new Configuration { }
 
       // System and JVM resources
-      val systemCores  = config.optionallyConfigure[Float](DagrConfigPaths.SystemCores) orElse this.cores
-      val systemMemory = config.optionallyConfigure[String](DagrConfigPaths.SystemMemory) orElse this.memory
+      val systemCores  = config.optionallyConfigure[Float](Configuration.Keys.SystemCores) orElse this.cores
+      val systemMemory = config.optionallyConfigure[String](Configuration.Keys.SystemMemory) orElse this.memory
 
       // scripts & logs directories
-      val scriptsDirectory = pick(this.scriptDir, pipeline.outputDirectory.map(_.resolve("scripts")), config.optionallyConfigure(DagrConfigPaths.ScriptDirectory))
-      val logDirectory     = pick(this.logDir,    pipeline.outputDirectory.map(_.resolve("logs")),    config.optionallyConfigure(DagrConfigPaths.LogDirectory))
+      val scriptsDirectory = pick(this.scriptDir, pipeline.outputDirectory.map(_.resolve("scripts")), config.optionallyConfigure(Configuration.Keys.ScriptDirectory))
+      val logDirectory     = pick(this.logDir,    pipeline.outputDirectory.map(_.resolve("logs")),    config.optionallyConfigure(Configuration.Keys.LogDirectory))
 
       {
         val errors: ListBuffer[String] = ListBuffer[String]()
