@@ -55,18 +55,20 @@ class DnaResequencingFromUnmappedBamPipeline(
   @Arg(doc="The number of reads to target when downsampling.")     val downsampleToReads: Long = Math.round(185e6 / 101),
   @Arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
   @Arg(doc="Path to a temporary directory.")                       val tmp: Path,
-  @Arg(flag="o", doc="The output prefix for files that are kept.") val output: Path
-) extends Pipeline {
+  @Arg(flag="o", doc="The output directory to write to.")          val output: DirPath,
+  @Arg(doc="The filename prefix for output files.")                val basename: FilenamePrefix
+) extends Pipeline(Some(output)) {
 
   name = DnaResequencingFromUnmappedBamPipeline.NAME
 
   override def build(): Unit = {
+    val prefix = output.resolve(basename)
+
     Io.assertReadable(referenceFasta)
     if (targetIntervals.isDefined) Io.assertReadable(targetIntervals.get)
-    Io.assertCanWriteFile(output, parentMustExist=false)
-    Files.createDirectories(output.getParent)
+    Io.assertCanWriteFile(prefix, parentMustExist=false)
+    Files.createDirectories(output)
 
-    val prefix      = output
     val mappedBam   = Files.createTempFile(tmp, "mapped.", ".bam")
     val dsMappedBam = Files.createTempFile(tmp, "mapped.ds.", ".bam")
     val finalBam    = Paths.get(prefix + ".bam")
