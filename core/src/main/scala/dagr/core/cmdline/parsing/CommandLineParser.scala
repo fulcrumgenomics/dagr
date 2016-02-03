@@ -48,7 +48,7 @@ private object CommandLineParserStrings {
     s"Argument '$fullName' is required"
   }
 
-  def getRequiredArgumentWithMutex(fullName: String, argumentDefinition: ArgumentDefinition): String = {
+  def getRequiredArgumentWithMutex(fullName: String, argumentDefinition: ClpArgument): String = {
     s"${getRequiredArgument(fullName)}" + (if (argumentDefinition.mutuallyExclusive.isEmpty) "." else s" unless any of ${argumentDefinition.mutuallyExclusive} are specified.")
   }
 }
@@ -102,7 +102,7 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
   import ParsingUtil._
   import dagr.core.util.StringUtil._
 
-  private[parsing] val argumentLookup: ArgumentLookup = new ArgumentLookup()
+  private[parsing] val argumentLookup: ClpArgumentLookup = new ClpArgumentLookup()
   private val argumentsFilesLoadedAlready: mutable.Set[String] = new mutable.HashSet[String]
 
   /** The instance of type T that is None initially, and will be populated with a T after a successful parse(). */
@@ -120,15 +120,15 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
     * Creates argument definitions for all the fields in the provided class, and stores them in the
     * provided ArgumentLookup.
     */
-  private[parsing] def createArgumentDefinitions(declaringClass: Class[_], lookup: ArgumentLookup): Unit = {
-    new ReflectionHelper(declaringClass).argumentLookup.view.foreach(lookup.add)
+  private[parsing] def createArgumentDefinitions(declaringClass: Class[_], lookup: ClpArgumentLookup): Unit = {
+    new ClpReflectiveBuilder(declaringClass).argumentLookup.view.foreach(lookup.add)
 
     // set mutex arguments
-    lookup.ordered.filterNot(_.omitFromCommandLine).foreach { argumentDefinition: ArgumentDefinition =>
+    lookup.ordered.filterNot(_.omitFromCommandLine).foreach { argumentDefinition: ClpArgument =>
       val argumentAnnotation = argumentDefinition.annotation
       val sourceFieldName = argumentDefinition.name
       argumentAnnotation.get.mutex.foreach { targetFieldName =>
-        val mutexArgumentDef: Option[ArgumentDefinition] = lookup.forField(targetFieldName)
+        val mutexArgumentDef: Option[ClpArgument] = lookup.forField(targetFieldName)
         if (mutexArgumentDef.isDefined) {
           mutexArgumentDef.get.mutuallyExclusive.add(sourceFieldName)
         }
@@ -156,7 +156,7 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
     // Then build the instances
     try {
       val (specials, normals) = this.argumentLookup.ordered.partition(p => p.declaringClass == classOf[SpecialArgumentsCollection])
-      val specialHelper = new ReflectionHelper(classOf[SpecialArgumentsCollection])
+      val specialHelper = new ClpReflectiveBuilder(classOf[SpecialArgumentsCollection])
       this.specialArguments = Some(specialHelper.build(specials.map(d => d.value.get)))
       this.specialArguments.foreach(special => {
         if (special.version) return ParseResult.Version
@@ -164,7 +164,7 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
       })
 
       assertArgumentsAreValid(this.argumentLookup)
-      val normalHelper = new ReflectionHelper(targetClass)
+      val normalHelper = new ClpReflectiveBuilder(targetClass)
       this.instance = Some(normalHelper.build(normals.map(d => d.value.orNull)))
       ParseResult.Success
     }
@@ -184,9 +184,9 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
 
       // Add to the option parsers
       this.argumentLookup.ordered.filterNot(_.omitFromCommandLine).foreach {
-        case arg if arg.isFlag =>        parser.acceptFlag(          arg.getNames: _*)
-        case arg if !arg.isCollection => parser.acceptSingleValue(   arg.getNames: _*)
-        case arg =>                      parser.acceptMultipleValues(arg.getNames: _*)
+        case arg if arg.isFlag =>        parser.acceptFlag(          arg.names: _*)
+        case arg if !arg.isCollection => parser.acceptSingleValue(   arg.names: _*)
+        case arg =>                      parser.acceptMultipleValues(arg.names: _*)
       }
 
       // Parse the args
@@ -262,16 +262,16 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
     if (required.nonEmpty) {
       builder.append(wrapString(KRED, s"\n$targetName $REQUIRED_ARGUMENTS\n", KNRM))
       builder.append(wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM))
-      new ArgumentLookup(required:_*).ordered.foreach { arg =>
-        ArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, arg, argumentLookup)
+      new ClpArgumentLookup(required:_*).ordered.foreach { arg =>
+        ClpArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, arg, argumentLookup)
       }
     }
 
     if (optional.nonEmpty) {
       builder.append(wrapString(KRED, s"\n$targetName $OPTIONAL_ARGUMENTS\n", KNRM))
       builder.append(wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM))
-      new ArgumentLookup(optional:_*).ordered.foreach { argumentDefinition =>
-        ArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, argumentDefinition, argumentLookup)
+      new ClpArgumentLookup(optional:_*).ordered.foreach { argumentDefinition =>
+        ClpArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, argumentDefinition, argumentLookup)
       }
     }
 
@@ -296,7 +296,7 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
     *
     * throws [[CommandLineException]] if arguments requirements are not satisfied.
     */
-  private def assertArgumentsAreValid(args: ArgumentLookup) {
+  private def assertArgumentsAreValid(args: ClpArgumentLookup) {
     try {
       args.view.foreach { argumentDefinition =>
         // TODO: move the inside of this loop to [[ArgumentDefintion]]
@@ -309,15 +309,15 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
           argumentDefinition.mutuallyExclusive
             .toList
             .filter { mutexArgument =>
-              val mutextArgumentDef: Option[ArgumentDefinition] = args.forField(mutexArgument)
-              mutextArgumentDef.isDefined && mutextArgumentDef.get.setByUser
+              val mutextArgumentDef: Option[ClpArgument] = args.forField(mutexArgument)
+              mutextArgumentDef.isDefined && mutextArgumentDef.get.isSetByUser
             }
             .map { args.forField(_).get }
             .distinct.sortBy(_.index)
             .map { _.longName}
             .mkString(", ")
         )
-        if (argumentDefinition.setByUser && mutextArgumentNames.nonEmpty) {
+        if (argumentDefinition.isSetByUser && mutextArgumentNames.nonEmpty) {
           throw new UserException(s"Argument '$fullName' cannot be used in conjunction with argument(s) ${mutextArgumentNames.toString}")
         }
 

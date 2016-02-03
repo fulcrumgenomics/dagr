@@ -229,29 +229,29 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
     val tasksToProperty: mutable.Map[PipelineClass, CLPAnnotation] = new mutable.HashMap[PipelineClass, CLPAnnotation]
 
     classes.foreach {clazz =>
-      val property: CLPAnnotation = getProgramProperty(clazz)
-      if (null == property) {
-        throw new BadAnnotationException(s"The class '${clazz.getSimpleName}' is missing the required CommandLineTaskProperties annotation.")
-      }
-      tasksToProperty.put(clazz, property)
-      var pipelineGroup: Option[CommandLineTaskGroup] = taskGroupClassToTaskGroupInstance.get(property.pipelineGroup)
-      if (pipelineGroup.isEmpty) {
-        try {
-          pipelineGroup = Some(property.pipelineGroup.newInstance)
-        }
-        catch {
-          case e: InstantiationException => throw new RuntimeException(e)
-          case e: IllegalAccessException => throw new RuntimeException(e)
-        }
-        taskGroupClassToTaskGroupInstance.put(property.pipelineGroup, pipelineGroup.get)
-      }
-      var pipelines: ListBuffer[PipelineClass] = tasksByGroup.get(pipelineGroup.get)
-      if (null == pipelines) {
-        pipelines = ListBuffer[PipelineClass](clazz)
-        tasksByGroup.put(pipelineGroup.get, pipelines)
-      }
-      else {
-        pipelines.add(clazz)
+      findClpAnnotation(clazz) match {
+        case None => throw new BadAnnotationException(s"The class '${clazz.getSimpleName}' is missing the required CommandLineTaskProperties annotation.")
+        case Some(clp) =>
+          tasksToProperty.put(clazz, clp)
+          var pipelineGroup: Option[CommandLineTaskGroup] = taskGroupClassToTaskGroupInstance.get(clp.pipelineGroup)
+          if (pipelineGroup.isEmpty) {
+            try {
+              pipelineGroup = Some(clp.pipelineGroup.newInstance)
+            }
+            catch {
+              case e: InstantiationException => throw new RuntimeException(e)
+              case e: IllegalAccessException => throw new RuntimeException(e)
+            }
+            taskGroupClassToTaskGroupInstance.put(clp.pipelineGroup, pipelineGroup.get)
+          }
+          var pipelines: ListBuffer[PipelineClass] = tasksByGroup.get(pipelineGroup.get)
+          if (null == pipelines) {
+            pipelines = ListBuffer[PipelineClass](clazz)
+            tasksByGroup.put(pipelineGroup.get, pipelines)
+          }
+          else {
+            pipelines.add(clazz)
+          }
       }
     }
 

@@ -26,7 +26,7 @@ package dagr.core.cmdline.parsing
 import java.lang.reflect.Field
 import java.nio.file.Paths
 
-import dagr.core.util.{LogLevel, UnitSpec}
+import dagr.core.util.{ReflectionUtil, LogLevel, UnitSpec}
 import org.scalatest.{OptionValues, PrivateMethodTester}
 
 object ParsingUtilTest {
@@ -39,70 +39,7 @@ class ParsingUtilTest extends UnitSpec with OptionValues with PrivateMethodTeste
 
   import ParsingUtil._
 
-  "ParsingUtil" should "identify various sub-classes of Seq[_] as collection fields" in {
-    val classes = List(
-      classOf[scala.collection.Seq[_]],
-      classOf[scala.collection.IndexedSeq[_]],
-      classOf[scala.collection.immutable.Seq[_]],
-      classOf[scala.collection.immutable.IndexedSeq[_]],
-      classOf[scala.collection.mutable.Seq[_]],
-      classOf[scala.collection.mutable.IndexedSeq[_]],
-      classOf[scala.collection.mutable.ListBuffer[_]],
-      classOf[scala.collection.mutable.ListBuffer[Any]],
-      classOf[scala.collection.mutable.ListBuffer[Int]]
-    )
-
-    classes.foreach { clazz => isSeqClass(clazz) shouldBe true }
-  }
-
-  it should "identify various classes that are not sub-classes of Seq[_] not as seq fields" in {
-    val classes = List(
-      classOf[scala.collection.Map[_,_]],
-      classOf[scala.collection.MapLike[_,_,_]],
-      classOf[scala.collection.immutable.Map[_,_]],
-      classOf[scala.collection.immutable.ListMap[_,_]],
-      classOf[scala.collection.mutable.Map[_,_]],
-      classOf[scala.collection.mutable.HashMap[_,_]],
-      classOf[scala.collection.mutable.HashSet[_]],
-      classOf[Integer],
-      classOf[java.util.Collection[_]]
-    )
-
-    classes.foreach { clazz => isSeqClass(clazz) shouldBe false }
-  }
-
-  it should "identify various sub-classes of Seq[_] or java.util.Collection[_] as collection fields" in {
-    val classes = List(
-      classOf[scala.collection.Seq[_]],
-      classOf[scala.collection.IndexedSeq[_]],
-      classOf[scala.collection.immutable.Seq[_]],
-      classOf[scala.collection.immutable.IndexedSeq[_]],
-      classOf[scala.collection.mutable.Seq[_]],
-      classOf[scala.collection.mutable.IndexedSeq[_]],
-      classOf[scala.collection.mutable.ListBuffer[_]],
-      classOf[scala.collection.mutable.ListBuffer[Any]],
-      classOf[scala.collection.mutable.ListBuffer[Int]],
-      classOf[java.util.Collection[_]]
-    )
-
-    classes.foreach { clazz => isCollectionClass(clazz) shouldBe true }
-  }
-
-  it should "identify various classes that are not sub-classes of either Seq[_] or java.util.Collection[_] not as collection fields" in {
-    val classes = List(
-      classOf[scala.collection.Map[_,_]],
-      classOf[scala.collection.MapLike[_,_,_]],
-      classOf[scala.collection.immutable.Map[_,_]],
-      classOf[scala.collection.immutable.ListMap[_,_]],
-      classOf[scala.collection.mutable.Map[_,_]],
-      classOf[scala.collection.mutable.HashMap[_,_]],
-      classOf[Integer]
-    )
-
-    classes.foreach { clazz => isCollectionClass(clazz) shouldBe false }
-  }
-
-  it should "find classes that extend Pipeline with the @CLP annotation" in {
+  "ParsingUtil" should "find classes that extend Pipeline with the @CLP annotation" in {
     val map = findPipelineClasses(List("dagr.core.cmdline.parsing.testing.simple"))
 
     import dagr.core.cmdline.parsing.testing.simple._

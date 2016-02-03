@@ -36,39 +36,9 @@ import scala.collection.mutable.ListBuffer
 
 /** Variables and Methods to support command line parsing */
 private[parsing] object ParsingUtil {
-  /** Returns true if the class is a subclass of [[Seq]] */
-  def isSeqClass(clazz: Class[_]): Boolean = classOf[scala.collection.Seq[_]].isAssignableFrom(clazz)
-
-  /** Returns true if the class is a subclass of [[Set]] */
-  def isSetClass(clazz: Class[_]): Boolean = classOf[scala.collection.Set[_]].isAssignableFrom(clazz)
-
-  /** Returns true if the class is a subclass of [[java.util.Collection]] */
-  def isJavaCollectionClass(clazz: Class[_]): Boolean = classOf[java.util.Collection[_]].isAssignableFrom(clazz)
-
-  /** Returns true if the class is subclass of a collection class ([[Seq]], [[Set]] or [[java.util.Collection]]) */
-  def isCollectionClass(clazz: Class[_]): Boolean = isJavaCollectionClass(clazz) || isSeqClass(clazz) || isSetClass(clazz)
-
-  /** Returns true if the class of the field is a subclass of a collection class ([[Seq]], [[Set]] or [[java.util.Collection]]) */
-  def isCollectionField(field: Field): Boolean = isCollectionClass(field.getType)
-
-  /** True if the value is a collection class and is empty, false otherwise.  Throws a [[IllegalArgumentException]] if
-    * the value is not a supported collection class ([[Seq]], [[Set]] or [[java.util.Collection]]).
-    */
-  def isCollectionEmpty(value: Any): Boolean = {
-    if (isJavaCollectionClass(value.getClass)) value.asInstanceOf[java.util.Collection[_]].isEmpty
-    else if (isSeqClass(value.getClass)) value.asInstanceOf[Seq[_]].isEmpty
-    else if (isSetClass(value.getClass)) value.asInstanceOf[Set[_]].isEmpty
-    else throw new IllegalArgumentException(s"Could not determine collection type of '${value.getClass.getSimpleName}")
-  }
-
-  /** Gets the annotation of type `T` of the class `clazz` */
-  def getAnnotation[T <: java.lang.annotation.Annotation](clazz: Class[_], annotationClazz: Class[T]): T = {
-    clazz.getAnnotation(annotationClazz)
-  }
-
   /** Gets the [[CLPAnnotation]] annotation on this class */
-  def getProgramProperty(clazz: Class[_]): CLPAnnotation = {
-    getAnnotation(clazz, classOf[CLPAnnotation])
+  def findClpAnnotation(clazz: Class[_]): Option[CLPAnnotation] = {
+    ReflectionUtil.findJavaAnnotation(clazz, classOf[CLPAnnotation])
   }
 
   /** Initializes the color for printing */
@@ -106,10 +76,11 @@ private[parsing] object ParsingUtil {
     val classes = srcClasses
       .filter { keepCommandLineTaskClass }
       .filterNot { clazz => omitSubClassesOf.exists { _.isAssignableFrom(clazz) } }
-      .filter { clazz =>
-        // find the [[CLPAnnotation]] annotation
-        val annotation = getProgramProperty(clazz)
-        annotation != null && (includeClassesOmittedFromCommandLine || !annotation.omitFromCommandLine)
+      .filter {
+        findClpAnnotation(_) match {
+          case None      => false
+          case Some(clp) => includeClassesOmittedFromCommandLine || !clp.omitFromCommandLine
+        }
       }.map(_.asInstanceOf[PipelineClass])
 
     // Get all the name collisions
@@ -124,7 +95,7 @@ private[parsing] object ParsingUtil {
     }
 
     // Finally, make the map
-    classes.map(clazz => Tuple2(clazz, getAnnotation(clazz, classOf[CLPAnnotation]))).toMap
+    classes.map(clazz => Tuple2(clazz, ReflectionUtil.findJavaAnnotation(clazz, classOf[CLPAnnotation]).get)).toMap
   }
 
 
@@ -162,7 +133,7 @@ private[parsing] object ParsingUtil {
     * @return an object constructed from the string.
     */
   def constructFromString(resultType: Class[_], unitType: Class[_], value: String*): Any = {
-    if (resultType != unitType && !isCollectionClass(resultType) && !classOf[Option[_]].isAssignableFrom(resultType)) {
+    if (resultType != unitType && !ReflectionUtil.isCollectionClass(resultType) && !classOf[Option[_]].isAssignableFrom(resultType)) {
       throw new CommandLineParserInternalException("Don't know how to make a " + resultType.getSimpleName)
     }
 
@@ -187,11 +158,11 @@ private[parsing] object ParsingUtil {
     */
   private[parsing] def getFromString(resultType: Class[_], unitType: Class[_], value: String*): Any = {
     resultType match {
-      case clazz if isCollectionClass(clazz) =>
+      case clazz if ReflectionUtil.isCollectionClass(clazz) =>
         val typedValues = value.map(v => getUnitFromStringBuilder(unitType, v)).asInstanceOf[Seq[java.lang.Object]]
 
         // Condition for the collection type
-        if (isJavaCollectionClass(clazz)) {
+        if (ReflectionUtil.isJavaCollectionClass(clazz)) {
           try {
             ReflectionUtil.newJavaCollectionInstance(clazz.asInstanceOf[Class[java.util.Collection[AnyRef]]], typedValues)
           }
@@ -200,7 +171,7 @@ private[parsing] object ParsingUtil {
               throw new CommandLineParserInternalException(s"Collection of type '${resultType.getSimpleName}' cannot be constructed or auto-initialized with a known type.")
           }
         }
-        else if (isSeqClass(clazz) || isSetClass(clazz)) {
+        else if (ReflectionUtil.isSeqClass(clazz) || ReflectionUtil.isSetClass(clazz)) {
           ReflectionUtil.newScalaCollection(clazz.asInstanceOf[Class[_ <: Iterable[_]]], typedValues)
         }
         else {
@@ -228,7 +199,7 @@ private[parsing] object ParsingUtil {
   private def getUnitFromStringBuilder(unitType: Class[_], value: String) : Any = {
     ReflectionUtil.ifPrimitiveThenWrapper(unitType) match {
       case clazz if clazz.isEnum =>
-        lazy val badArgumentString = s"'$value' is not a valid value for ${clazz.getSimpleName}. " + ArgumentDefinitionPrinting.getEnumOptions(clazz.asInstanceOf[Class[_ <: Enum[_ <: Enum[_]]]])
+        lazy val badArgumentString = s"'$value' is not a valid value for ${clazz.getSimpleName}. " + ClpArgumentDefinitionPrinting.getEnumOptions(clazz.asInstanceOf[Class[_ <: Enum[_ <: Enum[_]]]])
         val maybeEnum = clazz.getEnumConstants.map(_.asInstanceOf[Enum[_]]).find(e => e.name() == value)
         maybeEnum.getOrElse(throw new BadArgumentValue(badArgumentString))
       case clazz if clazz == classOf[Path] =>
