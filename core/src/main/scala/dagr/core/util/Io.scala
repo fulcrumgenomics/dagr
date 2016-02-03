@@ -98,7 +98,8 @@ object Io {
       if (Files.isDirectory(path)) throw new AssertionError("Cannot write file because it is a directory: " + path)
     }
     else {
-      val maybeParent = if (parentMustExist) Option(path.getParent) else findFirstExtentParent(path)
+      val absolute = path.toAbsolutePath
+      val maybeParent = if (parentMustExist) Option(absolute.getParent) else findFirstExtentParent(absolute)
       maybeParent match {
         case None => throw new AssertionError("Cannot write file because parent directory does not exist: " + path)
         case Some(parent) =>
