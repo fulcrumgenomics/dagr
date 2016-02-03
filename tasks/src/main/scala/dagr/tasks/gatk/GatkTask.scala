@@ -23,12 +23,12 @@
  */
 package dagr.tasks.gatk
 
-import java.nio.file.{Path, Paths}
-import dagr.core.config.{Configuration, DagrConfig}
-import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import java.nio.file.Path
+
+import dagr.core.config.Configuration
+import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
-import dagr.core.util.Io
-import dagr.tasks.{PathToIntervals, PathToFasta, JarTask}
+import dagr.tasks.{JarTask, PathToFasta, PathToIntervals}
 
 import scala.collection.mutable.ListBuffer
 

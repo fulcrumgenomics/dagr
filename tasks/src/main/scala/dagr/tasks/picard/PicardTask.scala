@@ -23,11 +23,11 @@
  */
 package dagr.tasks.picard
 
-import java.nio.file.{Path, Paths}
-import dagr.core.config.{Configuration, DagrConfig}
+import java.nio.file.Path
+
+import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
-import dagr.core.util.Io
 import dagr.tasks.JarTask
 
 import scala.collection.mutable

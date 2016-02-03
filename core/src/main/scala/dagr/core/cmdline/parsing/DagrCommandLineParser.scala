@@ -26,7 +26,7 @@ package dagr.core.cmdline.parsing
 import java.nio.file.{Files, Paths}
 
 import dagr.core.cmdline._
-import dagr.core.config.DagrConfig
+import dagr.core.config.Configuration
 import dagr.core.tasksystem.{ValidationException, Pipeline}
 import dagr.core.util.StringUtil
 import dagr.core.util.StringUtil._
@@ -82,7 +82,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
       override protected def getStandardUsagePreamble: String = {
         s"$USAGE_PREFIX $commandLineName [$commandLineName arguments] -- [Task Name] [task arguments]\n\n"
       }
-      override protected def targetName: String = DagrConfig.getCommandLineName
+      override protected def targetName: String = Configuration.commandLineName
     }
 
     val print : (String => Unit) = System.err.println
@@ -92,8 +92,8 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
     if (pipelineArgs.isEmpty) {
       val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeClassesOmittedFromCommandLine = includeClassesOmittedFromCommandLine).keys.toSet
       print(dagrArgParser.usage())
-      print(pipelineListUsage(classes, DagrConfig.getCommandLineName))
-      print(getUnknownPipeline(DagrConfig.getCommandLineName))
+      print(pipelineListUsage(classes, Configuration.commandLineName))
+      print(getUnknownPipeline(Configuration.commandLineName))
       None
     }
     else {
@@ -108,7 +108,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
         case ParseResult.Help =>
           val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeClassesOmittedFromCommandLine = includeClassesOmittedFromCommandLine).keys.toSet
           print(dagrArgParser.usage())
-          print(pipelineListUsage(classes, DagrConfig.getCommandLineName))
+          print(pipelineListUsage(classes, Configuration.commandLineName))
           None
         case ParseResult.Version =>
           print(dagrArgParser.version)
@@ -127,7 +127,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
           parseTaskName(args = pipelineArgs, classToPropertyMap = classToClpAnnotation) match {
             case Right(error) =>
               print(dagrArgParser.usage())
-              print(pipelineListUsage(classToClpAnnotation.keySet, DagrConfig.getCommandLineName))
+              print(pipelineListUsage(classToClpAnnotation.keySet, Configuration.commandLineName))
               print(wrapError(error))
               None
             case Left(clazz) =>

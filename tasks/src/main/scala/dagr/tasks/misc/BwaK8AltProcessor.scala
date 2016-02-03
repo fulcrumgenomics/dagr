@@ -23,10 +23,9 @@
  */
 package dagr.tasks.misc
 
-import java.nio.file.{Path, Paths}
-import dagr.core.config.{Configuration, DagrConfig}
-import dagr.core.util.Io
+import java.nio.file.Path
 
+import dagr.core.config.Configuration
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 
 object BwaK8AltProcessor {

@@ -1,8 +1,6 @@
 package dagr.tasks.misc
 
-import java.nio.file.{Paths, Path}
-
-import dagr.core.config.{Configuration, DagrConfig}
+import dagr.core.config.Configuration
 
 /**
   * Constants and defaults that are used across types of bwa invocation
