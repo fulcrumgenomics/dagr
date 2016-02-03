@@ -26,51 +26,51 @@ private class ParamsNotVals(@Arg i:Int, @Arg l:Long) {
 private class SecondaryConstructor1(val x:Int, val y:Int) { def this(@Arg a:Int) = this(a, a*2) }
 private class SecondaryConstructor2(val x:Int, val y:Int) { @CLPConstructor def this() = this(2, 4) }
 
-class ReflectionHelperTest extends UnitSpec {
+class ClpReflectiveBuilderTest extends UnitSpec {
 
   "ReflectionHelper" should "instantiate a case-class with defaults" in {
-    val t = new ReflectionHelper(classOf[IntDefault]).buildDefault()
+    val t = new ClpReflectiveBuilder(classOf[IntDefault]).buildDefault()
     t.v should be (2)
-    val tt = new ReflectionHelper(classOf[DefaultWithOption]).buildDefault()
+    val tt = new ClpReflectiveBuilder(classOf[DefaultWithOption]).buildDefault()
     tt.w should be (None)
-    new ReflectionHelper(classOf[NoParams]).buildDefault()
-    new ReflectionHelper(classOf[ComplexDefault]).buildDefault()
+    new ClpReflectiveBuilder(classOf[NoParams]).buildDefault()
+    new ClpReflectiveBuilder(classOf[ComplexDefault]).buildDefault()
   }
 
   it should "instantiate a case-class with arguments" in {
-    val t = new ReflectionHelper(classOf[IntDefault]).build(List(3))
+    val t = new ClpReflectiveBuilder(classOf[IntDefault]).build(List(3))
     t.v shouldBe 3
-    val tt = new ReflectionHelper(classOf[DefaultWithOption]).build(List(None))
+    val tt = new ClpReflectiveBuilder(classOf[DefaultWithOption]).build(List(None))
     tt.w shouldBe 'empty
-    new ReflectionHelper(classOf[NoParams]).build(Nil)
-    new ReflectionHelper(classOf[ComplexDefault]).build(List(new StringDefault()))
+    new ClpReflectiveBuilder(classOf[NoParams]).build(Nil)
+    new ClpReflectiveBuilder(classOf[ComplexDefault]).build(List(new StringDefault()))
   }
 
   it should "throw an exception when arguments are missing when trying to instantiate a case-class" in {
-    an[IllegalArgumentException] should be thrownBy new ReflectionHelper(classOf[ComplexDefault]).build(Nil)
+    an[IllegalArgumentException] should be thrownBy new ClpReflectiveBuilder(classOf[ComplexDefault]).build(Nil)
   }
 
   it should "work with non-case classes" in {
-    val t = new ReflectionHelper(classOf[NotCaseClass]).build(Seq(12, 456.asInstanceOf[Long], Option("Hello")))
+    val t = new ClpReflectiveBuilder(classOf[NotCaseClass]).build(Seq(12, 456.asInstanceOf[Long], Option("Hello")))
     t.i shouldBe 12
     t.l shouldBe 456
     t.o shouldBe Some("Hello")
   }
 
   it should "work with constructor parameters that are not vals or vars " in {
-    val t = new ReflectionHelper(classOf[ParamsNotVals]).build(Seq(911, 999))
+    val t = new ClpReflectiveBuilder(classOf[ParamsNotVals]).build(Seq(911, 999))
     t.x shouldBe 911
     t.y shouldBe 999
   }
 
   it should "work with a secondary constructor with @Arg annotations in it " in {
-    val t = new ReflectionHelper(classOf[SecondaryConstructor1]).build(Seq(50))
+    val t = new ClpReflectiveBuilder(classOf[SecondaryConstructor1]).build(Seq(50))
     t.x shouldBe 50
     t.y shouldBe 100
   }
 
   it should "work with a secondary constructor with a @CLPConstructor annotation on it " in {
-    val t = new ReflectionHelper(classOf[SecondaryConstructor2]).build(Nil)
+    val t = new ClpReflectiveBuilder(classOf[SecondaryConstructor2]).build(Nil)
     t.x shouldBe 2
     t.y shouldBe 4
   }

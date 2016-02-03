@@ -22,25 +22,110 @@
  * THE SOFTWARE.
  */
 package dagr.core.cmdline.parsing
+
 import dagr.core.cmdline._
-import dagr.core.util.StringUtil
+import dagr.core.util._
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.collection.{Seq, mutable}
+import scala.reflect.runtime.{universe => ru}
 
-/** Holds information about command line arguments (fields). */
-private[parsing] class ArgumentDefinition(val declaringClass: Class[_],
-                                          val index: Int,
-                                          val name: String,
-                                          val annotation: Option[ArgAnnotation],
-                                          val defaultValue: Option[Any],
-                                          val argumentType: Class[_],
-                                          val unitType: Class[_],
-                                          val constructableType: Class[_],
-                                          val typeName : String
-                                         )
-{
-  val isCollection: Boolean = ParsingUtil.isCollectionClass(argumentType)
+/**
+  * Extends [[ReflectiveBuilder]] to add support for the arguments annotated with the [[Arg]] annotation
+  * and to use more specific logic to find the appropriate constructor to use to instantiate a [[CLP]] pipeline.
+  *
+  * @param clazz the class we wish to reflect upon
+  * @tparam T the type for the class
+  */
+class ClpReflectiveBuilder[T](clazz: Class[T]) extends ReflectiveBuilder[T](clazz) {
+  /** Override to use ClpArgument which also optionally holds the @[[dagr.core.cmdline.Arg]] annotation. */
+  override type ArgumentDescription = ClpArgument
+  /** Override to use the [[ClpArgumentLookup]]. Must be lazy since it is used in `add()` which is called from super's constructor. */
+  override lazy val argumentLookup = new ClpArgumentLookup()
+
+
+  /**
+    * Implements the CLP constructor picking logic. Firstly if there is a single public constructor, use that.
+    * Otherwise look for a constructor that has arguments with `@Arg` annotations on them.
+    * Otherwise look for a constructor annotated with `@CLPConstructor`.
+    */
+  override protected def pickConstructor(constructors: Seq[ru.MethodSymbol]): ru.MethodSymbol = {
+    if (constructors.size == 1) {
+      constructors.head
+    }
+    else {
+      val argTypeSymbol = mirror.typeOf[ArgAnnotation]
+      val clpCtorSymbol = mirror.typeOf[CLPConstructorAnnotation]
+
+      // Check to see if we can find a constructor with @Arg annotations on it's parameters, or @CLPConstructor on it
+      val argOption = constructors.find(c => c.asMethod.paramLists.head.exists(p => p.annotations.exists(a => a.tree.tpe == argTypeSymbol)))
+      val clpOption = constructors.find(p => p.annotations.exists(a => a.tree.tpe == clpCtorSymbol))
+
+      argOption.getOrElse(clpOption.getOrElse(throw new IllegalStateException("FML"))).asMethod
+    }
+  }
+
+  /** Builds an instance of ClpArgument with the provided values and the `@Arg` annotation. */
+  override protected def buildArgument(param: ru.Symbol,
+                                       declaringClass: Class[_],
+                                       index: Int,
+                                       name: String,
+                                       defaultValue: Option[Any],
+                                       argumentType: Class[_],
+                                       unitType: Class[_],
+                                       constructableType: Class[_],
+                                       typeName: String): ArgumentDescription = {
+    val jParam = jConstructor.getParameters()(index)
+    val annotation = Option(jParam.getAnnotation(classOf[ArgAnnotation]))
+    new ArgumentDescription(declaringClass, index, name, defaultValue, argumentType, unitType, constructableType, typeName, annotation)
+  }
+}
+
+/**
+  * Extension to the default ArgumentLookup to support a lot more names that come from the
+  * Clp @Arg annotation.
+  */
+private[parsing] class ClpArgumentLookup(args: ClpArgument*) extends ArgumentLookup[ClpArgument](args:_*) {
+  lazy private val byShortName = new mutable.HashMap[String,ClpArgument]()
+  lazy private val byLongName  = new mutable.HashMap[String,ClpArgument]()
+  lazy private val byName      = new mutable.HashMap[String,ClpArgument]()
+
+  /** Adds a new argument definition to the argument lookup. */
+  override def add(arg: ClpArgument): Unit = {
+    // First iterate over the names and ensure that none are taken yet
+    arg.names.foreach { name =>
+      if (byName.contains(name)) throw new CommandLineParserInternalException(s"$name has already been used.  Conflicting arguments are: '${arg.name}' and '${byName.get(name).get.name}'")
+      byName(name) = arg
+    }
+
+    // Then add it to the other collections
+    super.add(arg)
+    byShortName(arg.shortName)  = arg
+    byLongName(arg.longName) = arg
+  }
+
+  /** Returns the full set of argument names known by the lookup, including all short and long names. */
+  def names : Set[String] = byName.keySet.toSet // call to set to return an immutable copy
+
+  /** Returns the ArgumentDefinition, if one exists, for the provided argument name. */
+  def forArg(argName: String) : Option[ClpArgument] = this.byName.get(argName)
+}
+
+/**
+  * Extension to [[Argument]] that holds onto the `@Arg` annotation and uses it to define several additional
+  * methods.  Also enforces further constraints on the arguments, e.g. arguments without Arg annotations
+  * must have default values as there is no other way for them to get values.
+  */
+private[parsing] class ClpArgument(declaringClass: Class[_],
+                                   index: Int,
+                                   name: String,
+                                   defaultValue: Option[Any],
+                                   argumentType: Class[_],
+                                   unitType: Class[_],
+                                   constructableType: Class[_],
+                                   typeName : String,
+                                   val annotation: Option[ArgAnnotation]
+                                  ) extends Argument(declaringClass, index, name, defaultValue, argumentType, unitType, constructableType, typeName) {
 
   def omitFromCommandLine: Boolean = annotation.isEmpty
 
@@ -50,17 +135,10 @@ private[parsing] class ArgumentDefinition(val declaringClass: Class[_],
 
   val mutuallyExclusive: mutable.Set[String] = new mutable.HashSet[String]()
   annotation.foreach {_.mutex.foreach(mutuallyExclusive.add) }
-
-  /**
-    * The value of this argument. Defaults to the provided default, *or* if no default is given and
-    * the argument is an Option then auto-default to None, so that it's not necessary for a task
-    * to always have `x: Option[Foo] = None`.
-    */
-  var value : Option[Any] = if (argumentType == classOf[Option[_]] && defaultValue.isEmpty) Some(None) else defaultValue
   val optional: Boolean = omitFromCommandLine || isFlag || hasValue || (isCollection && annotation.get.minElements() == 0) || argumentType == classOf[Option[_]]
 
   /** true if the field was set by the user */
-  var setByUser: Boolean = false // NB: only true when [[setArgument]] is called
+  private[parsing] var isSetByUser: Boolean = false // NB: only true when [[setArgument]] is called, vs. this.value =
 
   lazy val isSpecial: Boolean   = annotation.map(_.special()).getOrElse(false)
   lazy val isSensitive: Boolean = annotation.map(_.sensitive()).getOrElse(false)
@@ -71,45 +149,33 @@ private[parsing] class ArgumentDefinition(val declaringClass: Class[_],
   lazy val minElements: Int     = if (isCollection) annotation.map(_.minElements).getOrElse(1) else throw new IllegalStateException("Calling minElements on an argument that is not a collection.")
   lazy val maxElements: Int     = if (isCollection) annotation.map(_.maxElements).getOrElse(Integer.MAX_VALUE) else throw new IllegalStateException("Calling minElements on an argument that is not a collection.")
 
+  /** Returns true if the type of the argument is boolean, and can thus be treated as a flag on the command line. */
   def isFlag: Boolean = argumentType == classOf[java.lang.Boolean] || argumentType == classOf[Boolean]
 
-  /** Gets the descriptive name of the Type of the field that should be used in printed output. */
-  def getTypeDescription: String = typeName
-
-  /** true if the field has been set, either by a default value or by the user */
-  def hasValue: Boolean = {
-    this.value.isDefined && (!isCollection || new SomeCollection(this.value.get).nonEmpty)
-  }
-
-  /** Sets the value of the argument.  Passing null will cause the value to be set to None. */
-  private[parsing] def setFieldValue(value: Any): Unit = this.value = Option(value)
-
+  /**
+    * Sets the argument value(s) from an array of String values that appear on the command line. May
+    * only be called once, after which repeated calls will throw an exception.
+    */
   @SuppressWarnings(Array("unchecked"))
-  def setArgument(values: List[String]) {
+  def setArgument(values: List[String]) : Unit = {
     if (isFlag && values.isEmpty) {
-      setFieldValue(true)  // TODO: shouldn't this pull and convert the first item from the list?
-      return
+      this.value = true
     }
-    if (setByUser) throw new IllegalStateException(s"Argument '$name' has already been set")
-    if (!isCollection && values.size > 1) {
-      throw new UserException(s"Argument '${this.getNames}' cannot be specified more than once.")
+    else if (isSetByUser) throw new IllegalStateException(s"Argument '$name' has already been set")
+    else if (!isCollection && values.size > 1) {
+      throw new UserException(s"Argument '${this.names}' cannot be specified more than once.")
     }
-
-    setFieldValue(ParsingUtil.constructFromString(this.argumentType, this.unitType, values:_*))
-    this.setByUser = true
+    else {
+      value = ParsingUtil.constructFromString(this.argumentType, this.unitType, values:_*)
+      this.isSetByUser = true
+    }
   }
-
 
   /** Gets the list of names by which this option can be passed on the command line. Will be length 1 or 2. */
-  def getNames: List[String] = {
+  def names: List[String] = {
     val names: ListBuffer[String] = new ListBuffer[String]()
-    if (!shortName.isEmpty) {
-      names += shortName
-    }
-    if (!longName.isEmpty) {
-      names += longName
-    }
-
+    if (!shortName.isEmpty) names += shortName
+    if (!longName.isEmpty)  names += longName
     names.toList
   }
 
@@ -203,3 +269,4 @@ private[parsing] class ArgumentDefinition(val declaringClass: Class[_],
     }
   }
 }
+

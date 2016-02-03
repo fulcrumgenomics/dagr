@@ -30,12 +30,12 @@ import dagr.core.util.StringUtil._
 
 import scala.collection.Map
 
-object ArgumentDefinitionPrinting {
+object ClpArgumentDefinitionPrinting {
 
   /** Prints the usage for a given argument definition */
   private[parsing] def printArgumentDefinitionUsage(stringBuilder: StringBuilder,
-                                                    argumentDefinition: ArgumentDefinition,
-                                                    argumentLookup: ArgumentLookup) {
+                                                    argumentDefinition: ClpArgument,
+                                                    argumentLookup: ClpArgumentLookup) {
     printArgumentUsage(stringBuilder,
       argumentDefinition.longName,
       argumentDefinition.shortName,
@@ -44,8 +44,8 @@ object ArgumentDefinitionPrinting {
   }
 
   /** Gets a string for the given argument definition. */
-  private def makeArgumentDescription(argumentDefinition: ArgumentDefinition,
-                                      argumentLookup: ArgumentLookup): String = {
+  private def makeArgumentDescription(argumentDefinition: ClpArgument,
+                                      argumentLookup: ClpArgumentLookup): String = {
     // a secondary map where the keys are the field names
     val sb: StringBuilder = new StringBuilder
     if (argumentDefinition.doc.nonEmpty) sb.append(s"${argumentDefinition.doc}  ")
@@ -54,7 +54,7 @@ object ArgumentDefinitionPrinting {
     if (argumentDefinition.mutuallyExclusive.nonEmpty) {
       sb.append(" Cannot be used in conjunction with argument(s): ")
       sb.append(argumentDefinition.mutuallyExclusive.map { targetFieldName =>
-        val mutextArgumentDefinition: Option[ArgumentDefinition] = argumentLookup.forField(targetFieldName)
+        val mutextArgumentDefinition: Option[ClpArgument] = argumentLookup.forField(targetFieldName)
         if (mutextArgumentDefinition.isEmpty) throw new CommandLineException(s"Invalid argument definition in source code (see mutex).  $targetFieldName doesn't match any known argument.")
         mutextArgumentDefinition.get.name + (if (mutextArgumentDefinition.get.shortName.nonEmpty) s" (${mutextArgumentDefinition.get.shortName})" else "")
       }.mkString(", "))
