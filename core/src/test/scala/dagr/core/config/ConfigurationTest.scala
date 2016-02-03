@@ -66,7 +66,7 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[BigInt]("a-bigint") shouldBe BigInt("999999999999999999999999999999999999999999999999999999999999999")
     conf.configure[BigDecimal]("a-bigdec") shouldBe BigDecimal("999999999999999999999999999999999999999999999999999999999999999.1")
     conf.configure[Path]("a-path") shouldBe Paths.get("/foo/bar/splat.txt")
-    conf.configure[Cores]("some-cores") shouldBe Cores(2.5f)
+    conf.configure[Cores]("some-cores") shouldBe Cores(2.5)
     conf.configure[Memory]("some-memory") shouldBe Memory("2g")
     conf.configure[Duration]("some-time") shouldBe Duration.ofSeconds(60)
   }
@@ -87,7 +87,7 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[Long]("a-long", 999) shouldBe 1234567890
     conf.configure[Float]("a-float", 999f) shouldBe 12345.67f
     conf.configure[Path]("a-path", Paths.get("/path/to/nowhere")) shouldBe Paths.get("/foo/bar/splat.txt")
-    conf.configure[Cores]("some-cores", Cores(50f)) shouldBe Cores(2.5f)
+    conf.configure[Cores]("some-cores", Cores(50f)) shouldBe Cores(2.5)
     conf.configure[Memory]("some-memory", Memory("128G")) shouldBe Memory("2g")
 
     // And these should all return their defaults
@@ -96,7 +96,7 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[Long]("foo.bar.splat.a-long", 999) shouldBe 999
     conf.configure[Float]("no-float", 999f) shouldBe 999f
     conf.configure[Path]("xxx", Paths.get("/path/to/nowhere")) shouldBe Paths.get("/path/to/nowhere")
-    conf.configure[Cores]("no-cores.here", Cores(50f)) shouldBe Cores(50f)
+    conf.configure[Cores]("no-cores.here", Cores(50f)) shouldBe Cores(50.0)
     conf.configure[Memory]("i.forgot", Memory("128G")) shouldBe Memory("128g")
   }
 

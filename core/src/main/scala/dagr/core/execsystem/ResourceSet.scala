@@ -25,10 +25,10 @@ package dagr.core.execsystem
 
 object ResourceSet {
   def apply(that: ResourceSet): ResourceSet = new ResourceSet(cores = that.cores, memory = that.memory)
-  def apply(cores: Float, memory: Long) = new ResourceSet(Cores(cores), Memory(memory))
+  def apply(cores: Double, memory: Long) = new ResourceSet(Cores(cores), Memory(memory))
 
   val empty = ResourceSet(0, 0)
-  val infinite = ResourceSet(Float.MaxValue, Long.MaxValue)
+  val infinite = ResourceSet(Double.MaxValue, Long.MaxValue)
 }
 
 /** Holds information about a set of resources */
@@ -60,8 +60,8 @@ case class ResourceSet(cores: Cores = Cores(0), memory: Memory = Memory(0)) {
     * number of cores. Will greedily assign the highest number of cores possible.
     */
   def subset(minCores: Cores, maxCores: Cores, memory: Memory) : Option[ResourceSet] = {
-    val min: Float = minCores.value
-    val max: Float = maxCores.value
+    val min = minCores.value
+    val max = maxCores.value
     val cores = max.to(min, -1).find(cores => subset(Cores(cores), memory).isDefined)
     cores.map(c => ResourceSet(Cores(c), memory))
   }

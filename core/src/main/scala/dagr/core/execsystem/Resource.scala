@@ -98,28 +98,44 @@ object Resource {
   }
 }
 
-sealed abstract class Resource[T](val value: T) {
+sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit numeric :Numeric[T]) {
   /** Override equals so that we get proper == and != support. */
   override def equals(other: scala.Any): Boolean = {
     null != other && getClass == other.getClass && value == other.asInstanceOf[this.type].value
   }
+
+  /** Subtracts one resource from another. */
+  def -(that: R): R = build(numeric.minus(this.value, that.value))
+  /** Adds the value of another resource to this resource and returns the new value. */
+  def +(that: R): R = build(numeric.plus(this.value, that.value))
+  /** Implementation of less than. */
+  def <(that: R): Boolean = numeric.lt(this.value, that.value)
+  /** Implementation of less than or equal to. */
+  def <=(that: R): Boolean = numeric.lteq(this.value, that.value)
+  /** Implementation of greater than. */
+  def >(that: R): Boolean = numeric.gt(this.value, that.value)
+  /** Implementation of greater than or equal to. */
+  def >=(that: R): Boolean = numeric.gteq(this.value, that.value)
+
+  /** Must be implemented by subclasses to return a new instance with the specified value. */
+  protected def build(value: T) : R
 }
 
 
 /** A resource representing the memory. */
-case class Memory(bytes: Long) extends Resource[Long](value=bytes) {
-  if (bytes < 0) throw new IllegalArgumentException("Cannot have negative memory. Bytes=" + bytes)
+case class Memory(bytes: Long) extends Resource[Long,Memory](value=bytes) {
+  if (value < 0) throw new IllegalArgumentException("Cannot have negative memory. Bytes=" + value)
 
-  def kb : String = Resource.parseBytesToSize(bytes, 1024,           "k")
-  def mb : String = Resource.parseBytesToSize(bytes, 1024*1024,      "m")
-  def gb : String = Resource.parseBytesToSize(bytes, 1024*1024*1024, "g")
+  def kb : String = Resource.parseBytesToSize(value, 1024,           "k")
+  def mb : String = Resource.parseBytesToSize(value, 1024*1024,      "m")
+  def gb : String = Resource.parseBytesToSize(value, 1024*1024*1024, "g")
   def prettyString: String = {
-    if (bytes > 1024*1024*1024) gb
-    else if (bytes > 1024*1024) mb
+    if (value > 1024*1024*1024) gb
+    else if (value > 1024*1024) mb
     else kb
   }
-  def -(that: Memory): Memory = Memory(this.bytes - that.bytes)
-  def <(that: Memory): Boolean = this.bytes < that.bytes
+
+  override protected def build(value: Long): Memory = new Memory(value)
 }
 object Memory {
   def apply(stringValue: String): Memory = new Memory(Resource.parseSizeToBytes(stringValue).toLong)
@@ -128,12 +144,16 @@ object Memory {
 }
 
 /** A resource representing a set of cores. */
-case class Cores(cores: Float) extends Resource[Float](cores) {
-  if (cores < 0) throw new IllegalArgumentException("Cannot have negative cores. Cores=" + cores)
+case class Cores(cores: Double) extends Resource[Double, Cores](value=cores) {
+  if (value < 0) throw new IllegalArgumentException("Cannot have negative cores. Cores=" + value)
+
   /** Round the number of cores to the nearest integer value. */
-  def toInt: Int = Math.round(cores)
-  def -(that: Cores): Cores = Cores(this.cores - that.cores)
+  def toInt: Int = Math.round(value).toInt
+
+  /** Must be implemented by subclasses to return a new instance with the specified value. */
+  override protected def build(value: Double): Cores = new Cores(value)
 }
+
 object Cores {
   def apply(cores: Cores): Cores = new Cores(cores.value)
 }
