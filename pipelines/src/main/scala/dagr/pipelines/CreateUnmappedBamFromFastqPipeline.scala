@@ -51,9 +51,10 @@ class CreateUnmappedBamFromFastqPipeline(
   @Arg(flag="l", doc="The name of the library.")                                  val library: String,
   @Arg(flag="p", doc="The platform unit (@RG.PU).")                               val platformUnit: List[String],
   @Arg(doc="Path to a temporary directory.")                                      val tmp: Path,
-  @Arg(flag="o", doc="The output prefix for files that are kept.")                val output: Path,
-  @Arg(doc="Path to the unmapped BAM.  Use the output prefix if none is given. ") var unmappedBam: Option[PathToBam] = None
-) extends Pipeline {
+  @Arg(flag="o", doc="The output directory in which to write files.")             val output: DirPath,
+  @Arg(doc="The filename prefix for output files. Library is used if omitted.")   val basename: Option[FilenamePrefix] = None,
+  @Arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None
+) extends Pipeline(Some(output)) {
 
   name = CreateUnmappedBamFromFastqPipeline.NAME
 
@@ -67,12 +68,13 @@ class CreateUnmappedBamFromFastqPipeline(
     * Main method that constructs all the tasks in the pipeline and wires their dependencies together.
     */
   override def build(): Unit = {
-    Io.assertReadable(fastq1 ++ fastq2)
-    Io.assertCanWriteFile(output, parentMustExist=false)
-    Files.createDirectories(output.getParent)
+    val prefix: String = basename.getOrElse(library)
 
-    val prefix          = output
-    val unmappedBamFile = unmappedBam.getOrElse(Paths.get(prefix.toString, ".bam"))
+    Io.assertReadable(fastq1 ++ fastq2)
+    Files.createDirectories(output)
+    Io.assertCanWriteFile(output.resolve(prefix), parentMustExist=false)
+
+    val unmappedBamFile = unmappedBam.getOrElse(output.resolve(prefix + ".bam"))
     val inputs          = (fastq1, fastq2, platformUnit).zipped
     val fastqToBams     = ListBuffer[FastqToUnmappedSam]()
     val unmappedBams    = ListBuffer[PathToBam]()
@@ -84,7 +86,7 @@ class CreateUnmappedBamFromFastqPipeline(
       val bam = Files.createTempFile(tmp, "unmapped.", ".bam")
       unmappedBams += bam
 
-      val fastqToSam = FastqToUnmappedSam(fq1=fq1, fq2=fq2, bam=bam, sm=sample, lb=library, pu=pu, prefix=Some(prefix))
+      val fastqToSam = FastqToUnmappedSam(fq1=fq1, fq2=fq2, bam=bam, sm=sample, lb=library, pu=pu, prefix=Some(output.resolve(prefix)))
       fastqToBams += fastqToSam
       root ==> fastqToSam
     })

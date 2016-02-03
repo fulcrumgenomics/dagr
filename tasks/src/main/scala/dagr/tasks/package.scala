@@ -53,6 +53,9 @@ package object tasks {
   /** Represents a path to a file (not a directory) that doesn't have a more specific type. */
   type FilePath = java.nio.file.Path
 
+  /** A String that represents the prefix or basename of a filename. */
+  type FilenamePrefix = String
+
   ///////////////////////////////////////////////////////////////////
   // Units of memory
   ///////////////////////////////////////////////////////////////////

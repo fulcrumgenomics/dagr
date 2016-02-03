@@ -48,7 +48,7 @@ class TumorNormalVariantCallingPipeline(
   @Arg(          doc="Run MuTect2. Off by default since it is so slow.")          val includeMutect2: Boolean = false,
   @Arg(          doc="Run FreeBayes.")                                            val includeFreeBayes: Boolean = false,
   @Arg(          doc="If true, remove all intermediate files created.")           val removeIntermediates: Boolean = false
-) extends Pipeline {
+) extends Pipeline(Some(outputPrefix.toAbsolutePath.getParent)) {
 
   override def build(): Unit = {
     val outputDir = outputPrefix.toAbsolutePath.getParent

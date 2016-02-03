@@ -52,7 +52,7 @@ class DownsampleAndCallSomaticVariants(
    @Arg(flag="l", doc="Regions to call over")                    val intervals: PathToIntervals,
    @Arg(          doc="One or more coverage levels to call at.") val coverage:  Seq[Int],
    @Arg(flag="o", doc="Output directory")                        val output:    DirPath)
-  extends Pipeline {
+  extends Pipeline(Some(output)) {
 
   override def build(): Unit = {
     val tmp = output.resolve("tmp")

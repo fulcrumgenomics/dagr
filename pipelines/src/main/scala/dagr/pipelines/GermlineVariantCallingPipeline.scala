@@ -56,7 +56,7 @@ class GermlineVariantCallingPipeline(
   @Arg(          doc="The VCF with truth calls for assessing variants.")            val truthVcf: Option[PathToVcf] = None,
   @Arg(          doc="Path to the interval list(s) of regions to assess variants.", minElements = 0)
                                                                                     val truthIntervals: List[PathToIntervals] = Nil
-) extends Pipeline {
+) extends Pipeline(Some(outputPrefix.toAbsolutePath.getParent)) {
 
   override def build(): Unit = {
     val outputDir = outputPrefix.toAbsolutePath.getParent

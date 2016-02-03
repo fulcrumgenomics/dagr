@@ -29,7 +29,7 @@ import dagr.core.cmdline._
 import dagr.core.tasksystem._
 import dagr.core.util.Io
 import dagr.tasks.picard._
-import dagr.tasks.{PathToBam, PathToFasta, PathToFastq, PathToIntervals}
+import dagr.tasks._
 
 import scala.collection.mutable.ListBuffer
 
@@ -58,8 +58,9 @@ class DnaResequencingFromFastqPipeline(
   @Arg(doc="The number of reads to target when downsampling.")     val downsampleToReads: Long = Math.round(185e6 / 101),
   @Arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
   @Arg(doc="Path to a temporary directory.")                       val tmp: Path,
-  @Arg(flag="o", doc="The output prefix for files that are kept.") val output: Path
-) extends Pipeline(outputDirectory = Some(output.toAbsolutePath.getParent)) {
+  @Arg(flag="o", doc="The output directory to which files are written.")  val output: DirPath,
+  @Arg(doc="The basename for all output files. Uses library if omitted.") val basename: Option[FilenamePrefix]
+) extends Pipeline(outputDirectory = Some(output)) {
   name = DnaResequencingFromFastqPipeline.NAME
 
   // Validation logic as constructor code
@@ -72,13 +73,15 @@ class DnaResequencingFromFastqPipeline(
     * Main method that constructs all the tasks in the pipeline and wires their dependencies together.
     */
   override def build(): Unit = {
+    val base = basename.getOrElse(library)
+    val prefix = output.resolve(base)
+
     Io.assertReadable(fastq1 ++ fastq2)
     Io.assertReadable(referenceFasta)
     if (targetIntervals.isDefined) Io.assertReadable(targetIntervals.get)
-    Io.assertCanWriteFile(output, parentMustExist=false)
-    Files.createDirectories(output.getParent)
+    Io.assertCanWriteFile(prefix, parentMustExist=false)
+    Files.createDirectories(output)
 
-    val prefix = output
     val unmappedBam = Files.createTempFile(tmp, "unmapped.", ".bam")
     val inputs = (fastq1, fastq2, platformUnit).zipped
     val fastqToBams = ListBuffer[FastqToUnmappedSam]()
@@ -96,7 +99,8 @@ class DnaResequencingFromFastqPipeline(
       platformUnit=platformUnit,
       tmp=tmp,
       output=output,
-      unmappedBam=Some(unmappedBam)
+      unmappedBam=Some(unmappedBam),
+      basename=Some(base)
     )
 
     ///////////////////////////////////////////////////////////////////////
@@ -109,7 +113,8 @@ class DnaResequencingFromFastqPipeline(
       downsampleToReads=downsampleToReads,
       targetIntervals=targetIntervals,
       tmp=tmp,
-      output=output
+      output=output,
+      basename=base
     )
 
     root ==> prepareUnmappedBam ==> unmappedBamToMappedBamPipeline ==> new RemoveBam(unmappedBam)
