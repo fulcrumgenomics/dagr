@@ -31,6 +31,6 @@ case class ValidationException(val messages: List[String]) extends RuntimeExcept
   /** Alternate constructor that takes var arg Strings and turns them into a List. */
   def this(messages: String*) = this(messages.toList)
 
-  /** Alternate constructor that takes any [[Iterable]] of Strings and turns them into a List. */
+  /** Alternate constructor that takes any [[scala.Iterable]] of Strings and turns them into a List. */
   def this(messages: Iterable[String]) = this(messages.toList)
 }

@@ -36,17 +36,18 @@ import dagr.tasks.picard._
 import scala.collection.mutable.ListBuffer
 
 object DnaResequencingFromUnmappedBamPipeline {
-  final val NAME =  "Dna Resequencing From Unmapped BAM Pipeline"
+  final val SUMMARY =  """Dna Resequencing From Unmapped BAM Pipeline.  Runs:
+\t - Unmapped BAM -> EstimateLibraryComplexity"
+\t - Unmapped BAM -> SamToFastq -> Bwa Mem -> MergeBamAlignment -> MarkDuplicates -> Mapped BAM
+\t - Mapped BAM -> {CollectMultipleMetrics, EstimateLibraryComplexity, ValidateSamFile}
+\t - Mapped BAM -> {CalculateHsMetrics, CollectTargetedPcrMetrics} if targets are given
+\t - Mapped BAM -> {CollectWgsMetrics, CollectGcBiasMetrics} if targets are not given"""
+  final val ONE_LINE_SUMMARY =  "Dna Resequencing From Unmapped BAM Pipeline"
 }
 
 @CLP(
-  summary = DnaResequencingFromUnmappedBamPipeline.NAME + ".  Runs:"
-    + "\n\t - Unmapped BAM -> EstimateLibraryComplexity"
-    + "\n\t - Unmapped BAM -> SamToFastq -> Bwa Mem -> MergeBamAlignment -> MarkDuplicates -> Mapped BAM"
-    + "\n\t - Mapped BAM -> {CollectMultipleMetrics, EstimateLibraryComplexity, ValidateSamFile}"
-    + "\n\t - Mapped BAM -> {CalculateHsMetrics, CollectTargetedPcrMetrics} if targets are given"
-    + "\n\t - Mapped BAM -> {CollectWgsMetrics, CollectGcBiasMetrics} if targets are not given",
-  oneLineSummary = DnaResequencingFromUnmappedBamPipeline.NAME + ".",
+  summary = DnaResequencingFromUnmappedBamPipeline.SUMMARY,
+  oneLineSummary = DnaResequencingFromUnmappedBamPipeline.ONE_LINE_SUMMARY,
   pipelineGroup = classOf[Pipelines])
 class DnaResequencingFromUnmappedBamPipeline(
   @Arg(doc="Path to the unmapped BAM.")                            val unmappedBam: PathToBam,
@@ -59,7 +60,7 @@ class DnaResequencingFromUnmappedBamPipeline(
   @Arg(doc="The filename prefix for output files.")                val basename: FilenamePrefix
 ) extends Pipeline(Some(output)) {
 
-  name = DnaResequencingFromUnmappedBamPipeline.NAME
+  name = DnaResequencingFromUnmappedBamPipeline.ONE_LINE_SUMMARY.dropRight(1)
 
   override def build(): Unit = {
     val prefix = output.resolve(basename)

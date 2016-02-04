@@ -86,16 +86,16 @@ object Task {
   }
 
   /** Indicates if a given set of tasks that are strongly connected components contains a cycle. This is the
-    * case if the set size is greater than one, or the task is depends on itself.  See [[findStronglyConnectedComponents()]]
+    * case if the set size is greater than one, or the task is depends on itself.  See [[Task.findStronglyConnectedComponents()]]
     * for how to retrieve strongly connected components from a task.
     *
     * @param component the strongly connected component.
     * @return true if the component contains a cycle, false otherwise.
     */
   def isComponentACycle(component: Set[Task]): Boolean = {
-    if (1 < component.size) return true
-    else if (component.head.getTasksDependedOn.toSet.contains(component.head)) return true
-    else if (component.head.getTasksDependingOnThisTask.toSet.contains(component.head)) return true
+    if (1 < component.size) true
+    else if (component.head.getTasksDependedOn.toSet.contains(component.head)) true
+    else if (component.head.getTasksDependingOnThisTask.toSet.contains(component.head)) true
     else false
   }
 
