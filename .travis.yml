@@ -6,6 +6,9 @@ scala:
   - 2.11.7
 jdk:
   - oraclejdk8
+env:
+  # coveralls repo token
+  - secure: "OU/48UU4Fdt8sazIop7hOuWvMLgY6QWaNWnrZYg/Tk7dL9GLXQKB3yy9erqiXNEc9ytwIeiI0WUMVdm9+oHi5Kvf035UJqxULVIz2/VgfHE+b2Y8OXFri/ClutP049DAJSD6shhlFRKz4/9wkjpSYEW0Bk0lsGcmZR1Q07KGp7gw8pui+hgvPRfykWB3O0caZvLuWxrU4O5cMfZjccS2zw75K1VIHeCRJBVJxzfv8DXxAnaZ13WWwHamkLKrZRGbw5Ig731g5cVN6YD29VTpTMX5Kj7vPuNMwQsZgwkWQmjzP0j4xNvrPDUEhCBJcM229H4LgvYs3PRPBGXiTZhaztgTAhR8jMSsxjfYxClYfiSomvo0dnYRjaYjbbFCf/goAwFVUUb8bZRn/HITER5JfTac+C8nkSUmEPmUHD5rEp+zSdIkjWty58R86pohPydIIvVLpu/eV/wjEMUchAiZAgMcnQP9AgEVHoShAg6MtwVG8MNRsI0Xztl704i4uteJp1F5W8u7SaDKUTEh9SY87PrhVPqCAiP4xGr2ArFxUfe/yX49cAkDYSrO2CRXmTvZ4/Qt9SdFM4dfimo9DVsNhTr5jycOuOTMQR3FeW9QniEG8aaHlNKD2wA0sN4QW5FZMXXKOWBRnh20VXsemNj0gh0SP5PIAtbRi0Dmbk4Acv4="
 script:
   - sbt clean coverage test &&
     sbt coverageAggregate
