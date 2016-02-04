@@ -4,11 +4,14 @@ import sbtassembly.AssemblyKeys.assembly
 import sbtassembly.MergeStrategy
 import sbtrelease.ReleasePlugin._
 import com.typesafe.sbt.SbtGit.GitCommand
+import scoverage.ScoverageSbtPlugin.ScoverageKeys._
 
 // for the aggregate (root) jar, override the name.  For the sub-projects, see the build.sbt in each project folder.
 assemblyJarName in assembly := "dagr-" + version.value + ".jar"
 
 releaseSettings
+
+coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*;dagr\\.cmdline.*"
 
 val htmlReportsDirectory: String = "target/test-reports"
 
@@ -28,7 +31,8 @@ lazy val commonSettings = Seq(
   test in assembly     := {},
   logLevel in assembly := Level.Info,
   resolvers            += Resolver.jcenterRepo,
-  shellPrompt          := { state => "%s| %s> ".format(GitCommand.prompt.apply(state), version.value) }
+  shellPrompt          := { state => "%s| %s> ".format(GitCommand.prompt.apply(state), version.value) },
+  coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*"
 ) ++ Defaults.coreDefaultSettings
 
 lazy val sopt = Project(id="dagr-sopt", base=file("sopt"))

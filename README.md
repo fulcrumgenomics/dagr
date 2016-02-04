@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/fulcrumgenomics/dagr.svg?branch=master)](https://travis-ci.org/fulcrumgenomics/dagr)
-[![Coverage Status](https://coveralls.io/repos/fulcrumgenomics/dagr/badge.svg?branch=master)](https://coveralls.io/r/fulcrumgenomics/dagr?branch=master)
+[![Coverage Status](https://codecov.io/github/fulcrumgenomics/dagr/coverage.svg?branch=master)](https://codecov.io/github/fulcrumgenomics/dagr?branch=master)
 
 # Dagr
 
