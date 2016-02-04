@@ -37,19 +37,15 @@ import java.lang.annotation.*;
 @Inherited
 public @interface CLPAnnotation {
     /**
-     * @return a summary of what the pipeline does
+     * Should return a detailed description of the pipeline that can be down when requesting help on the
+     * pipeline.  The first sentence (up to the first period) of the description should summarize the
+     * pipeline's purpose in a way that it can be displayed in a list of pipelines.
      */
-    String summary();
+    String description();
 
-    /**
-     * @return a very short summary for the main menu list of all pipelines
-     */
-    String oneLineSummary();
+    /** What group does the pipeline belong to, for grouping pipelines at the command line. */
+    Class<? extends PipelineGroup> group() default Pipelines.class;
 
-    /**
-     * @return an example command line for this pipeline
-     */
-    String usageExample() default "The author of this program hasn't included any example usage, please complain to them.";
-    Class<? extends CommandLineTaskGroup> pipelineGroup() default Pipelines.class;
-    boolean omitFromCommandLine() default false;
+    /** Should this pipeline be hidden from the list shown on the command line. */
+    boolean hidden() default false;
 }

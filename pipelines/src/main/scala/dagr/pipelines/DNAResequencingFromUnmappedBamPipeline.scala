@@ -46,9 +46,8 @@ object DnaResequencingFromUnmappedBamPipeline {
 }
 
 @CLP(
-  summary = DnaResequencingFromUnmappedBamPipeline.SUMMARY,
-  oneLineSummary = DnaResequencingFromUnmappedBamPipeline.ONE_LINE_SUMMARY,
-  pipelineGroup = classOf[Pipelines])
+  description = DnaResequencingFromUnmappedBamPipeline.SUMMARY,
+  group = classOf[Pipelines])
 class DnaResequencingFromUnmappedBamPipeline(
   @Arg(doc="Path to the unmapped BAM.")                            val unmappedBam: PathToBam,
   @Arg(doc="Path to the reference FASTA.")                         val referenceFasta: PathToFasta,
@@ -60,7 +59,7 @@ class DnaResequencingFromUnmappedBamPipeline(
   @Arg(doc="The filename prefix for output files.")                val basename: FilenamePrefix
 ) extends Pipeline(Some(output)) {
 
-  name = DnaResequencingFromUnmappedBamPipeline.ONE_LINE_SUMMARY.dropRight(1)
+  name = getClass.getSimpleName
 
   override def build(): Unit = {
     val prefix = output.resolve(basename)

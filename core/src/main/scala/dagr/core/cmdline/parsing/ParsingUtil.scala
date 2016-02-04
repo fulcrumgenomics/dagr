@@ -64,7 +64,7 @@ private[parsing] object ParsingUtil {
   /** Useful for testing */
   private[cmdline] def getClassToPropertyMapFromSourceClasses(srcClasses: Traversable[Class[_]],
                                                               omitSubClassesOf: Iterable[Class[_]] = Nil,
-                                                              includeClassesOmittedFromCommandLine: Boolean = false)
+                                                              includeHidden: Boolean = false)
   : Map[PipelineClass, CLPAnnotation] = {
 
     // Filter out interfaces, synthetic, primitive, local, or abstract classes.
@@ -79,7 +79,7 @@ private[parsing] object ParsingUtil {
       .filter {
         findClpAnnotation(_) match {
           case None      => false
-          case Some(clp) => includeClassesOmittedFromCommandLine || !clp.omitFromCommandLine
+          case Some(clp) => includeHidden || !clp.hidden
         }
       }.map(_.asInstanceOf[PipelineClass])
 
@@ -109,7 +109,7 @@ private[parsing] object ParsingUtil {
   */
   def findPipelineClasses(packageList: List[String],
                           omitSubClassesOf: Iterable[Class[_]] = Nil,
-                          includeClassesOmittedFromCommandLine: Boolean = false)
+                          includeHidden: Boolean = false)
   : Map[PipelineClass, CLPAnnotation] = {
 
     // find all classes that extend CommandLineTask
@@ -121,7 +121,7 @@ private[parsing] object ParsingUtil {
     getClassToPropertyMapFromSourceClasses(
       srcClasses = classFinder.getClasses,
       omitSubClassesOf = omitSubClassesOf,
-      includeClassesOmittedFromCommandLine = includeClassesOmittedFromCommandLine)
+      includeHidden = includeHidden)
   }
 
   /**

@@ -21,11 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.core.cmdline.parsing
+package dagr.core.cmdline;
 
-import dagr.core.cmdline.CommandLineTaskGroup
+import java.lang.annotation.*;
 
-class TestingProgramGroup extends CommandLineTaskGroup {
-  def getName: String = "Testing"
-  def getDescription: String = "Testing"
+/**
+ * To indicate the constructor to be used when a @CLP Pipeline has more than one
+ * public constructor.
+ */
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.CONSTRUCTOR)
+@Inherited
+public @interface CLPConstructorAnnotation {
+
 }

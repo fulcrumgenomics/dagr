@@ -51,7 +51,7 @@ object DagrCommandLineParserStrings {
 }
 
 /** Methods for parsing among top level command line tasks */
-class DagrCommandLineParser(val commandLineName: String, val includeClassesOmittedFromCommandLine: Boolean = false) {
+class DagrCommandLineParser(val commandLineName: String, val includeHidden: Boolean = false) {
   import ParsingUtil._
   import CommandLineParserStrings._
   import DagrCommandLineParserStrings._
@@ -87,10 +87,10 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
 
     val print : (String => Unit) = System.err.println
     val errorMessageBuilder: mutable.StringBuilder = new StringBuilder()
-    val (dagrArgs, pipelineArgs) = splitArgs(args, packageList, Seq(classOf[DagrCoreMain]), errorMessageBuilder, includeClassesOmittedFromCommandLine = this.includeClassesOmittedFromCommandLine)
+    val (dagrArgs, pipelineArgs) = splitArgs(args, packageList, Seq(classOf[DagrCoreMain]), errorMessageBuilder, includeHidden = this.includeHidden)
 
     if (pipelineArgs.isEmpty) {
-      val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeClassesOmittedFromCommandLine = includeClassesOmittedFromCommandLine).keys.toSet
+      val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden).keys.toSet
       print(dagrArgParser.usage())
       print(pipelineListUsage(classes, Configuration.commandLineName))
       print(getUnknownPipeline(Configuration.commandLineName))
@@ -106,7 +106,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
           print(wrapError(errorMessageBuilder.toString()))
           None
         case ParseResult.Help =>
-          val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeClassesOmittedFromCommandLine = includeClassesOmittedFromCommandLine).keys.toSet
+          val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden).keys.toSet
           print(dagrArgParser.usage())
           print(pipelineListUsage(classes, Configuration.commandLineName))
           None
@@ -123,7 +123,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
           loadScripts(clp = dagr)
 
           // Try parsing the task name
-          val classToClpAnnotation = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeClassesOmittedFromCommandLine = includeClassesOmittedFromCommandLine)
+          val classToClpAnnotation = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden)
           parseTaskName(args = pipelineArgs, classToPropertyMap = classToClpAnnotation) match {
             case Right(error) =>
               print(dagrArgParser.usage())
@@ -180,8 +180,8 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
                                  packageList: List[String],
                                  omitSubClassesOf: Iterable[Class[_]] = Nil,
                                  errorMessageBuilder: StringBuilder,
-                                 includeClassesOmittedFromCommandLine: Boolean = false) : (Array[String], Array[String]) = {
-    val pipelines = findPipelineClasses(packageList = packageList, omitSubClassesOf = omitSubClassesOf, includeClassesOmittedFromCommandLine=includeClassesOmittedFromCommandLine).keys
+                                 includeHidden: Boolean = false) : (Array[String], Array[String]) = {
+    val pipelines = findPipelineClasses(packageList = packageList, omitSubClassesOf = omitSubClassesOf, includeHidden=includeHidden).keys
 
     // first check for "--"
     args.indexOf("--") match {
@@ -224,8 +224,8 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
   private def pipelineListUsage(classes: Set[PipelineClass], commandLineName: String): String = {
     val builder = new StringBuilder
     builder.append(wrapString(KBLDRED, s"$AVAILABLE_PIPELINES\n", KNRM))
-    val taskGroupClassToTaskGroupInstance: mutable.Map[Class[_ <: CommandLineTaskGroup], CommandLineTaskGroup] = new mutable.HashMap[Class[_ <: CommandLineTaskGroup], CommandLineTaskGroup]
-    val tasksByGroup: java.util.Map[CommandLineTaskGroup, ListBuffer[PipelineClass]] = new java.util.TreeMap[CommandLineTaskGroup, ListBuffer[PipelineClass]](CommandLineTaskGroup.getComparator)
+    val taskGroupClassToTaskGroupInstance: mutable.Map[Class[_ <: PipelineGroup], PipelineGroup] = new mutable.HashMap[Class[_ <: PipelineGroup], PipelineGroup]
+    val tasksByGroup: java.util.Map[PipelineGroup, ListBuffer[PipelineClass]] = new java.util.TreeMap[PipelineGroup, ListBuffer[PipelineClass]]()
     val tasksToProperty: mutable.Map[PipelineClass, CLPAnnotation] = new mutable.HashMap[PipelineClass, CLPAnnotation]
 
     classes.foreach {clazz =>
@@ -233,16 +233,16 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
         case None => throw new BadAnnotationException(s"The class '${clazz.getSimpleName}' is missing the required CommandLineTaskProperties annotation.")
         case Some(clp) =>
           tasksToProperty.put(clazz, clp)
-          var pipelineGroup: Option[CommandLineTaskGroup] = taskGroupClassToTaskGroupInstance.get(clp.pipelineGroup)
+          var pipelineGroup: Option[PipelineGroup] = taskGroupClassToTaskGroupInstance.get(clp.group)
           if (pipelineGroup.isEmpty) {
             try {
-              pipelineGroup = Some(clp.pipelineGroup.newInstance)
+              pipelineGroup = Some(clp.group.newInstance)
             }
             catch {
               case e: InstantiationException => throw new RuntimeException(e)
               case e: IllegalAccessException => throw new RuntimeException(e)
             }
-            taskGroupClassToTaskGroupInstance.put(clp.pipelineGroup, pipelineGroup.get)
+            taskGroupClassToTaskGroupInstance.put(clp.group, pipelineGroup.get)
           }
           var pipelines: ListBuffer[PipelineClass] = tasksByGroup.get(pipelineGroup.get)
           if (null == pipelines) {
@@ -256,9 +256,9 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
     }
 
     tasksByGroup.entrySet.foreach{entry =>
-      val pipelineGroup: CommandLineTaskGroup = entry.getKey
+      val pipelineGroup: PipelineGroup = entry.getKey
       builder.append(SeparatorLine)
-      builder.append(wrapString(KRED, String.format(s"%-48s%-45s\n", pipelineGroup.getName + ":", pipelineGroup.getDescription), KNRM))
+      builder.append(wrapString(KRED, String.format(s"%-48s%-45s\n", pipelineGroup.name + ":", pipelineGroup.description), KNRM))
       val entries: List[PipelineClass] = entry.getValue.toList
       entries
         .sortWith((lhs, rhs) => lhs.getSimpleName.compareTo(rhs.getSimpleName) < 0)
@@ -268,10 +268,10 @@ class DagrCommandLineParser(val commandLineName: String, val includeClassesOmitt
             throw new BadAnnotationException(s"Unexpected error: did not find the CommandLineTaskProperties annotation for '${clazz.getSimpleName}'")
           }
           if (clazz.getSimpleName.length >= 45) {
-            builder.append(wrapString(KGRN, String.format(s"    %s    %s\n", clazz.getSimpleName, wrapString(KCYN, property.oneLineSummary)), KNRM))
+            builder.append(wrapString(KGRN, String.format(s"    %s    %s\n", clazz.getSimpleName, wrapString(KCYN, property.description)), KNRM))
           }
           else {
-            builder.append(wrapString(KGRN, String.format(s"    %-45s%s\n", clazz.getSimpleName, wrapString(KCYN, property.oneLineSummary)), KNRM))
+            builder.append(wrapString(KGRN, String.format(s"    %-45s%s\n", clazz.getSimpleName, wrapString(KCYN, property.description)), KNRM))
           }
         }
     }

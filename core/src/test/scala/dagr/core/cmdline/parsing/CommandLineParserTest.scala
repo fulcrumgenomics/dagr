@@ -38,104 +38,104 @@ import scala.language.existentials
 // Holds the classes we need for testing.  These cannot be inner classes.
 ////////////////////////////////////////////////////////////////////////////////
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private class CommandLineTaskTesting extends Task {
   override def getTasks: Traversable[_ <: Task] = Nil
 }
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassNoParams @CLPConstructor
 () extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithInt @CLPConstructor
 (@Arg var anInt: Int) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithIntDefault @CLPConstructor
 (@Arg var anInt: Int = 2) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithString @CLPConstructor
 (@Arg var aString: String) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithStringDefault @CLPConstructor
 (@Arg var aString: String = "string") extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithNullString @CLPConstructor
 (@Arg var aString: String = null) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithBoolean @CLPConstructor
 (@Arg var aBoolean: Boolean) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithBooleanDefault @CLPConstructor
 (@Arg var aBoolean: Boolean = true) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithJavaInteger @CLPConstructor
 (@Arg var aJavaInteger: java.lang.Integer) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithJavaIntegerWithDefault @CLPConstructor
 (@Arg var aJavaInteger: java.lang.Integer = 2) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithJavaBoolean @CLPConstructor
 (@Arg var aJavaBoolean: java.lang.Boolean) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithJavaBooleanWithDefault @CLPConstructor
 (@Arg var aJavaBoolean: java.lang.Boolean = true) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithOptionWithSomeDefault @CLPConstructor
 (@Arg var anOption: Option[_] = Some(2)) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithOptionWithNoneDefault @CLPConstructor
 (@Arg var anOption: Option[_] = None) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithOptionWithNoneDefaultAndOptional @CLPConstructor
 (@Arg var anOption: Option[_] = None) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithIntOptionWithSomeDefault @CLPConstructor
 (@Arg var anOption: Option[Int] = Some(2)) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithIntOptionWithNoneDefault @CLPConstructor
 (@Arg var anOption: Option[Int] = None) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithList @CLPConstructor
 (@Arg var aList: List[_] = Nil) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithIntList @CLPConstructor
 (@Arg var aList: List[Int] = Nil) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithSeq @CLPConstructor
 (@Arg var aSeq: scala.collection.Seq[_] = Nil) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithCollection @CLPConstructor
 (@Arg var aCollection: java.util.Collection[_] = new java.util.ArrayList[Any]()) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithJavaSet @CLPConstructor
 (@Arg var aSet: java.util.Set[_] = new java.util.HashSet[Any]()) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ClassWithEnum @CLPConstructor
 (@Arg var anEnum: LogLevel = LogLevel.Debug) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class GeneralTestingTask @CLPConstructor
 (
   @Arg(minElements = 2, maxElements = 2) var stringSet: scala.collection.Set[String] = null, // also tests if we can initialize it with a set
@@ -146,26 +146,26 @@ private case class GeneralTestingTask @CLPConstructor
   @Arg                                   var flag: Boolean = false
 ) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class NoArguments @CLPConstructor
 () extends CommandLineTaskTesting
 
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class OptionalOnlyArguments @CLPConstructor
 (@Arg var arg: String = "42") extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class RequiredOnlyArguments @CLPConstructor
 (@Arg var arg: String = null) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class CollectionRequired @CLPConstructor() (@Arg var ints: List[Int] = Nil)
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class LogLevelEnumTask @CLPConstructor() (@Arg var verbosity: LogLevel = LogLevel.Info)
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class MutexArguments @CLPConstructor
 (
   @Arg(mutex = Array("M", "N", "Y", "Z")) var A: String = null,
@@ -176,26 +176,26 @@ private[cmdline] case class MutexArguments @CLPConstructor
   @Arg(mutex = Array("A", "B", "M", "N")) var Z: String = null
 )
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class MapCollectionArgument @CLPConstructor
 (
   @Arg var map: Map[String,String] = new HashMap[String,String]()
 )
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class CollectionWithDefaults @CLPConstructor
 (
   @Arg var seq: Seq[String] = Seq[String]("A", "B", "C")
 )
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class FlagClass @CLPConstructor
 (
   @Arg var flag1: Boolean = false,
   @Arg var flag2: Boolean = true
 )
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class PrivateArguments @CLPConstructor
 (
   @Arg private var privateFlag: Boolean = false,
@@ -206,25 +206,25 @@ private case class PrivateArguments @CLPConstructor
   def getPrivateSeq: Seq[_] = privateSeq
 }
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ValFlagClass @CLPConstructor
 (
   @Arg val flag: Boolean = false
 ) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class NoVarFlagClass @CLPConstructor
 (
   @Arg flag: Boolean = false
 ) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class SensitiveArgTestingTask @CLPConstructor
 (
   @Arg(sensitive = true) var flag: Boolean = false
 ) extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class UninitializedCollectionArguments @CLPConstructor
 (
   @Arg var seq: Seq[_] = Nil,
@@ -232,14 +232,14 @@ private case class UninitializedCollectionArguments @CLPConstructor
   @Arg var collection: java.util.Collection[_] = null
 )
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class NoArgAnnotationWithDefaults @CLPConstructor
 (
   var anInt: Int = 2,
   var aBoolean: Boolean = true
 )
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class NoArgAnnotationWithoutDefaults @CLPConstructor
 (
   var anInt: Int,

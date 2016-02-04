@@ -42,10 +42,7 @@ object DagrScriptManagerTest {
       |import dagr.core.tasksystem.Pipeline
       |
       |// NB: output directories must exist
-      |@CLP(
-      |  summary =  "Hello World Pipeline",
-      |  oneLineSummary =  "Hello World Pipeline"
-      |)
+      |@CLP(description = "Hello World Pipeline")
       |class HelloWorldPipeline
       |(
       |  @Arg(doc = "First set of text")

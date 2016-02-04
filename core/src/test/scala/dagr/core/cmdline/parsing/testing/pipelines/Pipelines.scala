@@ -24,26 +24,26 @@
 package dagr.core.cmdline.parsing.testing.pipelines
 
 import dagr.core.cmdline._
-import dagr.core.cmdline.parsing.TestingProgramGroup
+import dagr.core.cmdline.parsing.TestGroup
 import dagr.core.tasksystem.{Pipeline, Task}
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] class CommandLineTaskTesting extends Pipeline {
   override def build(): Unit = Unit
 }
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class PipelineOne @CLPConstructor
 () extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class PipelineTwo @CLPConstructor
 () extends CommandLineTaskTesting
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class PipelineThree @CLPConstructor
 (@Arg var argument: String) extends CommandLineTaskTesting // argument should be required
 
-@CLP(summary = "", oneLineSummary = "", pipelineGroup = classOf[TestingProgramGroup], omitFromCommandLine = true)
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class PipelineFour @CLPConstructor
 (@Arg var argument: String = "default", @Arg var flag: Boolean = false) extends CommandLineTaskTesting

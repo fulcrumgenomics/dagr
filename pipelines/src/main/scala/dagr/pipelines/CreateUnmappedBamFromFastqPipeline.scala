@@ -23,7 +23,7 @@
  */
 package dagr.pipelines
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
 import dagr.core.tasksystem.{ShellCommand, Pipeline, ValidationException}
@@ -38,14 +38,11 @@ object CreateUnmappedBamFromFastqPipeline {
   @inline
   final val SUMMARY = """Create Unmapped Bam From Fastq Pipeline.  Runs:
  - FastqToSam -> MarkIlluminaAdapters -> Unmapped BAM"""
-  @inline
-  final val ONE_LINE_SUMMARY = "Create Unmapped Bam From Fastq Pipeline."
 }
 
 @CLP(
-  summary = CreateUnmappedBamFromFastqPipeline.SUMMARY,
-  oneLineSummary = CreateUnmappedBamFromFastqPipeline.ONE_LINE_SUMMARY,
-  pipelineGroup = classOf[Pipelines])
+  description = CreateUnmappedBamFromFastqPipeline.SUMMARY,
+  group = classOf[Pipelines])
 class CreateUnmappedBamFromFastqPipeline(
   @Arg(doc="Input fastq file (optionally gzipped) for read 1.")                   val fastq1: List[PathToFastq],
   @Arg(doc="Input fastq file (optionally gzipped) for read 2.")                   val fastq2: List[PathToFastq],
@@ -59,7 +56,7 @@ class CreateUnmappedBamFromFastqPipeline(
   @Arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None
 ) extends Pipeline(Some(output)) {
 
-  name = CreateUnmappedBamFromFastqPipeline.ONE_LINE_SUMMARY.dropRight(1)
+  name = "CreateUnmappedBamFromFastqPipeline"
 
   // Validation logic as constructor code
   var errors: ListBuffer[String] = new ListBuffer[String]()
