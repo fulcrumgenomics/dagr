@@ -33,7 +33,9 @@ import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.util.{Io, LazyLogging}
 
 import scala.collection.SortedSet
+import scala.collection.JavaConversions._
 import scala.reflect.runtime.universe._
+
 
 /**
   * Companion object to the Configuration trait that keeps track of all configuration keys
@@ -52,6 +54,7 @@ private[core] object Configuration extends ConfigurationLike {
   // Keys for configuration values used in dagr core
   object Keys {
     val CommandLineName = "dagr.command-line-name"
+    val PackageList     = "dagr.package-list"
     val ScriptDirectory = "dagr.script-directory"
     val LogDirectory    = "dagr.log-directory"
     val SystemCores     = "dagr.system-cores"
@@ -124,6 +127,8 @@ private[config] trait ConfigurationLike extends LazyLogging {
         case t if t =:= typeOf[Cores] => Cores(config.getDouble(path)).asInstanceOf[T]
         case t if t =:= typeOf[Memory] => Memory(config.getString(path)).asInstanceOf[T]
         case t if t =:= typeOf[Duration] => config.getDuration(path).asInstanceOf[T]
+        // TODO: replace this with better handling of List/Seq/Array
+        case t if t =:= typeOf[List[String]] => config.getStringList(path).toList.asInstanceOf[T]
         case _ => throw new IllegalArgumentException("Don't know how to configure a " + typeOf[T])
       }
     }
