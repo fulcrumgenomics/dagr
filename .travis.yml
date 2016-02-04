@@ -5,7 +5,7 @@ scala:
 jdk:
 - oraclejdk8
 script:
-- sbt clean coverage test && sbt coverageAggregate 
+- sbt clean coverage test && sbt coverageAggregate
 - find $HOME/.sbt -name "*.lock" | xargs rm
 - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
 cache:
@@ -16,3 +16,8 @@ before_install:
 - pip install --user codecov
 after_success:
 - codecov
+- test "${TRAVIS_PULL_REQUEST}" = 'false' && test "${TRAVIS_JDK_VERSION}" = 'oraclejdk8' && sbt 'project respite-core' 'set credentials += Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", System.getenv("SONATYPE_USER"), System.getenv("SONATYPE_PASS"))' publish
+env:
+  global:
+  - secure: lfzQekeDlZflKZGYg4Ueft5lLDHbSfvEUrGSJai5PI4WSsa9DwMxst8R4YV5PDt48nMBTlCzMJ+ZfkOHoBTrGpi02ezyU5EUAHYU+SCg2qDuMi2IcV8+leu7w3ao01xFCnFZoimWMU9SaFh5RBPGAM7fBifJs7gsqxNawtHlMS8tC/MBAaXfPZzGw1im3UZc/hreCR/R4p+FNWRw8GNPyTRcJRNFrPrSKkW0CoJss+RG9ZEX7WGPXqCS71NODEi7pE1NynkN9j8CVMFxavfAqW5TOxNU1dZdkxD8QEDcAIo479vG1uHE+4HrQk3Yl1ZzS2HMmNbfpU+8XwgCXhQtEreXUwaXZpALKqYEP4xqmUFTPAe2vfiQUqppsH7zuVpcP4B/xB5ovgOuPrgyOZwLfR9UfqS3oMRSj3BZ0qNZIL4eISS1jONzid7sGVLZiyHT2nXR2puWaYY6wNvgw2Rf97TyZkyYx/abbJQzhQy2ETl3UoTvqUBpYPWI5W0IJMJvzJsc6HS4+ukuknJqaXGFO5RBE1xm+fyV1zHFMz0mQQ+S9egmuJDyPCjyz+uYpNGFqG3wLhZZZhEdEerONMK744p2sTyARrsiq0prlWgH5XZydcYLQjfXTcUvYNoqaeMvaLaJsTj8k44p4RFIZjzVbkONehVjndAzYgjOEa6/iy4=
+  - secure: it4XCJjWKW2IjA28LHUJeRUsVANmnf1RiqUmAeGvu4aKD9/q2ypW5xIzIO1mIMJRQpyef/s6haPfFWVySn5hA30EM/1fvCIqy4rVIuE4OxxquKYdHUIQArEaFs6F0uYXOU7hgZiMbye1/nryX65/eJllCvCzTBSORYuIZw4WuMuZGQGCuBUY+AQJHjFGRjl52va4U/SS/M00bkQtVASJxIBsnaxHzgSMXEmsjmGOG5WFQqGdwfXIjYF7L21vOxe2VXSOjIQgKqJcx/15LGrmDdG9uLaQS0LFyis0rHUUQP9iiiOJv0Ax/TKXInaQ5+52N/xIYOvbSlkeOgR0bEnKlXVIRmIqB+D8UlidF9WYDi2wS1z8j7EOPynNxfSJB7jPeZtqbG4Yr7OmpIyW2ZGbjcJNT/CNHPDzQe9Z+AUYCJhSN1LDYd2YDl3X24pcGGA9Fo5uGDDWN/Gn0d+EllYw8ICaXBpXXrbs9k6CjUB/HFIWo7cwu783nJdAyN4RrIfYZ2Yo9CsAzl7urT43UW0R65OzUruFCNsOS5pmDOe5wXyqPe/5GRxWrIxbWl0Ls3LkNoJgGTlVVi0fwD2EG8mX5v33/GQLhppl1fWrOx5oChvBBMYhXOa+xhcdEkwynZuATsbdnHddIyHn8g9fQ44M0KOnZbWZYXo5Idmk6iWXCcc=
