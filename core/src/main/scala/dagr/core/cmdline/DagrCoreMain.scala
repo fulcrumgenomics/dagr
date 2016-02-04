@@ -36,7 +36,10 @@ import scala.collection.mutable.ListBuffer
 
 object DagrCoreMain {
   /** The packages we wish to include in our command line **/
-  protected def getPackageList: List[String] = List[String]("dagr")
+  protected def getPackageList: List[String] = {
+    val config = new Configuration {}
+    config.optionallyConfigure[List[String]](Configuration.Keys.PackageList) getOrElse List[String]("dagr")
+  }
 
   /** The main method */
   def main(args: Array[String]): Unit = {
