@@ -1,20 +1,18 @@
-# This script implements "Reusing Ivy Cache" found here:
-# - http://www.scala-sbt.org/0.13/docs/Travis-CI-with-sbt.html#%28Experimental%29+Reusing+Ivy+cache
 sudo: false
 language: scala
 scala:
-  - 2.11.7
+- 2.11.7
 jdk:
-  - oraclejdk8
+- oraclejdk8
 script:
-  - sbt clean coverage test &&
-    sbt coverageAggregate
-  # Tricks to avoid unnecessary cache updates
-  - find $HOME/.sbt -name "*.lock" | xargs rm
-  - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
-after_success:
-  - sbt coverageReport coveralls
+- sbt clean coverage test && sbt coverageAggregate 
+- find $HOME/.sbt -name "*.lock" | xargs rm
+- find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
 cache:
   directories:
-    - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot/
+  - $HOME/.ivy2/cache
+  - $HOME/.sbt/boot/
+before_install:
+- pip install --user codecov
+after_success:
+- codecov
