@@ -35,13 +35,16 @@ import htsjdk.samtools.SAMFileHeader.SortOrder
 import scala.collection.mutable.ListBuffer
 
 object CreateUnmappedBamFromFastqPipeline {
-  final val NAME = "Create Unmapped Bam From Fastq Pipeline"
+  @inline
+  final val SUMMARY = """Create Unmapped Bam From Fastq Pipeline.  Runs:
+ - FastqToSam -> MarkIlluminaAdapters -> Unmapped BAM"""
+  @inline
+  final val ONE_LINE_SUMMARY = "Create Unmapped Bam From Fastq Pipeline."
 }
 
 @CLP(
-  summary = CreateUnmappedBamFromFastqPipeline.NAME + ".  Runs:"
-    + "\n\t - FastqToSam -> MarkIlluminaAdapters -> Unmapped BAM",
-  oneLineSummary = CreateUnmappedBamFromFastqPipeline.NAME + ".",
+  summary = CreateUnmappedBamFromFastqPipeline.SUMMARY,
+  oneLineSummary = CreateUnmappedBamFromFastqPipeline.ONE_LINE_SUMMARY,
   pipelineGroup = classOf[Pipelines])
 class CreateUnmappedBamFromFastqPipeline(
   @Arg(doc="Input fastq file (optionally gzipped) for read 1.")                   val fastq1: List[PathToFastq],
@@ -56,7 +59,7 @@ class CreateUnmappedBamFromFastqPipeline(
   @Arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None
 ) extends Pipeline(Some(output)) {
 
-  name = CreateUnmappedBamFromFastqPipeline.NAME
+  name = CreateUnmappedBamFromFastqPipeline.ONE_LINE_SUMMARY.dropRight(1)
 
   // Validation logic as constructor code
   var errors: ListBuffer[String] = new ListBuffer[String]()

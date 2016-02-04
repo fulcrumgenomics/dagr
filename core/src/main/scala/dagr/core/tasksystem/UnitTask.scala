@@ -23,19 +23,15 @@
  */
 package dagr.core.tasksystem
 
-import dagr.core.execsystem
-import dagr.core.execsystem.Resource._
 import dagr.core.execsystem.{ResourceSet, Scheduler}
 import dagr.core.util.LazyLogging
-
-import scala.collection.mutable.ListBuffer
 
 /** A task that should be directly executed or scheduled.
  *
  * A few things about unit tasks:
  * - a task can depend on data from tasks on which it is dependent.  See [[Callbacks]]
  * - a task extending this class should return only one task in its getTasks method.  See [[Task.getTasks]]
- * - a task can perform any final logic dependent on the resources with which it is scheduled.  See [[Scheduler.schedule]].
+ * - a task can perform any final logic dependent on the resources with which it is scheduled.  See [[Scheduler!.schedule*]].
   *
  * When a unit task gets scheduled, the [[dagr.core.execsystem.Scheduler.schedule]] method will be called to allow any final
  * logic based on the resources this task was scheduled with.  This is in addition to the steps listed in [[Task]].

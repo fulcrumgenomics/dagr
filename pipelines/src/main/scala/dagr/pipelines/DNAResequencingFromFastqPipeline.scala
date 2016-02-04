@@ -34,17 +34,19 @@ import dagr.tasks._
 import scala.collection.mutable.ListBuffer
 
 object DnaResequencingFromFastqPipeline {
-  final val NAME = "Dna Resequencing from Fastq Pipeline"
+  @inline
+  final val SUMMARY = """Dna Resequencing from Fastq Pipeline.\n\t - FastqToSam -> MarkIlluminaAdapters -> Unmapped BAM
+ - Unmapped BAM -> SamToFastq -> Bwa Mem -> MergeBamAlignment -> MarkDuplicates -> Mapped BAM
+ - Mapped BAM -> {CollectMultipleMetrics, EstimateLibraryComplexity, ValidateSamFile}
+ - Mapped BAM -> {CalculateHsMetrics, CollectTargetedPcrMetrics} if targets are given
+ - Mapped BAM -> {CollectWgsMetrics, CollectGcBiasMetrics} if targets are not given"""
+  @inline
+  final val ONE_LINE_SUMMARY = "Dna Resequencing from Fastq Pipeline."
 }
 
 @CLP(
-  summary = DnaResequencingFromFastqPipeline.NAME + ".  Runs:"
-    + "\n\t - FastqToSam -> MarkIlluminaAdapters -> Unmapped BAM"
-    + "\n\t - Unmapped BAM -> SamToFastq -> Bwa Mem -> MergeBamAlignment -> MarkDuplicates -> Mapped BAM"
-    + "\n\t - Mapped BAM -> {CollectMultipleMetrics, EstimateLibraryComplexity, ValidateSamFile}"
-    + "\n\t - Mapped BAM -> {CalculateHsMetrics, CollectTargetedPcrMetrics} if targets are given"
-    + "\n\t - Mapped BAM -> {CollectWgsMetrics, CollectGcBiasMetrics} if targets are not given",
-  oneLineSummary = DnaResequencingFromFastqPipeline.NAME + ".",
+  summary = DnaResequencingFromFastqPipeline.SUMMARY,
+  oneLineSummary = DnaResequencingFromFastqPipeline.ONE_LINE_SUMMARY,
   pipelineGroup = classOf[Pipelines])
 class DnaResequencingFromFastqPipeline(
   @Arg(doc="Input fastq file (optionally gzipped) for read 1.")    val fastq1: List[PathToFastq],
@@ -61,7 +63,7 @@ class DnaResequencingFromFastqPipeline(
   @Arg(flag="o", doc="The output directory to which files are written.")  val output: DirPath,
   @Arg(doc="The basename for all output files. Uses library if omitted.") val basename: Option[FilenamePrefix]
 ) extends Pipeline(outputDirectory = Some(output)) {
-  name = DnaResequencingFromFastqPipeline.NAME
+  name = DnaResequencingFromFastqPipeline.ONE_LINE_SUMMARY.dropRight(2)
 
   // Validation logic as constructor code
   var errors: ListBuffer[String] = new ListBuffer[String]()

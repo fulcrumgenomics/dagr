@@ -62,7 +62,7 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
   extends ProcessTask with JarTask with FixedResources with Configuration {
   requires(Cores(1), Memory("4G"))
 
-  /** Looks up the first super class that is does not have "$anon$" in its name. */
+  /** Looks up the first super class that is does not have "\$anon\$" in its name. */
   def commandName : String = {
     var clazz : Class[_] = getClass
     while (clazz != null && clazz.getName.contains("$anon$")) clazz = clazz.getSuperclass
