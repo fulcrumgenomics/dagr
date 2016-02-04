@@ -4,6 +4,7 @@ import sbtassembly.AssemblyKeys.assembly
 import sbtassembly.MergeStrategy
 import com.typesafe.sbt.SbtGit.GitCommand
 import scoverage.ScoverageSbtPlugin.ScoverageKeys._
+import ReleaseTransformations._
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // We have the following "settings" in this build.sbt:
@@ -24,6 +25,20 @@ import scoverage.ScoverageSbtPlugin.ScoverageKeys._
 // Release settings
 releaseVersionBump := sbtrelease.Version.Bump.Next
 releasePublishArtifactsAction := PgpKeys.publishSigned.value
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,
+  inquireVersions,
+  runClean,
+  runTest,
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  ReleaseStep(action = Command.process("publishSigned", _)),
+  setNextVersion,
+  commitNextVersion,
+  ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
+  pushChanges
+)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // For the aggregate (root) jar, override the name.  For the sub-projects,
