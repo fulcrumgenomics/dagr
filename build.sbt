@@ -123,14 +123,14 @@ lazy val core = Project(id="dagr-core", base=file("core"))
   .settings(description := "Core methods and classes to execute tasks in dagr.")
   .settings(
     libraryDependencies ++= Seq(
-      "com.github.dblock"  %   "oshi-core"       %  "2.0",
-      "org.scala-lang"     %   "scala-reflect"   %  scalaVersion.value,
-      "org.scala-lang"     %   "scala-compiler"  %  scalaVersion.value,
-      "org.reflections"    %   "reflections"     %  "0.9.10",
-      "com.typesafe"       %   "config"          %  "1.3.0",
-      "javax.servlet"      %   "servlet-api"     %  "2.5",
+      "com.github.dblock"  %   "oshi-core"         %  "2.1",
+      "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value,
+      "org.scala-lang"     %   "scala-compiler"    %  scalaVersion.value,
+      "org.reflections"    %   "reflections"       %  "0.9.10",
+      "com.typesafe"       %   "config"            %  "1.3.0",
+      "javax.servlet"      %   "javax.servlet-api" %  "3.1.0",
       //---------- Test libraries -------------------//
-      "org.scalatest"      %%  "scalatest"       %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
+      "org.scalatest"      %%  "scalatest"         %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
     )
   )
   .dependsOn(sopt)
