@@ -4,13 +4,10 @@ import sbtassembly.AssemblyKeys.assembly
 import sbtassembly.MergeStrategy
 import com.typesafe.sbt.SbtGit.GitCommand
 import scoverage.ScoverageSbtPlugin.ScoverageKeys._
-import sbtrelease._
-// we hide the existing definition for setReleaseVersion to replace it with our own
-import sbtrelease.ReleaseStateTransformations.{setReleaseVersion=>_,_}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // We have the following "settings" in this build.sbt:
-// - custom versioning with sbt-release and sbt-git
+// - versioning with sbt-release
 // - custom JAR name for the root project
 // - settings to publish to Sonatype
 // - exclude the root, tasks, and pipelines project from code coverage
@@ -19,47 +16,10 @@ import sbtrelease.ReleaseStateTransformations.{setReleaseVersion=>_,_}
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
-// Use sbt-release and sbt-git to add the git hash to the snapshots version numbers.
+// Use sbt-release to bupm the version numbers.
 //
 // see: http://blog.byjean.eu/2015/07/10/painless-release-with-sbt.html
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// git versioning settings
-git.useGitDescribe := true
-val VersionRegex = "v([0-9]+.[0-9]+.[0-9]+)-?(.*)?".r
-git.gitTagToVersionNumber := {
-  case VersionRegex(v,"") => Some(v)
-  case VersionRegex(v,"SNAPSHOT") => Some(s"$v-SNAPSHOT")
-  case VersionRegex(v,s) => Some(s"$v-$s-SNAPSHOT")
-  case _ => None
-}
-// Update the base version here
-git.baseVersion := "0.1.0"
-
-// redefine the steps to set the release and next development versions to avoid writing to the version file
-def setVersionOnly(selectVersion: Versions => String): ReleaseStep =  { st: State =>
-  val vs = st.get(ReleaseKeys.versions).getOrElse(sys.error("No versions are set! Was this release part executed before inquireVersions?"))
-  val selected = selectVersion(vs)
-
-  st.log.info("Setting version to '%s'." format selected)
-  val useGlobal =Project.extract(st).get(releaseUseGlobalVersion)
-  val versionStr = (if (useGlobal) globalVersionString else versionString) format selected
-
-  reapply(Seq(
-    if (useGlobal) version in ThisBuild := selected
-    else version := selected
-  ), st)
-}
-// make sure to bump to the next version upon release, not the current one
-lazy val setReleaseVersion: ReleaseStep = setVersionOnly(_._1)
-releaseVersion <<= releaseVersionBump( bumper=>{
-  ver => Version(ver)
-    .map(_.withoutQualifier)
-    .map(_.bump(bumper).string).getOrElse(versionFormatError)
-})
-
-// use a short hash
-git.formattedShaVersion := git.gitHeadCommit.value map { sha => s"v$sha" }
 
 // Release settings
 releaseVersionBump := sbtrelease.Version.Bump.Next
@@ -84,6 +44,11 @@ publishTo := {
 }
 publishArtifact in Test := false
 pomIncludeRepository := { _ => false }
+// For Travis CI - see http://www.cakesolutions.net/teamblogs/publishing-artefacts-to-oss-sonatype-nexus-using-sbt-and-travis-ci
+credentials ++= (for {
+  username <- Option(System.getenv().get("SONATYPE_USER"))
+  password <- Option(System.getenv().get("SONATYPE_PASS"))
+} yield Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", username, password)).toSeq
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Coverage settings: only count coverage of dagr.sopt and dagr.core
@@ -133,7 +98,6 @@ lazy val sopt = Project(id="dagr-sopt", base=file("sopt"))
       "org.scalatest"      %%  "scalatest"       %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
     )
   )
-  .enablePlugins(GitVersioning)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // core project
@@ -154,7 +118,7 @@ lazy val core = Project(id="dagr-core", base=file("core"))
     )
   )
   .dependsOn(sopt)
-  .enablePlugins(GitVersioning)
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // tasks project
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,7 +126,6 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
   .settings(description := "A set of example dagr tasks.")
   .settings(commonSettings: _*)
   .dependsOn(core)
-  .enablePlugins(GitVersioning)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // pipelines project
@@ -171,7 +134,6 @@ lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
   .settings(description := "A set of example dagr pipelines.")
   .settings(commonSettings: _*)
   .dependsOn(tasks, core)
-  .enablePlugins(GitVersioning)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // root (dagr) project
@@ -181,7 +143,6 @@ lazy val root = Project(id="dagr", base=file("."))
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
   .aggregate(sopt, core, tasks, pipelines)
   .dependsOn(sopt, core, tasks, pipelines)
-  .enablePlugins(GitVersioning)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Merge strategy for assembly

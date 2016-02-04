@@ -16,10 +16,7 @@ before_install:
 - pip install --user codecov
 after_success:
 - codecov
-- test "${TRAVIS_PULL_REQUEST}" = 'false' && test "${TRAVIS_JDK_VERSION}" = 'oraclejdk8'
-  && sbt 'project respite-core' 'set credentials += Credentials("Sonatype Nexus Repository
-  Manager", "oss.sonatype.org", System.getenv("SONATYPE_USER"), System.getenv("SONATYPE_PASS"))'
-  publish
+- "[[ $TRAVIS_BRANCH == \"master\" ]] && { sbt 'set version := version.value + \".\" + System.getenv(\"TRAVIS_BUILD_NUMBER\")' ; };"
 env:
   global:
   - secure: QxmkMzK3rlY5olbqACmsWXUNDZKFx/ymX3NKukOHcZ2qNPv91jOZrvbn9Udyi4Ly3sDWWLTZWvKdJbWcMm4q+YlqHHYoNNgpi16VfYiy2pStGnBw6J9iKJ4SVmgIIiz4GohpObjxL50hyqnFvJyubBwROpnbSxZYE4yBQ//WYJwi4gvA3Hw6fRgLyIS6+9SnELuhx8/zTMudB9K8349kerIQkC8Ka/2r/zc0thBD+2h3FoW+U4YyaGpNRIG7q2QLLNumlEQhLstuMkqyX4wOqkZ9n6uL07yrlLKAXdVbBS0B1KMT+oETsMonya7cLBz17E2ONxywWDA3woXfZv1CMv3gxtW4Ut46mcP0fBqJlXuYa1GS3KX+O26G+fczo8f6iBqrNcepndXvgfA8qBbtdzt7xLO0Sy3MJ5OdzE3Tk7073ig2TfU5Lp5oSB6ZCn76JxwXO1kwfaEv/724bLH82NwrfP5FPPOjjuf+iBTA1DK5Ctg9I7VVQP0Q40OFL6/R4Dd3SHTpjvpLHXZxY8viu503ReibcIWplyjnbfZr9Rgo5gqzvEV8go6N20WNnZmaIFlQ1nQrbrAoDOtIIqSxyfFDwqQDKcVV/TyvR4s4NJzAdMrd6NzQlSJ7QYopOtvEi7XX7MUYGkn4oIJEWOM1CfZHWNO5HL0kvuiUZC/MG9Y=
