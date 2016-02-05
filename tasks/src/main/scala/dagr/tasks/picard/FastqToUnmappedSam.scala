@@ -25,57 +25,30 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.tasksystem.{FixedResources, ProcessTask}
+import dagr.core.tasksystem.Pipe
+import dagr.tasks.DataTypes.SamOrBam
 import dagr.core.util.Io
-import dagr.tasks.{PipedTask, PathToBam, PathToFastq}
+import dagr.tasks.{PathToBam, PathToFastq}
 
 object FastqToUnmappedSam {
-  /** Constructs a new FastqToUnmappedSam for PE Illumina data from two fastq files. */
-  def apply(fq1: PathToFastq, fq2: PathToFastq, bam: PathToBam,
-            sm: String, lb: String, pu: String,
-            prefix: Option[Path],
-            rgId: Option[String] = None) = {
-
-    new FastqToUnmappedSam(fastq1=fq1, fastq2=Some(fq2), bam=bam, prefix = prefix,
-      sampleName = sm, library=Some(lb), platformUnit = Some(pu), readGroupName=rgId).withName("FastqToUnmappedSam." + pu)
-
+  /**
+    * Constructs a new set of piped tasks for taking PE Illumina data from two fastq files and producing
+    * an unampped BAM file in which the possible location of adapter sequence in each read is marked.
+    *
+    * @param fq1 the read one fastq file (can be gzipped)
+    * @param fq2 the read two fastq file (can be gzipped)
+    * @param bam the output SAM or BAM file to write to
+    * @param sm the name of the sample to put in the read group header
+    * @param lb the name of the library to put in the read group header
+    * @param pu the platform unit string to put in the tread group header
+    * @param rgId the optional ID to use in the read group header. If None one will be generated.
+    * @param prefix the prefix (including directories) to use to write metrics and ancillary files
+    * @return a Pipe from Nothing (since the inputs are read from file) to SamOrBam
+    */
+  def apply(fq1: PathToFastq, fq2: PathToFastq, bam: PathToBam, sm: String, lb: String, pu: String, rgId: Option[String] = None, prefix: Option[Path]) = {
+    val fastqToSam = new FastqToSam(fastq1=fq1, fastq2=Some(fq2), out=Io.StdOut, sample=sm, library=Some(lb), readGroupName=rgId, platformUnit=Some(pu))
+    val buffer = new FifoBuffer[SamOrBam]
+    val markAdapters = new MarkIlluminaAdapters(in=Io.StdIn, out=bam, prefix=prefix)
+    (fastqToSam | buffer | markAdapters).withName("FastqToAdapaterMarkedSam").asInstanceOf[Pipe[Nothing,SamOrBam]]
   }
-}
-
-class FastqToUnmappedSam(fastq1: PathToFastq,
-                         fastq2: Option[PathToFastq] = None,
-                         bam: PathToBam,
-                         sampleName: String,
-                         prefix: Option[Path],
-                         platform: Option[String] = Some("ILLUMINA"),
-                         platformUnit: Option[String] = None,
-                         library: Option[String] = None,
-                         readGroupName: Option[String] = None,
-                         useSequentialFastqs: Boolean = false
-                          ) extends PipedTask with FixedResources {
-
-  val fastqToSam: FastqToSam = new FastqToSam(
-    name = "FastqToSam",
-    fastq1 = fastq1,
-    fastq2 = fastq2,
-    out = Io.StdOut,
-    sampleName = sampleName,
-    platform = platform,
-    platformUnit = platformUnit,
-    library = library,
-    readGroupName = readGroupName,
-    useSequentialFastqs = useSequentialFastqs)
-  fastqToSam.applyResources(fastqToSam.resources)
-
-  val fifoBuffer: FifoBuffer = new FifoBuffer()
-  fifoBuffer.applyResources(fifoBuffer.resources)
-
-  val markIlluminaAdapters = new MarkIlluminaAdapters(in=Io.StdIn, out=bam, prefix=prefix)
-  markIlluminaAdapters.applyResources(markIlluminaAdapters.resources)
-
-  // Get tasks so that args are filled out, and so we can update resources
-  override protected val tasks = fastqToSam :: fifoBuffer :: markIlluminaAdapters :: Nil
-
-  requires(fastqToSam.resources + fifoBuffer.resources + markIlluminaAdapters.resources)
-  logger.debug("FastqToUnmappedSam: cores: " + resources.cores + " memory: " + resources.memory)
 }

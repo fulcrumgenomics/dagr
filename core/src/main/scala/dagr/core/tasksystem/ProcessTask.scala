@@ -33,7 +33,7 @@ import scala.sys.process._
 
 /** A task that can execute a set of commands in its own process, and does not generate any new tasks.
   */
-abstract class ProcessTask extends UnitTask {
+trait ProcessTask extends UnitTask {
   /**
     * Abstract method that must be implemented by child classes to return a list or similar traversable
     * list of command line elements (command name and arguments) that form the command line to be run.

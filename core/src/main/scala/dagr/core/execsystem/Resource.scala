@@ -107,6 +107,10 @@ object Resource {
   * @tparam R self-referential type required to make all the operators work nicely
   */
 sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit numeric :Numeric[T]) {
+  if (numeric.toDouble(value) <  0) {
+    throw new IllegalArgumentException(s"Cannot have negative resource. ${getClass.getSimpleName}=" + value)
+  }
+
   /** Override equals so that we get proper == and != support. */
   override def equals(other: scala.Any): Boolean = {
     null != other && getClass == other.getClass && value == other.asInstanceOf[this.type].value
@@ -125,14 +129,15 @@ sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit num
   /** Implementation of greater than or equal to. */
   def >=(that: R): Boolean = numeric.gteq(this.value, that.value)
 
+  /** Make the toString always return the value as a string. */
+  final override def toString: String = String.valueOf(value)
+
   /** Must be implemented by subclasses to return a new instance with the specified value. */
   protected def build(value: T) : R
 }
 
 /** A resource representing the memory. */
 case class Memory(override val value: Long) extends Resource[Long,Memory](value=value) {
-  if (value < 0) throw new IllegalArgumentException("Cannot have negative memory. Bytes=" + value)
-
   /** Return the number of bytes, as a Long, represented by this object. */
   def bytes: Long = value
   def kb : String = Resource.parseBytesToSize(value, 1024,           "k")

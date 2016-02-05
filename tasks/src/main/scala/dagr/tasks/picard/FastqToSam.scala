@@ -23,22 +23,23 @@
  */
 package dagr.tasks.picard
 
+import dagr.tasks.DataTypes.{Fastq, SamOrBam}
+import dagr.core.tasksystem.Pipe
 import dagr.tasks.{PathToBam, PathToFastq}
 
 import scala.collection.mutable.ListBuffer
 
-class FastqToSam(name: String,
-                 fastq1: PathToFastq,
+class FastqToSam(fastq1: PathToFastq,
                  fastq2: Option[PathToFastq] = None,
                  out: PathToBam,
-                 sampleName: String,
+                 sample: String,
                  platform: Option[String] = Some("ILLUMINA"),
                  platformUnit: Option[String] = None,
                  library: Option[String] = None,
                  readGroupName: Option[String] = None,
                  stripUnpairedMateNumber: Boolean = true,
                  useSequentialFastqs: Boolean = false)
-  extends PicardTask {
+  extends PicardTask with Pipe[Fastq,SamOrBam]{
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     // add custom args
@@ -47,7 +48,7 @@ class FastqToSam(name: String,
     buffer.append("QUALITY_FORMAT=Standard") // TODO: expose this
     buffer.append("O=" + out)
     readGroupName.foreach(rg => buffer.append("RG=" + rg))
-    buffer.append("SM=" + sampleName)
+    buffer.append("SM=" + sample)
     platform.foreach(pl => buffer.append("PL=" + pl))
     platformUnit.foreach(pu => buffer.append("PU=" + pu))
     library.foreach(lb => buffer.append("LB=" + lb))

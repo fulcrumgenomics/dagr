@@ -24,11 +24,12 @@
 package dagr.tasks.picard
 
 import dagr.core.execsystem.{Cores, Memory}
+import dagr.core.tasksystem.Pipe
 
 import scala.collection.mutable.ListBuffer
 
-class FifoBuffer extends PicardTask {
-  requires(Cores(1), Memory("1G"))
+class FifoBuffer[A] extends PicardTask with Pipe[A,A] {
+  requires(Cores(0.1), Memory("1G"))
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer += "BUFFER_SIZE=" + (resources.memory.bytes/ 2) // TODO: what's the correct ratio here?

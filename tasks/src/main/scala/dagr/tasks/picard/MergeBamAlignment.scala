@@ -24,6 +24,8 @@
 package dagr.tasks.picard
 
 import dagr.core.execsystem.{Memory, Cores}
+import dagr.tasks.DataTypes.SamOrBam
+import dagr.core.tasksystem.Pipe
 import dagr.tasks.{PathToBam, PathToFasta}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
@@ -40,7 +42,7 @@ class MergeBamAlignment( unmapped: PathToBam,
                          attributesToRetain: List[String] = List[String]("X0", "ZS", "ZI", "ZM", "ZC", "ZN"),
                          orientation: String = "FR",
                          sortOrder: SortOrder = SortOrder.coordinate)
-  extends PicardTask {
+  extends PicardTask with Pipe[SamOrBam,SamOrBam] {
   requires(Cores(1), Memory("4g"))
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {

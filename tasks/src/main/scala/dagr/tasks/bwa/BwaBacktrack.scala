@@ -1,10 +1,11 @@
-package dagr.tasks.misc
+package dagr.tasks.bwa
 
-import dagr.core.execsystem.{Memory, Cores, ResourceSet}
-import dagr.core.tasksystem.{VariableResources, FixedResources, ProcessTask, Pipeline}
-import dagr.core.util.{PathUtil, Io}
-import dagr.tasks.picard.{MergeBamAlignment, SamToFastq}
+import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import dagr.core.tasksystem.{FixedResources, Pipeline, ProcessTask, VariableResources}
+import dagr.core.util.{Io, PathUtil}
 import dagr.tasks._
+import dagr.tasks.misc.DeleteFiles
+import dagr.tasks.picard.{MergeBamAlignment, SamToFastq}
 
 import scala.collection.mutable.ListBuffer
 

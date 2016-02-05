@@ -37,23 +37,22 @@ case class ResourceSet(cores: Cores = Cores(0), memory: Memory = Memory(0)) {
 
   override def toString: String = s"memory=${memory.value}, cores=${cores.value}"
 
-  /**
-    * Constructs a resource set with the provided cores and memory, providing that the cores
-    * and memory are a subset of those in the current resource set. If the value do not represent
-    * a subset, None is returned.
-    */
-  def subset(that: ResourceSet): Option[ResourceSet] = subset(that.cores, that.memory)
+  /** Returns true if `subset` is a subset of this resource set and false otherwise. */
+  private def subsettable(subset: ResourceSet) = subset.cores <= this.cores && subset.memory <= this.memory
 
   /**
     * Constructs a resource set with the provided cores and memory, providing that the cores
     * and memory are a subset of those in the current resource set. If the value do not represent
     * a subset, None is returned.
     */
-  def subset(cores: Cores, memory: Memory) : Option[ResourceSet] =
-    if (cores.value <= this.cores.value && memory.value <= this.memory.value)
-      Some(ResourceSet(cores, memory))
-    else
-      None
+  def subset(that: ResourceSet): Option[ResourceSet] = if (subsettable(that)) Some(that) else None
+
+  /**
+    * Constructs a resource set with the provided cores and memory, providing that the cores
+    * and memory are a subset of those in the current resource set. If the value do not represent
+    * a subset, None is returned.
+    */
+  def subset(cores: Cores, memory: Memory) : Option[ResourceSet] = subset(ResourceSet(cores, memory))
 
   /**
     * Constructs a subset of this resource set with a fixed amount of memory and a variable
@@ -65,6 +64,12 @@ case class ResourceSet(cores: Cores = Cores(0), memory: Memory = Memory(0)) {
     val cores = max.to(min, -1).find(cores => subset(Cores(cores), memory).isDefined)
     cores.map(c => ResourceSet(Cores(c), memory))
   }
+
+  /**
+    * Returns a [[dagr.core.execsystem.ResourceSet]] with the remaining resources after subtracting `other`
+    * if doing so would not generate negative resources. Otherwise returns `None`.
+    */
+  def minusOption(other: ResourceSet) : Option[ResourceSet] = if (subsettable(other)) Some(this - other) else None
 
   /** Constructs a new resource set by subtracting the provided resource set from this one. */
   def -(that: ResourceSet) : ResourceSet = ResourceSet(this.cores.value - that.cores.value, this.memory.value - that.memory.value)

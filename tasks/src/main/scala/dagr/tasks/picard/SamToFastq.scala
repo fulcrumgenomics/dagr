@@ -24,6 +24,8 @@
 package dagr.tasks.picard
 
 import dagr.core.execsystem.{Cores, Memory}
+import dagr.tasks.DataTypes.{Fastq, SamOrBam}
+import dagr.core.tasksystem.Pipe
 import dagr.tasks.{PathToBam, PathToFastq}
 
 import scala.collection.mutable.ListBuffer
@@ -41,10 +43,9 @@ object SamToFastq {
 class SamToFastq(in: PathToBam,
                  fastq1: PathToFastq,
                  fastq2: Option[PathToFastq] = None,
-                 interleave : Boolean = true) extends PicardTask {
+                 interleave : Boolean = true) extends PicardTask with Pipe[SamOrBam,Fastq] {
 
   requires(Cores(1), Memory("512M"))
-
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("INPUT=" + in)
