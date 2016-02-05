@@ -23,7 +23,7 @@
  */
 package dagr.core.util
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Paths, Files, Path}
 
 /**
  * Tests for various methods in the Io class
@@ -49,17 +49,17 @@ class IoTest extends UnitSpec {
     path
   }
 
-  "Io.assertReadable" should " not throw an exception for extent files" in {
+  "Io.assertReadable" should "not throw an exception for extent files" in {
     val f1 = tmpfile(); val f2 = tmpfile(); val f3 = tmpfile()
     Io.assertReadable(f1)
     Io.assertReadable(List(f1, f2, f3))
   }
 
-  it should " not throw an exception for special files" in {
+  it should "not throw an exception for special files" in {
     Io.assertReadable(Io.StdIn)
   }
 
-  it should " throw an exception for when file isn't readable" in {
+  it should "throw an exception for when file isn't readable" in {
     val nullpath: Path = null
     a [IllegalArgumentException] should be thrownBy { Io.assertReadable(nullpath) }
     a [IllegalArgumentException] should be thrownBy { Io.assertReadable(List(nullpath)) }
@@ -68,13 +68,13 @@ class IoTest extends UnitSpec {
     a [AssertionError] should be thrownBy {Io.assertReadable(tmpfile(readable=false))}
   }
 
-  "Io.assertListable" should " not throw an exception for extent dirs" in {
+  "Io.assertListable" should "not throw an exception for extent dirs" in {
     val f1 = tmpdir(); val f2 = tmpdir(); val f3 = tmpdir()
     Io.assertListable(f1)
     Io.assertListable(List(f1, f2, f3))
   }
 
-  it should " not throw an exception when a directory isn't listable" in {
+  it should "not throw an exception when a directory isn't listable" in {
     val nullpath: Path = null
     a [IllegalArgumentException] should be thrownBy { Io.assertListable(nullpath) }
     a [IllegalArgumentException] should be thrownBy { Io.assertListable(List(nullpath)) }
@@ -83,5 +83,39 @@ class IoTest extends UnitSpec {
     a [AssertionError] should be thrownBy {Io.assertListable(tmpdir(readable=false))}
     a [AssertionError] should be thrownBy {Io.assertListable(tmpdir(executable=false))}
     a [AssertionError] should be thrownBy {Io.assertListable(tmpdir(readable=false, executable=false))}
+  }
+
+  "Io.assertCanWriteFile" should "throw an exception because the parent directory does not exist" in {
+    an[AssertionError] should be thrownBy Io.assertCanWriteFile(Paths.get("/path/to/nowhere"))
+  }
+
+  it should "throw an exception because the parent exits and is not a directory" in {
+    val f = tmpfile()
+    an[AssertionError] should be thrownBy Io.assertCanWriteFile(Paths.get(f.toAbsolutePath.toString, "/parent_is_file"))
+  }
+
+  it should "throw an exception because the parent directory is not writable" in {
+    val dir = tmpdir(writable=false);
+    an[AssertionError] should be thrownBy Io.assertCanWriteFile(dir)
+  }
+
+  "Io.assertWritableDirectory" should "succeed in assessing writability of a directory" in {
+    val dir = tmpdir();
+    Io.assertWritableDirectory(List(dir))
+  } // TODO: more tests of this method
+
+  "Io.mkdirs" should "be able to create a directory" in {
+    val dir = tmpdir()
+    Files.delete(dir)
+    Io.mkdirs(dir) shouldBe true
+    Files.delete(dir)
+  }
+
+  "Io.findFirstExtentParent" should "find the first extant parent" in {
+    val dir = tmpdir()
+    val child = Paths.get(dir.toAbsolutePath.toString, "child")
+    Io.findFirstExtentParent(child).get.toAbsolutePath.toString shouldBe dir.toAbsolutePath.toString
+    val grandchild = Paths.get(dir.toAbsolutePath.toString, "grand/child")
+    Io.findFirstExtentParent(grandchild).get.toAbsolutePath.toString shouldBe dir.toAbsolutePath.toString
   }
 }

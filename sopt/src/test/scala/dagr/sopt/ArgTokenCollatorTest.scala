@@ -66,8 +66,8 @@ class ArgTokenCollatorTest extends UnitSpec {
     n.failed.get.getClass shouldBe classOf[OptionNameException]
   }
 
-  "ArgTokenCollator.advance" should "should group values for the same option" in {
-    val tokenizer = new ArgTokenizer("-v", "value", "-v", "value", "value")
+  "ArgTokenCollator.advance" should "should group values for the same long option" in {
+    val tokenizer = new ArgTokenizer("--value", "value", "--value", "value", "value")
     val collator = new ArgTokenCollator(tokenizer)
     val tokens = collator.toSeq
     tokens.size shouldBe 2
@@ -75,13 +75,33 @@ class ArgTokenCollatorTest extends UnitSpec {
     var tokenTry = tokens.head
     tokenTry.isSuccess shouldBe true
     var token = tokenTry.get
-    token.name shouldBe "v"
+    token.name shouldBe "value"
     token.values shouldBe Seq("value")
     // token 2
     tokenTry = tokens.last
     tokenTry.isSuccess shouldBe true
     token = tokenTry.get
-    token.name shouldBe "v"
+    token.name shouldBe "value"
     token.values shouldBe Seq("value", "value")
+  }
+
+  it should "should group values for the same short (flag) option" in {
+    val tokenizer = new ArgTokenizer("-vvalue", "-vvalue", "value")
+    val collator = new ArgTokenCollator(tokenizer)
+    val tokens = collator.toSeq
+    tokens.size shouldBe 1
+    // token 1
+    var tokenTry = tokens.head
+    tokenTry.isSuccess shouldBe true
+    val token = tokenTry.get
+    token.name shouldBe "v"
+    token.values shouldBe Seq("value", "value", "value")
+  }
+
+  "ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue" should "return true for args with the same name, false otherwise" in {
+    ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(Success(ArgValue("value")), "opt") shouldBe true
+    ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(Success(ArgOptionAndValue("opt", "value")), "opt") shouldBe true
+    ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(Success(ArgOptionAndValue("opt2", "value")), "opt") shouldBe false
+    ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(Success(ArgOption("opt")), "opt") shouldBe false
   }
 }

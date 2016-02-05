@@ -91,7 +91,7 @@ object Io {
     *                        require that the first parent that actually exists is writable
     */
   def assertCanWriteFile(path: Path, parentMustExist: Boolean=true) : Unit = {
-    if (path == null) throw new IllegalArgumentException("Cannot check readability of null path.")
+    if (path == null) throw new IllegalArgumentException("Cannot check writability of null path.")
 
     if (Files.exists(path)) {
       if (!Files.isWritable(path)) throw new AssertionError("File exists but is not writable: " + path)
@@ -138,7 +138,7 @@ object Io {
   }
 
   /** Works its way up a path finding the first parent path that actually exists. */
-  private def findFirstExtentParent(p: Path) : Option[Path] = {
+  private[util] def findFirstExtentParent(p: Path) : Option[Path] = {
     val parent = p.getParent
     if (parent == null) None
     else if (Files.exists(parent)) Some(parent)
