@@ -26,7 +26,7 @@ package dagr.core.config
 import java.nio.file.{Files, Path}
 import java.time.Duration
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{ConfigException, ConfigFactory}
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.util.{PathUtil, UnitSpec}
 
@@ -51,6 +51,7 @@ class ConfigurationTest extends UnitSpec {
       |some-memory = 2G
       |some-time   = 60s
       |some-executable = /does/not/exist
+      |some-string-list = ["a", list, "of", strings]
       |    """.stripMargin)
 
   val conf = new Configuration { override val config = _config.resolve() }
@@ -69,6 +70,7 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[Cores]("some-cores") shouldBe Cores(2.5)
     conf.configure[Memory]("some-memory") shouldBe Memory("2g")
     conf.configure[Duration]("some-time") shouldBe Duration.ofSeconds(60)
+    conf.configure[List[String]]("some-string-list") shouldBe List[String]("a", "list", "of", "strings")
   }
 
   it should "support optional configuration" in {
@@ -102,9 +104,26 @@ class ConfigurationTest extends UnitSpec {
 
   it should "find executables" in {
     conf.configureExecutable("some-executable", "n/a") shouldBe PathUtil.pathTo("/does/not/exist")
+    conf.configureExecutableFromBinDirectory("some-executable", "exec") shouldBe PathUtil.pathTo("/does/not/exist/exec")
 
-    val java = conf.configureExecutable("java.exe", "java")
+    var java = conf.configureExecutable("java.exe", "java")
     java.getFileName.toString shouldBe "java"
     Files.isExecutable(java) shouldBe true
+
+    // the bin directory should not be found, and so should fall back on the system path, and find the java executable
+    java = conf.configureExecutableFromBinDirectory("path-does-not-exist", "java")
+    java.getFileName.toString shouldBe "java"
+    Files.isExecutable(java) shouldBe true
+    Configuration.requestedKeys should contain ("java.exe")
+  }
+
+  it should "thrown an exception when an executable cannot be found" in {
+    an[ConfigException] should be thrownBy conf.configureExecutable("some-executable-not-found", "n/a")
+    an[ConfigException] should be thrownBy conf.configureExecutableFromBinDirectory("some-bin-dir-not-found", "n/a")
+  }
+
+  it should "throw an exception for unsupported types" in {
+    an[IllegalArgumentException] should be thrownBy conf.configure[Char]("a-char")
+    an[IllegalArgumentException] should be thrownBy conf.configure[Set[String]]("a-string-set")
   }
 }
