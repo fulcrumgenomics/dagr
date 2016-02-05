@@ -186,7 +186,7 @@ trait OptionLookup {
   def getOptionValues(optionName: String): Try[List[String]] = {
     this.findExactOrPrefix(optionName) match {
       case Nil =>
-        Failure(IllegalOptionNameException(s"No option values found for the name '$optionName'.${printUnknown(optionName)}"))
+        Failure(IllegalOptionNameException(s"No option found with name '$optionName'.${printUnknown(optionName)}"))
       case option :: Nil => Success(option.toList)
       case _ =>
         Failure(DuplicateOptionNameException(s"Multiple options found for name '$optionName': " + getOptionNamesWithPrefix(optionName).mkString(", ")))
@@ -235,7 +235,7 @@ trait OptionLookup {
         bestN += 1
       }
     }
-    if (0 == bestDistance && bestN == optionNames.size) {
+    if (0 == bestDistance && 1 < bestN && bestN == optionNames.size) {
       bestDistance = printUnknownSimilarityFloor + 1
     }
     if (bestDistance < printUnknownSimilarityFloor) {

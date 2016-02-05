@@ -238,6 +238,10 @@ class OptionLookupTest extends UnitSpec {
       value = optionLookup.getSingleValues("name")
       value.isFailure shouldBe true
       value.failed.get.getClass shouldBe classOf[IllegalOptionNameException]
+      // option name is not found
+      value = optionLookup.getSingleValues("value")
+      value.isFailure shouldBe true
+      value.failed.get.getClass shouldBe classOf[IllegalOptionNameException]
     }
   }
 
@@ -323,9 +327,16 @@ class OptionLookupTest extends UnitSpec {
     val name1 = "name1"
     var optionLookup = new OptionLookup {}.acceptMultipleValues(name1).get
     optionLookup.printUnknown("name3").indexOf(name1) should be > 0
+    optionLookup.printUnknown("n").indexOf(name1) should be > 0
     val name2 = "name2"
     optionLookup = optionLookup.acceptMultipleValues(name2).get
     optionLookup.printUnknown("name3").indexOf(name1) should be > 0
     optionLookup.printUnknown("name3").indexOf(name2) should be > 0
+    optionLookup.printUnknown("n") shouldBe ""
+  }
+
+  it should "not return any matches if it matches all the option names (when there is greater than one option name)" in {
+    var optionLookup = new OptionLookup {}.acceptMultipleValues("name1").get.acceptMultipleValues("name2").get
+    optionLookup.printUnknown("name") shouldBe ""
   }
 }
