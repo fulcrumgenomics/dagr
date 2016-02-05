@@ -79,11 +79,56 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     TaskStatus.isTaskDone(taskStatus = taskManager.getTaskStatus(task).get, failedIsDone = failedAreCompletedFinally) should be(taskIsDoneFinally)
   }
 
+  "TaskManager" should "not overwrite an existing task when adding a task, or throw an IllegalArgumentException when ignoreExists is false" in {
+    val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
+    val taskManager: TaskManager = getDefaultTaskManager
+    taskManager.addTasks(tasks=Seq(task, task), parent=None, ignoreExists=true) shouldBe List(0, 0)
+    an[IllegalArgumentException] should be thrownBy taskManager.addTask(task=task, parent=None, ignoreExists=false)
+
+  }
+
+  it should "get a task by its graph node only if the graph node is being tracked by TaskManagerState" in {
+    val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
+    val taskManager: TaskManager = getDefaultTaskManager
+    taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
+    val node = taskManager.getGraphNode(task).get
+    taskManager.getTask(node).foreach(t => t shouldBe task)
+    val unknownNode = new GraphNode(taskId=1, task=task)
+    taskManager.getTask(unknownNode) shouldBe 'empty
+  }
+
+  it should "get a task info by its graph node only if the graph node is being tracked by TaskManagerState" in {
+    val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
+    val taskManager: TaskManager = getDefaultTaskManager
+    taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
+    val taskInfo = taskManager.getTaskExecutionInfo(task).get
+    val node = taskManager.getGraphNode(task).get
+    taskManager.getTaskExecutionInfo(node).foreach(info => info shouldBe taskInfo)
+    val unknownNode = new GraphNode(taskId=1, task=task)
+    taskManager.getTaskExecutionInfo(unknownNode) shouldBe 'empty
+  }
+
+  it should "get the task status for only tracked tasks" in {
+    val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
+    val taskManager: TaskManager = getDefaultTaskManager
+    taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
+    taskManager.getTaskStatus(0) shouldBe 'defined
+    taskManager.getTaskStatus(1) shouldBe 'empty
+  }
+
+  it should "get the graph node state for only tracked tasks" in {
+    val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
+    val taskManager: TaskManager = getDefaultTaskManager
+    taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
+    taskManager.getGraphNodeState(0) shouldBe 'defined
+    taskManager.getGraphNodeState(1) shouldBe 'empty
+  }
+
   // ******************************************
   // Simple Tasks
   // ******************************************
 
-  "TaskManager" should "run a simple task" in {
+  it should "run a simple task" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
     val taskManager: TaskManager = getDefaultTaskManager
 

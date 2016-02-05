@@ -258,4 +258,69 @@ class TaskRunnerTest extends UnitSpec with PrivateMethodTester with OptionValues
     completedTasks.get(1).value._1 should be(1) // exit code
     completedTasks.get(1).value._2 should be(false) // on complete
   }
+
+  it should "fail to run a UnitTask when simulate is false" in  {
+    val taskRunner: TaskRunner = new TaskRunner()
+    val task = new UnitTask {
+      override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = None
+    }
+    val taskInfo = new TaskExecutionInfo(
+      task = task,
+      id = 1,
+      status = TaskStatus.UNKNOWN,
+      submissionDate = None,
+      startDate = None,
+      resources = ResourceSet.empty,
+      endDate = None,
+      attemptIndex = 1,
+      script = null,
+      logFile = null
+    )
+    taskRunner.runTask(taskInfo=taskInfo, simulate=false) shouldBe false
+  }
+
+  it should "fail to run a task that is not a UnitTask" in  {
+    val taskRunner: TaskRunner = new TaskRunner()
+    val task = new Task {
+      override def getTasks: Traversable[_ <: Task] = Nil
+    }
+    val taskInfo = new TaskExecutionInfo(
+      task = task,
+      id = 1,
+      status = TaskStatus.UNKNOWN,
+      submissionDate = None,
+      startDate = None,
+      resources = ResourceSet.empty,
+      endDate = None,
+      attemptIndex = 1,
+      script = null,
+      logFile = null
+    )
+    an[RuntimeException] should be thrownBy taskRunner.runTask(taskInfo=taskInfo, simulate=false)
+  }
+
+  class InJvmExceptionTask extends SimpleInJvmTask {
+    override def run = throw new IllegalStateException("I throw exceptions")
+  }
+
+  it should "handle an InJvmTask that throws an Exception" in {
+    val taskRunner: TaskRunner = new TaskRunner()
+    val task = new InJvmExceptionTask()
+    val taskInfo = new TaskExecutionInfo(
+      task = task,
+      id = 1,
+      status = TaskStatus.UNKNOWN,
+      submissionDate = None,
+      startDate = None,
+      resources = ResourceSet.empty,
+      endDate = None,
+      attemptIndex = 1,
+      script = null,
+      logFile = null
+    )
+    taskRunner.runTask(taskInfo=taskInfo, simulate=false) shouldBe true
+    val completedTask = taskRunner.getCompletedTasks()
+    completedTask.contains(1) shouldBe true
+    completedTask.get(1).value shouldBe (1, true)
+  }
 }

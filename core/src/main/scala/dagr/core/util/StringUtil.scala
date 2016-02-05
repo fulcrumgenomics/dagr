@@ -132,18 +132,24 @@ object StringUtil {
   }
 
   /** A simple version of Unix's `column` utility.  This assumes the table is NxM. */
-  def columnIt(rows: List[List[String]], delimiter: String = "  "): String = {
-    // get the number of columns
-    val numColumns = rows.head.size
-    // for each column, find the maximum length of a cell
-    val maxColumnLengths = 0.to(numColumns-1).map { i => rows.map(_(i).length).max }
-    // pad each row in the table
-    rows.map { row =>
-      0.to(numColumns-1).map { i =>
-        val cell = row(i)
-        val formatString = "%" + maxColumnLengths(i) + "s"
-        String.format(formatString, cell)
-      }.mkString(delimiter)
-    }.mkString("\n")
+  def columnIt(rows: List[List[String]], delimiter: String = " "): String = {
+    try {
+      // get the number of columns
+      val numColumns = rows.head.size
+      // for each column, find the maximum length of a cell
+      val maxColumnLengths = 0.to(numColumns - 1).map { i => rows.map(_ (i).length).max }
+      // pad each row in the table
+      rows.map { row =>
+        0.to(numColumns - 1).map { i =>
+          val cell = row(i)
+          val formatString = "%" + maxColumnLengths(i) + "s"
+          String.format(formatString, cell)
+        }.mkString(delimiter)
+      }.mkString("\n")
+    }
+    catch {
+      case ex: java.lang.IndexOutOfBoundsException =>
+        throw new IllegalArgumentException("columnIt failed.  Did you forget to input an NxM table?")
+    }
   }
 }

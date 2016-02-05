@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-6 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -57,10 +57,10 @@ class PathUtilTest extends UnitSpec {
   }
 
   "PathUtil.basename" should " correctly remove leading path and extension if present" in {
-    PathUtil.basename(Paths.get(".foo")) should be (".foo")
-    PathUtil.basename(Paths.get("/foo/bar/splat/wheee.txt")) should be ("wheee")
-    PathUtil.basename(Paths.get("/foo/bar/splat/wheee.txt"), trimExt=false) should be ("wheee.txt")
-    PathUtil.basename(Paths.get("wibble.txt"), trimExt=true) should be ("wibble")
+    PathUtil.basename(".foo", trimExt=true) should be (".foo")
+    PathUtil.basename("/foo/bar/splat/wheee.txt", trimExt=true) should be ("wheee")
+    PathUtil.basename("/foo/bar/splat/wheee.txt", trimExt=false) should be ("wheee.txt")
+    PathUtil.basename("wibble.txt", trimExt=true) should be ("wibble")
   }
 
   "PathUtil.sanitizeFileName" should "should replace illegal characters with underscores" in {

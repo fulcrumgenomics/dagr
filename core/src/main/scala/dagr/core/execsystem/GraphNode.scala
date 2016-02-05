@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-6 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -70,7 +70,7 @@ class GraphNode(val taskId: BigInt,
   /** Adds predecessor(s) associated with this node.
    *
    * @param predecessors the predecessor(s) to add
-   * @return true if the predecessor was not already added and added successfully, false otherwise
+   * @return true if any duplicate predecessor was found, include those already added, false otherwise
    */
   def addPredecessors(predecessors: GraphNode*): Boolean = {
     var missingParent: Boolean = false

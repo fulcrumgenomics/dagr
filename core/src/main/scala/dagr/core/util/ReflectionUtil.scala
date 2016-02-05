@@ -133,9 +133,17 @@ object ReflectionUtil {
     * Returns true if the symbol (class, field, arg) is annotated with a scala classfile annotation
     * of the provided type, otherwise returns false.
     */
-  def hasScalaAnnotation[A <: ClassfileAnnotation](sym: Symbol)(implicit evidence: ru.TypeTag[A]) : Boolean = {
-    val annotationType= mirror.typeOf[A]
+  def hasScalaAnnotation[A <: ClassfileAnnotation](sym: Symbol)(implicit evidence: ru.TypeTag[A]): Boolean = {
+    val annotationType = mirror.typeOf[A]
     sym.annotations.exists(a => a.tree.tpe == annotationType)
+  }
+
+  /**
+    * Returns true if the class of type C the symbol is annotated with a scala classfile annotation
+    * of type A, otherwise returns false.
+    */
+  def hasScalaAnnotation[A <: ClassfileAnnotation, C <: Any](implicit evA: ru.TypeTag[A], evC: ru.TypeTag[C]): Boolean = {
+    hasScalaAnnotation[A](mirror.typeOf[C].typeSymbol)
   }
 
   /**

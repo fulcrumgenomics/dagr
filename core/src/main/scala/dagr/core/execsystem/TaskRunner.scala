@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-6 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -87,7 +87,7 @@ class TaskRunner extends LazyLogging {
    *
    * @param timeout the length of time in milliseconds to wait for running threads to join
    * @param failedAreCompleted true if treat tasks that fail as completed by setting their task status to [[TaskStatus.SUCCEEDED]], false otherwise
-   * @return a map from task identifiers to exit code for all completed tasks.
+   * @return a map from task identifiers to exit code and on complete success for all completed tasks.
    */
   def getCompletedTasks(timeout: Int = 1000, failedAreCompleted: Boolean = false): Map[BigInt, (Int, Boolean)] = {
     val completedTasks: mutable.Map[BigInt, (Int, Boolean)] = new mutable.HashMap[BigInt, (Int, Boolean)]()
