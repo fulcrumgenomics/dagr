@@ -71,7 +71,6 @@ class ArgTokenCollator(argTokenizer: ArgTokenizer) extends Iterator[Try[ArgOptio
       case Success(ArgOptionAndValue(name, value)) => values += value; Success(name)
       case Success(ArgValue(value)) => Failure(new OptionNameException(s"Illegal option: '$value'"))
       case Failure(ex) => Failure(ex)
-      case Success(tok) => throw new IllegalStateException(s"Unknown token: '${tok.getClass.getSimpleName}")
     }
     nameTry match {
       case Failure(ex) => this.nextOption = Some(Failure(ex))

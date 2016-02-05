@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,39 +21,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.core.cmdline.parsing.testing.simple
 
-import dagr.core.cmdline._
-import dagr.core.tasksystem.{Pipeline}
+package dagr.core.cmdline
 
-/** For testing the ability to find and filter classes with the CLP property */
+import dagr.core.util.{Logger, LogLevel, UnitSpec, Io}
+import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
 
-@CLP(description = "", hidden = false) abstract class NoOpCommandLineTask extends Pipeline {
-  override def build(): Unit = Unit
-}
-
-@CLP(description = "", hidden = false) class InClass extends NoOpCommandLineTask
-
-@CLP(description = "", hidden = false) class InClass2 extends Pipeline {
-  override def build(): Unit = {}
-}
-
-@CLP(description = "", hidden = true) class OutClass extends NoOpCommandLineTask
-
-@CLP(description = "", hidden = true) class Out2Class
-
-class Out3Class
-
-@CLP(description = "", hidden = false) trait OutClass4
-
-/** For testing simple name collisions */
-object DirOne {
-  @CLP(description = "", hidden = true) class CollisionPipeline extends Pipeline {
-    override def build(): Unit = Unit
+class NoOpPipeline extends Pipeline {
+  override def build(): Unit = {
+    root ==> new NoOpInJvmTask("NoOpInJvmTask")
   }
 }
-object DirTwo {
-  @CLP(description = "", hidden = true) class CollisionPipeline extends Pipeline {
-    override def build(): Unit = Unit
+
+class DagrCoreMainTest extends UnitSpec {
+  "DagrCoreMain.execute" should "run a pipeline end-to-end" in {
+    val clp = new DagrCoreMain(logLevel=LogLevel.Fatal, report=Some(Io.DevNull))
+    val pipeline = new NoOpPipeline()
+
+    clp.configure(pipeline)
+    clp.execute(pipeline) shouldBe 0
+
+    // NB: need to set the log level back
+    Logger.level = LogLevel.Info
   }
 }

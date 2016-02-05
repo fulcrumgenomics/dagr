@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,10 +24,9 @@
 package dagr.core.cmdline.parsing
 
 import dagr.core.cmdline._
+import dagr.core.cmdline.parsing.CommandLineParserStrings._
 import dagr.core.tasksystem.Task
-import dagr.core.util.{LogLevel, ReflectionUtil, UnitSpec}
-import dagr.sopt.{OptionSpecifiedMultipleTimesException, TooManyValuesException}
-import CommandLineParserStrings._
+import dagr.core.util.{LogLevel, UnitSpec}
 import org.scalatest.OptionValues
 
 import scala.collection.Map
@@ -177,6 +176,13 @@ private[cmdline] case class MutexArguments @CLPConstructor
 )
 
 @CLP(description = "", group = classOf[TestGroup], hidden = true)
+private[cmdline] case class MissingMutexArguments @CLPConstructor
+(
+  @Arg(mutex = Array("B")) var A: String = null,
+  @Arg(mutex = Array("C")) var B: String = null // C should not be found
+)
+
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class MapCollectionArgument @CLPConstructor
 (
   @Arg var map: Map[String,String] = new HashMap[String,String]()
@@ -209,7 +215,7 @@ private case class PrivateArguments @CLPConstructor
 @CLP(description = "", group = classOf[TestGroup], hidden = true)
 private case class ValFlagClass @CLPConstructor
 (
-  @Arg val flag: Boolean = false
+  @Arg flag: Boolean = false
 ) extends CommandLineTaskTesting
 
 @CLP(description = "", group = classOf[TestGroup], hidden = true)
@@ -829,6 +835,10 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
 
   it should "fail when specifying multiple arguments with arguments that are mutually exclusive" in {
     doFailingMutextTest(Array[String]("-A", "1", "-B", "2", "-Y", "3", "-Z", "1", "-M", "2", "-N", "3"))
+  }
+
+  it should "throw a BadAnnotationException when an argument named in a mutex cannot be found" in {
+    an[BadAnnotationException] should be thrownBy parser(classOf[MissingMutexArguments])
   }
 
   it should "accept arguments with uninitialized collections" in {

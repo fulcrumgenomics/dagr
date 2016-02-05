@@ -159,7 +159,7 @@ class DagrCoreMain(
     * Attempts to setup the various directories needed to executed the pipeline, execute it, and generate
     * an execution report.
     */
-  protected def execute(pipeline : Pipeline): Int = {
+  protected[cmdline] def execute(pipeline : Pipeline): Int = {
     val taskMan = this.taskManager.getOrElse(throw new IllegalStateException("execute() called before configure()"))
     val report  = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
 

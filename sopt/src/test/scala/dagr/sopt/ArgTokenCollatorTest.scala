@@ -27,7 +27,7 @@ package dagr.sopt
 import dagr.sopt.util.UnitSpec
 import dagr.sopt.ArgTokenizer.{ArgOptionAndValue, ArgValue, Token, ArgOption}
 
-import scala.util.{Success, Failure}
+import scala.util.{Try, Success, Failure}
 
 
 class ArgTokenCollatorTest extends UnitSpec {
@@ -56,5 +56,32 @@ class ArgTokenCollatorTest extends UnitSpec {
     ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(tryToken = Success(ArgOption("name")), "name")
   }
 
-  // TODO: add moar tests
+  "ArgTokenCollator.hasNext" should "should return true when starting with an ArgValue but the returned value should be a failure" in {
+    val tokenizer = new ArgTokenizer("value")
+    val collator = new ArgTokenCollator(tokenizer)
+    collator.hasNext shouldBe true
+    collator.isEmpty shouldBe false
+    val n = collator.next
+    n.isFailure shouldBe true
+    n.failed.get.getClass shouldBe classOf[OptionNameException]
+  }
+
+  "ArgTokenCollator.advance" should "should group values for the same option" in {
+    val tokenizer = new ArgTokenizer("-v", "value", "-v", "value", "value")
+    val collator = new ArgTokenCollator(tokenizer)
+    val tokens = collator.toSeq
+    tokens.size shouldBe 2
+    // token 1
+    var tokenTry = tokens.head
+    tokenTry.isSuccess shouldBe true
+    var token = tokenTry.get
+    token.name shouldBe "v"
+    token.values shouldBe Seq("value")
+    // token 2
+    tokenTry = tokens.last
+    tokenTry.isSuccess shouldBe true
+    token = tokenTry.get
+    token.name shouldBe "v"
+    token.values shouldBe Seq("value", "value")
+  }
 }

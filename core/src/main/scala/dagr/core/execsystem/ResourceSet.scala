@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-6 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +24,7 @@
 package dagr.core.execsystem
 
 object ResourceSet {
-  def apply(that: ResourceSet): ResourceSet = new ResourceSet(cores = that.cores, memory = that.memory)
+  def apply(that: ResourceSet): ResourceSet = new ResourceSet(cores = Cores(that.cores.cores), memory = Memory(that.memory.value))
   def apply(cores: Double, memory: Long) = new ResourceSet(Cores(cores), Memory(memory))
 
   val empty = ResourceSet(0, 0)

@@ -23,10 +23,11 @@
  */
 package dagr.core.cmdline.parsing
 
-import java.lang.reflect.{Field, InvocationTargetException, Modifier}
+import java.lang.reflect.{InvocationTargetException, Modifier}
 import java.nio.file.{Path, Paths}
 
 import dagr.core.cmdline.{ClassFinder, CLPAnnotation, _}
+import dagr.core.config.Configuration
 import dagr.core.tasksystem.Pipeline
 import dagr.core.util.ReflectionUtil
 
@@ -35,15 +36,17 @@ import scala.collection.immutable.Map
 import scala.collection.mutable.ListBuffer
 
 /** Variables and Methods to support command line parsing */
-private[parsing] object ParsingUtil {
+private[parsing] object ParsingUtil extends Configuration  {
   /** Gets the [[CLPAnnotation]] annotation on this class */
   def findClpAnnotation(clazz: Class[_]): Option[CLPAnnotation] = {
     ReflectionUtil.findJavaAnnotation(clazz, classOf[CLPAnnotation])
   }
 
+  private lazy val printColor: Boolean = optionallyConfigure[Boolean](Configuration.Keys.ColorStatus).getOrElse(false)
+
   /** Initializes the color for printing */
   private def initializeColor(color: String): String = {
-    if (CommandLineDefaults.COLOR_STATUS) color
+    if (printColor) color
     else ""
   }
 

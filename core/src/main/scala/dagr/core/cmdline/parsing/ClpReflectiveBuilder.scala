@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-6 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -140,12 +140,12 @@ private[parsing] class ClpArgument(declaringClass: Class[_],
   /** true if the field was set by the user */
   private[parsing] var isSetByUser: Boolean = false // NB: only true when [[setArgument]] is called, vs. this.value =
 
-  lazy val isSpecial: Boolean   = annotation.map(_.special()).getOrElse(false)
-  lazy val isSensitive: Boolean = annotation.map(_.sensitive()).getOrElse(false)
+  lazy val isSpecial: Boolean   = annotation.exists(_.special())
+  lazy val isSensitive: Boolean = annotation.exists(_.sensitive())
   lazy val longName: String     = if (annotation.isDefined && annotation.get.name.nonEmpty) annotation.get.name else StringUtil.camelToGnu(name)
   lazy val shortName: String    = annotation.map(_.flag()).getOrElse("")
   lazy val doc: String          = annotation.map(_.doc()).getOrElse("")
-  lazy val isCommon: Boolean    = annotation.map(_.common()).getOrElse(false)
+  lazy val isCommon: Boolean    = annotation.exists(_.common())
   lazy val minElements: Int     = if (isCollection) annotation.map(_.minElements).getOrElse(1) else throw new IllegalStateException("Calling minElements on an argument that is not a collection.")
   lazy val maxElements: Int     = if (isCollection) annotation.map(_.maxElements).getOrElse(Integer.MAX_VALUE) else throw new IllegalStateException("Calling minElements on an argument that is not a collection.")
 
@@ -157,7 +157,7 @@ private[parsing] class ClpArgument(declaringClass: Class[_],
     * only be called once, after which repeated calls will throw an exception.
     */
   @SuppressWarnings(Array("unchecked"))
-  def setArgument(values: List[String]) : Unit = {
+  def setArgument(values: String*) : Unit = {
     if (isFlag && values.isEmpty) {
       this.value = true
     }

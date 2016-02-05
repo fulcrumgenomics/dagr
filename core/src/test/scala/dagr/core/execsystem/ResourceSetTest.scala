@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,39 +21,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.core.cmdline.parsing.testing.simple
 
-import dagr.core.cmdline._
-import dagr.core.tasksystem.{Pipeline}
+package dagr.core.execsystem
 
-/** For testing the ability to find and filter classes with the CLP property */
+import dagr.core.util.UnitSpec
 
-@CLP(description = "", hidden = false) abstract class NoOpCommandLineTask extends Pipeline {
-  override def build(): Unit = Unit
-}
-
-@CLP(description = "", hidden = false) class InClass extends NoOpCommandLineTask
-
-@CLP(description = "", hidden = false) class InClass2 extends Pipeline {
-  override def build(): Unit = {}
-}
-
-@CLP(description = "", hidden = true) class OutClass extends NoOpCommandLineTask
-
-@CLP(description = "", hidden = true) class Out2Class
-
-class Out3Class
-
-@CLP(description = "", hidden = false) trait OutClass4
-
-/** For testing simple name collisions */
-object DirOne {
-  @CLP(description = "", hidden = true) class CollisionPipeline extends Pipeline {
-    override def build(): Unit = Unit
+class ResourceSetTest extends UnitSpec {
+  "ResourceSet.isEmpty" should "return true for the empty resource set" in {
+    ResourceSet.empty.isEmpty shouldBe true
   }
-}
-object DirTwo {
-  @CLP(description = "", hidden = true) class CollisionPipeline extends Pipeline {
-    override def build(): Unit = Unit
+
+  "ResourceSet" should "add and subtract resources" in {
+    val original = ResourceSet(10, 10)
+    val middle = ResourceSet(original)
+    var running = original + middle
+    running.cores.cores shouldBe 20
+    running.memory.value shouldBe 20
+    running = running - middle
+    running.cores.cores shouldBe 10
+    running.memory.value shouldBe 10
+    running = running - Cores(10)
+    running.cores.cores shouldBe 0
   }
 }

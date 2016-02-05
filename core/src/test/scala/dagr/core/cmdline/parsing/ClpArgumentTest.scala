@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-6 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,11 +24,11 @@
 package dagr.core.cmdline.parsing
 import java.nio.file.{Path, Paths}
 
-import dagr.core.cmdline.Arg
+import dagr.core.cmdline.{UserException, Arg}
 import dagr.core.util.UnitSpec
-import org.scalatest.{OptionValues}
+import org.scalatest.OptionValues
 
-object ClpArgumentDefinitionTest {
+object ClpArgumentTest {
   type PathToNowhere = java.nio.file.Path
   case class BooleanClass(@Arg var aBool: Boolean)
   case class PathClass(@Arg var aPath: Path)
@@ -40,17 +40,17 @@ object ClpArgumentDefinitionTest {
   case class NoAnnotationNoDefault(var Boolean: Int)
 }
 
-class ClpArgumentDefinitionTest extends UnitSpec with OptionValues {
-  import ClpArgumentDefinitionTest._
+class ClpArgumentTest extends UnitSpec with OptionValues {
+  import ClpArgumentTest._
 
-  /** Helper function to create a single ArgumentDefinition for a class with a single constructor arg. */
+  /** Helper function to create a single ClpArgument for a class with a single constructor arg. */
   def makeClpArgument(clazz : Class[_], defaultValue: Any) : ClpArgument = {
     val arg = new ClpReflectiveBuilder(clazz).argumentLookup.view.head
     arg.value = defaultValue
     arg
   }
 
-  "ArgumentDefinition should" should "store a boolean field" in {
+  "ClpArgument should" should "store a boolean field" in {
     val argument = makeClpArgument(classOf[BooleanClass], false)
     argument.isFlag should be(true)
     argument.value.get should be(false.asInstanceOf[Any])
@@ -63,9 +63,18 @@ class ClpArgumentDefinitionTest extends UnitSpec with OptionValues {
     argument.value.get should be(true.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(true)
     // try with setArgument
-    argument.setArgument(List("false"))
+    argument.setArgument("false")
     argument.value.get should be(false.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(false)
+    // try with setArgument with no value
+    argument.setArgument()
+    argument.value.get should be(true.asInstanceOf[Any])
+    argument.value.get.asInstanceOf[Boolean] should be(true)
+    // try with setArgument with one value
+    an[IllegalStateException] should be thrownBy argument.setArgument("false")
+    // try with multiple values
+    argument.isSetByUser = false // override
+    an[UserException] should be thrownBy argument.setArgument("a", "b")
   }
 
   it should "store a Path" in {
@@ -81,7 +90,7 @@ class ClpArgumentDefinitionTest extends UnitSpec with OptionValues {
     argument.value.get should be(newPath.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Path] should be(newPath)
     // try with setArgument
-    argument.setArgument(List(path.toString))
+    argument.setArgument(path.toString)
     argument.value.get should be(path.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Path] should be(path)
   }
@@ -102,7 +111,7 @@ class ClpArgumentDefinitionTest extends UnitSpec with OptionValues {
     argument.value.get.asInstanceOf[Seq[_]] should be(newSeq)
     argument.value.get.asInstanceOf[Seq[_]](3) should be(4)
     // try with setArgument
-    argument.setArgument(seq.map(i => i.toString).toList)
+    argument.setArgument(seq.map(i => i.toString):_*)
     argument.value.get.asInstanceOf[Seq[_]].toList should be(seq.map(_.toString))
     argument.value.get.asInstanceOf[Seq[_]](2) should be("3")
   }
@@ -123,7 +132,7 @@ class ClpArgumentDefinitionTest extends UnitSpec with OptionValues {
     argument.value.get.asInstanceOf[Seq[_]] should be(newSeq)
     argument.value.get.asInstanceOf[Seq[_]](3) should be(4)
     // try with setArgument
-    argument.setArgument(seq.map(i => i.toString).toList)
+    argument.setArgument(seq.map(i => i.toString):_*)
     argument.value.get.asInstanceOf[Seq[_]].toList should be(seq) // major difference #1 : this is an int
     argument.value.get.asInstanceOf[Seq[_]](2) should be(3) // major difference #2 : this is an int
   }
@@ -143,7 +152,7 @@ class ClpArgumentDefinitionTest extends UnitSpec with OptionValues {
     argument.value.get.asInstanceOf[Option[PathToNowhere]] should be (aNewPath)
     argument.value.get.asInstanceOf[Option[PathToNowhere]].value should be (aNewPath.get)
     // try with setArgument
-    argument.setArgument(List(aPath.get.toString))
+    argument.setArgument(aPath.get.toString)
     argument.value.get shouldBe aPath.asInstanceOf[Any]
     argument.value.get.asInstanceOf[Option[PathToNowhere]] should be (aPath)
     argument.value.get.asInstanceOf[Option[PathToNowhere]].value should be (aPath.get)
@@ -170,7 +179,7 @@ class ClpArgumentDefinitionTest extends UnitSpec with OptionValues {
     argument.value.get should be(true.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(true)
     // try with setArgument
-    argument.setArgument(List("false"))
+    argument.setArgument("false")
     argument.value.get should be(false.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(false)
   }

@@ -116,13 +116,7 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
 
   protected def targetName: String = targetClass.getSimpleName
 
-  /**
-    * Creates argument definitions for all the fields in the provided class, and stores them in the
-    * provided ArgumentLookup.
-    */
-  private[parsing] def createArgumentDefinitions(declaringClass: Class[_], lookup: ClpArgumentLookup): Unit = {
-    new ClpReflectiveBuilder(declaringClass).argumentLookup.view.foreach(lookup.add)
-
+  private[parsing] def setMutexArguments(lookup: ClpArgumentLookup): Unit = {
     // set mutex arguments
     lookup.ordered.filterNot(_.omitFromCommandLine).foreach { argumentDefinition: ClpArgument =>
       val argumentAnnotation = argumentDefinition.annotation
@@ -137,6 +131,15 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
         }
       }
     }
+  }
+
+  /**
+    * Creates argument definitions for all the fields in the provided class, and stores them in the
+    * provided ArgumentLookup.
+    */
+  private[parsing] def createArgumentDefinitions(declaringClass: Class[_], lookup: ClpArgumentLookup): Unit = {
+    new ClpReflectiveBuilder(declaringClass).argumentLookup.view.foreach(lookup.add)
+    setMutexArguments(lookup=lookup)
   }
 
   /**
@@ -218,7 +221,7 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
       // set the values
       parser.foreach {
         case (name: String, values: List[String]) =>
-          this.argumentLookup.forArg(name).get.setArgument(values)
+          this.argumentLookup.forArg(name).get.setArgument(values:_*)
         case _ =>
           throw new IllegalStateException("Parser returned an unexpected set of values")
       }

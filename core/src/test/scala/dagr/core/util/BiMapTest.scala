@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,39 +21,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.core.cmdline.parsing.testing.simple
 
-import dagr.core.cmdline._
-import dagr.core.tasksystem.{Pipeline}
+package dagr.core.util
 
-/** For testing the ability to find and filter classes with the CLP property */
-
-@CLP(description = "", hidden = false) abstract class NoOpCommandLineTask extends Pipeline {
-  override def build(): Unit = Unit
-}
-
-@CLP(description = "", hidden = false) class InClass extends NoOpCommandLineTask
-
-@CLP(description = "", hidden = false) class InClass2 extends Pipeline {
-  override def build(): Unit = {}
-}
-
-@CLP(description = "", hidden = true) class OutClass extends NoOpCommandLineTask
-
-@CLP(description = "", hidden = true) class Out2Class
-
-class Out3Class
-
-@CLP(description = "", hidden = false) trait OutClass4
-
-/** For testing simple name collisions */
-object DirOne {
-  @CLP(description = "", hidden = true) class CollisionPipeline extends Pipeline {
-    override def build(): Unit = Unit
-  }
-}
-object DirTwo {
-  @CLP(description = "", hidden = true) class CollisionPipeline extends Pipeline {
-    override def build(): Unit = Unit
+class BiMapTest extends UnitSpec {
+  "BiMap.removeKey" should "remove the key and associated value from the map, and return true only if it exists" in {
+    val map = new BiMap[Int, String]()
+    map.add(1, "1")
+    map.add(2, "2")
+    map.size shouldBe 2
+    map.removeKey(0) shouldBe false
+    map.size shouldBe 2
+    map.removeKey(1) shouldBe true
+    map.size shouldBe 1
+    map.removeKey(2) shouldBe true
+    map.isEmpty shouldBe true
   }
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-6 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -61,7 +61,7 @@ object Resource {
     // not a number, so try pattern matching
     val pattern: Pattern = Pattern.compile("([\\d.]+)([PTGMK]B?)", Pattern.CASE_INSENSITIVE)
     val matcher: Matcher = pattern.matcher(value.toLowerCase) // ignore case
-    if (!matcher.find()) -1 // no match found
+    if (!matcher.find()) return -1 // no match found
     val number: String = matcher.group(1)
     var power: String = matcher.group(2)
     if (!power.endsWith("b")) power = power + "b" // for matching below

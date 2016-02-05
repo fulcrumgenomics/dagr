@@ -23,10 +23,11 @@
  */
 package dagr.core.cmdline.parsing
 
-import java.lang.reflect.Field
+import java.lang.reflect.{InvocationTargetException, Field}
 import java.nio.file.Paths
 
-import dagr.core.util.{ReflectionUtil, LogLevel, UnitSpec}
+import dagr.core.cmdline.{BadArgumentValue, CommandLineParserInternalException, CommandLineException}
+import dagr.core.util.{LogLevel, UnitSpec}
 import org.scalatest.{OptionValues, PrivateMethodTester}
 
 object ParsingUtilTest {
@@ -49,6 +50,10 @@ class ParsingUtilTest extends UnitSpec with OptionValues with PrivateMethodTeste
     map should not contain key (classOf[OutClass])
     map should not contain key (classOf[Out2Class])
     map should not contain key (classOf[Out3Class])
+  }
+
+  it should "throw a CommandLineException when two Pipelines have the same simple name" in {
+    an[CommandLineException] should be thrownBy findPipelineClasses(List("dagr.core.cmdline.parsing.testing.simple"), includeHidden = true)
   }
 
 //  it should "find classes that are missing the annotation @CLP" in {
@@ -177,5 +182,28 @@ class ParsingUtilTest extends UnitSpec with OptionValues with PrivateMethodTeste
   it should "not treat the argument value 'null' as anything special" in {
     //canBeMadeFromString("seq", classOf[Set[_]], classOf[SeqClass]) shouldBe true
     constructFromString(classOf[Seq[_]], classOf[String], "prefix", "null", "suffix") shouldBe Seq("prefix", "null", "suffix")
+  }
+
+  class NoStringCtor(v: Int)
+  it should "not be able to construct from string for a class with no string ctor" in {
+    an[CommandLineParserInternalException] should be thrownBy constructFromString(classOf[NoStringCtor], classOf[NoStringCtor], "notAnInt")
+  }
+
+  abstract class AbstractClass(v: Int)
+  it should "not be able to construct from string for an abstract class" in {
+    an[CommandLineParserInternalException] should be thrownBy constructFromString(classOf[AbstractClass], classOf[AbstractClass], "notAnInt")
+  }
+
+  private class PrivateClass(v: String)
+  it should "not be able to construct from string for an private class" in {
+    an[CommandLineParserInternalException] should be thrownBy constructFromString(classOf[PrivateClass], classOf[PrivateClass], "notAnInt")
+  }
+
+  it should "not be able to construct a Seq[Int] when a bad value for the Int(s) are given" in {
+    an[BadArgumentValue] should be thrownBy constructFromString(classOf[Seq[Int]], classOf[Int], "prefix", "null", "suffix")
+  }
+
+  it should "not be able to construct a java collection with a bad value for its type" in {
+    an[InvocationTargetException] should be thrownBy getFromString(classOf[java.util.Set[Int]], classOf[Int], "blah balh")
   }
 }

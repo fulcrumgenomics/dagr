@@ -26,7 +26,7 @@ package dagr.core.util
 import java.util
 import java.util.concurrent.TimeUnit
 
-import scala.annotation.{ClassfileAnnotation, StaticAnnotation}
+import scala.annotation.ClassfileAnnotation
 import scala.reflect.runtime.{universe => ru}
 
 object ReflectionUtilTest {
@@ -50,7 +50,7 @@ class ReflectionUtilTest extends UnitSpec {
     Seq("1", "2", "3").foreach { v => c should contain(v) }
   }
 
-  "ReflectionHelper.newJavaCollectionInstance" should "create a java.util.Collection[_]" in {
+  "ReflectionUtil.newJavaCollectionInstance" should "create a java.util.Collection[_]" in {
     newJavaCollectionInstanceTest(clazz = classOf[java.util.Collection[_]])
   }
 
@@ -171,6 +171,10 @@ class ReflectionUtilTest extends UnitSpec {
     }
   }
 
+  "ReflectionUtil.isEmptyCollection" should "throw an IllegalArgumentException if the type was not a collection" in {
+    an[IllegalArgumentException] should be thrownBy ReflectionUtil.isEmptyCollection(value=2)
+  }
+
 }
 
 
@@ -189,22 +193,22 @@ class EnumAnn(val e:TimeUnit= TimeUnit.MINUTES) extends ClassfileAnnotation {
 @EnumAnn class EnumAnnotated
 @EnumAnn(e=TimeUnit.DAYS) class EnumAnnotatedWaiting
 
-case class InnerEnumAnn(val state: Thread.State = Thread.State.NEW) extends ClassfileAnnotation
+case class InnerEnumAnn(state: Thread.State = Thread.State.NEW) extends ClassfileAnnotation
 @InnerEnumAnn(state=Thread.State.BLOCKED) class InnerEnumAnnotated
 
-case class ArrayAnn(val ss: Array[String] = Array()) extends ClassfileAnnotation {
+case class ArrayAnn(ss: Array[String] = Array()) extends ClassfileAnnotation {
   override def equals(that: scala.Any): Boolean = this.ss.toSeq == that.asInstanceOf[ArrayAnn].ss.toSeq
   override def toString: String = "@ArrayAnn(ss=" + ss.mkString("[", ", ", "]") + ")"
 }
 @ArrayAnn class ArrWithDefault
 @ArrayAnn(ss=Array("foo", "bar", "splat")) class ArrWithElems
 
-case class ClassAnn(val c: Class[_] = classOf[Any]) extends ClassfileAnnotation
+case class ClassAnn(c: Class[_] = classOf[Any]) extends ClassfileAnnotation
 @ClassAnn(c=classOf[Thread]) class ClassAnnotated
 
 /** Tests for the various annotation finding/extracting methods. Separated out here so that all
   * the annotations and annotated classes can be directly above without being inner classes of
-  * the preceeding test class.
+  * the preceding test class.
   */
 class ReflectUtilAnnotationTest extends UnitSpec {
   "ReflectionUtil.findAnnotation" should "find an annotation with all default values" in {
@@ -243,5 +247,10 @@ class ReflectUtilAnnotationTest extends UnitSpec {
 
   it should "work with Class values in annotations" in {
     ReflectionUtil.findScalaAnnotation[ClassAnn,ClassAnnotated] shouldBe Some(new ClassAnn(c=classOf[Thread]))
+  }
+
+  "ReflectionUtil.hasScalaAnnotation" should "return if the symbol is annotated with a scala annotation" in {
+    ReflectionUtil.hasScalaAnnotation[ClassAnn,ClassAnnotated] shouldBe true
+    ReflectionUtil.hasScalaAnnotation[EnumAnn,ClassAnnotated] shouldBe false
   }
 }

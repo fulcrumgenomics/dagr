@@ -27,6 +27,8 @@ package dagr.sopt
 import dagr.sopt.util.UnitSpec
 import dagr.sopt.OptionLookup.{OptionType, OptionAndValues}
 
+import scala.util.Try
+
 /** Tests OptionLookup */
 class OptionLookupTest extends UnitSpec {
   "OptionLookup.convertFlagValue" should "convert the flag value to a recognized value" in {
@@ -210,6 +212,35 @@ class OptionLookupTest extends UnitSpec {
     optionLookup.hasOptionName("") shouldBe false // all options with the given prefix
   }
 
+  "OptionLookup.hasOptionValues" should "be true if `getOptionValues` were to return at least one value" in {
+    new OptionLookup {}.acceptMultipleValues("name").foreach { optionLookup =>
+      optionLookup.hasOptionValues("name") shouldBe false
+      optionLookup.addOptionValues("name", "value")
+      optionLookup.hasOptionValues("name") shouldBe true
+      optionLookup.addOptionValues("name", "value")
+      optionLookup.hasOptionValues("name") shouldBe true
+    }
+  }
+
+  "OptionLookup.getSingleValues" should "return the single value for the option with the given name or prefix, or a failure." in {
+    new OptionLookup {}.acceptMultipleValues("name").foreach { optionLookup =>
+      // empty
+      var value: Try[String] = optionLookup.getSingleValues("name")
+      value.isFailure shouldBe true
+      value.failed.get.getClass shouldBe classOf[IllegalOptionNameException]
+      // one element
+      optionLookup.addOptionValues("name", "value")
+      value = optionLookup.getSingleValues("name")
+      value.isSuccess shouldBe true
+      value.get shouldBe "value"
+      // two elements
+      optionLookup.addOptionValues("name", "proposition")
+      value = optionLookup.getSingleValues("name")
+      value.isFailure shouldBe true
+      value.failed.get.getClass shouldBe classOf[IllegalOptionNameException]
+    }
+  }
+
   "OptionLookup.getOptionValues" should "get options that exist including prefixes of option names" in {
     import OptionLookupWithPrefixes._
     Seq(name1, name2, name3).foreach(name => optionLookup.getOptionValues(name).get shouldBe List(s"$name-value"))
@@ -264,7 +295,37 @@ class OptionLookupTest extends UnitSpec {
     returnValue.failed.get.getClass shouldBe classOf[DuplicateOptionNameException]
   }
 
-  // TODO: validate option names...
+  "OptionLookup.OptionAndValues.add" should "return a failure with a IllegalOptionNameException when none if its names match the given name" in {
+    val optionAndValues = new OptionAndValues(optionType=OptionType.Flag, Seq("some", "names", "go", "here"))
+    val result = optionAndValues.add("not a name", "value")
+    result.isFailure shouldBe true
+    result.failed.get.getClass shouldBe classOf[IllegalOptionNameException]
+  }
 
-  // TODO: -f -f for a flag...
+  "OptionLookup.OptionAndValues.isEmpty" should "should return true if no values have been added, false otherwise" in {
+    val optionAndValues = new OptionAndValues(optionType=OptionType.SingleValue, Seq("name"))
+    optionAndValues.isEmpty shouldBe true
+    optionAndValues.add("name", "value")
+    optionAndValues.isEmpty shouldBe false
+  }
+
+  "OptionLookup.printUnknown" should "throw an IllegalStateException when a name matches exactly" in {
+    import OptionLookupWithPrefixes._
+    an[IllegalStateException] should be thrownBy optionLookup.printUnknown(name1)
+  }
+
+  it should "return an empty string floor when the match is beyond the edit distance" in {
+    import OptionLookupWithPrefixes._
+    optionLookup.printUnknown(name1 + "abcdefghijklmnopqrstuvwxyz") shouldBe ""
+  }
+
+  it should "the next-best option name when within the edit distance" in {
+    val name1 = "name1"
+    var optionLookup = new OptionLookup {}.acceptMultipleValues(name1).get
+    optionLookup.printUnknown("name3").indexOf(name1) should be > 0
+    val name2 = "name2"
+    optionLookup = optionLookup.acceptMultipleValues(name2).get
+    optionLookup.printUnknown("name3").indexOf(name1) should be > 0
+    optionLookup.printUnknown("name3").indexOf(name2) should be > 0
+  }
 }

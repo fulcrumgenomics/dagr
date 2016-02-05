@@ -123,10 +123,12 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
     // A simple in-jvm task that can run with either 32M or 16M of memory
     val task: UnitTask = new InJvmTask {
       override def inJvmMethod(): Int = 0
+
       override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = {
         availableResources.subset(Cores(1), Memory("32M")) orElse
           availableResources.subset(Cores(1), Memory("16M"))
       }
+
       name = "in jvm task"
     }
 
@@ -175,8 +177,9 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
     // A task that would like 1-8 cores each
     class HungryTask extends ProcessTask {
       override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = {
-        availableResources.subset(minCores=Cores(1), maxCores=Cores(8), memory=Memory("1g"))
+        availableResources.subset(minCores = Cores(1), maxCores = Cores(8), memory = Memory("1g"))
       }
+
       override val args = List.empty
     }
     val readyTasks = List(new HungryTask, new HungryTask, new HungryTask)
@@ -185,5 +188,29 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
     tupleOption shouldBe 'defined
     val resourceSet = tupleOption.get._2
     resourceSet.cores.value should be <= systemCores.value
+  }
+
+  class NotATask extends UnitTask {
+    override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = None
+  }
+
+  it should "throw an IllegalArgumentException when neither a ProcessTask nor a InJvmTask is given for runningTasks." in {
+    an[java.lang.IllegalArgumentException] should be thrownBy scheduler.schedule(
+      runningTasks = Map[UnitTask, ResourceSet](new NotATask -> ResourceSet(1, 1)),
+      readyTasks = Nil,
+      systemCores = Cores(1),
+      systemMemory = Memory(1),
+      jvmMemory = Memory(1)
+    )
+  }
+
+  it should "throw an IllegalArgumentException when neither a ProcessTask nor a InJvmTask is given for readyTasks." in {
+    an[java.lang.IllegalArgumentException] should be thrownBy scheduler.schedule(
+      runningTasks = Map.empty[UnitTask, ResourceSet],
+      readyTasks = Seq(new NotATask),
+      systemCores = Cores(1),
+      systemMemory = Memory(1),
+      jvmMemory = Memory(1)
+    )
   }
 }
