@@ -36,7 +36,7 @@ import dagr.core.util.LazyLogging
  * When a unit task gets scheduled, the [[dagr.core.execsystem.Scheduler.schedule]] method will be called to allow any final
  * logic based on the resources this task was scheduled with.  This is in addition to the steps listed in [[Task]].
  */
-abstract class UnitTask extends Task with LazyLogging with Schedulable {
+trait UnitTask extends Task with LazyLogging with Schedulable {
   /** Get the list of tasks to execute.
     *
     * For UnitTask and any class that extends it, if the task wishes to be directly executed,

@@ -150,7 +150,7 @@ object Task {
  * 4. If a task failed during execution or within [[onComplete]], the [[retry]]
  *    method will be called until the task no longer wishes to retry or succeeds.
  */
-abstract class Task extends Dependable {
+trait Task extends Dependable {
   // A string set by the enclosing workflow to distinguish the task
   private[tasksystem] var contextName : Option[String] = None
 
