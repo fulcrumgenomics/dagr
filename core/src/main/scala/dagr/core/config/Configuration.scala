@@ -24,7 +24,7 @@
 package dagr.core.config
 
 import java.io.File
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import java.time.Duration
 
 import com.typesafe.config.ConfigException.Generic
@@ -40,7 +40,9 @@ import scala.reflect.runtime.universe.{TypeTag, typeOf}
   * Companion object to the Configuration trait that keeps track of all configuration keys
   * that have been requested so that they can be reported later if desired.
   */
-private[core] object Configuration extends ConfigurationLike {
+object Configuration extends ConfigurationLike {
+  // Developer Note: [[Configuration]] is not private so that [[Configuration.Keys]] is public
+
   // A sorted set tracking all the configuration keys that are requested
   private[config] val RequestedKeys = collection.mutable.TreeSet[String]()
 
@@ -66,7 +68,7 @@ private[core] object Configuration extends ConfigurationLike {
     * configuration information from the system properties (higher priority), application.conf and
     * reference.conf files (lower priority).
     */
-  def initialize(path: Option[Path]): Unit = path match {
+  private[core] def initialize(path: Option[Path]): Unit = path match {
     case None    =>
       this._config = ConfigFactory.load()
     case Some(p) =>
@@ -83,17 +85,17 @@ private[core] object Configuration extends ConfigurationLike {
   }
 
   /** Allows initialization with a custom configuration. */
-  def initialize(customConfig : Config) : Unit = this._config = customConfig
+  private[core] def initialize(customConfig: Config): Unit = this._config = customConfig
 
   /** Returns a sorted set of all keys that have been requested up to this point in time. */
-  def requestedKeys : SortedSet[String] = {
+  private[core] def requestedKeys: SortedSet[String] = {
     var keys = collection.immutable.TreeSet[String]()
     keys ++= RequestedKeys
     keys
   }
 
   /** The name of this unified command line program **/
-  def commandLineName: String = configure(Keys.CommandLineName, "Dagr")
+  private[core] def commandLineName: String = configure(Keys.CommandLineName, "Dagr")
 }
 
 /**

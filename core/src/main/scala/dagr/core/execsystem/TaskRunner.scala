@@ -31,8 +31,73 @@ import dagr.core.util.LazyLogging
 
 import scala.collection.mutable
 
+private object TaskRunner {
+
+  abstract class TaskRunnable(task: UnitTask) extends Runnable {
+    var exitCode: Int = -1
+    var onCompleteSuccessful: Option[Boolean] = None
+    var throwable: Option[Throwable] = None
+  }
+
+  /** Simple class that runs the given task.  Wrap this in a thread,
+    * and will set the exit code to one if the parent thread was interrupted,
+    * otherwise the exit code will be set to that of the task's process.
+    *
+    * @param task the task to run
+    * @param script the location of the task's script
+    * @param logFile the location of the task's log file
+    */
+  class SingleTaskRunner(task: ProcessTask, script: Path, logFile: Path) extends TaskRunnable(task = task) {
+
+    override def run(): Unit = {
+      var process: Option[scala.sys.process.Process] = None
+      try {
+        val processBuilder: scala.sys.process.ProcessBuilder = task.getProcessBuilder(script = script, logFile = logFile)
+        process = Some(processBuilder.run())
+        exitCode = process.get.exitValue()
+      } catch {
+        case e: InterruptedException =>
+          if (process.isDefined) process.get.destroy()
+          exitCode = 1
+          throwable = Some(e)
+        case t: Throwable =>
+          exitCode = 1
+          throwable = Some(t)
+      }
+      onCompleteSuccessful = Some(task.onComplete(exitCode))
+    }
+  }
+
+  /** Simple class that runs the given task's method.
+    * @param task the task to run
+    * @param script the location of the task's script
+    * @param logFile the location of the task's log file
+    */
+  class InJvmTaskRunner(task: InJvmTask, script: Path, logFile: Path) extends TaskRunnable(task = task) {
+    override def run(): Unit = {
+      try {
+        exitCode = task.inJvmMethod(script = script, logFile = logFile)
+      } catch {
+        case t: Throwable =>
+          exitCode = 1
+          throwable = Some(t)
+      }
+      onCompleteSuccessful = Some(task.onComplete(exitCode))
+    }
+  }
+
+  /** Simple class that sets the exit code to zero */
+  class NoOpTaskRunner(task: UnitTask) extends TaskRunnable(task = task) {
+
+    override def run(): Unit = exitCode = 0 // does absolutely nothing... well almost
+
+    onCompleteSuccessful = Some(true)
+  }
+}
+
 /** Tracks and run a set of [[Task]]s. */
-class TaskRunner extends LazyLogging {
+private[core] class TaskRunner extends LazyLogging {
+  import TaskRunner._
   private val processes: mutable.Map[BigInt, Thread] = new mutable.HashMap[BigInt, Thread]()
   private val taskRunners: mutable.Map[BigInt, TaskRunnable] = new mutable.HashMap[BigInt, TaskRunnable]()
   private val taskInfos: mutable.Map[BigInt, TaskExecutionInfo] = new mutable.HashMap[BigInt, TaskExecutionInfo]()
@@ -152,65 +217,4 @@ class TaskRunner extends LazyLogging {
   private def getOnCompleteSuccessful(taskId: BigInt): Option[Boolean] = {
     taskRunners.get(taskId).get.onCompleteSuccessful
   }
-}
-
-abstract class TaskRunnable(task: UnitTask) extends Runnable {
-  var exitCode: Int = -1
-  var onCompleteSuccessful: Option[Boolean] = None
-  var throwable: Option[Throwable] = None
-}
-
-/** Simple class that runs the given task.  Wrap this in a thread,
-  * and will set the exit code to one if the parent thread was interrupted,
-  * otherwise the exit code will be set to that of the task's process.
-  *
-  * @param task the task to run
-  * @param script the location of the task's script
-  * @param logFile the location of the task's log file
-  */
-class SingleTaskRunner(task: ProcessTask, script: Path, logFile: Path) extends TaskRunnable(task = task) {
-
-  override def run(): Unit = {
-    var process: Option[scala.sys.process.Process] = None
-    try {
-      val processBuilder: scala.sys.process.ProcessBuilder = task.getProcessBuilder(script = script, logFile = logFile)
-      process = Some(processBuilder.run())
-      exitCode = process.get.exitValue()
-    } catch {
-      case e: InterruptedException =>
-        if (process.isDefined) process.get.destroy()
-        exitCode = 1
-        throwable = Some(e)
-      case t: Throwable =>
-        exitCode = 1
-        throwable = Some(t)
-    }
-    onCompleteSuccessful = Some(task.onComplete(exitCode))
-  }
-}
-
-/** Simple class that runs the given task's method.
-  * @param task the task to run
-  * @param script the location of the task's script
-  * @param logFile the location of the task's log file
-  */
-class InJvmTaskRunner(task: InJvmTask, script: Path, logFile: Path)  extends TaskRunnable(task = task) {
-  override def run(): Unit = {
-    try {
-      exitCode = task.inJvmMethod(script = script, logFile = logFile)
-    } catch {
-      case t: Throwable =>
-        exitCode = 1
-        throwable = Some(t)
-    }
-    onCompleteSuccessful = Some(task.onComplete(exitCode))
-  }
-}
-
-/** Simple class that sets the exit code to zero */
-class NoOpTaskRunner(task: UnitTask) extends TaskRunnable(task = task) {
-
-  override def run(): Unit = exitCode = 0 // does absolutely nothing... well almost
-
-  onCompleteSuccessful = Some(true)
 }

@@ -40,8 +40,8 @@ object PathUtil {
     * @return the filename without illegal characters
     */
   def sanitizeFileName(fileName: String, illegalCharacters: String = PathUtil.illegalCharacters, replacement: Option[Char] = Some('_')): String = replacement match {
-    case None     => fileName.filter(c => !illegalCharacters.contains(c))
-    case Some(r)  => fileName.map(c => if (illegalCharacters.contains(c)) r else c)
+    case None => fileName.filter(c => !illegalCharacters.contains(c))
+    case Some(r) => fileName.map(c => if (illegalCharacters.contains(c)) r else c)
   }
 
   /** Replaces the extension on an existing path. */
@@ -67,7 +67,7 @@ object PathUtil {
     x.getFileName.toString
   }
 
-  /** Works similarly to the unix commmand basename, by optionally removing an extension, and all leading path elements. */
+  /** Works similarly to the unix command basename, by optionally removing an extension, and all leading path elements. */
   def basename(name: String, trimExt: Boolean) : String = {
    basename(pathTo(name), trimExt)
   }

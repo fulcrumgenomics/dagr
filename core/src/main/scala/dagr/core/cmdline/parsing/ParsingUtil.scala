@@ -65,7 +65,7 @@ private[parsing] object ParsingUtil extends Configuration  {
   //val KERROR: String = initializeColor("\u001B[35;7;1m") // BLINKING: "\u001B[35;5;1m"
 
   /** Useful for testing */
-  private[cmdline] def getClassToPropertyMapFromSourceClasses(srcClasses: Traversable[Class[_]],
+  private def getClassToPropertyMapFromSourceClasses(srcClasses: Traversable[Class[_]],
                                                               omitSubClassesOf: Iterable[Class[_]] = Nil,
                                                               includeHidden: Boolean = false)
   : Map[PipelineClass, CLPAnnotation] = {
@@ -159,7 +159,7 @@ private[parsing] object ParsingUtil extends Configuration  {
     * Attempts to construct one or more unitType values from Strings, and return them as the resultType. Handles
     * the creation of and packaging into collections as necessary.
     */
-  private[parsing] def getFromString(resultType: Class[_], unitType: Class[_], value: String*): Any = {
+  def getFromString(resultType: Class[_], unitType: Class[_], value: String*): Any = {
     resultType match {
       case clazz if ReflectionUtil.isCollectionClass(clazz) =>
         val typedValues = value.map(v => getUnitFromStringBuilder(unitType, v)).asInstanceOf[Seq[java.lang.Object]]
@@ -227,5 +227,5 @@ private[parsing] object ParsingUtil extends Configuration  {
     * @param x Value to test.
     * @return "s" if x is greater than one else "".
     */
-  def plural(x: Int) = if (x > 1) "s" else ""
+  private def plural(x: Int) = if (x > 1) "s" else ""
 }

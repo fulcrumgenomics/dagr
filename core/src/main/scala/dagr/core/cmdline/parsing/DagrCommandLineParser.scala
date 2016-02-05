@@ -36,7 +36,7 @@ import scala.collection.mutable.ListBuffer
 import scala.collection.{Map, Set, mutable}
 
 /** Stores strings used in the usage and error messages */
-object DagrCommandLineParserStrings {
+private[parsing] object DagrCommandLineParserStrings {
   val AVAILABLE_PIPELINES = "Available Pipelines:"
 
   def getUnknownPipeline(commandLineName: String): String = {
@@ -51,15 +51,15 @@ object DagrCommandLineParserStrings {
 }
 
 /** Methods for parsing among top level command line tasks */
-class DagrCommandLineParser(val commandLineName: String, val includeHidden: Boolean = false) {
+private[cmdline] class DagrCommandLineParser(val commandLineName: String, val includeHidden: Boolean = false) {
   import ParsingUtil._
   import CommandLineParserStrings._
   import DagrCommandLineParserStrings._
 
   /** Wraps an error string in terminal escape codes for display. */
-  def wrapError(s: String) : String = StringUtil.wrapString(KERROR, s, KNRM)
+  private def wrapError(s: String) : String = StringUtil.wrapString(KERROR, s, KNRM)
 
-  val SeparatorLine = wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM)
+  private val SeparatorLine = wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM)
 
   /**
     * Main entry point for the class, takes in the array of arguments from the command line, figueres out
@@ -200,7 +200,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeHidden: Bool
     * Given a package list, a set of args, gets all the relevant command line pipeline classes, and
     * sees if the args(0) matches.  Can print a general usage.
     */
-  def parseTaskName(args: Array[String], classToPropertyMap : Map[PipelineClass, CLPAnnotation]): Either[PipelineClass,String] = {
+  private def parseTaskName(args: Array[String], classToPropertyMap : Map[PipelineClass, CLPAnnotation]): Either[PipelineClass,String] = {
     val classes: Set[PipelineClass] = classToPropertyMap.keySet
 
     if (args.length < 1) {
@@ -285,7 +285,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeHidden: Bool
   private val MINIMUM_SUBSTRING_LENGTH: Int = 5
 
   /** When a command does not match any known command, searches for similar commands, using the same method as GIT **/
-  def unknownPipelineError(classes: Set[PipelineClass], command: String) : String = {
+  private def unknownPipelineError(classes: Set[PipelineClass], command: String) : String = {
     val builder = new StringBuilder
     val distances: mutable.Map[PipelineClass, Integer] = new mutable.HashMap[PipelineClass, Integer]
     var bestDistance: Int = Integer.MAX_VALUE

@@ -26,7 +26,7 @@ class ReflectiveBuilder[T](val clazz: Class[T]) {
   protected val typeSignature = clazzSymbol.typeSignature
   protected val constructor   = findConstructor
   protected val jConstructor  = toJavaConstructor(constructor)
-  lazy val argumentLookup = new ArgumentLookup[ArgumentDescription]()
+  private[util] lazy val argumentLookup = new ArgumentLookup[ArgumentDescription]()
   extractParameterInformation(constructor)
 
   /**
@@ -145,7 +145,7 @@ class ReflectiveBuilder[T](val clazz: Class[T]) {
   * Class that encapsulates the information about the arguments to a CommandLineTask and provides
   * various ways to access the data.
   */
-class ArgumentLookup[ArgType <: Argument](args: ArgType*) {
+private[core] class ArgumentLookup[ArgType <: Argument](args: ArgType*) {
   protected val argumentDefinitions = mutable.ListBuffer[ArgType]()
   protected val byFieldName = new mutable.HashMap[String,ArgType]()
 
@@ -187,7 +187,7 @@ class ArgumentLookup[ArgType <: Argument](args: ArgType*) {
   * @param typeName the String name that identifies the unit type. May be the simple name of a class, or if a type
   *                 alias is used, the string name of the type alias
   */
-class Argument(val declaringClass: Class[_],
+private[core] class Argument(val declaringClass: Class[_],
                val index: Int,
                val name: String,
                val defaultValue: Option[Any],

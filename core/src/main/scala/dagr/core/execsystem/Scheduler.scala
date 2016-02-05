@@ -41,7 +41,17 @@ object Scheduler {
 /** Scheduler of [[Task]] tasks */
 abstract class Scheduler extends LazyLogging {
 
-  def schedule(runningTasks: Map[UnitTask, ResourceSet],
+  /** Schedule tasks for execution with a given set of resources.  Returns a map of scheduled tasks to their resources to use
+    * while running.  Only schedules based on the resources available after subtracting resources from running tasks.
+    *
+    * @param runningTasks the tasks that are currently running.
+    * @param readyTasks the tasks that should be considered to be schedule.
+    * @param systemCores the set of system cores.
+    * @param systemMemory the set of system memory.
+    * @param jvmMemory the set of JVM memory.
+    * @return a map of tasks should be scheduled and their allocate resources.
+    * */
+  final def schedule(runningTasks: Map[UnitTask, ResourceSet],
                readyTasks: Traversable[UnitTask],
                systemCores: Cores,
                systemMemory: Memory,
@@ -75,6 +85,9 @@ abstract class Scheduler extends LazyLogging {
     schedule(readyTasks, remainingSystemCores, remainingSystemMemory, remainingJvmMemory)
   }
 
+  /** All schedulers should implement this method.  Returns a map of scheduled tasks to their resources to use
+    * while running.
+    */
   protected def schedule(readyTasks: Traversable[UnitTask],
                          systemCores: Cores,
                          systemMemory: Memory,

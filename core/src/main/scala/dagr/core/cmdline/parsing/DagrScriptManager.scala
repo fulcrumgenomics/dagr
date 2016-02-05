@@ -45,14 +45,14 @@ object DagrScriptManager {
     * @param x Value to test.
     * @return "s" if x is greater than one else "".
     */
-  def plural(x: Int) = if (x > 1) "s" else ""
+  private def plural(x: Int) = if (x > 1) "s" else ""
 
   /**
     * Adds the URL to the system class loader classpath using reflection.
     * HACK: Uses reflection to modify the class path, and assumes loader is a URLClassLoader.
     * @param urls URLs to add to the system class loader classpath.
     */
-  def addToClasspath(urls: Traversable[URL]) {
+  private def addToClasspath(urls: Traversable[URL]) {
     Thread.currentThread().setContextClassLoader(new URLClassLoader(urls.toArray, Thread.currentThread().getContextClassLoader))
   }
 
@@ -151,7 +151,7 @@ object DagrScriptManager {
 
 import dagr.core.util.{Io, LazyLogging}
 
-class DagrScriptManager extends LazyLogging {
+private[parsing] class DagrScriptManager extends LazyLogging {
   import DagrScriptManager._
 
   /**

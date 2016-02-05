@@ -49,14 +49,20 @@ class ArgTokenCollator(argTokenizer: ArgTokenizer) extends Iterator[Try[ArgOptio
 
   this.advance() // to initialize nextOption
 
+  /** True if there is another value, false otherwise.  */
   def hasNext: Boolean = nextOption.isDefined
 
+    /** Gets the next token wrapped in a Try.  A failure is returned if the provided [[ArgTokenizer]] returned a failure
+      * or if we could not find an option name ([[ArgOption]] or [[ArgOptionAndValue]] before finding an
+      * option value ([[ArgValue]]).
+      */
   def next: Try[ArgOptionAndValues] = {
     val retVal = nextOption.get
     this.advance()
     retVal
   }
 
+  /** Advance the underlying iterator and update `nextOption`. */
   private def advance(): Unit = {
     if (!iterator.hasNext) {
       this.nextOption = None

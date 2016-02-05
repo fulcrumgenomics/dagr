@@ -27,7 +27,7 @@ package dagr.core.tasksystem
   * Exception class that is intended to be used to signal one or more validation errors in
   * pipeline constructors, and provide useful messages back to the user.
   */
-case class ValidationException(val messages: List[String]) extends RuntimeException {
+case class ValidationException(messages: List[String]) extends RuntimeException {
   /** Alternate constructor that takes var arg Strings and turns them into a List. */
   def this(messages: String*) = this(messages.toList)
 

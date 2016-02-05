@@ -47,7 +47,7 @@ object Task {
     * @param task the task to begin search.
     * @return true if the DAG to which this task belongs has a cycle, false otherwise.
     */
-  def hasCycle(task: Task): Boolean = {
+  private[core] def hasCycle(task: Task): Boolean = {
     for (component <- findStronglyConnectedComponents(task)) {
       if (isComponentACycle(component = component)) return true
     }
@@ -61,7 +61,7 @@ object Task {
     * @param task a task in the graph to check.
     * @return the set of strongly connected components.
     */
-  def findStronglyConnectedComponents(task: Task): Set[Set[Task]] = {
+  private[core] def findStronglyConnectedComponents(task: Task): Set[Set[Task]] = {
 
     // 1. find all tasks connected to this task
     val visited: mutable.Set[Task] = new mutable.HashSet[Task]()
@@ -92,7 +92,7 @@ object Task {
     * @param component the strongly connected component.
     * @return true if the component contains a cycle, false otherwise.
     */
-  def isComponentACycle(component: Set[Task]): Boolean = {
+  private[core] def isComponentACycle(component: Set[Task]): Boolean = {
     if (1 < component.size) true
     else if (component.head.getTasksDependedOn.toSet.contains(component.head)) true
     else if (component.head.getTasksDependingOnThisTask.toSet.contains(component.head)) true
@@ -221,13 +221,13 @@ abstract class Task extends Dependable {
   }
 
   /** Adds a callback to be processed before getTasks in invoked. */
-  def addCallback(c: Callback) : this.type = {
+  private[tasksystem] def addCallback(c: Callback) : this.type = {
     this.callbacks += c
     this
   }
 
   /** Adds a callback to be processed before getTasks in invoked. */
-  def +=(c: Callback) : this.type = addCallback(c)
+  private[tasksystem] def +=(c: Callback) : this.type = addCallback(c)
 
   /** Sets the name of this task. */
   def withName(name: String) : this.type = { this.name = name; this }

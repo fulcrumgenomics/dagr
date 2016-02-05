@@ -121,7 +121,6 @@ sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit num
   protected def build(value: T) : R
 }
 
-
 /** A resource representing the memory. */
 case class Memory(bytes: Long) extends Resource[Long,Memory](value=bytes) {
   if (value < 0) throw new IllegalArgumentException("Cannot have negative memory. Bytes=" + value)
@@ -153,7 +152,6 @@ case class Cores(cores: Double) extends Resource[Double, Cores](value=cores) {
   /** Must be implemented by subclasses to return a new instance with the specified value. */
   override protected def build(value: Double): Cores = new Cores(value)
 }
-
 object Cores {
   def apply(cores: Cores): Cores = new Cores(cores.value)
 }
