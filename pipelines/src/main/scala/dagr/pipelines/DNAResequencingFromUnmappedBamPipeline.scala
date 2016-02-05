@@ -24,11 +24,11 @@
 
 package dagr.pipelines
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
 import dagr.core.tasksystem.{Callbacks, Pipeline, Task}
-import dagr.core.util.Io
+import dagr.core.util.{Io, PathUtil}
 import dagr.tasks._
 import dagr.tasks.misc.{BwaBacktrack, BwaMemStreamed, CalculateDownsamplingProportion}
 import dagr.tasks.picard._
@@ -71,9 +71,9 @@ class DnaResequencingFromUnmappedBamPipeline(
 
     val mappedBam   = Files.createTempFile(tmp, "mapped.", ".bam")
     val dsMappedBam = Files.createTempFile(tmp, "mapped.ds.", ".bam")
-    val finalBam    = Paths.get(prefix + ".bam")
-    val dsPrefix    = Paths.get(prefix + ".ds")
-    val dsFinalBam  = Paths.get(dsPrefix + ".bam")
+    val finalBam    = PathUtil.pathTo(prefix + ".bam")
+    val dsPrefix    = PathUtil.pathTo(prefix + ".ds")
+    val dsFinalBam  = PathUtil.pathTo(dsPrefix + ".bam")
 
     val fastqToBams = ListBuffer[FastqToUnmappedSam]()
 
@@ -91,7 +91,7 @@ class DnaResequencingFromUnmappedBamPipeline(
 
     // Just collect quality yield metrics on the pre-de-duped BAM as we need this for downsampling
     val yieldMetrics        = new CollectMultipleMetrics(in=mappedBam, prefix=Some(prefix), programs=List(MetricsProgram.CollectQualityYieldMetrics), ref=referenceFasta)
-    val calculateProportion = new CalculateDownsamplingProportion(Paths.get(prefix + ".quality_yield_metrics.txt"), downsampleToReads)
+    val calculateProportion = new CalculateDownsamplingProportion(PathUtil.pathTo(prefix + ".quality_yield_metrics.txt"), downsampleToReads)
     val downsampleSam       = new DownsampleSam(in=mappedBam, out=dsMappedBam, proportion=1, accuracy=Some(0.00001))
 
     Callbacks.connect(downsampleSam, calculateProportion)((ds, cp) => ds.proportion=cp.proportion)

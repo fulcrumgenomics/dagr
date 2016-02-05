@@ -22,10 +22,10 @@
  * THE SOFTWARE.
  */
 package dagr.core.cmdline.parsing
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
 
-import dagr.core.cmdline.{UserException, Arg}
-import dagr.core.util.UnitSpec
+import dagr.core.cmdline.{Arg, UserException}
+import dagr.core.util.{PathUtil, UnitSpec}
 import org.scalatest.OptionValues
 
 object ClpArgumentTest {
@@ -78,8 +78,8 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
   }
 
   it should "store a Path" in {
-    val path = Paths.get("a", "path")
-    val newPath = Paths.get("b", "path")
+    val path = PathUtil.pathTo("a", "path")
+    val newPath = PathUtil.pathTo("b", "path")
     val argument = makeClpArgument(classOf[PathClass], path)
     argument.isFlag should be(false)
     argument.value.get should be(path.asInstanceOf[Any])
@@ -138,8 +138,8 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
   }
 
   it should "store a Option[PathToNowhere]" in {
-    val aPath: Option[PathToNowhere] = Some(Paths.get("a", "path"))
-    val aNewPath = Option(Paths.get("b", "path"))
+    val aPath: Option[PathToNowhere] = Some(PathUtil.pathTo("a", "path"))
+    val aNewPath = Option(PathUtil.pathTo("b", "path"))
     val argument = makeClpArgument(classOf[PathToNowhereOptionClass], aPath)
     argument.isFlag should be(false)
     argument.isCollection should be(false)
@@ -159,7 +159,7 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
   }
 
   it should "get the description correctly for type aliases" in {
-    val parent = new PathToNowhereOptionClass(Some(Paths.get("a", "path")))
+    val parent = new PathToNowhereOptionClass(Some(PathUtil.pathTo("a", "path")))
     val field = parent.getClass.getDeclaredFields.head
     val annotation = field.getAnnotation(classOf[Arg])
     val argument = makeClpArgument(classOf[PathToNowhereOptionClass], null)

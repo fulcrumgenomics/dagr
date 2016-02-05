@@ -27,14 +27,14 @@ import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.time.Duration
 
-import com.typesafe.config.{ConfigParseOptions, ConfigFactory, Config}
 import com.typesafe.config.ConfigException.Generic
+import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.util.{Io, LazyLogging}
+import dagr.core.util.{LazyLogging, PathUtil}
 
-import scala.collection.SortedSet
 import scala.collection.JavaConversions._
-import scala.reflect.runtime.universe.{typeOf,TypeTag}
+import scala.collection.SortedSet
+import scala.reflect.runtime.universe.{TypeTag, typeOf}
 
 /**
   * Companion object to the Configuration trait that keeps track of all configuration keys
@@ -123,7 +123,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
         case t if t =:= typeOf[Double] => config.getDouble(path).asInstanceOf[T]
         case t if t =:= typeOf[BigInt] => BigInt(config.getString(path)).asInstanceOf[T]
         case t if t =:= typeOf[BigDecimal] => BigDecimal(config.getString(path)).asInstanceOf[T]
-        case t if t =:= typeOf[Path] => Paths.get(config.getString(path)).asInstanceOf[T]
+        case t if t =:= typeOf[Path] => PathUtil.pathTo(config.getString(path)).asInstanceOf[T]
         case t if t =:= typeOf[Cores] => Cores(config.getDouble(path)).asInstanceOf[T]
         case t if t =:= typeOf[Memory] => Memory(config.getString(path)).asInstanceOf[T]
         case t if t =:= typeOf[Duration] => config.getDuration(path).asInstanceOf[T]
@@ -198,7 +198,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
 
     optionallyConfigure[Path](binPath) match {
       case Some(exec) =>
-        Paths.get(exec.toString, executable)
+        PathUtil.pathTo(exec.toString, executable)
       case None => findInPath(executable) match {
         case Some(exec) => exec
         case None => throw new Generic(s"Could not configurable executable. Config path '$binPath' is not defined and executable '$executable' is not in PATH.")
@@ -215,7 +215,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
     * Grabs the config key "PATH" which, if not defined in config will default to the environment variable
     * PATH, splits it on the path separator and returns it as a Seq[String]
     */
-  private def systemPath : Seq[Path] = config.getString("dagr.path").split(File.pathSeparatorChar).view.map(Paths get _)
+  private def systemPath : Seq[Path] = config.getString("dagr.path").split(File.pathSeparatorChar).view.map(PathUtil pathTo _)
 }
 
 trait Configuration extends ConfigurationLike {

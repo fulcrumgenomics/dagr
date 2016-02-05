@@ -28,7 +28,7 @@ import java.nio.file.{Files, Paths}
 import dagr.core.cmdline._
 import dagr.core.config.Configuration
 import dagr.core.tasksystem.{ValidationException, Pipeline}
-import dagr.core.util.StringUtil
+import dagr.core.util.{PathUtil, StringUtil}
 import dagr.core.util.StringUtil._
 
 import scala.collection.JavaConversions._
@@ -169,7 +169,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeHidden: Bool
 
   private def loadScripts(clp: DagrCoreMain): Unit = {
     val scriptLoader = new DagrScriptManager
-    scriptLoader.loadScripts(clp.scripts, Files.createTempDirectory(Paths.get(System.getProperty("java.io.tmpdir")), "dagrScripts"), quiet = false)
+    scriptLoader.loadScripts(clp.scripts, Files.createTempDirectory(PathUtil.pathTo(System.getProperty("java.io.tmpdir")), "dagrScripts"), quiet = false)
   }
 
   /** Splits the given args into two Arrays, first splitting based on a "--", and if not found,

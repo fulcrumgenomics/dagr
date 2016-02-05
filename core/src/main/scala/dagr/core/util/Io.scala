@@ -30,9 +30,9 @@ import java.nio.file.{Files, Path, Paths}
  * IO Utility class for working with Path objects.
  */
 object Io {
-  val StdIn   = Paths.get("/dev/stdin")
-  val StdOut  = Paths.get("/dev/stdout")
-  val DevNull = Paths.get("/dev/null")
+  val StdIn   = PathUtil.pathTo("/dev/stdin")
+  val StdOut  = PathUtil.pathTo("/dev/stdout")
+  val DevNull = PathUtil.pathTo("/dev/null")
 
   /** Creates a new BufferedWriter to write to the supplied path. */
   def toWriter(path: Path) : BufferedWriter = Files.newBufferedWriter(path)

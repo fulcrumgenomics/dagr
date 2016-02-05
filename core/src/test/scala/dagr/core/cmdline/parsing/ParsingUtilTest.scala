@@ -23,11 +23,10 @@
  */
 package dagr.core.cmdline.parsing
 
-import java.lang.reflect.{InvocationTargetException, Field}
-import java.nio.file.Paths
+import java.lang.reflect.{Field, InvocationTargetException}
 
-import dagr.core.cmdline.{BadArgumentValue, CommandLineParserInternalException, CommandLineException}
-import dagr.core.util.{LogLevel, UnitSpec}
+import dagr.core.cmdline.{BadArgumentValue, CommandLineException, CommandLineParserInternalException}
+import dagr.core.util.{LogLevel, PathUtil, UnitSpec}
 import org.scalatest.{OptionValues, PrivateMethodTester}
 
 object ParsingUtilTest {
@@ -144,7 +143,7 @@ class ParsingUtilTest extends UnitSpec with OptionValues with PrivateMethodTeste
   it should "construct an Path from a string for a PathToBam field" in {
     type PathToSomething = java.nio.file.Path
     //canBeMadeFromString("path", classOf[PathToBam], classOf[WithPathToBam]) shouldBe true
-    constructFromString(classOf[PathToSomething], classOf[PathToSomething], Paths.get("b", "c").toString) shouldBe Paths.get("b", "c")
+    constructFromString(classOf[PathToSomething], classOf[PathToSomething], PathUtil.pathTo("b", "c").toString) shouldBe PathUtil.pathTo("b", "c")
   }
 
   it should "construct an String from a string for a String field in a child class" in {
