@@ -264,7 +264,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     else {
       // resubmit...
       logger.debug("*** RESUBMIT TASK ***")
-      taskManager.resubmitTask(original)
+      taskManager.resubmitTask(original) shouldBe true
     }
 
     // run and check again
