@@ -98,7 +98,8 @@ lazy val commonSettings = Seq(
   logLevel in assembly := Level.Info,
   resolvers            += Resolver.jcenterRepo,
   shellPrompt          := { state => "%s| %s> ".format(GitCommand.prompt.apply(state), version.value) },
-  coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*"
+  coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*",
+  updateOptions        := updateOptions.value.withCachedResolution(true)
 ) ++ Defaults.coreDefaultSettings
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
