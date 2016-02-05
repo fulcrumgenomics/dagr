@@ -34,8 +34,7 @@ import dagr.core.util.{Io, LazyLogging}
 
 import scala.collection.SortedSet
 import scala.collection.JavaConversions._
-import scala.reflect.runtime.universe._
-
+import scala.reflect.runtime.universe.{typeOf,TypeTag}
 
 /**
   * Companion object to the Configuration trait that keeps track of all configuration keys

@@ -45,7 +45,7 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
       TestSplitArgsData.packageList,
       List(),
       dagrErrorMessageBuilder,
-      includeClassesOmittedFromCommandLine=true
+      includeHidden=true
     )
     dagrArgs should have size dagrArgsSize
     taskArgs should have size taskArgsSize
@@ -77,7 +77,7 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
     def parseDagrArgs(args: Array[String]): (Option[_ <: Pipeline], String) = {
       val parser = new DagrCommandLineParser({
         Configuration.commandLineName
-      }, includeClassesOmittedFromCommandLine = true)
+      }, includeHidden = true)
       Logger.synchronized { // since we modify the log level
         val logLevel = Logger.level
         Logger.level = LogLevel.Fatal // turn off all logging

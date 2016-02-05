@@ -26,9 +26,9 @@ package dagr.core.cmdline
 /**
  * Program group/type for pipeline programs.
  */
-class Pipelines extends CommandLineTaskGroup {
-  def getName: String = "Pipelines"
-  def getDescription: String = "Various pipeline programs."
+class Pipelines extends PipelineGroup {
+  def name: String = "Pipelines"
+  def description: String = "Various pipeline programs."
 }
 
 

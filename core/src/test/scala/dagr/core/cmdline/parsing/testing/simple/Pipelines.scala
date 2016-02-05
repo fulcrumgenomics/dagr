@@ -28,20 +28,20 @@ import dagr.core.tasksystem.{Pipeline, Task}
 
 /** For testing the ability to find and filter classes with the CLP property */
 
-@CLP(oneLineSummary = "", summary = "", omitFromCommandLine = false) abstract class NoOpCommandLineTask extends Pipeline {
+@CLP(description = "", hidden = false) abstract class NoOpCommandLineTask extends Pipeline {
   override def build(): Unit = Unit
 }
 
-@CLP(oneLineSummary = "", summary = "", omitFromCommandLine = false) class InClass extends NoOpCommandLineTask
+@CLP(description = "", hidden = false) class InClass extends NoOpCommandLineTask
 
-@CLP(oneLineSummary = "", summary = "", omitFromCommandLine = false) class InClass2 extends Pipeline {
+@CLP(description = "", hidden = false) class InClass2 extends Pipeline {
   override def build(): Unit = {}
 }
 
-@CLP(oneLineSummary = "", summary = "", omitFromCommandLine = true) class OutClass extends NoOpCommandLineTask
+@CLP(description = "", hidden = true) class OutClass extends NoOpCommandLineTask
 
-@CLP(oneLineSummary = "", summary = "", omitFromCommandLine = true) class Out2Class
+@CLP(description = "", hidden = true) class Out2Class
 
 class Out3Class
 
-@CLP(oneLineSummary = "", summary = "", omitFromCommandLine = false) trait OutClass4
+@CLP(description = "", hidden = false) trait OutClass4

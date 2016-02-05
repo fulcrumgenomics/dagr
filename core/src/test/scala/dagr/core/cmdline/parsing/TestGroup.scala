@@ -21,12 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.core.cmdline
+package dagr.core.cmdline.parsing
 
-import scala.annotation.StaticAnnotation
+import dagr.core.cmdline.PipelineGroup
 
-/** Annotate the constructor of your [[dagr.server.tasksystem.CommandLineTask]].  The
-  * `var` constructor parameters, and those from any super-class, that are annotated
-  * with [[Arg]] will be exposed on the command line.
-  */
-class CLPConstructorAnnotation extends StaticAnnotation
+class TestGroup extends PipelineGroup {
+  def name: String = "Testing"
+  def description: String = "Testing"
+}

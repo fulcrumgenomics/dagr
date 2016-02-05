@@ -21,20 +21,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.core.cmdline;
-
-import java.util.Comparator;
+package dagr.core.cmdline
 
 /**
- * Interface for groups of CommandLinePrograms.
- * @author Nils Homer
+ * Trait for groups of CommandLinePrograms.
  */
-public interface CommandLineTaskGroup {
+trait PipelineGroup extends Ordered[PipelineGroup] {
+  /** Gets the name of this program. **/
+  def name : String
+  /** Gets the description of this program. **/
+  def description : String
 
-    /** Gets the name of this program. **/
-    public String getName();
-    /** Gets the description of this program. **/
-    public String getDescription();
-    /** Compares two program groups by name. **/
-    public static Comparator<CommandLineTaskGroup> getComparator = (a, b) -> a.getName().compareTo(b.getName());
+  /** Order groups by name. */
+  override def compare(that: PipelineGroup): Int = this.name.compareTo(that.name)
 }
+

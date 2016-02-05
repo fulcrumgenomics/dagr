@@ -40,14 +40,11 @@ object DnaResequencingFromFastqPipeline {
  - Mapped BAM -> {CollectMultipleMetrics, EstimateLibraryComplexity, ValidateSamFile}
  - Mapped BAM -> {CalculateHsMetrics, CollectTargetedPcrMetrics} if targets are given
  - Mapped BAM -> {CollectWgsMetrics, CollectGcBiasMetrics} if targets are not given"""
-  @inline
-  final val ONE_LINE_SUMMARY = "Dna Resequencing from Fastq Pipeline."
 }
 
 @CLP(
-  summary = DnaResequencingFromFastqPipeline.SUMMARY,
-  oneLineSummary = DnaResequencingFromFastqPipeline.ONE_LINE_SUMMARY,
-  pipelineGroup = classOf[Pipelines])
+  description = DnaResequencingFromFastqPipeline.SUMMARY,
+  group = classOf[Pipelines])
 class DnaResequencingFromFastqPipeline(
   @Arg(doc="Input fastq file (optionally gzipped) for read 1.")    val fastq1: List[PathToFastq],
   @Arg(doc="Input fastq file (optionally gzipped) for read 2.")    val fastq2: List[PathToFastq],
@@ -63,7 +60,7 @@ class DnaResequencingFromFastqPipeline(
   @Arg(flag="o", doc="The output directory to which files are written.")  val output: DirPath,
   @Arg(doc="The basename for all output files. Uses library if omitted.") val basename: Option[FilenamePrefix]
 ) extends Pipeline(outputDirectory = Some(output)) {
-  name = DnaResequencingFromFastqPipeline.ONE_LINE_SUMMARY.dropRight(2)
+  name = getClass.getSimpleName
 
   // Validation logic as constructor code
   var errors: ListBuffer[String] = new ListBuffer[String]()
