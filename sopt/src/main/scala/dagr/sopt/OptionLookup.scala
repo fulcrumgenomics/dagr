@@ -212,7 +212,7 @@ trait OptionLookup {
   protected def printUnknownSubstringLength: Int = 5
 
   /** When a command does not match any known command, searches for similar commands, using the same method as GIT **/
-  private def printUnknown(optionName: String): String = {
+  private[sopt] def printUnknown(optionName: String): String = {
     val distances: mutable.Map[String, Integer] = new mutable.HashMap[String, Integer]
     var bestDistance: Int = Integer.MAX_VALUE
     var bestN: Int = 0
