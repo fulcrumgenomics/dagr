@@ -234,7 +234,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
 
   private def getFile(task: Task, taskId: BigInt, directory: Path, ext: String): Path = {
     val sanitizedName: String = PathUtil.sanitizeFileName(task.name)
-    Paths.get(directory.toString, s"$sanitizedName.$taskId.$ext")
+    PathUtil.pathTo(directory.toString, s"$sanitizedName.$taskId.$ext")
   }
 
   override protected def getTaskScript(task: Task, taskId: BigInt): Path = getFile(task, taskId, actualScriptsDirectory, "sh")

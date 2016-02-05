@@ -23,12 +23,12 @@
  */
 package dagr.core.config
 
-import java.nio.file.{Files, Paths, Path}
+import java.nio.file.{Files, Path}
 import java.time.Duration
 
 import com.typesafe.config.ConfigFactory
-import dagr.core.execsystem.{Memory, Cores}
-import dagr.core.util.UnitSpec
+import dagr.core.execsystem.{Cores, Memory}
+import dagr.core.util.{PathUtil, UnitSpec}
 
 /**
   * Tests for the Configuration trait.
@@ -65,7 +65,7 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[Double]("a-double") shouldBe 12345.6789
     conf.configure[BigInt]("a-bigint") shouldBe BigInt("999999999999999999999999999999999999999999999999999999999999999")
     conf.configure[BigDecimal]("a-bigdec") shouldBe BigDecimal("999999999999999999999999999999999999999999999999999999999999999.1")
-    conf.configure[Path]("a-path") shouldBe Paths.get("/foo/bar/splat.txt")
+    conf.configure[Path]("a-path") shouldBe PathUtil.pathTo("/foo/bar/splat.txt")
     conf.configure[Cores]("some-cores") shouldBe Cores(2.5)
     conf.configure[Memory]("some-memory") shouldBe Memory("2g")
     conf.configure[Duration]("some-time") shouldBe Duration.ofSeconds(60)
@@ -86,7 +86,7 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[Boolean]("a-boolean", false) shouldBe true
     conf.configure[Long]("a-long", 999) shouldBe 1234567890
     conf.configure[Float]("a-float", 999f) shouldBe 12345.67f
-    conf.configure[Path]("a-path", Paths.get("/path/to/nowhere")) shouldBe Paths.get("/foo/bar/splat.txt")
+    conf.configure[Path]("a-path", PathUtil.pathTo("/path/to/nowhere")) shouldBe PathUtil.pathTo("/foo/bar/splat.txt")
     conf.configure[Cores]("some-cores", Cores(50f)) shouldBe Cores(2.5)
     conf.configure[Memory]("some-memory", Memory("128G")) shouldBe Memory("2g")
 
@@ -95,13 +95,13 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[Boolean]("not.a-boolean", false) shouldBe false
     conf.configure[Long]("foo.bar.splat.a-long", 999) shouldBe 999
     conf.configure[Float]("no-float", 999f) shouldBe 999f
-    conf.configure[Path]("xxx", Paths.get("/path/to/nowhere")) shouldBe Paths.get("/path/to/nowhere")
+    conf.configure[Path]("xxx", PathUtil.pathTo("/path/to/nowhere")) shouldBe PathUtil.pathTo("/path/to/nowhere")
     conf.configure[Cores]("no-cores.here", Cores(50f)) shouldBe Cores(50.0)
     conf.configure[Memory]("i.forgot", Memory("128G")) shouldBe Memory("128g")
   }
 
   it should "find executables" in {
-    conf.configureExecutable("some-executable", "n/a") shouldBe Paths.get("/does/not/exist")
+    conf.configureExecutable("some-executable", "n/a") shouldBe PathUtil.pathTo("/does/not/exist")
 
     val java = conf.configureExecutable("java.exe", "java")
     java.getFileName.toString shouldBe "java"

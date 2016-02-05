@@ -23,15 +23,16 @@
  */
 package dagr.tasks.picard
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
 
+import dagr.core.util.PathUtil
 import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals}
 
 import scala.collection.mutable.ListBuffer
 
 object CollectTargetedPcrMetrics {
   def getPerTargetName(metricsFile: Path): Path = {
-    Paths.get(metricsFile.toString + ".per_target")
+    PathUtil.pathTo(metricsFile.toString + ".per_target")
   }
 
   def getMetricsExtension: String = ".targeted_pcr_metrics"

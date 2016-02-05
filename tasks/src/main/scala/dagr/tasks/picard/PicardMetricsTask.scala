@@ -52,7 +52,7 @@ abstract class PicardMetricsTask(private val input: PathToBam, var prefix: Optio
    * the case of CollectGcBiasMetrics.
     */
   def getMetricsFile(extension: String, kind: PicardOutput.Value) : Path = {
-    Paths.get(prefix.get + extension + "." + kind.toString)
+    PathUtil.pathTo(prefix.get + extension + "." + kind.toString)
   }
 
   /** All Picard metric generating tools should define their own metrics extension. */

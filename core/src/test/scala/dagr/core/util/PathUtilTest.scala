@@ -23,12 +23,13 @@
  */
 package dagr.core.util
 
-import java.nio.file.Paths
+import java.io.File
+import java.nio.file.{Files, Paths}
 
 /** Tests for the PathUtil. */
 class PathUtilTest extends UnitSpec {
 
-  "PathUtil.removeExtension" should " correctly remove a single extention from a filename" in {
+  "PathUtil.removeExtension" should " correctly remove a single extension from a filename" in {
     PathUtil.removeExtension("foo.bam") should be ("foo")
     PathUtil.removeExtension("really_long_name_here.with_a_really_long_ext_here") should be ("really_long_name_here")
   }
@@ -72,9 +73,21 @@ class PathUtilTest extends UnitSpec {
   }
 
   it should "should replace extensions" in {
-    PathUtil.replaceExtension(Paths.get("Foo.bam"), ".bai") should be (Paths.get("Foo.bai"))
-    PathUtil.replaceExtension(Paths.get("Foo.bar.bam"), ".bai") should be (Paths.get("Foo.bar.bai"))
-    PathUtil.replaceExtension(Paths.get("/Foo/bar/splat.bam"), ".not_yo_mama") should be (Paths.get("/Foo/bar/splat.not_yo_mama"))
+    PathUtil.replaceExtension(PathUtil.pathTo("Foo.bam"), ".bai") should be (PathUtil.pathTo("Foo.bai"))
+    PathUtil.replaceExtension(PathUtil.pathTo("Foo.bar.bam"), ".bai") should be (PathUtil.pathTo("Foo.bar.bai"))
+    PathUtil.replaceExtension(PathUtil.pathTo("/Foo/bar/splat.bam"), ".not_yo_mama") should be (PathUtil.pathTo("/Foo/bar/splat.not_yo_mama"))
   }
 
+  "PathUtil.pathTo" should "resolve absolute paths just like Paths.get does" in {
+    PathUtil.pathTo("/foo")         shouldBe Paths.get("/foo")
+    PathUtil.pathTo("/foo/bar")     shouldBe Paths.get("/foo/bar")
+    PathUtil.pathTo("/foo/bar.txt") shouldBe Paths.get("/foo/bar.txt")
+    PathUtil.pathTo("/foo", "bar")  shouldBe Paths.get("/foo/bar")
+  }
+
+  it should "make relative paths absolute" in {
+    val cwd = Paths.get(".").toAbsolutePath.normalize
+    PathUtil.pathTo("relative/path.txt") shouldBe cwd.resolve("relative/path.txt")
+    PathUtil.pathTo("../relative/path2.txt") shouldBe cwd.getParent.resolve("relative/path2.txt")
+  }
 }

@@ -86,12 +86,12 @@ class IoTest extends UnitSpec {
   }
 
   "Io.assertCanWriteFile" should "throw an exception because the parent directory does not exist" in {
-    an[AssertionError] should be thrownBy Io.assertCanWriteFile(Paths.get("/path/to/nowhere"))
+    an[AssertionError] should be thrownBy Io.assertCanWriteFile(PathUtil.pathTo("/path/to/nowhere"))
   }
 
   it should "throw an exception because the parent exits and is not a directory" in {
     val f = tmpfile()
-    an[AssertionError] should be thrownBy Io.assertCanWriteFile(Paths.get(f.toAbsolutePath.toString, "/parent_is_file"))
+    an[AssertionError] should be thrownBy Io.assertCanWriteFile(PathUtil.pathTo(f.toAbsolutePath.toString, "/parent_is_file"))
   }
 
   it should "throw an exception because the parent directory is not writable" in {
@@ -113,9 +113,9 @@ class IoTest extends UnitSpec {
 
   "Io.findFirstExtentParent" should "find the first extant parent" in {
     val dir = tmpdir()
-    val child = Paths.get(dir.toAbsolutePath.toString, "child")
+    val child = PathUtil.pathTo(dir.toAbsolutePath.toString, "child")
     Io.findFirstExtentParent(child).get.toAbsolutePath.toString shouldBe dir.toAbsolutePath.toString
-    val grandchild = Paths.get(dir.toAbsolutePath.toString, "grand/child")
+    val grandchild = PathUtil.pathTo(dir.toAbsolutePath.toString, "grand/child")
     Io.findFirstExtentParent(grandchild).get.toAbsolutePath.toString shouldBe dir.toAbsolutePath.toString
   }
 }

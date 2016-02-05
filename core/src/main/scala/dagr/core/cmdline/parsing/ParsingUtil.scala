@@ -24,12 +24,12 @@
 package dagr.core.cmdline.parsing
 
 import java.lang.reflect.{InvocationTargetException, Modifier}
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
 
-import dagr.core.cmdline.{ClassFinder, CLPAnnotation, _}
+import dagr.core.cmdline.{CLPAnnotation, ClassFinder, _}
 import dagr.core.config.Configuration
 import dagr.core.tasksystem.Pipeline
-import dagr.core.util.ReflectionUtil
+import dagr.core.util.{PathUtil, ReflectionUtil}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.Map
@@ -206,7 +206,7 @@ private[parsing] object ParsingUtil extends Configuration  {
         val maybeEnum = clazz.getEnumConstants.map(_.asInstanceOf[Enum[_]]).find(e => e.name() == value)
         maybeEnum.getOrElse(throw new BadArgumentValue(badArgumentString))
       case clazz if clazz == classOf[Path] =>
-        Paths.get(value)
+        PathUtil.pathTo(value)
       // unitType shouldn't be an option, since it's supposed to the type *inside* any containers
       case clazz if clazz == classOf[Option[_]] =>
         throw new CommandLineParserInternalException(s"Cannot construct an '${unitType.getSimpleName}' from a string.  Is this an Option[Option[...]]?")

@@ -23,9 +23,10 @@
  */
 package dagr.tasks.misc
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 import dagr.core.tasksystem.SimpleInJvmTask
+import dagr.core.util.PathUtil
 import dagr.tasks.PathToVcf
 
 /**
@@ -36,7 +37,7 @@ class DeleteVcfs(val vcfs:PathToVcf*) extends SimpleInJvmTask {
 
   override def run(): Unit = {
     vcfs.foreach(vcf => {
-      val paths = vcf :: Paths.get(vcf.toString + ".idx") :: Paths.get(vcf.toString + ".tbi") :: Nil
+      val paths = vcf :: PathUtil.pathTo(vcf.toString + ".idx") :: PathUtil.pathTo(vcf.toString + ".tbi") :: Nil
       paths.foreach(Files.deleteIfExists)
     })
   }

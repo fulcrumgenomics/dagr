@@ -25,13 +25,23 @@ package dagr.core.util
 
 import java.nio.file.{Path, Paths}
 
+/** Provides utiliity methods for creating and manipulating Path objects and path-like Strings. */
 object PathUtil {
-
   val illegalCharacters: String = "[!\"#$%&'()*/:;<=>?@\\^`{|}~] "
 
-  def sanitizeFileName(fileName: String, illegalCharacters: String = PathUtil.illegalCharacters, replacement: Option[Char] = Some('_')): String = {
-    if (replacement.isEmpty) fileName.filter(c => !illegalCharacters.contains(c))
-    else fileName.map(c => if (illegalCharacters.contains(c)) replacement.get else c)
+  /** Resolves a path from a String, and then makes the path absolute. Prefer this to PathUtil.pathTo elsewhere. */
+  def pathTo(first: String, more: String*): Path = Paths.get(first, more:_*).toAbsolutePath.normalize
+
+  /** Replaces a set of illegal characters within a String that is to be used as a filename.
+    *
+    * @param fileName the string that is to be used as a filename
+    * @param illegalCharacters the set of characters to be replaced if found, defaults to [[illegalCharacters]]
+    * @param replacement an optional replacement character, defaulting to '_'; if None characters are just removed
+    * @return the filename without illegal characters
+    */
+  def sanitizeFileName(fileName: String, illegalCharacters: String = PathUtil.illegalCharacters, replacement: Option[Char] = Some('_')): String = replacement match {
+    case None     => fileName.filter(c => !illegalCharacters.contains(c))
+    case Some(r)  => fileName.map(c => if (illegalCharacters.contains(c)) r else c)
   }
 
   /** Replaces the extension on an existing path. */
@@ -47,6 +57,7 @@ object PathUtil {
 
   /** Remove the extension from a filename if present (the last . to the end of the string). */
   def removeExtension(pathname: String) : String = {
+    // Use Paths.get here so as not to turn the name into an absolute path, since we just toString it again
     removeExtension(Paths.get(pathname)).toString
   }
 
@@ -58,6 +69,6 @@ object PathUtil {
 
   /** Works similarly to the unix commmand basename, by optionally removing an extension, and all leading path elements. */
   def basename(name: String, trimExt: Boolean) : String = {
-   basename(Paths.get(name), trimExt)
+   basename(pathTo(name), trimExt)
   }
 }

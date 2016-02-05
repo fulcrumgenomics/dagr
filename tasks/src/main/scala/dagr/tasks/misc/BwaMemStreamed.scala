@@ -23,13 +23,11 @@
  */
 package dagr.tasks.misc
 
-import java.nio.file.Paths
-
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.tasksystem.{VariableResources, FixedResources, ProcessTask, UnitTask}
-import dagr.core.util.Io
-import dagr.tasks.picard.{PicardTask, FifoBuffer, MergeBamAlignment, SamToFastq}
-import dagr.tasks.{PipedTask, PathToBam, PathToFasta}
+import dagr.core.tasksystem.{FixedResources, ProcessTask, VariableResources}
+import dagr.core.util.{PathUtil, Io}
+import dagr.tasks.picard.{FifoBuffer, MergeBamAlignment, PicardTask, SamToFastq}
+import dagr.tasks.{PathToBam, PathToFasta, PipedTask}
 
 import scala.collection.mutable.ListBuffer
 
@@ -66,7 +64,7 @@ class BwaMemStreamed(unmappedBam: PathToBam,
 
   // Optionally tie in alt-processing if requested and the .alt file exists
   {
-    val alt = Paths.get(ref + ".alt")
+    val alt = PathUtil.pathTo(ref + ".alt")
     if (processAltMappings && alt.toFile.exists()) {
       tasks ++= new BwaK8AltProcessor(altFile = alt).getTasks
       tasks ++= new FifoBuffer().requires(memory = Memory(fifoBufferMem)).getTasks
