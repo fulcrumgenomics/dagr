@@ -157,6 +157,7 @@ lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
 ////////////////////////////////////////////////////////////////////////////////////////////////
 lazy val root = Project(id="dagr", base=file("."))
   .settings(commonSettings: _*)
+  .settings(unidocSettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
   .aggregate(sopt, core, tasks, pipelines)
   .dependsOn(sopt, core, tasks, pipelines)
