@@ -39,10 +39,12 @@ import dagr.tasks.vc.{FilterFreeBayesCalls, FreeBayesGermline}
   */
 @CLP(
 description =
-"""Calls germline variants in a single sample and then hard filters them.
-For GATK, calls are made using the GATK's HaplotypeCaller and filtering with
-Picard's FilterVcf.  For FreeBayes, calls are made using bcbio's best practices.
-Optionally, variants are assessed with Picard's GenotypeConcordance tool."""
+  """
+    |Calls germline variants in a single sample and then hard filters them.
+    |For GATK, calls are made using the GATK's HaplotypeCaller and filtering with
+    |Picard's FilterVcf.  For FreeBayes, calls are made using bcbio's best practices.
+    |Optionally, variants are assessed with Picard's GenotypeConcordance tool.
+    |"""
 )
 class GermlineVariantCallingPipeline(
   @Arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val input: PathToBam,

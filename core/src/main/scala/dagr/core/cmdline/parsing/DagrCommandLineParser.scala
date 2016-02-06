@@ -61,6 +61,10 @@ class DagrCommandLineParser(val commandLineName: String, val includeHidden: Bool
 
   val SeparatorLine = wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM)
 
+  private val PipelineGroupNameColumnLength = 48
+  private val PipelineGroupDescriptionColumnLength = 45
+  private val PipelineNameColumnLength = 45
+
   /**
     * Main entry point for the class, takes in the array of arguments from the command line, figueres out
     * how to split them into a) options to dagr, b) the pipeline name to run and c) options to the pipeline,
@@ -80,7 +84,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeHidden: Bool
     val mainClass = classOf[DagrCoreMain]
     val dagrArgParser = new CommandLineParser(mainClass) {
       override protected def getStandardUsagePreamble: String = {
-        s"$USAGE_PREFIX $commandLineName [$commandLineName arguments] -- [Task Name] [task arguments]\n\n"
+        s"$KRED$USAGE_PREFIX $KBLDRED$commandLineName$KNRM$KRED [$commandLineName arguments] -- [Task Name] [task arguments]$KNRM\n\n"
       }
       override protected def targetName: String = Configuration.commandLineName
     }
@@ -258,26 +262,39 @@ class DagrCommandLineParser(val commandLineName: String, val includeHidden: Bool
     tasksByGroup.entrySet.foreach{entry =>
       val pipelineGroup: PipelineGroup = entry.getKey
       builder.append(SeparatorLine)
-      builder.append(wrapString(KRED, String.format(s"%-48s%-45s\n", pipelineGroup.name + ":", pipelineGroup.description), KNRM))
+      builder.append(wrapString(KRED, String.format(s"%-${PipelineGroupNameColumnLength}s%-${PipelineGroupDescriptionColumnLength}s\n",
+        pipelineGroup.name + ":", pipelineGroup.description), KNRM))
       val entries: List[PipelineClass] = entry.getValue.toList
       entries
         .sortWith((lhs, rhs) => lhs.getSimpleName.compareTo(rhs.getSimpleName) < 0)
         .foreach{clazz =>
-          val property: CLPAnnotation = tasksToProperty.get(clazz).get
-          if (null == property) {
-            throw new BadAnnotationException(s"Unexpected error: did not find the CommandLineTaskProperties annotation for '${clazz.getSimpleName}'")
-          }
-          if (clazz.getSimpleName.length >= 45) {
-            builder.append(wrapString(KGRN, String.format(s"    %s    %s\n", clazz.getSimpleName, wrapString(KCYN, property.description)), KNRM))
+          val clpAnnotation: CLPAnnotation = tasksToProperty.get(clazz).get
+          if (clazz.getSimpleName.length >= PipelineNameColumnLength) {
+            builder.append(wrapString(KGRN, String.format(s"    %s    %s\n", clazz.getSimpleName, wrapString(KCYN, formatShortDescription(clpAnnotation.description))), KNRM))
           }
           else {
-            builder.append(wrapString(KGRN, String.format(s"    %-45s%s\n", clazz.getSimpleName, wrapString(KCYN, property.description)), KNRM))
+            builder.append(wrapString(KGRN, String.format(s"    %-${PipelineNameColumnLength}s%s\n",
+              clazz.getSimpleName, wrapString(KCYN, formatShortDescription(clpAnnotation.description))), KNRM))
           }
         }
     }
 
     builder.append(SeparatorLine)
     builder.toString()
+  }
+
+  /** The maximum line lengths for pipeline descriptions */
+  private val MaximumLineLength = 80
+
+  /** find the first period (".") and keep only everything before it **/
+  private def formatShortDescription(description: String): String = {
+    val desc = description.stripMargin.dropWhile(_ == '\n')
+    desc.indexOf('.') match {
+      case -1 =>
+        if (desc.length > MaximumLineLength-3) desc.substring(0, MaximumLineLength-3) + "..."
+        else desc
+      case idx => desc.substring(0, idx+1)
+    }
   }
 
   /** Similarity floor for matching in printUnknown **/

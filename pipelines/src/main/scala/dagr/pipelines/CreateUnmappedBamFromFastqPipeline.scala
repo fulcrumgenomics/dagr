@@ -36,8 +36,11 @@ import scala.collection.mutable.ListBuffer
 
 object CreateUnmappedBamFromFastqPipeline {
   @inline
-  final val SUMMARY = """Create Unmapped Bam From Fastq Pipeline.  Runs:
- - FastqToSam -> MarkIlluminaAdapters -> Unmapped BAM"""
+  final val SUMMARY =
+    """
+      |Create Unmapped Bam From Fastq Pipeline.  Runs:
+      |  - FastqToSam -> MarkIlluminaAdapters -> Unmapped BAM
+      |"""
 }
 
 @CLP(

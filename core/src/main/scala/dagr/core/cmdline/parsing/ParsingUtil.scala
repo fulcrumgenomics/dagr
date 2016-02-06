@@ -42,7 +42,7 @@ private[parsing] object ParsingUtil extends Configuration  {
     ReflectionUtil.findJavaAnnotation(clazz, classOf[CLPAnnotation])
   }
 
-  private lazy val printColor: Boolean = optionallyConfigure[Boolean](Configuration.Keys.ColorStatus).getOrElse(false)
+  private[parsing] lazy val printColor: Boolean = optionallyConfigure[Boolean](Configuration.Keys.ColorStatus).getOrElse(true)
 
   /** Initializes the color for printing */
   private def initializeColor(color: String): String = {
