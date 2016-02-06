@@ -27,7 +27,7 @@ import java.io.PrintWriter
 import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline.parsing.DagrCommandLineParser
-import dagr.core.config.Configuration
+import dagr.core.config.{ConfigurationKeys, Configuration}
 import dagr.core.execsystem._
 import dagr.core.tasksystem.{Pipeline, ValidationException, Task}
 import dagr.core.util.{LazyLogging, BiMap, LogLevel, Logger, Io}
@@ -38,7 +38,7 @@ object DagrCoreMain {
   /** The packages we wish to include in our command line **/
   protected def getPackageList: List[String] = {
     val config = new Configuration {}
-    config.optionallyConfigure[List[String]](Configuration.Keys.PackageList) getOrElse List[String]("dagr")
+    config.optionallyConfigure[List[String]](ConfigurationKeys.PackageList) getOrElse List[String]("dagr")
   }
 
   /** The main method */
@@ -126,12 +126,12 @@ class DagrCoreMain(
       val config = new Configuration { }
 
       // System and JVM resources
-      val systemCores  = config.optionallyConfigure[Double](Configuration.Keys.SystemCores) orElse this.cores
-      val systemMemory = config.optionallyConfigure[String](Configuration.Keys.SystemMemory) orElse this.memory
+      val systemCores  = config.optionallyConfigure[Double](ConfigurationKeys.SystemCores) orElse this.cores
+      val systemMemory = config.optionallyConfigure[String](ConfigurationKeys.SystemMemory) orElse this.memory
 
       // scripts & logs directories
-      val scriptsDirectory = pick(this.scriptDir, pipeline.outputDirectory.map(_.resolve("scripts")), config.optionallyConfigure(Configuration.Keys.ScriptDirectory))
-      val logDirectory     = pick(this.logDir,    pipeline.outputDirectory.map(_.resolve("logs")),    config.optionallyConfigure(Configuration.Keys.LogDirectory))
+      val scriptsDirectory = pick(this.scriptDir, pipeline.outputDirectory.map(_.resolve("scripts")), config.optionallyConfigure(ConfigurationKeys.ScriptDirectory))
+      val logDirectory     = pick(this.logDir,    pipeline.outputDirectory.map(_.resolve("logs")),    config.optionallyConfigure(ConfigurationKeys.LogDirectory))
 
       {
         val errors: ListBuffer[String] = ListBuffer[String]()

@@ -88,7 +88,6 @@ class ReflectiveBuilder[T](val clazz: Class[T]) {
       }
 
       val jParam = jConstructor.getParameters()(index)
-      val annotation = Option(jParam.getAnnotation(classOf[ArgAnnotation]))
 
       this.argumentLookup add buildArgument(
         param=param, declaringClass=clazz, index=index, name=name, defaultValue=defaultValue,

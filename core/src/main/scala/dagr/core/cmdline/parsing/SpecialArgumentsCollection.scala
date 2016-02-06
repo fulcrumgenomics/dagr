@@ -23,11 +23,9 @@
  */
 package dagr.core.cmdline.parsing
 
-import java.nio.file.Path
-
 import dagr.core.cmdline.Arg
 
-object SpecialArgumentsCollection {
+private[parsing] object SpecialArgumentsCollection {
   val HELP_FULLNAME: String = "help"
   val VERSION_FULLNAME: String = "version"
   //val ARGUMENTS_FILE_FULLNAME: String = "arguments-file"
@@ -47,7 +45,7 @@ object SpecialArgumentsCollection {
   *   File: "--aab s --b -c -d wer\nwe -c"
   *   Args: "--aab" "s" "--b" "-c" "-d" "wer", "we" "-c"
   */
-final case class SpecialArgumentsCollection(
+private[parsing] final case class SpecialArgumentsCollection(
   @Arg(flag = "h", name = "help", doc = "Display the help message.", special = true)
   var help: Boolean = false,
   @Arg(name = "version", doc = "Display the version number for this tool.", special = true)

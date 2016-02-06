@@ -24,7 +24,7 @@
 package dagr.core.config
 
 import java.io.File
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import java.time.Duration
 
 import com.typesafe.config.ConfigException.Generic
@@ -36,11 +36,25 @@ import scala.collection.JavaConversions._
 import scala.collection.SortedSet
 import scala.reflect.runtime.universe.{TypeTag, typeOf}
 
+
+// Keys for configuration values used in dagr core
+object ConfigurationKeys {
+  val CommandLineName = "dagr.command-line-name"
+  val PackageList     = "dagr.package-list"
+  val ScriptDirectory = "dagr.script-directory"
+  val LogDirectory    = "dagr.log-directory"
+  val SystemCores     = "dagr.system-cores"
+  val SystemMemory    = "dagr.system-memory"
+  val ColorStatus     = "dagr.color-status"
+}
+
 /**
   * Companion object to the Configuration trait that keeps track of all configuration keys
   * that have been requested so that they can be reported later if desired.
   */
 private[core] object Configuration extends ConfigurationLike {
+  // Developer Note: [[Configuration]] is not private so that [[Configuration.Keys]] is public
+
   // A sorted set tracking all the configuration keys that are requested
   private[config] val RequestedKeys = collection.mutable.TreeSet[String]()
 
@@ -50,23 +64,12 @@ private[core] object Configuration extends ConfigurationLike {
   /** Implement the abstract method from BaseConfiguration to return the actual config instance. */
   override private[config] def config = _config
 
-  // Keys for configuration values used in dagr core
-  object Keys {
-    val CommandLineName = "dagr.command-line-name"
-    val PackageList     = "dagr.package-list"
-    val ScriptDirectory = "dagr.script-directory"
-    val LogDirectory    = "dagr.log-directory"
-    val SystemCores     = "dagr.system-cores"
-    val SystemMemory    = "dagr.system-memory"
-    val ColorStatus     = "dagr.color-status"
-  }
-
   /**
     * Initialize the configuration by loading configuration from the supplied path, and combining it with
     * configuration information from the system properties (higher priority), application.conf and
     * reference.conf files (lower priority).
     */
-  def initialize(path: Option[Path]): Unit = path match {
+  private[core] def initialize(path: Option[Path]): Unit = path match {
     case None    =>
       this._config = ConfigFactory.load()
     case Some(p) =>
@@ -83,17 +86,17 @@ private[core] object Configuration extends ConfigurationLike {
   }
 
   /** Allows initialization with a custom configuration. */
-  def initialize(customConfig : Config) : Unit = this._config = customConfig
+  private[core] def initialize(customConfig: Config): Unit = this._config = customConfig
 
   /** Returns a sorted set of all keys that have been requested up to this point in time. */
-  def requestedKeys : SortedSet[String] = {
+  private[core] def requestedKeys: SortedSet[String] = {
     var keys = collection.immutable.TreeSet[String]()
     keys ++= RequestedKeys
     keys
   }
 
   /** The name of this unified command line program **/
-  def commandLineName: String = configure(Keys.CommandLineName, "Dagr")
+  private[core] def commandLineName: String = configure(ConfigurationKeys.CommandLineName, "Dagr")
 }
 
 /**

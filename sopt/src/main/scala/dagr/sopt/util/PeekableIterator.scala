@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-6 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,7 @@
 
 package dagr.sopt.util
 
+/** A class to allow a peek at what is next in an iterator without calling `next` **/
 class PeekableIterator[T](private val iterator: Iterator[T]) extends Iterator[T] {
   private var nextObject: Option[T] = None
 
