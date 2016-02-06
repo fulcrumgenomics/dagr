@@ -24,7 +24,8 @@
 package dagr.tasks.misc
 
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.tasksystem.{FixedResources, ProcessTask, VariableResources}
+import dagr.core.tasksystem.DataTypes.{Fastq, Sam}
+import dagr.core.tasksystem._
 import dagr.core.util.{PathUtil, Io}
 import dagr.tasks.picard.{FifoBuffer, MergeBamAlignment, PicardTask, SamToFastq}
 import dagr.tasks.{PathToBam, PathToFasta, PipedTask}
@@ -53,48 +54,25 @@ class BwaMemStreamed(unmappedBam: PathToBam,
                      mergeBamAlignmentMem: String = "2G",
                      fifoBufferMem: String = "512M",
                      processAltMappings : Boolean = true
-                    ) extends PipedTask with VariableResources {
-  this.name = "BwaMemStreamed"
-  override protected val tasks = ListBuffer[ProcessTask]()
+                    ) extends Pipeline {
 
-  tasks ++= SamToFastq(in = unmappedBam, out = Io.StdOut).requires(memory = Memory(samToFastqMem)).getTasks
-  tasks ++= new FifoBuffer().requires(Cores(0), Memory(fifoBufferMem)).getTasks
-  tasks ++= new BwaMem(fastq = Io.StdIn, ref = ref, minThreads = minThreads, maxThreads = maxThreads, memory = Memory(bwaMemMemory)).getTasks
-  tasks ++= new FifoBuffer().requires(memory = Memory(fifoBufferMem)).getTasks
+  override def build(): Unit = {
+    val samToFastq = SamToFastq(in=unmappedBam, out=Io.StdOut).requires(Cores(0.5), Memory(samToFastqMem))
+    val fqBuffer   = new FifoBuffer[Fastq].requires(memory=Memory(fifoBufferMem))
+    val bwaMem     = new BwaMem(fastq = Io.StdIn, ref = ref, minThreads = minThreads, maxThreads = maxThreads, memory = Memory(bwaMemMemory))
+    val bwaBuffer  = new FifoBuffer[Sam].requires(memory=Memory(fifoBufferMem))
 
-  // Optionally tie in alt-processing if requested and the .alt file exists
-  {
+    var pipe = samToFastq | fqBuffer | bwaMem | bwaBuffer
+
+    // Optionally tie in alt-processing if requested and the .alt file exists
     val alt = PathUtil.pathTo(ref + ".alt")
     if (processAltMappings && alt.toFile.exists()) {
-      tasks ++= new BwaK8AltProcessor(altFile = alt).getTasks
-      tasks ++= new FifoBuffer().requires(memory = Memory(fifoBufferMem)).getTasks
+      val k8       = new BwaK8AltProcessor(altFile = alt)
+      val k8Buffer = new FifoBuffer[Sam].requires(memory=Memory(fifoBufferMem))
+      pipe = pipe | k8 | k8Buffer
     }
-  }
 
-  tasks ++= new MergeBamAlignment(unmapped = unmappedBam, mapped = Io.StdIn, out = mappedBam, ref = ref).requires(memory = Memory(mergeBamAlignmentMem)).getTasks
-
-  /**
-    * Attempts to pick the resources required to run. The required resources are:
-    * 1) Cores  = the cores for bwa-mem plus one additional core to account for the other programs
-    * 2) Memory = the sum of memory required for all processes
-    */
-  override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = {
-    val totalMemory = this.tasks.map({
-      case f: FixedResources => f.resources.memory.bytes
-      case _ => 0
-    }).sum[Long]
-
-    availableResources.subset(minCores = Cores(minThreads + 1), maxCores = Cores(maxThreads + 1), memory = Memory(totalMemory))
-  }
-
-  override def applyResources(resources: ResourceSet): Unit = {
-    logger.debug("BWA Streamed schedule resource set: " + resources)
-
-    val bwaResources = ResourceSet(Cores(resources.cores.value - 1), Memory(bwaMemMemory))
-    tasks.foreach {
-      case t: PicardTask => t.applyResources(t.resources)
-      case t: BwaMem => t.applyResources(bwaResources)
-      case _ => Unit
-    }
+    val mergeBam = new MergeBamAlignment(unmapped=unmappedBam, mapped=Io.StdIn, out=mappedBam, ref=ref).requires(memory=Memory(mergeBamAlignmentMem))
+    root ==> (pipe | mergeBam).withName("BwaMemThroughMergeBam")
   }
 }

@@ -25,7 +25,8 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.tasksystem.{FixedResources, ProcessTask}
+import dagr.core.tasksystem.DataTypes.SamOrBam
+import dagr.core.tasksystem.{Pipeline, FixedResources, ProcessTask}
 import dagr.core.util.Io
 import dagr.tasks.{PipedTask, PathToBam, PathToFastq}
 
@@ -52,30 +53,23 @@ class FastqToUnmappedSam(fastq1: PathToFastq,
                          library: Option[String] = None,
                          readGroupName: Option[String] = None,
                          useSequentialFastqs: Boolean = false
-                          ) extends PipedTask with FixedResources {
+                          ) extends Pipeline {
 
-  val fastqToSam: FastqToSam = new FastqToSam(
-    name = "FastqToSam",
-    fastq1 = fastq1,
-    fastq2 = fastq2,
-    out = Io.StdOut,
-    sampleName = sampleName,
-    platform = platform,
-    platformUnit = platformUnit,
-    library = library,
-    readGroupName = readGroupName,
-    useSequentialFastqs = useSequentialFastqs)
-  fastqToSam.applyResources(fastqToSam.resources)
+  override def build(): Unit = {
+    val fastqToSam: FastqToSam = new FastqToSam(
+      name = "FastqToSam",
+      fastq1 = fastq1,
+      fastq2 = fastq2,
+      out = Io.StdOut,
+      sampleName = sampleName,
+      platform = platform,
+      platformUnit = platformUnit,
+      library = library,
+      readGroupName = readGroupName,
+      useSequentialFastqs = useSequentialFastqs)
 
-  val fifoBuffer: FifoBuffer = new FifoBuffer()
-  fifoBuffer.applyResources(fifoBuffer.resources)
-
-  val markIlluminaAdapters = new MarkIlluminaAdapters(in=Io.StdIn, out=bam, prefix=prefix)
-  markIlluminaAdapters.applyResources(markIlluminaAdapters.resources)
-
-  // Get tasks so that args are filled out, and so we can update resources
-  override protected val tasks = fastqToSam :: fifoBuffer :: markIlluminaAdapters :: Nil
-
-  requires(fastqToSam.resources + fifoBuffer.resources + markIlluminaAdapters.resources)
-  logger.debug("FastqToUnmappedSam: cores: " + resources.cores + " memory: " + resources.memory)
+    val buffer = new FifoBuffer[SamOrBam]
+    val markIlluminaAdapters = new MarkIlluminaAdapters(in = Io.StdIn, out = bam, prefix = prefix)
+    root ==> (fastqToSam | buffer | markIlluminaAdapters).withName("FastqToAdapaterMarkedSam")
+  }
 }

@@ -26,7 +26,8 @@ package dagr.tasks.misc
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.core.tasksystem.{FixedResources, ProcessTask}
+import dagr.core.tasksystem.DataTypes.Sam
+import dagr.core.tasksystem.{Piping, FixedResources, ProcessTask}
 
 object BwaK8AltProcessor {
   val BwaKitDirConfigKey = "bwa-kit.dir"
@@ -37,7 +38,9 @@ object BwaK8AltProcessor {
  * Task for running the alt-mapping post-processing setup from bwa.kit. By default
  * reads from stdin, but an input file can be supplied.  Writes to stdout.
  */
-class BwaK8AltProcessor(in: Option[Path] = None, altFile: Path) extends ProcessTask with FixedResources  with Configuration {
+class BwaK8AltProcessor(in: Option[Path] = None, altFile: Path) extends ProcessTask
+  with FixedResources with Configuration with Piping[Sam,Sam] {
+
   override def args = {
     val bwaKit = configure[Path](BwaK8AltProcessor.BwaKitDirConfigKey)
     bwaKit.resolve("k8") :: bwaKit.resolve(BwaK8AltProcessor.ScriptName) :: altFile :: in.toList

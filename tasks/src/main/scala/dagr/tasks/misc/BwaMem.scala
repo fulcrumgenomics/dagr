@@ -24,7 +24,8 @@
 package dagr.tasks.misc
 
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.tasksystem.{VariableResources, ProcessTask}
+import dagr.core.tasksystem.DataTypes.{Sam, Fastq}
+import dagr.core.tasksystem.{Piping, VariableResources, ProcessTask}
 import dagr.core.util.Io
 import dagr.tasks.{PathToBam, PathToFasta, PathToFastq}
 
@@ -33,8 +34,8 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
              ref: PathToFasta,
              minThreads: Int = 1,
              maxThreads: Int = 32,
-             memory: Memory = Memory("8G")) extends ProcessTask with VariableResources {
-  name = "BwaMemStreamed"
+             memory: Memory = Memory("8G")) extends ProcessTask with VariableResources with Piping[Fastq,Sam] {
+  name = "BwaMem"
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
     resources.subset(minCores=Cores(minThreads), maxCores=Cores(maxThreads), memory=memory)
