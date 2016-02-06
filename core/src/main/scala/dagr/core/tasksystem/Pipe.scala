@@ -157,7 +157,7 @@ object Pipes {
   /**
     * Builds a new PipeChain from two tasks that support piping.
     *
-    * @param left the task on the left hand side of the pipe
+    * @param left  the task on the left hand side of the pipe
     * @param right the task on the right hand side of the pipe
     * @tparam In1  the input type of left hand task, which becomes the input type of the pipeline
     * @tparam Out1 the output type of the left hand task
@@ -166,9 +166,17 @@ object Pipes {
     * @return a new PipeChain that chains together the two tasks/chains provided
     */
   private[tasksystem] def chain[In1,Out1,In2 >:Out1,Out2](left: Pipe[In1,Out1], right: Pipe[In2,Out2]): Pipe[In1,Out2] = {
-    val xs = ListBuffer[Pipe[_,_]]()
-    xs.appendAll(left.ordered)
-    xs.appendAll(right.ordered)
-    new PipeChain(tasks=xs.toList, first=left.left, last=right.right)
+    left match {
+      case p: EmptyPipe[Out1] => right.asInstanceOf[Pipe[In1,Out2]]
+      case _ =>
+        right match {
+          case p: EmptyPipe[Out2] => left.asInstanceOf[Pipe[In1,Out2]]
+          case _ =>
+            val xs = ListBuffer[Pipe[_,_]]()
+            xs.appendAll(left.ordered)
+            xs.appendAll(right.ordered)
+            new PipeChain(tasks=xs.toList, first=left.left, last=right.right)
+        }
+    }
   }
 }

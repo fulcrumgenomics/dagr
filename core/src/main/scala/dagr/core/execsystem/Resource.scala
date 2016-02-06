@@ -129,6 +129,9 @@ sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit num
   /** Implementation of greater than or equal to. */
   def >=(that: R): Boolean = numeric.gteq(this.value, that.value)
 
+  /** Make the toString always return the value as a string. */
+  final override def toString: String = String.valueOf(value)
+
   /** Must be implemented by subclasses to return a new instance with the specified value. */
   protected def build(value: T) : R
 }
