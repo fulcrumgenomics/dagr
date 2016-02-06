@@ -23,6 +23,8 @@
  */
 package dagr.tasks.picard
 
+import dagr.core.tasksystem.DataTypes.{SamOrBam, Fastq}
+import dagr.core.tasksystem.Piping
 import dagr.tasks.{PathToBam, PathToFastq}
 
 import scala.collection.mutable.ListBuffer
@@ -38,7 +40,7 @@ class FastqToSam(name: String,
                  readGroupName: Option[String] = None,
                  stripUnpairedMateNumber: Boolean = true,
                  useSequentialFastqs: Boolean = false)
-  extends PicardTask {
+  extends PicardTask with Piping[Fastq,SamOrBam]{
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     // add custom args

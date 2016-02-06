@@ -4,20 +4,27 @@ import dagr.core.execsystem.ResourceSet
 
 import scala.collection.mutable.ListBuffer
 
+object DataTypes {
+  class SamOrBam
+  class Sam extends SamOrBam
+  class Bam extends SamOrBam
+  class Vcf
+  class Fastq
+}
 
 private object PipeChain {
   /**
     * Builds a new PipeChain from two tasks that support piping.
     *
-    * @param left the left-most, or generative, task in the chain
-    * @param right the right most, or sink, task in the chain
-    * @tparam In the type of thing that can be fed into the pipe
-    * @tparam Join the type of thing that comes out of the pipe
-    * @tparam Out the type of thing that flows between the left and right side of the pipe
-    * @return
+    * @param left the task on the left hand side of the pipe
+    * @param right the task on the right hand side of the pipe
+    * @tparam In1  the input type of left hand task, which becomes the input type of the pipeline
+    * @tparam Out1 the output type of the left hand task
+    * @tparam In2  the input type of the right hand task, which must be a subtype of the left tasks output type
+    * @tparam Out2 the output type of the right hand task, which becomes the output type of the pipeline
+    * @return a new PipeChain that chains together the two tasks/chains provided
     */
-  // TODO: allow the right's input to be a supertype of the left's output
-  def apply[In,Join,Out](left: Piping[In,Join], right: Piping[Join,Out]): Piping[In,Out] = {
+  def apply[In1,Out1,In2 >:Out1,Out2](left: Piping[In1,Out1], right: Piping[In2,Out2]): Piping[In1,Out2] = {
     val xs = ListBuffer[Piping[_,_]]()
     xs.appendAll(left.ordered)
     xs.appendAll(right.ordered)
@@ -100,7 +107,7 @@ private class PipeChain[In,Out](val tasks: List[Piping[_,_]], val first: Piping[
   */
 trait Piping[In,Out] extends ProcessTask {
   /** Generates another Piper that is the result of this piper piped into the new piper. */
-  def |[NextOut](next: Piping[Out,NextOut]): Piping[In,NextOut] = {
+  def |[In2 >: Out,Out2](next: Piping[In2,Out2]): Piping[In,Out2] = {
     PipeChain(this, next)
   }
 
