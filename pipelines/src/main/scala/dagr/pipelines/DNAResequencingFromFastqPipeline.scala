@@ -83,7 +83,7 @@ class DnaResequencingFromFastqPipeline(
 
     val unmappedBam = Files.createTempFile(tmp, "unmapped.", ".bam")
     val inputs = (fastq1, fastq2, platformUnit).zipped
-    val fastqToBams = ListBuffer[FastqToUnmappedSam]()
+    val fastqToBams = ListBuffer[ProcessTask]()
     val unmappedBams = ListBuffer[PathToBam]()
 
     ///////////////////////////////////////////////////////////////////////
