@@ -36,7 +36,10 @@ import dagr.tasks.vc.{FilterFreeBayesCalls, FreeBayesSomatic, Varscan2Somatic}
   * Pipeline to call Somatic Variants using both Varscan2 and Mutect2
   */
 @CLP(
-  description = "Calls somatic variants in a single sample [pair] and then filters them."
+  description =
+    """
+      |Calls somatic variants in a single sample [pair] and then filters them.
+    """"
 )
 class TumorNormalVariantCallingPipeline(
   @Arg(flag="t", doc="The tumor BAM file.")                                       val tumorBam: PathToBam,

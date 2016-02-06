@@ -42,7 +42,10 @@ import collection.JavaConversions._
   * and run somatic variant calling on it.
   */
 @CLP(
-  description = "Downsamples a Tumor BAM to various coverage levels and calls mutations in it."
+  description =
+    """
+      |Downsamples a Tumor BAM to various coverage levels and calls mutations in it." +
+    """
 )
 class DownsampleAndCallSomaticVariants(
    @Arg(flag="t", doc="Tumor BAM file")                          val tumorBam:  PathToBam,

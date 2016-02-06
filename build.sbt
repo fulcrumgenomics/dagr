@@ -99,7 +99,8 @@ lazy val commonSettings = Seq(
   resolvers            += Resolver.jcenterRepo,
   shellPrompt          := { state => "%s| %s> ".format(GitCommand.prompt.apply(state), version.value) },
   coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*",
-  updateOptions        := updateOptions.value.withCachedResolution(true)
+  updateOptions        := updateOptions.value.withCachedResolution(true),
+  javaOptions in Test += "-Ddagr.color-status=false"
 ) ++ Defaults.coreDefaultSettings
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,6 +157,7 @@ lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
 ////////////////////////////////////////////////////////////////////////////////////////////////
 lazy val root = Project(id="dagr", base=file("."))
   .settings(commonSettings: _*)
+  .settings(unidocSettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
   .aggregate(sopt, core, tasks, pipelines)
   .dependsOn(sopt, core, tasks, pipelines)

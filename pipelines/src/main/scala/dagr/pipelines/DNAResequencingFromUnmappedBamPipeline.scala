@@ -36,13 +36,15 @@ import dagr.tasks.picard._
 import scala.collection.mutable.ListBuffer
 
 object DnaResequencingFromUnmappedBamPipeline {
-  final val SUMMARY =  """Dna Resequencing From Unmapped BAM Pipeline.  Runs:
-\t - Unmapped BAM -> EstimateLibraryComplexity"
-\t - Unmapped BAM -> SamToFastq -> Bwa Mem -> MergeBamAlignment -> MarkDuplicates -> Mapped BAM
-\t - Mapped BAM -> {CollectMultipleMetrics, EstimateLibraryComplexity, ValidateSamFile}
-\t - Mapped BAM -> {CalculateHsMetrics, CollectTargetedPcrMetrics} if targets are given
-\t - Mapped BAM -> {CollectWgsMetrics, CollectGcBiasMetrics} if targets are not given"""
-  final val ONE_LINE_SUMMARY =  "Dna Resequencing From Unmapped BAM Pipeline"
+  final val SUMMARY =
+    """
+      |Dna Resequencing From Unmapped BAM Pipeline.  Runs:
+      |  - Unmapped BAM -> EstimateLibraryComplexity"
+      |  - Unmapped BAM -> SamToFastq -> Bwa Mem -> MergeBamAlignment -> MarkDuplicates -> Mapped BAM
+      |  - Mapped BAM -> {CollectMultipleMetrics, EstimateLibraryComplexity, ValidateSamFile}
+      |  - Mapped BAM -> {CalculateHsMetrics, CollectTargetedPcrMetrics} if targets are given
+      |  - Mapped BAM -> {CollectWgsMetrics, CollectGcBiasMetrics} if targets are not given
+      |"""
 }
 
 @CLP(

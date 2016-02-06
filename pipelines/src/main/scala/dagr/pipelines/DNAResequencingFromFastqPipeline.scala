@@ -35,11 +35,15 @@ import scala.collection.mutable.ListBuffer
 
 object DnaResequencingFromFastqPipeline {
   @inline
-  final val SUMMARY = """Dna Resequencing from Fastq Pipeline.\n\t - FastqToSam -> MarkIlluminaAdapters -> Unmapped BAM
- - Unmapped BAM -> SamToFastq -> Bwa Mem -> MergeBamAlignment -> MarkDuplicates -> Mapped BAM
- - Mapped BAM -> {CollectMultipleMetrics, EstimateLibraryComplexity, ValidateSamFile}
- - Mapped BAM -> {CalculateHsMetrics, CollectTargetedPcrMetrics} if targets are given
- - Mapped BAM -> {CollectWgsMetrics, CollectGcBiasMetrics} if targets are not given"""
+  final val SUMMARY =
+    """
+      |Dna Resequencing from Fastq Pipeline.
+      |  - FastqToSam -> MarkIlluminaAdapters -> Unmapped BAM
+      |  - Unmapped BAM -> SamToFastq -> Bwa Mem -> MergeBamAlignment -> MarkDuplicates -> Mapped BAM
+      |  - Mapped BAM -> {CollectMultipleMetrics, EstimateLibraryComplexity, ValidateSamFile}
+      |  - Mapped BAM -> {CalculateHsMetrics, CollectTargetedPcrMetrics} if targets are given
+      |  - Mapped BAM -> {CollectWgsMetrics, CollectGcBiasMetrics} if targets are not given
+    """
 }
 
 @CLP(
