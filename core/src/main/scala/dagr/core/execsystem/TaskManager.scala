@@ -277,8 +277,10 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     // check if the task is running and if so, kill it
     if (taskInfo.status == STARTED) {
       taskRunner.terminateTask(taskId)
-      processCompletedTask(taskId = taskId)
     }
+
+    // update all complete tasks, as this task may have already completed, or was just terminated
+    updateCompletedTasks()
 
     // reset the internal data structures for this task
     taskInfo.status = TaskStatus.UNKNOWN
