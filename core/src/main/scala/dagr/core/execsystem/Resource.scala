@@ -98,6 +98,14 @@ object Resource {
   }
 }
 
+/**
+  * Sealed base class that Resources must extend. Requires that resources have a single numeric
+  * value, and then provides useful arithmetic and relational operators on that value.
+  * @param value the actual value of the resource (e.g. bytes of memory)
+  * @param numeric an implicit parameter constraining T to be a numeric type
+  * @tparam T the type of number the value is expressed in, e.g. Long or Double
+  * @tparam R self-referential type required to make all the operators work nicely
+  */
 sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit numeric :Numeric[T]) {
   /** Override equals so that we get proper == and != support. */
   override def equals(other: scala.Any): Boolean = {
@@ -123,9 +131,11 @@ sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit num
 
 
 /** A resource representing the memory. */
-case class Memory(bytes: Long) extends Resource[Long,Memory](value=bytes) {
+case class Memory(override val value: Long) extends Resource[Long,Memory](value=value) {
   if (value < 0) throw new IllegalArgumentException("Cannot have negative memory. Bytes=" + value)
 
+  /** Return the number of bytes, as a Long, represented by this object. */
+  def bytes: Long = value
   def kb : String = Resource.parseBytesToSize(value, 1024,           "k")
   def mb : String = Resource.parseBytesToSize(value, 1024*1024,      "m")
   def gb : String = Resource.parseBytesToSize(value, 1024*1024*1024, "g")
@@ -137,23 +147,20 @@ case class Memory(bytes: Long) extends Resource[Long,Memory](value=bytes) {
 
   override protected def build(value: Long): Memory = new Memory(value)
 }
+
+/** Companion object for Memory adding some addition apply() methods and defining some useful constant memory values. */
 object Memory {
   def apply(stringValue: String): Memory = new Memory(Resource.parseSizeToBytes(stringValue).toLong)
-  def apply(memory: Memory): Memory = new Memory(memory.value)
   val none = Memory(0)
+  val infinite = Memory(Long.MaxValue) // Not really infinite, but (for 2016) 8192 petabytes of memory seems infinite
 }
 
-/** A resource representing a set of cores. */
-case class Cores(cores: Double) extends Resource[Double, Cores](value=cores) {
+/** A resource representing a number of cores (including partial cores). */
+case class Cores(override val value: Double) extends Resource[Double, Cores](value=value) {
   if (value < 0) throw new IllegalArgumentException("Cannot have negative cores. Cores=" + value)
 
   /** Round the number of cores to the nearest integer value. */
   def toInt: Int = Math.round(value).toInt
 
-  /** Must be implemented by subclasses to return a new instance with the specified value. */
   override protected def build(value: Double): Cores = new Cores(value)
-}
-
-object Cores {
-  def apply(cores: Cores): Cores = new Cores(cores.value)
 }

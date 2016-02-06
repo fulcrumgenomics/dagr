@@ -35,12 +35,12 @@ class ResourceSetTest extends UnitSpec {
     val original = ResourceSet(10, 10)
     val middle = ResourceSet(original)
     var running = original + middle
-    running.cores.cores shouldBe 20
+    running.cores.value shouldBe 20
     running.memory.value shouldBe 20
     running = running - middle
-    running.cores.cores shouldBe 10
+    running.cores.value shouldBe 10
     running.memory.value shouldBe 10
     running = running - Cores(10)
-    running.cores.cores shouldBe 0
+    running.cores.value shouldBe 0
   }
 }

@@ -174,7 +174,7 @@ object TaskManager extends LazyLogging {
         taskInfo.id.toString(),
         taskInfo.task.name,
         taskInfo.status.toString,
-        f"${taskInfo.resources.cores.cores}%.2f",
+        f"${taskInfo.resources.cores.value}%.2f",
         taskInfo.resources.memory.prettyString,
         timestampStringOrNA(taskInfo.submissionDate),
         timestampStringOrNA(taskInfo.startDate),
