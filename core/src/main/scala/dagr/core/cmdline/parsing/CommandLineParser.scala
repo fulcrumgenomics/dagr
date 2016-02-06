@@ -30,7 +30,6 @@ import dagr.core.util.LazyLogging
 import dagr.sopt.{OptionParser, OptionParsingException}
 
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.util.{Failure, Success}
 
@@ -51,7 +50,7 @@ private object CommandLineParserStrings {
 }
 
 /** Enumeration that represents the possible outcomes of trying to parse a command line. */
-object ParseResult extends Enumeration {
+private[parsing] object ParseResult extends Enumeration {
   type ParseResult = Value
   val Success = Value // Successful parse
   val Failure = Value // Something went wrong (unknown option, missing arg, etc.)
@@ -59,9 +58,9 @@ object ParseResult extends Enumeration {
   val Version = Value // A request to display version was encountered
 }
 
-object CommandLineParser {
-  private[parsing] def parseArgumentsFile(lines: Traversable[String]): Traversable[String] = {
-    val args: ListBuffer[String] = new ListBuffer[String]
+private[parsing] object CommandLineParser {
+  def parseArgumentsFile(lines: Traversable[String]): Traversable[String] = {
+    val args: mutable.ListBuffer[String] = new mutable.ListBuffer[String]
     lines.foreach { line =>
       if (!line.startsWith(CommandLineParserStrings.COMMENT) && line.trim.nonEmpty) {
         // split apart by spaces, but all neighbouring strings without a leading dash ('-') should be grouped
@@ -86,21 +85,19 @@ object CommandLineParser {
     }
     args.toList
   }
-
-
 }
 
 /******************************************************************************
   * Class for managing the parsing of command line arguments and matching them
   * to annotated constructor parameters on Tasks.
   *****************************************************************************/
-private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends LazyLogging {
+private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends LazyLogging {
   import CommandLineParserStrings._
   import ParsingUtil._
   import dagr.core.util.StringUtil._
 
-  private[parsing] val argumentLookup: ClpArgumentLookup = new ClpArgumentLookup()
-  private val argumentsFilesLoadedAlready: mutable.Set[String] = new mutable.HashSet[String]
+  val argumentLookup: ClpArgumentLookup = new ClpArgumentLookup()
+  //private val argumentsFilesLoadedAlready: mutable.Set[String] = new mutable.HashSet[String]
 
   /** The instance of type T that is None initially, and will be populated with a T after a successful parse(). */
   var instance : Option[T] = None

@@ -29,8 +29,8 @@ import dagr.core.util.LazyLogging
 /** A task that should be directly executed or scheduled.
  *
  * A few things about unit tasks:
- * - a task can depend on data from tasks on which it is dependent.  See [[Callbacks]]
- * - a task extending this class should return only one task in its getTasks method.  See [[Task.getTasks]]
+ * - a task can depend on data from tasks on which it is dependent.  See [[Callbacks]].
+ * - a task extending this class should return only one task in its getTasks method.  See [[Task.getTasks]].
  * - a task can perform any final logic dependent on the resources with which it is scheduled.  See [[Scheduler!.schedule*]].
   *
  * When a unit task gets scheduled, the [[dagr.core.execsystem.Scheduler.schedule]] method will be called to allow any final

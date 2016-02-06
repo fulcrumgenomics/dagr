@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-6 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,63 +23,63 @@
  */
 package dagr.core.cmdline
 
-object CommandLineException {
-  private[cmdline] def format(msg: String, e: Exception): String = {
+private[core] object CommandLineException {
+  private[core] def format(msg: String, e: Exception): String = {
     msg + ": " + e.getMessage + "\n" + e.getStackTrace.mkString("\n")
   }
 }
 
 /** Base class for all exceptions thrown by the command line parsing */
-class CommandLineException(msg: String) extends RuntimeException(msg) {
+private[core] class CommandLineException(msg: String) extends RuntimeException(msg) {
   def this(msg: String, e: Exception) {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when the user forgets to specify an argument */
-case class MissingArgumentException(msg: String) extends CommandLineException(msg = msg) {
+private[core] case class MissingArgumentException(msg: String) extends CommandLineException(msg = msg) {
   def this(msg: String, e: Exception) {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when the user forgets to specify an annotation */
-case class MissingAnnotationException(msg: String) extends CommandLineException(msg = msg) {
+private[core] case class MissingAnnotationException(msg: String) extends CommandLineException(msg = msg) {
   def this(msg: String, e: Exception) {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when trying to convert to specific value */
-case class ValueConversionException(msg: String) extends CommandLineException(msg = msg) {
+private[core] case class ValueConversionException(msg: String) extends CommandLineException(msg = msg) {
   def this(msg: String, e: Exception) {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when something internally goes wrong with command line parsing */
-case class CommandLineParserInternalException(msg: String) extends CommandLineException(msg = msg) {
+private[core] case class CommandLineParserInternalException(msg: String) extends CommandLineException(msg = msg) {
   def this(msg: String, e: Exception) {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when something there is user error (never happens) */
-case class UserException(msg: String) extends CommandLineException(msg = msg) {
+private[core] case class UserException(msg: String) extends CommandLineException(msg = msg) {
   def this(msg: String, e: Exception) {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when something the user gives a bad value */
-case class BadArgumentValue(msg: String) extends CommandLineException(msg = msg) {
+private[core] case class BadArgumentValue(msg: String) extends CommandLineException(msg = msg) {
   def this(msg: String, e: Exception) {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when something the annotation on a field is incorrect. */
-case class BadAnnotationException(msg: String) extends CommandLineException(msg = msg) {
+private[core] case class BadAnnotationException(msg: String) extends CommandLineException(msg = msg) {
   def this(msg: String, e: Exception) {
     this(CommandLineException.format(msg, e))
   }

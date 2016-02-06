@@ -30,5 +30,3 @@ class Pipelines extends PipelineGroup {
   def name: String = "Pipelines"
   def description: String = "Various pipeline programs."
 }
-
-
