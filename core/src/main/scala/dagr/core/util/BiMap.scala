@@ -23,7 +23,7 @@
  */
 package dagr.core.util
 
-import scala.collection.mutable.HashMap
+import scala.collection.mutable
 
 /** An iterable bi-Directional map.
  *
@@ -31,8 +31,8 @@ import scala.collection.mutable.HashMap
  * @tparam V the value type.
  */
 class BiMap[K, V]() extends Iterable[(K, V)] {
-  private val forward = new HashMap[K, V]()
-  private val reverse = new HashMap[V, K]()
+  private val forward = new mutable.HashMap[K, V]()
+  private val reverse = new mutable.HashMap[V, K]()
 
   /** Adds a tuple to the map.
    *
@@ -121,7 +121,6 @@ class BiMap[K, V]() extends Iterable[(K, V)] {
    * @return an iterator over tuples in this map.
    */
   def iterator: Iterator[(K, V)] = {
-    forward.keysIterator.map(k => (k, forward.get(k).get)).toIterator
+    forward.keysIterator.map(k => (k, forward.get(k).get))
   }
-
 }

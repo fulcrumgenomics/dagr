@@ -32,7 +32,8 @@ object Logger {
   var level = LogLevel.Info
   protected var out: PrintStream = System.out
 
-  def sanitizeSimpleClassName(className: String): String = {
+  /** Removes various characters from the simple class name, for scala class names. */
+  private[util] def sanitizeSimpleClassName(className: String): String = {
     className.replaceFirst("[$].*$", "")
   }
 }
@@ -45,10 +46,7 @@ class Logger(clazz : Class[_]) {
   private val fmt = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss")
   private var out: Option[PrintStream] = None
 
-  /**
-   * Sets the given instance of the logger for this task
-   * @param out
-   */
+  /** Sets the given instance of the logger for this task. */
   def setLogger(out: Option[PrintStream]): Unit = this.out = out
 
   /** Checks to see if a message should be emitted given the current log level, and then emits atomically. */

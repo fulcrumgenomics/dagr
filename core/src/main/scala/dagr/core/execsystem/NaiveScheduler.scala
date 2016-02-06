@@ -52,7 +52,7 @@ class NaiveScheduler extends Scheduler {
     * @param remainingSystemCores the set of remaining system cores, not including running tasks.
     * @param remainingSystemMemory the set of remaining system memory, not including running tasks.
     * @param remainingJvmMemory the set of remaining JVM memory, not including running tasks.
-    * @return the list of tasks should be scheduled.
+    * @return a map of tasks should be scheduled and their allocate resources.
     */
   private def scheduleOnce(readyTasks: Traversable[UnitTask], remainingSystemCores: Cores, remainingSystemMemory: Memory, remainingJvmMemory: Memory): List[(UnitTask, ResourceSet)] = {
     // no more tasks ready to be scheduled

@@ -33,7 +33,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /** The resources needed for the task manager */
-object TaskManagerResources {
+private[core] object TaskManagerResources {
   /* Creates a new TaskManagerResources that is a copy of an existing one. */
   def apply(that: TaskManagerResources): TaskManagerResources = {
     new TaskManagerResources(cores = that.cores, systemMemory = that.systemMemory, jvmMemory = that.jvmMemory)
@@ -63,7 +63,7 @@ object TaskManagerResources {
   val infinite: TaskManagerResources = TaskManagerResources(Double.MaxValue, Long.MaxValue, Long.MaxValue)
 }
 
-class TaskManagerResources(val cores: Cores, val systemMemory: Memory, val jvmMemory: Memory)
+private[core] class TaskManagerResources(val cores: Cores, val systemMemory: Memory, val jvmMemory: Memory)
 
 /** Various defaults for task manager */
 object TaskManagerDefaults extends LazyLogging {
@@ -219,8 +219,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
                   simulate: Boolean                          = false
 ) extends TaskManagerState with LazyLogging {
 
-  val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
-  val actualLogsDirectory    = logDirectory getOrElse Io.makeTempDir("logs")
+  private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
+  private val actualLogsDirectory    = logDirectory getOrElse Io.makeTempDir("logs")
 
   private val taskRunner: TaskRunner = new TaskRunner()
 
@@ -230,7 +230,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   logger.info("Script files will be written to: " + actualScriptsDirectory)
   logger.info("Logs will be written to: " + actualLogsDirectory)
 
-  def getTaskManagerResources: TaskManagerResources = TaskManagerResources(taskManagerResources)
+  private[execsystem] def getTaskManagerResources: TaskManagerResources = TaskManagerResources(taskManagerResources)
 
   private def getFile(task: Task, taskId: BigInt, directory: Path, ext: String): Path = {
     val sanitizedName: String = PathUtil.sanitizeFileName(task.name)
@@ -268,7 +268,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
    * @param task the task to resubmit.
    * @return true if the task was successfully resubmitted, false otherwise.
    */
-  def resubmitTask(task: Task): Boolean = {
+  override def resubmitTask(task: Task): Boolean = {
     val taskId: BigInt = getTaskId(task).getOrElse(-1)
     if (taskId < 0) return false
     val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(taskId).get

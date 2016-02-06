@@ -30,9 +30,7 @@ import dagr.core.execsystem.TaskStatus._
 import dagr.core.tasksystem.Task
 import dagr.core.util.{BiMap, LazyLogging}
 
-/** Stores the state of the execution graph.
- *
- */
+/** Stores the state of the execution graph. */
 trait TaskManagerState extends LazyLogging {
 
   private var nextTaskId: BigInt = 0
@@ -330,7 +328,7 @@ trait TaskManagerState extends LazyLogging {
     val originalTaskId: BigInt = getTaskId(original).get
     val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(originalTaskId).get
 
-    // Update the inter-task depencies for the swap
+    // Update the inter-task dependencies for the swap
     original.getTasksDependingOnThisTask.foreach( t => {t.removeDependency(original); replacement ==> t})
     original.getTasksDependedOn.foreach( t => {original.removeDependency(t); t ==> replacement;})
 
@@ -359,6 +357,14 @@ trait TaskManagerState extends LazyLogging {
 
     true
   }
+
+  /** Resubmit a task for execution.  This will stop the task if it is currently running, and queue
+    * it up for execution.  The number of attempts will be reset to zero.
+    *
+    * @param task the task to resubmit.
+    * @return true if the task was successfully resubmitted, false otherwise.
+    */
+  def resubmitTask(task: Task): Boolean
 
   /** Checks if we have failed tasks.
    *

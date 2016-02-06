@@ -129,7 +129,6 @@ sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit num
   protected def build(value: T) : R
 }
 
-
 /** A resource representing the memory. */
 case class Memory(override val value: Long) extends Resource[Long,Memory](value=value) {
   if (value < 0) throw new IllegalArgumentException("Cannot have negative memory. Bytes=" + value)
@@ -148,7 +147,7 @@ case class Memory(override val value: Long) extends Resource[Long,Memory](value=
   override protected def build(value: Long): Memory = new Memory(value)
 }
 
-/** Companion object for Memory adding some addition apply() methods and defining some useful constant memory values. */
+/** Companion object for Memory adding some additional apply() methods and defining some useful constant memory values. */
 object Memory {
   def apply(stringValue: String): Memory = new Memory(Resource.parseSizeToBytes(stringValue).toLong)
   val none = Memory(0)
@@ -163,4 +162,9 @@ case class Cores(override val value: Double) extends Resource[Double, Cores](val
   def toInt: Int = Math.round(value).toInt
 
   override protected def build(value: Double): Cores = new Cores(value)
+}
+
+/** Companion object for Core adding an additional apply() method. */
+object Cores {
+  def apply(cores: Cores): Cores = new Cores(cores.value)
 }
