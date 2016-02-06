@@ -105,12 +105,5 @@ class ResourceTest extends UnitSpec {
     mem.prettyString shouldBe "2m"
     mem = Memory(1024.toLong * 2.toLong)
     mem.prettyString shouldBe "2k"
-    mem = Memory(mem)
-    mem.prettyString shouldBe "2k"
-  }
-
-  "Resource.apply" should "return correct values for memory and cores" in {
-    Memory(Memory(1)).value shouldBe 1
-    Cores(Cores(1)).cores shouldBe 1.toDouble
   }
 }

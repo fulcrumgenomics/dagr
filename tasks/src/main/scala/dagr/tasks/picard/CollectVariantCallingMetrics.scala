@@ -56,6 +56,6 @@ class CollectVariantCallingMetrics(vcf: PathToVcf,
     intervals.foreach(interval => buffer.append("INTERVALS=" + interval.toAbsolutePath))
     dict.foreach(d => buffer.append("SEQUENCE_DICTIONARY=" + dict.get.toAbsolutePath))
     buffer.append("GVCF_INPUT=" + gvcf)
-    buffer.append("THREAD_COUNT=" + resources.cores.cores.toInt)
+    buffer.append("THREAD_COUNT=" + resources.cores.toInt)
   }
 }
