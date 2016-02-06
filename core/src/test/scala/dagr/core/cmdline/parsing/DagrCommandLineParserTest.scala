@@ -33,6 +33,11 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
   import DagrCommandLineParserStrings._
   import CommandLineParserStrings._
 
+  // required so that colors are not in our usage messages
+  "DagrCommandLineParserTest" should "have color status of Dagr be false" in {
+    ParsingUtil.printColor shouldBe false
+  }
+
   private object TestSplitArgsData {
     val parser = new DagrCommandLineParser("CommandLineName")
     val packageList = List("dagr.core.cmdline.parsing.testing.pipelines")

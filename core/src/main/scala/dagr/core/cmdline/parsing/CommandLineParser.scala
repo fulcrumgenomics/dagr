@@ -23,15 +23,12 @@
  */
 package dagr.core.cmdline.parsing
 
-import java.lang.reflect.Field
-
 import dagr.core.cmdline._
 import dagr.core.cmdline.parsing.ParseResult.ParseResult
 import dagr.core.tasksystem.ValidationException
 import dagr.core.util.LazyLogging
-import dagr.sopt.{OptionParsingException, IllegalOptionNameException, OptionParser}
+import dagr.sopt.{OptionParser, OptionParsingException}
 
-import scala.collection.JavaConversions._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
@@ -240,7 +237,7 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
     * and then append a description of the program, like this:
 
     */
-  protected def getStandardUsagePreamble: String = s"$USAGE_PREFIX " + targetName + " [arguments]\n\n"
+  protected def getStandardUsagePreamble: String = s"$KRED$USAGE_PREFIX $KBLDRED" + targetName + s"$KNRM$KRED [arguments]$KNRM\n\n"
 
   /**
     * Print a usage message for a given command line task.
@@ -251,7 +248,11 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
     val builder = new StringBuilder()
 
     if (withPreamble) {
-      builder.append(wrapString(KRED, s"$getStandardUsagePreamble", KNRM))
+      builder.append(s"$getStandardUsagePreamble")
+      findClpAnnotation(targetClass) match {
+        case Some(anno) => builder.append(wrapString(KCYN, s"${formatLongDescription(anno.description())}", KNRM))
+        case None =>
+      }
       builder.append(wrapString(KRED, s"$version\n", KNRM))
     }
 
@@ -263,7 +264,7 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
       .partition { !_.optional }
 
     if (required.nonEmpty) {
-      builder.append(wrapString(KRED, s"\n$targetName $REQUIRED_ARGUMENTS\n", KNRM))
+      builder.append(wrapString(KRED, s"\n$KBLDRED$targetName$KNRM$KRED $REQUIRED_ARGUMENTS\n", KNRM))
       builder.append(wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM))
       new ClpArgumentLookup(required:_*).ordered.foreach { arg =>
         ClpArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, arg, argumentLookup)
@@ -271,7 +272,7 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
     }
 
     if (optional.nonEmpty) {
-      builder.append(wrapString(KRED, s"\n$targetName $OPTIONAL_ARGUMENTS\n", KNRM))
+      builder.append(wrapString(KRED, s"\n$KBLDRED$targetName$KNRM$KRED $OPTIONAL_ARGUMENTS\n", KNRM))
       builder.append(wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM))
       new ClpArgumentLookup(optional:_*).ordered.foreach { argumentDefinition =>
         ClpArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, argumentDefinition, argumentLookup)
@@ -279,6 +280,14 @@ private[cmdline] class CommandLineParser[T](val targetClass: Class[T]) extends L
     }
 
     builder.toString
+  }
+
+  /** add extra whitespace after newlines for pipeline descriptions*/
+  private def formatLongDescription(description: String): String = {
+    val desc = description.stripMargin
+    desc
+      .dropWhile(_ == '\n')
+      .dropRight(1) + (if (desc.isEmpty) "" else desc.last) + "\n"
   }
 
   /** Gets the command line assuming `parseTasks` has been called */

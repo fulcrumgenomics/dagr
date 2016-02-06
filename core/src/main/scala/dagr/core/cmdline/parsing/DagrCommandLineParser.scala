@@ -80,7 +80,7 @@ class DagrCommandLineParser(val commandLineName: String, val includeHidden: Bool
     val mainClass = classOf[DagrCoreMain]
     val dagrArgParser = new CommandLineParser(mainClass) {
       override protected def getStandardUsagePreamble: String = {
-        s"$USAGE_PREFIX $commandLineName [$commandLineName arguments] -- [Task Name] [task arguments]\n\n"
+        s"$KRED$USAGE_PREFIX $KBLDRED$commandLineName$KNRM$KRED [$commandLineName arguments] -- [Task Name] [task arguments]$KNRM\n\n"
       }
       override protected def targetName: String = Configuration.commandLineName
     }
@@ -263,21 +263,38 @@ class DagrCommandLineParser(val commandLineName: String, val includeHidden: Bool
       entries
         .sortWith((lhs, rhs) => lhs.getSimpleName.compareTo(rhs.getSimpleName) < 0)
         .foreach{clazz =>
-          val property: CLPAnnotation = tasksToProperty.get(clazz).get
-          if (null == property) {
+          val clpAnnotation: CLPAnnotation = tasksToProperty.get(clazz).get
+          if (null == clpAnnotation) {
             throw new BadAnnotationException(s"Unexpected error: did not find the CommandLineTaskProperties annotation for '${clazz.getSimpleName}'")
           }
           if (clazz.getSimpleName.length >= 45) {
-            builder.append(wrapString(KGRN, String.format(s"    %s    %s\n", clazz.getSimpleName, wrapString(KCYN, property.description)), KNRM))
+            builder.append(wrapString(KGRN, String.format(s"    %s    %s\n", clazz.getSimpleName, wrapString(KCYN, formatShortDescription(clpAnnotation.description))), KNRM))
           }
           else {
-            builder.append(wrapString(KGRN, String.format(s"    %-45s%s\n", clazz.getSimpleName, wrapString(KCYN, property.description)), KNRM))
+            builder.append(wrapString(KGRN, String.format(s"    %-45s%s\n", clazz.getSimpleName, wrapString(KCYN, formatShortDescription(clpAnnotation.description))), KNRM))
           }
         }
     }
 
     builder.append(SeparatorLine)
     builder.toString()
+  }
+
+  /** The maximum line lengths for pipeline descriptions */
+  private val MaximumLineLength = 80
+
+  /** find the first period (".") and keep only everything before it **/
+  private def formatShortDescription(description: String): String = {
+    val desc = description.stripMargin match {
+      case d if d.startsWith("\n") => d.substring(1)
+      case d => d
+    }
+    desc.indexOf('.') match {
+      case -1 =>
+        if (desc.length > MaximumLineLength-3) desc.substring(0, MaximumLineLength-3) + "..."
+        else desc
+      case idx => desc.substring(0, idx+1)
+    }
   }
 
   /** Similarity floor for matching in printUnknown **/
