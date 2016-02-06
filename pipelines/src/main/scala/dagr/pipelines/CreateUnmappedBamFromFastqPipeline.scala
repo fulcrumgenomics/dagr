@@ -26,7 +26,7 @@ package dagr.pipelines
 import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{ShellCommand, Pipeline, ValidationException}
+import dagr.core.tasksystem.{ProcessTask, ShellCommand, Pipeline, ValidationException}
 import dagr.core.util.Io
 import dagr.tasks._
 import dagr.tasks.picard.{FastqToUnmappedSam, MergeSamFiles, RemoveBam}
@@ -76,7 +76,7 @@ class CreateUnmappedBamFromFastqPipeline(
 
     val unmappedBamFile = unmappedBam.getOrElse(output.resolve(prefix + ".bam"))
     val inputs          = (fastq1, fastq2, platformUnit).zipped
-    val fastqToBams     = ListBuffer[FastqToUnmappedSam]()
+    val fastqToBams     = ListBuffer[ProcessTask]()
     val unmappedBams    = ListBuffer[PathToBam]()
 
     ///////////////////////////////////////////////////////////////////////

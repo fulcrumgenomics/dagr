@@ -26,8 +26,8 @@ package dagr.tasks.picard
 import java.nio.file.Path
 
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.tasksystem.DataTypes.SamOrBam
-import dagr.core.tasksystem.Piping
+import dagr.tasks.DataTypes.SamOrBam
+import dagr.core.tasksystem.Pipe
 import dagr.tasks.PathToBam
 
 import scala.collection.mutable.ListBuffer
@@ -41,7 +41,7 @@ class MarkIlluminaAdapters(in: PathToBam,
                            prefix: Option[Path],
                            fivePrimeAdapter: Option[String] = None,
                            threePrimeAdapter: Option[String] = None)
-  extends PicardMetricsTask(input = out, prefix = prefix) with Piping[SamOrBam,SamOrBam] {
+  extends PicardMetricsTask(input = out, prefix = prefix) with Pipe[SamOrBam,SamOrBam] {
   requires(Cores(1), Memory("1G"))
 
   override def getMetricsExtension: String = MarkIlluminaAdapters.MetricsExtension

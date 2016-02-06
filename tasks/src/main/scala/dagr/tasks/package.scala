@@ -62,4 +62,18 @@ package object tasks {
   type Bytes = BigInt
   type Megabytes = BigInt
   type Gigabytes = BigInt
+
+  /**
+    * Object containing phantom types that define streaming/piping data types. These types are never meant
+    * to be instantiated, but exist purely to allow type checking of tasks that are strung together
+    * using pipes.
+    */
+  object DataTypes {
+    // Developer note: all these classes have private default constructors so that they cannot be instantiated
+    class SamOrBam private[DataTypes]()
+    class Sam private() extends SamOrBam
+    class Bam private() extends SamOrBam
+    class Vcf private()
+    class Fastq private()
+  }
 }

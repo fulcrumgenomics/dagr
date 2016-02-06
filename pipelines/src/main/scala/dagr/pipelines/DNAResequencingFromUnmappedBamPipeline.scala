@@ -27,10 +27,11 @@ package dagr.pipelines
 import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{Callbacks, Pipeline, Task}
+import dagr.core.tasksystem.{ProcessTask, Callbacks, Pipeline, Task}
 import dagr.core.util.{Io, PathUtil}
 import dagr.tasks._
-import dagr.tasks.misc.{BwaBacktrack, BwaMemStreamed, CalculateDownsamplingProportion}
+import dagr.tasks.bwa.{Bwa, BwaBacktrack}
+import dagr.tasks.misc.CalculateDownsamplingProportion
 import dagr.tasks.picard._
 
 import scala.collection.mutable.ListBuffer
@@ -75,7 +76,7 @@ class DnaResequencingFromUnmappedBamPipeline(
     val dsPrefix    = PathUtil.pathTo(prefix + ".ds")
     val dsFinalBam  = PathUtil.pathTo(dsPrefix + ".bam")
 
-    val fastqToBams = ListBuffer[FastqToUnmappedSam]()
+    val fastqToBams = ListBuffer[ProcessTask]()
 
     ///////////////////////////////////////////////////////////////////////
     // Run BWA mem, then do some downsampling
@@ -84,7 +85,7 @@ class DnaResequencingFromUnmappedBamPipeline(
       new BwaBacktrack(unmappedBam=unmappedBam, mappedBam=mappedBam, ref=referenceFasta)
     }
     else {
-      new BwaMemStreamed(unmappedBam=unmappedBam, mappedBam=mappedBam, ref=referenceFasta)
+      Bwa.bwaMemStreamed(unmappedBam=unmappedBam, mappedBam=mappedBam, ref=referenceFasta)
     }
 
     root ==> bwa

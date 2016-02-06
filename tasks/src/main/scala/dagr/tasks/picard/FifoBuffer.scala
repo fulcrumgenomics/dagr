@@ -24,11 +24,11 @@
 package dagr.tasks.picard
 
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.tasksystem.Piping
+import dagr.core.tasksystem.Pipe
 
 import scala.collection.mutable.ListBuffer
 
-class FifoBuffer[A] extends PicardTask with Piping[A,A] {
+class FifoBuffer[A] extends PicardTask with Pipe[A,A] {
   requires(Cores(0.1), Memory("1G"))
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {

@@ -383,7 +383,7 @@ class TaskTest extends UnitSpec with LazyLogging {
     class BigText extends Text
 
     case class Echo(val text:String) extends PipeOut[BigText] with FixedResources { def args = List("echo", text) }
-    case class Tr(val from:String, to:String) extends Piping[Text,Text] with FixedResources { def args = List("tr", from, to) }
+    case class Tr(val from:String, to:String) extends Pipe[Text,Text] with FixedResources { def args = List("tr", from, to) }
     class SillyPipeline extends Pipeline {
       override def build(): Unit = {
         root ==> (Echo("Hello") | Tr("e", "a"))

@@ -21,13 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.tasks.misc
+package dagr.tasks.bwa
 
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.core.tasksystem.DataTypes.Sam
-import dagr.core.tasksystem.{Piping, FixedResources, ProcessTask}
+import dagr.tasks.DataTypes.Sam
+import dagr.core.tasksystem.{FixedResources, Pipe, ProcessTask}
 
 object BwaK8AltProcessor {
   val BwaKitDirConfigKey = "bwa-kit.dir"
@@ -39,7 +39,7 @@ object BwaK8AltProcessor {
  * reads from stdin, but an input file can be supplied.  Writes to stdout.
  */
 class BwaK8AltProcessor(in: Option[Path] = None, altFile: Path) extends ProcessTask
-  with FixedResources with Configuration with Piping[Sam,Sam] {
+  with FixedResources with Configuration with Pipe[Sam,Sam] {
 
   override def args = {
     val bwaKit = configure[Path](BwaK8AltProcessor.BwaKitDirConfigKey)
