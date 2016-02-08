@@ -139,9 +139,22 @@ lazy val core = Project(id="dagr-core", base=file("core"))
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // tasks project
 ////////////////////////////////////////////////////////////////////////////////////////////////
+lazy val htsjdkAndPicardExcludes = Seq(
+  ExclusionRule(organization="org.apache.ant"),
+  ExclusionRule(organization="gov.nih.nlm.ncbi"),
+  ExclusionRule(organization="org.testng"),
+  ExclusionRule(organization="com.google.cloud.genomics")
+)
+
 lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
   .settings(description := "A set of example dagr tasks.")
   .settings(commonSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.github.samtools"       % "htsjdk" % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*),
+      "com.github.broadinstitute" % "picard" % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*)
+    )
+  )
   .dependsOn(core)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
