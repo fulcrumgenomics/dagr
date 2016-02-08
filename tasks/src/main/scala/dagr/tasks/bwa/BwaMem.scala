@@ -21,10 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.tasks.misc
+package dagr.tasks.bwa
 
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.tasksystem.{VariableResources, ProcessTask}
+import dagr.tasks.DataTypes.{Fastq, Sam}
+import dagr.core.tasksystem.{Pipe, ProcessTask, VariableResources}
 import dagr.core.util.Io
 import dagr.tasks.{PathToBam, PathToFasta, PathToFastq}
 
@@ -33,8 +34,8 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
              ref: PathToFasta,
              minThreads: Int = 1,
              maxThreads: Int = 32,
-             memory: Memory = Memory("8G")) extends ProcessTask with VariableResources {
-  name = "BwaMemStreamed"
+             memory: Memory = Memory("8G")) extends ProcessTask with VariableResources with Pipe[Fastq,Sam] {
+  name = "BwaMem"
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
     resources.subset(minCores=Cores(minThreads), maxCores=Cores(maxThreads), memory=memory)

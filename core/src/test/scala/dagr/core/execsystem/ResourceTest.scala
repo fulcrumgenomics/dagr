@@ -95,6 +95,22 @@ class ResourceTest extends UnitSpec {
     (high >= mid) shouldBe true
   }
 
+  it should "not allow negative values" in {
+    an[IllegalArgumentException] shouldBe thrownBy { Cores(-1) }
+    an[IllegalArgumentException] shouldBe thrownBy { Cores(2) - Cores(4) }
+    an[IllegalArgumentException] shouldBe thrownBy { Memory(-1) }
+    an[IllegalArgumentException] shouldBe thrownBy { Memory(2) - Memory(4) }
+    an[IllegalArgumentException] shouldBe thrownBy { Memory("512M") - Memory("1g") }
+  }
+
+  it should "always give back the numeric value via toString for easy arg usage" in {
+    Cores(7).toString shouldBe "7.0"
+    Cores(0).toString shouldBe "0.0"
+    Cores(5000).toString shouldBe "5000.0"
+    Memory(1024).toString shouldBe "1024"
+    Memory("1G").toString shouldBe (1024*1024*1024).toString
+  }
+
   "Memory" should "represent its value in pretty formats" in {
     var mem = Memory(1024.toLong * 1024.toLong * 1024.toLong * 2.toLong)
     mem.kb shouldBe "2097152k"
