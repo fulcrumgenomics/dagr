@@ -38,7 +38,7 @@ class CollectAlignmentSummaryMetrics(in: PathToBam,
                                      ref: PathToFasta,
                                      assumeSorted: Boolean = true,
                                      programs: List[MetricsProgram.Value] = MetricsProgram.values.toList)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in=in, prefix=prefix) {
 
   override def getMetricsExtension: String = CollectAlignmentSummaryMetrics.getMetricsExtension
 

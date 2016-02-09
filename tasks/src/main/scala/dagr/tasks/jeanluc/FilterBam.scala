@@ -31,13 +31,13 @@ import scala.collection.mutable.ListBuffer
   * Task for filtering a BAM to a specific set of intervals while removing unmapped
   * and duplicate reads.
   */
-class FilterBam(val input: PathToBam,
-                val output: PathToBam,
+class FilterBam(val in: PathToBam,
+                val out: PathToBam,
                 val intervals: Option[PathToIntervals]) extends JeanLucTask {
 
   override def addJeanLucArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("INPUT=" + input)
-    buffer.append("OUTPUT=" + output)
+    buffer.append("INPUT=" + in)
+    buffer.append("OUTPUT=" + out)
     intervals.foreach(i => buffer.append("INTERVALS=" + i))
   }
 }

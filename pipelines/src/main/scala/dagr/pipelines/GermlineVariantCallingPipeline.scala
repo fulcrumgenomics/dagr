@@ -47,22 +47,22 @@ description =
     |"""
 )
 class GermlineVariantCallingPipeline(
-  @Arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val input: PathToBam,
-  @Arg(flag="o", doc="Output prefix (including directories) for output files.")     val outputPrefix: Path,
+  @Arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val in: PathToBam,
+  @Arg(flag="o", doc="Output prefix (including directories) for output files.")     val out: Path,
   @Arg(flag="l", doc="Path to interval list of regions to call.")                   val intervals: PathToIntervals,
-  @Arg(flag="r", doc="Path to the reference FASTA.")                                val reference: PathToFasta,
+  @Arg(flag="r", doc="Path to the reference FASTA.")                                val ref: PathToFasta,
   @Arg(flag="d", doc="Path to dbSNP VCF (for GATK and CollectVariantCallingMetrics only).")
-                                                                                    val dbsnp: Option[PathToVcf] = None,
+                                                val dbsnp: Option[PathToVcf] = None,
   @Arg(          doc="If true, keep intermediate VCFs (GATK only).")                val keepIntermediates: Boolean = false,
   @Arg(          doc="Use GATK (true), otherwise use FreeBayes (false).")           val useGatk: Boolean = true,
   @Arg(          doc="The VCF with truth calls for assessing variants.")            val truthVcf: Option[PathToVcf] = None,
   @Arg(          doc="Path to the interval list(s) of regions to assess variants.", minElements = 0)
-                                                                                    val truthIntervals: List[PathToIntervals] = Nil
-) extends Pipeline(Some(outputPrefix.toAbsolutePath.getParent)) {
+                                                val truthIntervals: List[PathToIntervals] = Nil
+) extends Pipeline(Some(out.toAbsolutePath.getParent)) {
 
   override def build(): Unit = {
-    val outputDir = outputPrefix.toAbsolutePath.getParent
-    val prefix = outputPrefix.getFileName.toString
+    val outputDir = out.toAbsolutePath.getParent
+    val prefix = out.getFileName.toString
     val unfilteredVcf = outputDir.resolve(prefix + ".unfiltered.vcf.gz")
     val finalVcf = outputDir.resolve(prefix + ".vcf.gz")
 
@@ -75,13 +75,13 @@ class GermlineVariantCallingPipeline(
       val filterVcf = useGatk match {
         case true =>
           val gvcf = outputDir.resolve(prefix + ".gvcf.vcf.gz")
-          val hc = new HaplotypeCaller(reference=reference, targetIntervals=intervals, bam=input, vcf=gvcf)
-          val gt = new GenotypeSingleGvcf(reference=reference, targetIntervals=intervals, gvcf=gvcf, vcf=unfilteredVcf, dbSnpVcf=dbsnp)
-          val fvcf = new FilterVcf(input=unfilteredVcf, output=finalVcf)
+          val hc = new HaplotypeCaller(ref=ref, intervals=intervals, bam=in, vcf=gvcf)
+          val gt = new GenotypeSingleGvcf(ref=ref, intervals=intervals, gvcf=gvcf, vcf=unfilteredVcf, dbSnpVcf=dbsnp)
+          val fvcf = new FilterVcf(in=unfilteredVcf, out=finalVcf)
           mkdir ==> hc ==> gt ==> (fvcf :: new DeleteVcfs(gvcf))
         case false =>
-          val fb =  new FreeBayesGermline(reference=reference, targetIntervals=Some(intervals), bam=List(input), vcf=unfilteredVcf)
-          val fvcf = new FilterFreeBayesCalls(input=unfilteredVcf, output=finalVcf, reference=reference)
+          val fb =  new FreeBayesGermline(ref=ref, targetIntervals=Some(intervals), bam=List(in), vcf=unfilteredVcf)
+          val fvcf = new FilterFreeBayesCalls(in=unfilteredVcf, out=finalVcf, ref=ref)
           mkdir ==> fb ==> fvcf
       }
       if (!keepIntermediates) filterVcf ==> new DeleteVcfs(unfilteredVcf)
@@ -90,7 +90,7 @@ class GermlineVariantCallingPipeline(
 
     // Run variant calling metrics
     if (dbsnp.isDefined) {
-      val vcMetrics = new CollectVariantCallingMetrics(vcf=finalVcf, prefix=outputPrefix, dbsnp=dbsnp.get, intervals=Some(intervals))
+      val vcMetrics = new CollectVariantCallingMetrics(vcf=finalVcf, prefix=out, dbsnp=dbsnp.get, intervals=Some(intervals))
       vc ==> vcMetrics
     }
 
@@ -105,7 +105,7 @@ class GermlineVariantCallingPipeline(
         callVcf     = finalVcf,
         callSample  = "NA",
         truthSample = "NA",
-        prefix      = outputPrefix,
+        prefix      = out,
         intervals   = truthIntervals ++ List(intervals)
       )
       def checkAndSetSampleName(sn: GetSampleNamesFromVcf, gc: GenotypeConcordance, isCallSample: Boolean): Unit = {

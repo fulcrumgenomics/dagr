@@ -42,7 +42,7 @@ class CollectHsMetrics(in: PathToBam,
                        targets: PathToIntervals,
                        baits: Option[PathToIntervals] = None,
                        baitSetName: Option[String] = None)
-  extends PicardMetricsTask(input=in, prefix=prefix) {
+  extends PicardMetricsTask(in=in, prefix=prefix) {
 
   override def getMetricsExtension: String = CollectHsMetrics.MetricsExtension
 

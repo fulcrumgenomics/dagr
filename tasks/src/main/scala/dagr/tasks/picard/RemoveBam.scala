@@ -39,11 +39,11 @@ class RemoveBam(val bam: Path) extends SimpleInJvmTask {
 
   override def run(): Unit = {
     val paths = ListBuffer(bam)
-    bam.getFileName.toString match {
-      case str if str.endsWith(".bam") =>
+    PathUtil.extensionOf(bam) match {
+      case Some(".bam") =>
         paths += PathUtil.pathTo(bam.toString + ".bai")
         paths += PathUtil.replaceExtension(bam, ".bai")
-      case str if str.endsWith(".cram") =>
+      case Some(".cram") =>
         paths += PathUtil.pathTo(bam.toString + ".crai")
     }
 

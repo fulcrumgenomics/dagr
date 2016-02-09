@@ -88,8 +88,8 @@ private[parsing] object ParsingUtil extends Configuration  {
     // Get all the name collisions
     val nameCollisions = classes
       .groupBy(_.getSimpleName)
-      .filter { case (k, v) => v.size > 1 }
-      .map { case (k, v) => v.mkString(", ") }
+      .filter { case (name, cs) => cs.size > 1 }
+      .map    { case (name, cs) => cs.mkString(", ") }
 
     // SimpleName should be unique
     if (nameCollisions.nonEmpty) {

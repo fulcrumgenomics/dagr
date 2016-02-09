@@ -164,12 +164,6 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
 lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
   .settings(description := "A set of example dagr pipelines.")
   .settings(commonSettings: _*)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.github.samtools"       % "htsjdk" % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*),
-      "com.github.broadinstitute" % "picard" % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*)
-    )
-  )
   .dependsOn(tasks, core)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

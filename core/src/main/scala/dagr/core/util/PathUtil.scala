@@ -63,6 +63,18 @@ object PathUtil {
     removeExtension(Paths.get(pathname)).toString
   }
 
+  /** Returns the extension of the filename (including the period) within the path,
+    * or None if there is no period in the name.
+    */
+  def extensionOf(path: Path) : Option[String] = {
+    val name  = path.getFileName.toString
+    val index = name.lastIndexOf('.')
+    if (index < 0)
+      None
+    else
+      Some(name.substring(index))
+  }
+
   /** Works similarly to the unix command basename, by optionally removing an extension, and all leading path elements. */
   def basename(name: Path, trimExt: Boolean = true) : String = {
     val x = if (trimExt) removeExtension(name) else name

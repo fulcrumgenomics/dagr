@@ -33,13 +33,13 @@ import scala.collection.mutable.ListBuffer
   */
 class Mutect2(val tumorBam: PathToBam,
               val normalBam: PathToBam,
-              reference: PathToFasta,
+              ref: PathToFasta,
               intervals: PathToIntervals,
               val output: PathToVcf,
               val maxAltAlleleInNormalFraction: Double = 0.03,
               val maxAltAlleleInNormalCount: Int = 2,
               val maxAltAlleleInNormalBqSum: Int = 20
-             ) extends GatkTask(walker="MuTect2", reference=reference, intervals=Some(intervals)) with FixedResources {
+             ) extends GatkTask(walker="MuTect2", ref=ref, intervals=Some(intervals)) with FixedResources {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-I:tumor",  tumorBam)

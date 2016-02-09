@@ -46,7 +46,7 @@ class EstimateLibraryComplexity(in: PathToBam,
                                 prefix: Option[Path],
                                 var minIdenticalBases: Int = 5,
                                 var numPfReads: Option[Long] = None)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in = in, prefix = prefix) {
 
   override def getMetricsExtension: String = EstimateLibraryComplexity.MetricsExtension
 

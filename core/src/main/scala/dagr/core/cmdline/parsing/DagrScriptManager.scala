@@ -78,11 +78,14 @@ object DagrScriptManager {
         case WARNING => LogLevel.Warning
         case ERROR => LogLevel.Error
       }
-      (posIn match {
+
+      val p2 = posIn match {
         case p if p eq null => NoPosition
         case p if p.isDefined => p.finalPosition //posIn.inUltimateSource(posIn.source)
         case p => p
-      }) match {
+      }
+
+      p2 match {
         case FakePos(fmsg) =>
           printMessage(level, s"$fmsg $msg")
         case NoPosition =>
@@ -133,11 +136,11 @@ object DagrScriptManager {
     private def printMessage(level: LogLevel, message: String) {
       if (!quiet) {
         level match {
-          case l if l == LogLevel.Debug   => logger.debug(message)
-          case l if l == LogLevel.Info    => logger.info(message)
-          case l if l == LogLevel.Warning => logger.warning(message)
-          case l if l == LogLevel.Error   => logger.error(message)
-          case l if l == LogLevel.Fatal   => logger.fatal(message)
+          case LogLevel.Debug   => logger.debug(message)
+          case LogLevel.Info    => logger.info(message)
+          case LogLevel.Warning => logger.warning(message)
+          case LogLevel.Error   => logger.error(message)
+          case LogLevel.Fatal   => logger.fatal(message)
           case _ => throw new RuntimeException(s"Could not determine log level: $level")
         }
       }

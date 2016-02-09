@@ -36,7 +36,7 @@ import scala.collection.mutable.ListBuffer
 class SamtoolsPileup(ref: PathToFasta,
                      regions: Option[PathToIntervals] = None,
                      bam: PathToBam,
-                     output: Option[Path],
+                     out: Option[Path],
                      maxDepth: Int = 5000,
                      minMappingQuality: Int = 1,
                      minBaseQuality: Int = 13)
@@ -45,7 +45,7 @@ class SamtoolsPileup(ref: PathToFasta,
   override def addSubcommandArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("--fasta-ref", ref.toString)
     regions.foreach(r => buffer.append("--positions", r.toString))
-    output.foreach(f => buffer.append("--output", f.toString))
+    out.foreach(f => buffer.append("--output", f.toString))
     buffer.append("--max-depth", maxDepth.toString)
     buffer.append("--min-MQ", minMappingQuality.toString)
     buffer.append("--min-BQ", minBaseQuality.toString)

@@ -43,9 +43,7 @@ import scala.collection.{Map, Set, mutable}
 private[parsing] object DagrCommandLineParserStrings {
   val AvailablePipelines = "Available Pipelines:"
   val MissingPipelineName = "No pipeline name given."
-
   val SeparatorLine = wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM)
-
   val PipelineGroupNameColumnLength = 48
   val PipelineGroupDescriptionColumnLength = 45
   val PipelineNameColumnLength = 45
@@ -60,7 +58,6 @@ private[parsing] object DagrCommandLineParserStrings {
 }
 
 private[cmdline] object DagrCommandLineParser {
-
   /** The maximum line lengths for pipeline descriptions */
   val MaximumLineLength = 80
 
@@ -255,13 +252,7 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
           val pipelineGroup: PipelineGroup = taskGroupClassToTaskGroupInstance.get(clp.group) match {
             case Some(group) => group
             case None =>
-              val group: PipelineGroup = try {
-                clp.group.newInstance
-              }
-              catch {
-                case e: InstantiationException => throw new RuntimeException(e)
-                case e: IllegalAccessException => throw new RuntimeException(e)
-              }
+              val group: PipelineGroup = clp.group.newInstance
               taskGroupClassToTaskGroupInstance.put(clp.group, group)
               group
           }

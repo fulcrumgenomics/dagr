@@ -38,7 +38,7 @@ object CollectGcBiasMetrics {
 class CollectGcBiasMetrics(in: PathToBam,
                            prefix: Option[Path],
                            ref: PathToFasta)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in = in, prefix = prefix) {
 
   override def getMetricsExtension: String = ""
 

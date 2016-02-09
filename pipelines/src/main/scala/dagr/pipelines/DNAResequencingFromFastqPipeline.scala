@@ -52,7 +52,7 @@ object DnaResequencingFromFastqPipeline {
 class DnaResequencingFromFastqPipeline(
   @Arg(doc="Input fastq file (optionally gzipped) for read 1.")    val fastq1: List[PathToFastq],
   @Arg(doc="Input fastq file (optionally gzipped) for read 2.")    val fastq2: List[PathToFastq],
-  @Arg(doc="Path to the reference FASTA.")                         val referenceFasta: PathToFasta,
+  @Arg(doc="Path to the reference FASTA.")                         val ref: PathToFasta,
   @Arg(flag="s", doc="The name of the sample.")                    val sample: String,
   @Arg(flag="l", doc="The name of the library.")                   val library: String,
   @Arg(flag="p", doc="The platform unit (@RG.PU).")                val platformUnit: List[String],
@@ -61,9 +61,9 @@ class DnaResequencingFromFastqPipeline(
   @Arg(doc="The number of reads to target when downsampling.")     val downsampleToReads: Long = Math.round(185e6 / 101),
   @Arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
   @Arg(doc="Path to a temporary directory.")                       val tmp: Path,
-  @Arg(flag="o", doc="The output directory to which files are written.")  val output: DirPath,
+  @Arg(flag="o", doc="The output directory to which files are written.")  val out: DirPath,
   @Arg(doc="The basename for all output files. Uses library if omitted.") val basename: Option[FilenamePrefix]
-) extends Pipeline(outputDirectory = Some(output)) {
+) extends Pipeline(outputDirectory = Some(out)) {
   name = getClass.getSimpleName
 
   // Validation logic as constructor code
@@ -77,13 +77,13 @@ class DnaResequencingFromFastqPipeline(
     */
   override def build(): Unit = {
     val base = basename.getOrElse(library)
-    val prefix = output.resolve(base)
+    val prefix = out.resolve(base)
 
     Io.assertReadable(fastq1 ++ fastq2)
-    Io.assertReadable(referenceFasta)
+    Io.assertReadable(ref)
     if (targetIntervals.isDefined) Io.assertReadable(targetIntervals.get)
     Io.assertCanWriteFile(prefix, parentMustExist=false)
-    Files.createDirectories(output)
+    Files.createDirectories(out)
 
     val unmappedBam = Files.createTempFile(tmp, "unmapped.", ".bam")
     val inputs = (fastq1, fastq2, platformUnit).zipped
@@ -96,12 +96,12 @@ class DnaResequencingFromFastqPipeline(
     val prepareUnmappedBam = new CreateUnmappedBamFromFastqPipeline(
       fastq1=fastq1,
       fastq2=fastq2,
-      referenceFasta=referenceFasta,
+      ref=ref,
       sample=sample,
       library=library,
       platformUnit=platformUnit,
       tmp=tmp,
-      output=output,
+      out=out,
       unmappedBam=Some(unmappedBam),
       basename=Some(base)
     )
@@ -111,12 +111,12 @@ class DnaResequencingFromFastqPipeline(
     ///////////////////////////////////////////////////////////////////////
     val unmappedBamToMappedBamPipeline: DnaResequencingFromUnmappedBamPipeline = new DnaResequencingFromUnmappedBamPipeline(
       unmappedBam=unmappedBam,
-      referenceFasta=referenceFasta,
+      ref=ref,
       useBwaBacktrack=useBwaBacktrack,
       downsampleToReads=downsampleToReads,
       targetIntervals=targetIntervals,
       tmp=tmp,
-      output=output,
+      out=out,
       basename=base
     )
 

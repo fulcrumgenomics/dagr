@@ -53,24 +53,24 @@ object DnaResequencingFromUnmappedBamPipeline {
   group = classOf[Pipelines])
 class DnaResequencingFromUnmappedBamPipeline(
   @Arg(doc="Path to the unmapped BAM.")                            val unmappedBam: PathToBam,
-  @Arg(doc="Path to the reference FASTA.")                         val referenceFasta: PathToFasta,
+  @Arg(doc="Path to the reference FASTA.")                         val ref: PathToFasta,
   @Arg(doc="Use bwa aln/sampe' instead of bwa mem.")               val useBwaBacktrack: Boolean = false,
   @Arg(doc="The number of reads to target when downsampling.")     val downsampleToReads: Long = Math.round(185e6 / 101),
   @Arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
   @Arg(doc="Path to a temporary directory.")                       val tmp: Path,
-  @Arg(flag="o", doc="The output directory to write to.")          val output: DirPath,
+  @Arg(flag="o", doc="The output directory to write to.")          val out: DirPath,
   @Arg(doc="The filename prefix for output files.")                val basename: FilenamePrefix
-) extends Pipeline(Some(output)) {
+) extends Pipeline(Some(out)) {
 
   name = getClass.getSimpleName
 
   override def build(): Unit = {
-    val prefix = output.resolve(basename)
+    val prefix = out.resolve(basename)
 
-    Io.assertReadable(referenceFasta)
+    Io.assertReadable(ref)
     if (targetIntervals.isDefined) Io.assertReadable(targetIntervals.get)
     Io.assertCanWriteFile(prefix, parentMustExist=false)
-    Files.createDirectories(output)
+    Files.createDirectories(out)
 
     val mappedBam   = Files.createTempFile(tmp, "mapped.", ".bam")
     val dsMappedBam = Files.createTempFile(tmp, "mapped.ds.", ".bam")
@@ -84,10 +84,10 @@ class DnaResequencingFromUnmappedBamPipeline(
     // Run BWA mem, then do some downsampling
     ///////////////////////////////////////////////////////////////////////
     val bwa = if (useBwaBacktrack) {
-      new BwaBacktrack(unmappedBam=unmappedBam, mappedBam=mappedBam, ref=referenceFasta)
+      new BwaBacktrack(unmappedBam=unmappedBam, mappedBam=mappedBam, ref=ref)
     }
     else {
-      Bwa.bwaMemStreamed(unmappedBam=unmappedBam, mappedBam=mappedBam, ref=referenceFasta)
+      Bwa.bwaMemStreamed(unmappedBam=unmappedBam, mappedBam=mappedBam, ref=ref)
     }
 
     root ==> bwa
@@ -97,7 +97,7 @@ class DnaResequencingFromUnmappedBamPipeline(
       in=mappedBam,
       prefix=Some(prefix),
       programs=List(MetricsProgram.CollectQualityYieldMetrics),
-      ref=referenceFasta
+      ref=ref
     )
     val calculateProportion = new CalculateDownsamplingProportion(PathUtil.pathTo(prefix + ".quality_yield_metrics.txt"), downsampleToReads)
     val downsampleSam       = new DownsampleSam(in=mappedBam, out=dsMappedBam, proportion=1, accuracy=Some(0.00001))
@@ -123,19 +123,19 @@ class DnaResequencingFromUnmappedBamPipeline(
         // Do either HS metrics or WGS metrics, but not both
         ///////////////////////////////////////////////////////////////////////
         if (targetIntervals.isDefined) {
-          markDuplicates ==> new CollectHsMetrics(in=deduped, prefix=Some(pre), ref=referenceFasta, targets=targetIntervals.get)
+          markDuplicates ==> new CollectHsMetrics(in=deduped, prefix=Some(pre), ref=ref, targets=targetIntervals.get)
         }
         else {
-          markDuplicates ==> new CollectWgsMetrics(in=deduped, prefix=Some(pre), ref=referenceFasta)
-          markDuplicates ==> new CollectGcBiasMetrics(in=deduped, prefix=Some(pre), ref=referenceFasta)
+          markDuplicates ==> new CollectWgsMetrics(in=deduped, prefix=Some(pre), ref=ref)
+          markDuplicates ==> new CollectGcBiasMetrics(in=deduped, prefix=Some(pre), ref=ref)
         }
 
         ///////////////////////////////////////////////////////////////////////
         // Metrics that apply to both WGS and HS
         ///////////////////////////////////////////////////////////////////////
         markDuplicates ==> new EstimateLibraryComplexity(in=deduped, prefix=Some(pre))
-        markDuplicates ==> new CollectMultipleMetrics(in=deduped, prefix=Some(pre), ref=referenceFasta)
-        markDuplicates ==> new ValidateSamFile(in=deduped, prefix=Some(pre), ref=referenceFasta)
+        markDuplicates ==> new CollectMultipleMetrics(in=deduped, prefix=Some(pre), ref=ref)
+        markDuplicates ==> new ValidateSamFile(in=deduped, prefix=Some(pre), ref=ref)
       })
   }
 }

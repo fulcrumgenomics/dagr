@@ -33,7 +33,7 @@ object ValidateSamFile {
   val MetricsExtension = ".validation_metrics"
 }
 
-class ValidateSamFile(in: PathToBam, prefix: Option[Path], ref: PathToFasta) extends PicardMetricsTask(input = in, prefix = prefix) {
+class ValidateSamFile(in: PathToBam, prefix: Option[Path], ref: PathToFasta) extends PicardMetricsTask(in = in, prefix = prefix) {
   // Override the default stringency
   validationStringency = Option("STRICT")
 

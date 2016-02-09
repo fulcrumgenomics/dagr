@@ -41,7 +41,7 @@ object Varscan2 {
   */
 class Varscan2Somatic(val tumorPileup: Path,
                       val normalPileup: Path,
-                      val output: DirPath,
+                      val out: DirPath,
                       val minimumVariantFrequency: Double = 0.01,
                       val pValue: Double = 0.2,
                       val somaticPValue: Double = 0.05,
@@ -55,7 +55,7 @@ class Varscan2Somatic(val tumorPileup: Path,
   override def args: Seq[Any] = {
     val buffer = ListBuffer[String]()
     buffer.appendAll(getJarArgs(jarPath=jar, jvmMemory=this.resources.memory))
-    buffer.append("somatic", normalPileup.toString, tumorPileup.toString, output.toString)
+    buffer.append("somatic", normalPileup.toString, tumorPileup.toString, out.toString)
     buffer.append("--min-var-freq", minimumVariantFrequency.toString)
     buffer.append("--p-value", pValue.toString)
     buffer.append("--somatic-p-value", somaticPValue.toString)

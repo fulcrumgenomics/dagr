@@ -52,15 +52,8 @@ object Resource {
     */
   def parseSizeToBytes(value: String): BigInt = {
     // is it just a number
-    val size: Option[BigInt] = try {
-      Some(BigInt.apply(value))
-    } catch {
-      case e: NumberFormatException => None
-    }
-    if (size.isDefined) {
-      size.get
-    }
-    else {
+    val size: Option[BigInt] = try { Some(BigInt.apply(value)) } catch { case e: NumberFormatException => None }
+    size getOrElse {
       // not a number, so try pattern matching
       val pattern: Pattern = Pattern.compile("([\\d.]+)([PTGMK]B?)", Pattern.CASE_INSENSITIVE)
       val matcher: Matcher = pattern.matcher(value.toLowerCase) // ignore case

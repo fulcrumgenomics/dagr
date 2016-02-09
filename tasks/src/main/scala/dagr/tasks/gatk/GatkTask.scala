@@ -40,7 +40,7 @@ object GatkTask {
 /**
   * Abstract base class for tasks that involve running the GATK.
   */
-abstract class GatkTask(val walker:String, val reference:PathToFasta, val intervals:Option[PathToIntervals] = None)
+abstract class GatkTask(val walker:String, val ref:PathToFasta, val intervals:Option[PathToIntervals] = None)
   extends ProcessTask with JarTask with FixedResources with Configuration {
   requires(Cores(1), Memory("4g"))
 
@@ -48,7 +48,7 @@ abstract class GatkTask(val walker:String, val reference:PathToFasta, val interv
     val buffer = ListBuffer[Any]()
     buffer.appendAll(getJarArgs(this.gatkJar, jvmMemory=this.resources.memory))
     buffer.append("-T", this.walker)
-    buffer.append("-R", this.reference.toAbsolutePath.toString)
+    buffer.append("-R", this.ref.toAbsolutePath.toString)
     intervals.foreach(il => buffer.append("-L", il.toAbsolutePath.toString))
     addWalkerArgs(buffer)
     buffer

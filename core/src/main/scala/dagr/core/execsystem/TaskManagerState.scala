@@ -323,7 +323,7 @@ trait TaskManagerState extends LazyLogging {
     // TODO: how to replace UnitTask vs. Workflows
 
     if (!hasTask(original)) false
-    else if (replacement.getTasksDependedOn.nonEmpty || replacement.getTasksDependingOnThisTask.nonEmpty) return false
+    else if (replacement.getTasksDependedOn.nonEmpty || replacement.getTasksDependingOnThisTask.nonEmpty)  false
     else {
       val originalTaskId: BigInt = getTaskId(original).get
       val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(originalTaskId).get

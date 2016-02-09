@@ -71,9 +71,9 @@ class ArgTokenizer(args: TraversableOnce[String]) extends Iterator[Try[ArgTokeni
     if (nextToken.isEmpty && iterator.hasNext) {
       nextToken = iterator.next() match {
         case "--" => None
+        case ""   => Some(Failure(new OptionNameException("Empty argument given.")))
         case arg if arg.startsWith("--") => Some(convertDoubleDashOption(arg.substring(2)))
         case arg if arg.startsWith("-") => Some(convertSingleDash(arg.substring(1)))
-        case arg if arg.isEmpty => Some(Failure(new OptionNameException("Empty argument given.")))
         case arg => Some(Success(ArgValue(value = arg)))
       }
     }

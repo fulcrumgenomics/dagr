@@ -66,7 +66,9 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.setArgument("false")
     argument.value.get should be(false.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(false)
+
     // try with setArgument with no value
+    argument.isSetByUser = false // override
     argument.setArgument()
     argument.value.get should be(true.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(true)

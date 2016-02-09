@@ -295,12 +295,9 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   }
 
   /** Compares two timestamp options.  If either option is empty, zero is returned. */
-  private def compareOptionalTimestamps(left: Option[Timestamp], right: Option[Timestamp]): Int =  {
-    left.map { l =>
-      right.map { r =>
-        l.compareTo(r)
-      }.getOrElse(0)
-    }.getOrElse(0)
+  private def compareOptionalTimestamps(left: Option[Timestamp], right: Option[Timestamp]): Int = (left, right) match {
+    case (Some(l), Some(r)) => l.compareTo(r)
+    case _ => 0
   }
 
   /** Updates the start and end date for a parent, if it exists */

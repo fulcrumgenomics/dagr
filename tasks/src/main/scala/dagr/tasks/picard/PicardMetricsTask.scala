@@ -34,11 +34,11 @@ object PicardOutput extends Enumeration {
 }
 
 /** Simple trait that requires knowing where a metrics file is for a Picard metric generating tool. */
-abstract class PicardMetricsTask(private val input: PathToBam, var prefix: Option[Path] = None) extends PicardTask {
+abstract class PicardMetricsTask(private val in: PathToBam, var prefix: Option[Path] = None) extends PicardTask {
 
   // If no output prefix was specified, set it to the input minus the extension
   if (prefix.isEmpty) {
-    prefix = Some(PathUtil.removeExtension(input))
+    prefix = Some(PathUtil.removeExtension(in))
   }
 
   /** Gets the metrics file path, assuming that the program generates a single metrics file with a known extension.  */

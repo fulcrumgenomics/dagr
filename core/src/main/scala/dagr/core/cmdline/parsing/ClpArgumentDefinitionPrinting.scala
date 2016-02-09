@@ -49,17 +49,17 @@ object ClpArgumentDefinitionPrinting {
     if (argumentDefinition.doc.nonEmpty) sb.append(s"${argumentDefinition.doc}  ")
     if (argumentDefinition.optional) sb.append(makeDefaultValueString(argumentDefinition.defaultValue))
     sb.append(getOptions(argumentDefinition.unitType))
+
     if (argumentDefinition.mutuallyExclusive.nonEmpty) {
       sb.append(" Cannot be used in conjunction with argument(s): ")
       sb.append(argumentDefinition.mutuallyExclusive.map { targetFieldName =>
-        val mutextArgumentDefinition: Option[ClpArgument] = argumentLookup.forField(targetFieldName)
-        if (mutextArgumentDefinition.isEmpty) {
-          throw new CommandLineException(s"Invalid argument definition in source code (see mutex). "+
-            s"$targetFieldName doesn't match any known argument."
-          )
+        argumentLookup.forField(targetFieldName) match {
+          case None =>
+            throw new CommandLineException(s"Invalid argument definition in source code (see mutex). " +
+              s"$targetFieldName doesn't match any known argument.")
+          case Some(mutex) =>
+            mutex.name + (if (mutex.shortName.nonEmpty) s" (${mutex.shortName})" else "")
         }
-        mutextArgumentDefinition.get.name +
-          (if (mutextArgumentDefinition.get.shortName.nonEmpty) s" (${mutextArgumentDefinition.get.shortName})" else "")
       }.mkString(", "))
     }
     sb.toString

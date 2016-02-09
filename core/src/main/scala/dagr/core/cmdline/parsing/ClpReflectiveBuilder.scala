@@ -131,7 +131,7 @@ private[parsing] class ClpArgument(declaringClass: Class[_],
                                    val annotation: Option[ArgAnnotation]
                                   ) extends Argument(declaringClass, index, name, defaultValue, argumentType, unitType, constructableType, typeName) {
 
-  def omitFromCommandLine: Boolean = annotation.isEmpty
+  def hidden: Boolean = annotation.isEmpty
 
   if (annotation.isEmpty && defaultValue.isEmpty) {
     throw new IllegalStateException("Must have a default value for arguments without annotations. " +
@@ -139,25 +139,19 @@ private[parsing] class ClpArgument(declaringClass: Class[_],
   }
 
   val mutuallyExclusive: mutable.Set[String] = new mutable.HashSet[String]()
-  annotation.foreach {
-    _.mutex.foreach(mutuallyExclusive.add)
-  }
-  val optional: Boolean = omitFromCommandLine ||
-    isFlag ||
-    hasValue ||
-    (isCollection && annotation.get.minElements() == 0) ||
-    argumentType == classOf[Option[_]]
+  annotation foreach { ann => ann.mutex.foreach(mutuallyExclusive.add) }
+  val optional: Boolean = hidden || isFlag || hasValue || (isCollection && annotation.get.minElements() == 0) || argumentType == classOf[Option[_]]
 
   /** true if the field was set by the user */
   private[parsing] var isSetByUser: Boolean = false // NB: only true when [[setArgument]] is called, vs. this.value =
 
-  lazy val isSpecial: Boolean = annotation.exists(_.special())
+  lazy val isSpecial: Boolean   = annotation.exists(_.special())
   lazy val isSensitive: Boolean = annotation.exists(_.sensitive())
-  lazy val longName: String = if (annotation.isDefined && annotation.get.name.nonEmpty) annotation.get.name else StringUtil.camelToGnu(name)
-  lazy val shortName: String = annotation.map(_.flag()).getOrElse("")
-  lazy val doc: String = annotation.map(_.doc()).getOrElse("")
-  lazy val isCommon: Boolean = annotation.exists(_.common())
-  lazy val minElements: Int = if (isCollection) {
+  lazy val longName: String     = if (annotation.isDefined && annotation.get.name.nonEmpty) annotation.get.name else StringUtil.camelToGnu(name)
+  lazy val shortName: String    = annotation.map(_.flag()).getOrElse("")
+  lazy val doc: String          = annotation.map(_.doc()).getOrElse("")
+  lazy val isCommon: Boolean    = annotation.exists(_.common())
+  lazy val minElements: Int     = if (isCollection) {
     annotation.map(_.minElements).getOrElse(1)
   } else {
     throw new IllegalStateException("Calling minElements on an argument that is not a collection.")
@@ -177,15 +171,15 @@ private[parsing] class ClpArgument(declaringClass: Class[_],
     */
   @SuppressWarnings(Array("unchecked"))
   def setArgument(values: String*) : Unit = {
-    (isFlag, isSetByUser, isCollection) match {
-      case (true, _, _) if values.isEmpty => this.value = true
-      case (_, true, _) => throw new IllegalStateException(s"Argument '$name' has already been set")
-      case (_, _, false) if values.size > 1 =>
-        throw new UserException(s"Argument '${this.names}' cannot be specified more than once.")
-      case _ =>
-        value = ParsingUtil.constructFromString(this.argumentType, this.unitType, values:_*)
-        this.isSetByUser = true
-    }
+    if (isSetByUser) throw new IllegalStateException(s"Argument '$name' has already been set")
+    if (!isCollection && values.size > 1) throw new UserException(s"Argument '${this.names}' cannot be specified more than once.")
+
+    if (isFlag && values.isEmpty)
+      this.value = true
+    else
+      this.value = ParsingUtil.constructFromString(this.argumentType, this.unitType, values: _*)
+
+    this.isSetByUser = true
   }
 
   /** Gets the list of names by which this option can be passed on the command line. Will be length 1 or 2. */
@@ -199,6 +193,7 @@ private[parsing] class ClpArgument(declaringClass: Class[_],
   /** Utility class to hold the various collection types: [[Seq]], [[Set]], and [[java.util.Collection]] */
   private class SomeCollection(input: Any) {
     import scala.collection.{Seq, Set}
+    import scala.collection.JavaConversions._
 
     private var seq: Option[Seq[_]] = None
     private var set: Option[Set[_]] = None
@@ -211,32 +206,13 @@ private[parsing] class ClpArgument(declaringClass: Class[_],
       case _ => throw new IllegalArgumentException(s"Could not determine collection type: ${input.getClass.getCanonicalName}")
     }
 
-    def size: Int = {
-      (seq.isDefined, set.isDefined) match {
-        case (true, _) => seq.get.size
-        case (_, true) => set.get.size
-        case _ => collection.get.size
-      }
-    }
+    def size: Int = (seq orElse set) map (_.size) getOrElse collection.get.size()
 
-    def isEmpty: Boolean = {
-      (seq.isDefined, set.isDefined) match {
-        case (true, _) => seq.get.isEmpty
-        case (_, true) => set.get.isEmpty
-        case _ => collection.get.isEmpty
-      }
-    }
+    def isEmpty: Boolean = size == 0
 
     def nonEmpty: Boolean = !isEmpty
 
-    def getValues: Traversable[_] = {
-      import scala.collection.JavaConversions._
-      (seq.isDefined, set.isDefined) match {
-        case (true, _) => seq.get.toTraversable
-        case (_, true) => set.get.toTraversable
-        case _ => collection.get.toTraversable
-      }
-    }
+    def getValues: Traversable[_] = (seq orElse set) map (_.toTraversable) getOrElse collection.get.toTraversable
   }
 
   /** Validates that the required argument which is a collection is not empty and does not

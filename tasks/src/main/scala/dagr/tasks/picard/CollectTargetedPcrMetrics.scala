@@ -42,7 +42,7 @@ class CollectTargetedPcrMetrics(in: PathToBam,
                                 prefix: Option[Path],
                                 ref: PathToFasta,
                                 targets: PathToIntervals)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in = in, prefix = prefix) {
 
   override def getMetricsExtension: String = CollectTargetedPcrMetrics.getMetricsExtension
 
