@@ -23,32 +23,31 @@
  */
 package dagr.tasks.picard
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 
-import dagr.tasks.{PathToBam, PathToFasta}
-import picard.analysis.CollectMultipleMetrics.Program
+import dagr.core.tasksystem.SimpleInJvmTask
+import dagr.core.util.PathUtil
 
 import scala.collection.mutable.ListBuffer
 
-class CollectMultipleMetrics(in: PathToBam,
-                             prefix: Option[Path] = None,
-                             ref: PathToFasta,
-                             assumeSorted: Boolean = true,
-                             programs: Seq[Program] = Program.values().toSeq,
-                             fileExtension: Option[String] = Some("." + PicardOutput.Text.toString))
-  extends PicardMetricsTask(in = in, prefix = prefix) {
+/**
+  * Class to remove a BAM file and also the BAI file if it exists.  Succeeds if the files can be deleted,
+  * *or* if no files were present to be deleted.
+  */
+class DeleteBam(val bam: Path) extends SimpleInJvmTask {
+  name = "DeleteBam." + PathUtil.basename(bam)
 
-  // Since we do not actually want any extensions, the tool will do that itself
-  override def metricsExtension: String = ""
+  override def run(): Unit = {
+    val paths = ListBuffer(bam)
+    PathUtil.extensionOf(bam) match {
+      case Some(".bam") =>
+        paths += PathUtil.pathTo(bam.toString + ".bai")
+        paths += PathUtil.replaceExtension(bam, ".bai")
+      case Some(".cram") =>
+        paths += PathUtil.pathTo(bam.toString + ".crai")
+      case _ =>
+    }
 
-  /** Build method that Picard tasks should override instead of build(). */
-  override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("I=" + in)
-    buffer.append("O=" + pathPrefix)
-    buffer.append("R=" + ref)
-    buffer.append("AS=" + assumeSorted)
-    buffer.append("PROGRAM=null")
-    programs.foreach(program => buffer.append("PROGRAM=" + program.name()))
-    fileExtension.foreach(ext => buffer.append("FILE_EXTENSION=" + ext))
+    paths.filter(Files.exists(_)).foreach(Files.delete)
   }
 }

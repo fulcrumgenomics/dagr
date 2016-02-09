@@ -29,7 +29,7 @@ import dagr.core.cmdline._
 import dagr.core.tasksystem.{Pipeline, ProcessTask, ShellCommand, ValidationException}
 import dagr.core.util.Io
 import dagr.tasks._
-import dagr.tasks.picard.{FastqToUnmappedSam, MergeSamFiles, RemoveBam}
+import dagr.tasks.picard.{FastqToUnmappedSam, MergeSamFiles, DeleteBam}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable.ListBuffer
@@ -104,7 +104,7 @@ class CreateUnmappedBamFromFastqPipeline(
       case _ =>
         val mergeUnmappedSams = new MergeSamFiles(in=unmappedBams, out=unmappedBamFile, sortOrder=SortOrder.queryname)
         fastqToBams.foreach(_ ==> mergeUnmappedSams)
-        unmappedBams.foreach(b => mergeUnmappedSams ==> new RemoveBam(b))
+        unmappedBams.foreach(b => mergeUnmappedSams ==> new DeleteBam(b))
     }
   }
 }

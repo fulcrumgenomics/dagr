@@ -43,7 +43,9 @@ object SamToFastq {
 class SamToFastq(in: PathToBam,
                  fastq1: PathToFastq,
                  fastq2: Option[PathToFastq] = None,
-                 interleave : Boolean = true) extends PicardTask with Pipe[SamOrBam,Fastq] {
+                 interleave : Boolean = true,
+                 clippingAttribute: Option[String] = None,
+                 clippingAction: Option[String] = None) extends PicardTask with Pipe[SamOrBam,Fastq] {
 
   requires(Cores(1), Memory("512M"))
 
@@ -53,5 +55,7 @@ class SamToFastq(in: PathToBam,
     fastq2.foreach(p => buffer.append("F2=" + p))
     buffer.append("INTERLEAVE=" + interleave)
     buffer.append("INCLUDE_NON_PF_READS=true")
+    clippingAttribute.foreach(c => buffer.append("CLIPPING_ATTRIBUTE=" + c))
+    clippingAction.foreach(c => buffer.append("CLIPPING_ACTION=" + c))
   }
 }

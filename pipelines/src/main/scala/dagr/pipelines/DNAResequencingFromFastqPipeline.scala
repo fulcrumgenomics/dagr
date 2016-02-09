@@ -120,6 +120,6 @@ class DnaResequencingFromFastqPipeline(
       basename=base
     )
 
-    root ==> prepareUnmappedBam ==> unmappedBamToMappedBamPipeline ==> new RemoveBam(unmappedBam)
+    root ==> prepareUnmappedBam ==> unmappedBamToMappedBamPipeline ==> new DeleteBam(unmappedBam)
   }
 }

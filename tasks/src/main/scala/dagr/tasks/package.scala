@@ -47,6 +47,9 @@ package object tasks {
   /** Represents a path to a VCF/BCF/VCF.gz. */
   type PathToVcf = java.nio.file.Path
 
+  /** Represents a full path including directories, that is intended to be used as a prefix for generating file paths. */
+  type PathPrefix = java.nio.file.Path
+
   /** Represents a path to directory. */
   type DirPath = java.nio.file.Path
 

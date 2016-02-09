@@ -26,7 +26,7 @@ package dagr.tasks.picard
 import java.nio.file.Path
 
 import dagr.core.util.PathUtil
-import dagr.tasks.PathToBam
+import dagr.tasks.{PathPrefix, PathToBam}
 
 object PicardOutput extends Enumeration {
   val Text = Value("txt")
@@ -34,12 +34,9 @@ object PicardOutput extends Enumeration {
 }
 
 /** Simple trait that requires knowing where a metrics file is for a Picard metric generating tool. */
-abstract class PicardMetricsTask(private val in: PathToBam, var prefix: Option[Path] = None) extends PicardTask {
-
-  // If no output prefix was specified, set it to the input minus the extension
-  if (prefix.isEmpty) {
-    prefix = Some(PathUtil.removeExtension(in))
-  }
+abstract class PicardMetricsTask(private val in: PathToBam, private val prefix: Option[Path] = None) extends PicardTask {
+  /** Method that should be used to fetch the file prefix, instead of accessing `prefix` directly. */
+  def pathPrefix :PathPrefix = prefix getOrElse PathUtil.removeExtension(in)
 
   /** Gets the metrics file path, assuming that the program generates a single metrics file with a known extension.  */
   def metricsFile: Path = {
@@ -52,7 +49,7 @@ abstract class PicardMetricsTask(private val in: PathToBam, var prefix: Option[P
    * the case of CollectGcBiasMetrics.
     */
   def metricsFile(extension: String, kind: PicardOutput.Value) : Path = {
-    PathUtil.pathTo(prefix + extension + "." + kind.toString)
+    PathUtil.pathTo(pathPrefix + extension + "." + kind.toString)
   }
 
   /** All Picard metric generating tools should define their own metrics extension. */

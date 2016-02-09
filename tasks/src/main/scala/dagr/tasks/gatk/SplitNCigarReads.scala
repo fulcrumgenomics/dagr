@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,28 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.tasks.picard
+package dagr.tasks.gatk
 
-import dagr.tasks.{PathPrefix, PathToBam}
+import dagr.tasks.{PathToFasta, PathToBam}
 
 import scala.collection.mutable.ListBuffer
 
-object CollectInsertSizeMetrics {
-  def metricsExtension: String = ".insert_size_metrics"
-}
+/**
+  * Runs the GATK walker that splits reads at N operators in cigars so that RNA-seq
+  * BAMs can be fed into the HaplotypeCaller
+  */
+class SplitNCigarReads(val in: PathToBam, val out: PathToBam, ref:PathToFasta)
+  extends GatkTask(walker="SplitNCigarReads", ref=ref) {
 
-class CollectInsertSizeMetrics(in: PathToBam,
-                               prefix: Option[PathPrefix],
-                               val minimumPercent: Option[Double] = None,
-                               val width: Option[Int] = None)
-  extends PicardMetricsTask(in=in, prefix=prefix) {
-  override def metricsExtension: String = CollectInsertSizeMetrics.metricsExtension
-
-  override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer += "I=" + in
-    buffer += "O=" + metricsFile
-    buffer += "H=" + metricsFile(metricsExtension, PicardOutput.Pdf)
-    minimumPercent.foreach { p => buffer += "M=" + p }
-    width.foreach { w => buffer += "W=" + w }
+  override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
+    buffer.append("-I", in)
+    buffer.append("-o", out)
+    buffer.append("-U", "ALLOW_N_CIGAR_READS")
   }
 }

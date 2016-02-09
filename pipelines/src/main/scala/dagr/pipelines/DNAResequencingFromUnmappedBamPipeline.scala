@@ -26,6 +26,7 @@ package dagr.pipelines
 
 import java.nio.file.{Files, Path}
 
+import _root_.picard.analysis.CollectMultipleMetrics.Program
 import dagr.core.cmdline._
 import dagr.core.tasksystem.{Callbacks, Pipeline, ProcessTask, Task}
 import dagr.core.util.{Io, PathUtil}
@@ -96,7 +97,7 @@ class DnaResequencingFromUnmappedBamPipeline(
     val yieldMetrics        = new CollectMultipleMetrics(
       in=mappedBam,
       prefix=Some(prefix),
-      programs=List(MetricsProgram.CollectQualityYieldMetrics),
+      programs=List(Program.CollectQualityYieldMetrics),
       ref=ref
     )
     val calculateProportion = new CalculateDownsamplingProportion(PathUtil.pathTo(prefix + ".quality_yield_metrics.txt"), downsampleToReads)
@@ -117,7 +118,7 @@ class DnaResequencingFromUnmappedBamPipeline(
         ///////////////////////////////////////////////////////////////////////
         val markDuplicates: MarkDuplicates = new MarkDuplicates(in = mapped, out = Some(deduped))
         prevTask ==> markDuplicates
-        (markDuplicates :: downsampleSam) ==> new RemoveBam(mapped)
+        (markDuplicates :: downsampleSam) ==> new DeleteBam(mapped)
 
         ///////////////////////////////////////////////////////////////////////
         // Do either HS metrics or WGS metrics, but not both
