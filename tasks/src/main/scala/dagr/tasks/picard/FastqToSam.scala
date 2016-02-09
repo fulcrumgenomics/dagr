@@ -23,8 +23,8 @@
  */
 package dagr.tasks.picard
 
-import dagr.tasks.DataTypes.{Fastq, SamOrBam}
 import dagr.core.tasksystem.Pipe
+import dagr.tasks.DataTypes.{Fastq, SamOrBam}
 import dagr.tasks.{PathToBam, PathToFastq}
 
 import scala.collection.mutable.ListBuffer

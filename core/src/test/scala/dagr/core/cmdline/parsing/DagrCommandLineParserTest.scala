@@ -23,15 +23,15 @@
  */
 package dagr.core.cmdline.parsing
 
-import dagr.core.config.Configuration
-import dagr.core.util.{CaptureSystemStreams, Logger, LogLevel, UnitSpec}
-import dagr.core.cmdline.{PipelineClass, UserException, DagrCoreMain}
+import dagr.core.cmdline.parsing.CommandLineParserStrings._
+import dagr.core.cmdline.parsing.DagrCommandLineParserStrings._
 import dagr.core.cmdline.parsing.testing.pipelines._
+import dagr.core.cmdline.{DagrCoreMain, PipelineClass, UserException}
+import dagr.core.config.Configuration
 import dagr.core.tasksystem.Pipeline
+import dagr.core.util.{CaptureSystemStreams, LogLevel, Logger, UnitSpec}
 
 class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
-  import DagrCommandLineParserStrings._
-  import CommandLineParserStrings._
 
   // required so that colors are not in our usage messages
   "DagrCommandLineParserTest" should "have color status of Dagr be false" in {
@@ -104,18 +104,18 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
 
   def checkEmptyDagrUsage(taskOption: Option[_ <: Pipeline], output: String): Unit = {
     taskOption shouldBe 'empty
-    output should include(s"$USAGE_PREFIX ${Configuration.commandLineName}")
-    output should include(s"${Configuration.commandLineName} $OPTIONAL_ARGUMENTS")
-    output should include(AVAILABLE_PIPELINES)
+    output should include(s"$UsagePrefix ${Configuration.commandLineName}")
+    output should include(s"${Configuration.commandLineName} $OptionalArguments")
+    output should include(AvailablePipelines)
     output should not include DagrCoreMain.buildErrorMessage()
   }
 
   def checkEmptyTaskUsage(taskOption: Option[_ <: Pipeline], output: String, taskClazz: PipelineClass): Unit = {
     taskOption shouldBe 'empty
-    output should include(s"$USAGE_PREFIX ${Configuration.commandLineName}")
-    output should include(s"${Configuration.commandLineName} $OPTIONAL_ARGUMENTS")
-    output should include(s"${nameOf(taskClazz)} $REQUIRED_ARGUMENTS")
-    output should include(s"${nameOf(taskClazz)} $OPTIONAL_ARGUMENTS")
+    output should include(s"$UsagePrefix ${Configuration.commandLineName}")
+    output should include(s"${Configuration.commandLineName} $OptionalArguments")
+    output should include(s"${nameOf(taskClazz)} $RequiredArguments")
+    output should include(s"${nameOf(taskClazz)} $OptionalArguments")
   }
 
   "DagrCommandLineParser.parseDagrArgs" should "print just the dagr usage when no arguments or the flag are/is given" in {
@@ -143,8 +143,8 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
     ).foreach { args =>
       val (taskOption, output) = TestParseDagrArgsData.parseDagrArgs(args)
       taskOption shouldBe 'empty
-      output should include(s"$USAGE_PREFIX ${Configuration.commandLineName}")
-      output should include(s"${Configuration.commandLineName} $OPTIONAL_ARGUMENTS")
+      output should include(s"$UsagePrefix ${Configuration.commandLineName}")
+      output should include(s"${Configuration.commandLineName} $OptionalArguments")
       output should include(s"No option found for name '${args.head.substring(2)}'")
       output should not include DagrCoreMain.buildErrorMessage()
     }
@@ -158,8 +158,8 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
     ).foreach { args =>
       val (taskOption, output) = TestParseDagrArgsData.parseDagrArgs(args)
       taskOption shouldBe 'empty
-      output should include(s"$USAGE_PREFIX ${Configuration.commandLineName}")
-      output should include(s"${Configuration.commandLineName} $OPTIONAL_ARGUMENTS")
+      output should include(s"$UsagePrefix ${Configuration.commandLineName}")
+      output should include(s"${Configuration.commandLineName} $OptionalArguments")
       if (args.length == 1) {
         output should include(s"${getUnknownPipeline({Configuration.commandLineName})}")
       }
@@ -176,8 +176,8 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
     ).foreach { args =>
       val (taskOption, output) = TestParseDagrArgsData.parseDagrArgs(args)
       taskOption shouldBe 'empty
-      output should include(s"$USAGE_PREFIX ${Configuration.commandLineName}")
-      output should include(s"${Configuration.commandLineName} $OPTIONAL_ARGUMENTS")
+      output should include(s"$UsagePrefix ${Configuration.commandLineName}")
+      output should include(s"${Configuration.commandLineName} $OptionalArguments")
       output should include("/path/to/nowhere")
       output should include(DagrCoreMain.buildErrorMessage())
     }
@@ -189,8 +189,8 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
     ).foreach { args =>
       val (taskOption, output) = TestParseDagrArgsData.parseDagrArgs(args)
       taskOption shouldBe 'empty
-      output should include(s"$USAGE_PREFIX ${Configuration.commandLineName}")
-      output should include(s"${Configuration.commandLineName} $OPTIONAL_ARGUMENTS")
+      output should include(s"$UsagePrefix ${Configuration.commandLineName}")
+      output should include(s"${Configuration.commandLineName} $OptionalArguments")
       output should include(s"${classOf[java.io.FileNotFoundException].getCanonicalName}: /path/to/nowhere")
     }
   }

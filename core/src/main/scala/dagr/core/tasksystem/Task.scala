@@ -48,10 +48,7 @@ object Task {
     * @return true if the DAG to which this task belongs has a cycle, false otherwise.
     */
   private[core] def hasCycle(task: Task): Boolean = {
-    for (component <- findStronglyConnectedComponents(task)) {
-      if (isComponentACycle(component = component)) return true
-    }
-    false
+    findStronglyConnectedComponents(task).exists(component => isComponentACycle(component))
   }
 
   /** Finds all the strongly connected components of the graph to which this task is connected.
@@ -77,9 +74,7 @@ object Task {
 
     // 2. Runs Tarjan's strongly connected components algorithm
     val data: TarjanData = new TarjanData
-    for (v <- visited) {
-      if (!data.indexes.contains(v)) findStronglyConnectedComponent(v, data)
-    }
+    visited.filterNot(data.indexes.contains).foreach(v => findStronglyConnectedComponent(v, data))
 
     // return all the components
     data.components.map(component => component.toSet).toSet
@@ -93,10 +88,9 @@ object Task {
     * @return true if the component contains a cycle, false otherwise.
     */
   private[core] def isComponentACycle(component: Set[Task]): Boolean = {
-    if (1 < component.size) true
-    else if (component.head.getTasksDependedOn.toSet.contains(component.head)) true
-    else if (component.head.getTasksDependingOnThisTask.toSet.contains(component.head)) true
-    else false
+    1 < component.size ||
+      component.head.getTasksDependedOn.toSet.contains(component.head) ||
+      component.head.getTasksDependingOnThisTask.toSet.contains(component.head)
   }
 
   /** See https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm */

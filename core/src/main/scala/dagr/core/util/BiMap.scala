@@ -79,10 +79,14 @@ class BiMap[K, V]() extends Iterable[(K, V)] {
    */
   def removeKey(key: K): Boolean = {
     val value = getValue(key)
-    if (value.isEmpty) return false
-    forward.remove(key)
-    reverse.remove(value.get)
-    true
+    if (value.isEmpty) {
+      false
+    }
+    else {
+      forward.remove(key)
+      reverse.remove(value.get)
+      true
+    }
   }
 
   /** Remove a value and associated key from the map.
@@ -92,10 +96,14 @@ class BiMap[K, V]() extends Iterable[(K, V)] {
     */
   def removeValue(value: V): Boolean = {
     val key = getKey(value)
-    if (key.isEmpty) return false
-    forward.remove(key.get)
-    reverse.remove(value)
-    true
+    if (key.isEmpty) {
+      false
+    }
+    else {
+      forward.remove(key.get)
+      reverse.remove(value)
+      true
+    }
   }
 
   /**

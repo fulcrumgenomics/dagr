@@ -106,10 +106,9 @@ private[core] class TaskRunner extends LazyLogging {
    * @return true if information was removed successfully, false otherwise.
    */
   private def removeTask(taskId: BigInt): Boolean = {
-    if (processes.remove(taskId).isEmpty) return false
-    else if (taskRunners.remove(taskId).isEmpty) return false
-    else if (taskInfos.remove(taskId).isEmpty) return false
-    true
+    processes.remove(taskId).isDefined &&
+      taskRunners.remove(taskId).isDefined &&
+      taskInfos.remove(taskId).isDefined
   }
 
   /** Start running a task.  Call [[TaskRunner.getCompletedTasks]] to see if subsequently completes.
@@ -163,9 +162,11 @@ private[core] class TaskRunner extends LazyLogging {
         val taskInfo = taskInfos.get(taskId).get
         taskInfo.endDate = Some(new Timestamp(System.currentTimeMillis))
         taskInfo.status = {
-          if ((0 == exitCode && onCompleteSuccessful) || failedAreCompleted) TaskStatus.SUCCEEDED
-          else if (0 != exitCode) TaskStatus.FAILED_COMMAND
-          else TaskStatus.FAILED_ON_COMPLETE // implied !onCompleteSuccessful
+          (exitCode, onCompleteSuccessful, failedAreCompleted) match {
+            case (0, true, _) | (_, _, true) => TaskStatus.SUCCEEDED
+            case (code, _, _) if code != 0 => TaskStatus.FAILED_COMMAND
+            case _            => TaskStatus.FAILED_ON_COMPLETE // implied !onCompleteSuccessful
+          }
         }
         if (taskRunners.get(taskId).get.throwable.isDefined) {
           val thr: Throwable = taskRunners.get(taskId).get.throwable.get
@@ -197,18 +198,22 @@ private[core] class TaskRunner extends LazyLogging {
    * @return true if successful, false otherwise
    */
   def terminateTask(taskId: BigInt): Boolean = {
-    if (!processes.contains(taskId)) return false // not found
-    val thread: Thread = processes.get(taskId).get
-    thread.join(1) // just give it 0.001 of second
-    if (thread.isAlive) { // if it is alive, interrupt it
-      thread.interrupt()
-      thread.join(100) // just give it 0.1 of second
+    if (processes.contains(taskId)) { // found
+      val thread: Thread = processes.get(taskId).get
+      thread.join(1) // just give it 0.001 of second
+      if (thread.isAlive) {
+        // if it is alive, interrupt it
+        thread.interrupt()
+        thread.join(100) // just give it 0.1 of second
+      }
+      val taskInfo = taskInfos.get(taskId).get
+      taskInfo.endDate = Some(new Timestamp(System.currentTimeMillis))
+      taskInfo.status = TaskStatus.FAILED_COMMAND
+      !thread.isAlive // thread is still alive WTF
     }
-    val taskInfo = taskInfos.get(taskId).get
-    taskInfo.endDate = Some(new Timestamp(System.currentTimeMillis))
-    taskInfo.status = TaskStatus.FAILED_COMMAND
-    if (thread.isAlive) return false // thread is still alive WTF
-    true
+    else { // not found
+      false
+    }
   }
 
   // for testing

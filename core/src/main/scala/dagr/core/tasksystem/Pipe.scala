@@ -25,8 +25,6 @@ package dagr.core.tasksystem
 
 import dagr.core.execsystem.ResourceSet
 
-import scala.collection.mutable.ListBuffer
-
 ///////////////////////////////////////////////////////////////////////////////
 // Section: General traits related to piping
 ///////////////////////////////////////////////////////////////////////////////
@@ -139,8 +137,11 @@ object Pipes {
       */
     override def applyResources(resources: ResourceSet): Unit = {
       val (fixed, variable) = partition
-      var remainingResource = resources
-      fixed.foreach(task => { task.applyResources(task.resources); remainingResource -= task.resources })
+      val remainingResource = resources - fixed.map( task => {
+          task.applyResources(task.resources)
+          task.resources
+        }
+      ).fold(ResourceSet.empty)(_ + _)
       variable.foreach(task => task.applyResources(remainingResource))
     }
   }

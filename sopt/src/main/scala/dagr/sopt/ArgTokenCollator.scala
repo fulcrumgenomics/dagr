@@ -24,7 +24,7 @@
 
 package dagr.sopt
 
-import dagr.sopt.ArgTokenizer.{ArgOptionAndValue, ArgValue, Token, ArgOption}
+import dagr.sopt.ArgTokenizer.{ArgOption, ArgOptionAndValue, ArgValue, Token}
 import dagr.sopt.util.PeekableIterator
 
 import scala.collection.mutable.ListBuffer
@@ -66,30 +66,30 @@ class ArgTokenCollator(argTokenizer: ArgTokenizer) extends Iterator[Try[ArgOptio
   private def advance(): Unit = {
     if (!iterator.hasNext) {
       this.nextOption = None
-      return
     }
+    else {
+      val values: ListBuffer[String] = new ListBuffer[String]()
 
-    val values: ListBuffer[String] = new ListBuffer[String]()
-
-    // try to get an a token that has an option name
-    val nameTry = iterator.next match {
-      case Success(ArgOption(name)) => Success(name)
-      case Success(ArgOptionAndValue(name, value)) => values += value; Success(name)
-      case Success(ArgValue(value)) => Failure(new OptionNameException(s"Illegal option: '$value'"))
-      case Failure(ex) => Failure(ex)
-    }
-    nameTry match {
-      case Failure(ex) => this.nextOption = Some(Failure(ex))
-      case Success(name) =>
-        // find values with the same option name, may only be ArgValue and ArgOptionAndValue
-        while (iterator.hasNext && ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(iterator.peek, name)) {
-          iterator.next match {
-            case Success(ArgValue(value)) => values += value
-            case Success(ArgOptionAndValue(`name`, value)) => values += value
-            case _ => throw new IllegalStateException("Should never reach here")
+      // try to get an a token that has an option name
+      val nameTry = iterator.next match {
+        case Success(ArgOption(name)) => Success(name)
+        case Success(ArgOptionAndValue(name, value)) => values += value; Success(name)
+        case Success(ArgValue(value)) => Failure(new OptionNameException(s"Illegal option: '$value'"))
+        case Failure(ex) => Failure(ex)
+      }
+      nameTry match {
+        case Failure(ex) => this.nextOption = Some(Failure(ex))
+        case Success(name) =>
+          // find values with the same option name, may only be ArgValue and ArgOptionAndValue
+          while (iterator.hasNext && ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(iterator.peek, name)) {
+            iterator.next match {
+              case Success(ArgValue(value)) => values += value
+              case Success(ArgOptionAndValue(`name`, value)) => values += value
+              case _ => throw new IllegalStateException("Should never reach here")
+            }
           }
-        }
-        this.nextOption = Some(Success(new ArgOptionAndValues(name = name, values = values)))
+          this.nextOption = Some(Success(new ArgOptionAndValues(name = name, values = values)))
+      }
     }
   }
 }

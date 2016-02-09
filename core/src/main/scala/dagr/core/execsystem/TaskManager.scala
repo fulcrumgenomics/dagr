@@ -23,11 +23,12 @@
  */
 package dagr.core.execsystem
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
 import java.sql.Timestamp
 
 import dagr.core.tasksystem.{Task, UnitTask}
-import dagr.core.util.{Io, BiMap, LazyLogging, PathUtil}
+import dagr.core.util.StringUtil._
+import dagr.core.util.{BiMap, Io, LazyLogging, PathUtil}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -86,9 +87,7 @@ object TaskManagerDefaults extends LazyLogging {
 
 /** Defaults and utility methods for a TaskManager. */
 object TaskManager extends LazyLogging {
-
-  import TaskManagerDefaults._
-  import dagr.core.util.StringUtil._
+  import dagr.core.execsystem.TaskManagerDefaults._
 
   /** Runs a given task to either completion, failure, or inability to schedule.  This will terminate tasks that were still running before returning.
    *
@@ -248,18 +247,22 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
    * @return true if we are successful, false if the original is not being tracked.
    */
   override def replaceTask(original: Task, replacement: Task): Boolean = {
-    if (!hasTask(original)) return false
+    if (hasTask(original)) {
+      val taskId: BigInt = getTaskId(original).get
+      val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(taskId).get
 
-    val taskId: BigInt = getTaskId(original).get
-    val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(taskId).get
+      if (taskInfo.status == STARTED) {
+        // the task has been started, kill it
+        taskRunner.terminateTask(taskId)
+        processCompletedTask(taskId = taskId, doRetry = false)
+      }
 
-    if (taskInfo.status == STARTED) { // the task has been started, kill it
-      taskRunner.terminateTask(taskId)
-      processCompletedTask(taskId = taskId, doRetry = false)
+      super.replaceTask(original = original, replacement = replacement)
+      true
     }
-
-    super.replaceTask(original = original, replacement = replacement)
-    true
+    else {
+      false
+    }
   }
 
   /** Resubmit a task for execution.  This will stop the task if it is currently running, and queue
@@ -269,35 +272,35 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
    * @return true if the task was successfully resubmitted, false otherwise.
    */
   override def resubmitTask(task: Task): Boolean = {
-    val taskId: BigInt = getTaskId(task).getOrElse(-1)
-    if (taskId < 0) return false
-    val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(taskId).get
-    val node: GraphNode = getGraphNode(taskId).get
+    getTaskId(task).getOrElse(BigInt(-1)) match {
+      case taskId: BigInt if taskId >= 0 =>
+        val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(taskId).get
+        val node: GraphNode = getGraphNode(taskId).get
 
-    // check if the task is running and if so, kill it
-    if (taskInfo.status == STARTED) {
-      taskRunner.terminateTask(taskId)
+        // check if the task is running and if so, kill it
+        if (taskInfo.status == STARTED) taskRunner.terminateTask(taskId)
+
+        // update all complete tasks, as this task may have already completed, or was just terminated
+        updateCompletedTasks()
+
+        // reset the internal data structures for this task
+        taskInfo.status = TaskStatus.UNKNOWN
+        taskInfo.attemptIndex = 1
+        node.state = NO_PREDECESSORS
+
+        true
+      case _ =>
+        false
     }
-
-    // update all complete tasks, as this task may have already completed, or was just terminated
-    updateCompletedTasks()
-
-    // reset the internal data structures for this task
-    taskInfo.status = TaskStatus.UNKNOWN
-    taskInfo.attemptIndex = 1
-    node.state = NO_PREDECESSORS
-
-    true
   }
 
   /** Compares two timestamp options.  If either option is empty, zero is returned. */
   private def compareOptionalTimestamps(left: Option[Timestamp], right: Option[Timestamp]): Int =  {
-    left.foreach { l =>
-      right.foreach { r =>
-        return l.compareTo(r)
-      }
-    }
-    0
+    left.map { l =>
+      right.map { r =>
+        l.compareTo(r)
+      }.getOrElse(0)
+    }.getOrElse(0)
   }
 
   /** Updates the start and end date for a parent, if it exists */
@@ -331,25 +334,30 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     val node: GraphNode = getGraphNode(taskId = taskId).get
     val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(taskId).get
     logger.info("processCompletedTask: Task [" + taskInfo.task.name + "] had TaskStatus=" + taskInfo.status.toString)
-    if (TaskStatus.isTaskFailed(taskStatus = taskInfo.status) && doRetry) {
+    val updateNodeToCompleted: Boolean = if (TaskStatus.isTaskFailed(taskStatus = taskInfo.status) && doRetry) {
       // Only if it has failed
-      val task: Option[Task] = taskInfo.task.retry(taskInfo, taskInfo.status == TaskStatus.FAILED_ON_COMPLETE)
-      if (task.isDefined) {
-        // retry it
-        logger.debug("task [" + task.get.name + "] is being retried")
-        node.state = NO_PREDECESSORS
-        taskInfo.attemptIndex += 1
-        return
-      }
-      else {
-        logger.debug("task [" + taskInfo.task.name + "] is *not* being retried")
+      taskInfo.task.retry(taskInfo, taskInfo.status == TaskStatus.FAILED_ON_COMPLETE) match {
+        case Some(task) =>
+          // retry it
+          logger.debug("task [" + task.name + "] is being retried")
+          node.state = NO_PREDECESSORS
+          taskInfo.attemptIndex += 1
+          false // do not update the node to completed
+        case None =>
+          logger.debug("task [" + taskInfo.task.name + "] is *not* being retried")
+          true
       }
     }
-    logger.debug("processCompletedTask: Task [" + taskInfo.task.name + "] updating node to completed")
-    if (TaskStatus.isTaskNotDone(taskInfo.status, failedIsDone = true)) {
-      throw new RuntimeException("Processing a completed task but it was not done!")
+    else {
+      true
     }
-    setGraphNodeToCompleted(node, Some(taskInfo))
+    if (updateNodeToCompleted) {
+      logger.debug("processCompletedTask: Task [" + taskInfo.task.name + "] updating node to completed")
+      if (TaskStatus.isTaskNotDone(taskInfo.status, failedIsDone = true)) {
+        throw new RuntimeException("Processing a completed task but it was not done!")
+      }
+      setGraphNodeToCompleted(node, Some(taskInfo))
+    }
   }
 
   /** Gets the set of newly completed tasks and updates their state (to either retry or complete)
@@ -378,7 +386,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     // find nodes where all predecessors have an associated graph node
     getGraphNodesInState(ORPHAN).filter(node => allPredecessorsAdded(task = node.task)).foreach(node => {
       // add the predecessors
-      logger.debug("updateOrphans: found an orphan task [" + node.task.name + "] that has [" + getPredecessors(task=node.task).get.size + "] predecessors")
+      logger.debug("updateOrphans: found an orphan task [" + node.task.name + "] that has [" +
+        getPredecessors(task=node.task).get.size + "] predecessors")
       node.addPredecessors(getPredecessors(task=node.task).get)
       logger.debug("updateOrphans: orphan task [" + node.task.name + "] now has [" + node.getPredecessors.size + "] predecessors")
       // update its state
@@ -409,7 +418,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
             getTaskExecutionInfo(node).get.status = TaskStatus.SUCCEEDED
             hasMore = true // try again for all successors, since we have more nodes that have completed
         }
-        logger.debug(s"updatePredecessors: task [${node.task.name}] now has node state [${node.state}] and status [" + getTaskExecutionInfo(node).get.status + "]")
+        logger.debug(s"updatePredecessors: task [${node.task.name}] now has node state [${node.state}] and status ["
+          + getTaskExecutionInfo(node).get.status + "]")
       }
     }
 
@@ -525,7 +535,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
    * 4. Schedule tasks and run them.
    *
    * @param timeout the length of time in milliseconds to wait for running tasks to complete
-   * @return a tuple of (1) tasks that can be scheduled, (2) tasks that were scheduled, (3) tasks that are running prior to scheduling, and (4) the tasks that have completed prior to scheduling.
+   * @return a tuple of (1) tasks that can be scheduled, (2) tasks that were scheduled, (3) tasks that are running prior
+    *         to scheduling, and (4) the tasks that have completed prior to scheduling.
    */
   def runSchedulerOnce(timeout: Int = 1000): (List[Task], List[Task], List[Task], List[Task]) = {
     logger.debug("runSchedulerOnce: starting one round of execution")
@@ -572,7 +583,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     (readyTasks, tasksToSchedule.keys.toList, runningTasks.keys.toList, completedTasks.keys.map(taskId => getTask(taskId).get).toList)
   }
 
-  /** Run all tasks managed to either completion, failure, or inability to schedule.  This will terminate tasks that were still running before returning.
+  /** Run all tasks managed to either completion, failure, or inability to schedule.  This will terminate tasks that
+    * were still running before returning.
     *
     * @param sleepMilliseconds the time to wait in milliseconds to wait between trying to schedule tasks.
     * @param timeout           the length of time in milliseconds to wait for running tasks to complete

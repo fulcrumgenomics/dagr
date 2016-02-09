@@ -26,9 +26,6 @@ package dagr.core.tasksystem
 import java.io.{BufferedWriter, FileWriter}
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Resource, ResourceSet}
-
-import scala.collection.mutable.ListBuffer
 import scala.sys.process._
 
 /** A task that can execute a set of commands in its own process, and does not generate any new tasks.

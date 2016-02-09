@@ -28,7 +28,7 @@ import java.text.{DecimalFormat, NumberFormat}
 object StringUtil {
 
   /** Wraps a given string with a prefix and optional suffix */
-  def wrapString(prefix: String, str: String, suffix: String = "") = s"$prefix$str$suffix"
+  def wrapString(prefix: String, str: String, suffix: String = ""): String = s"$prefix$str$suffix"
 
   /**
     * Return input string with newlines inserted to ensure that all lines

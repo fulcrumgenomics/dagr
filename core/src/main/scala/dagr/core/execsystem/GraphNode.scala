@@ -56,9 +56,13 @@ class GraphNode(val taskId: BigInt,
    * @return true if the predecessor was found and removed, false otherwise
    */
   def removePredecessor(predecessor: GraphNode): Boolean = {
-    if (predecessors.isEmpty || !predecessors.contains(predecessor)) return false
-    predecessors -= predecessor
-    true
+    if (predecessors.isEmpty || !predecessors.contains(predecessor)) {
+      false
+    }
+    else {
+      predecessors -= predecessor
+      true
+    }
   }
 
   /** Does this node have predecessors currently?
@@ -73,17 +77,14 @@ class GraphNode(val taskId: BigInt,
    * @return true if any duplicate predecessor was found, include those already added, false otherwise
    */
   def addPredecessors(predecessors: GraphNode*): Boolean = {
-    var missingParent: Boolean = false
+    val originalPredecessorsSize = this.predecessors.size
     predecessors.foreach(predecessor => {
-      if (predecessors.isEmpty || !this.predecessors.contains(predecessor)) {
+      if (!this.predecessors.contains(predecessor)) {
         this.predecessors += predecessor
         this.predecessorsStatic += predecessor
       }
-      else {
-        missingParent = true
-      }
     })
-    missingParent
+    originalPredecessorsSize != (this.predecessors.size - predecessors.size)
   }
 
   /** Adds predecessor(s) associated with this node.

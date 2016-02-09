@@ -60,12 +60,14 @@ abstract class Scheduler extends LazyLogging {
     // Make sure we either have tasks that inherit from ProcessTask or InJvmTask.
     runningTasks.keys.foreach(task => {
       if (!task.isInstanceOf[ProcessTask] && !task.isInstanceOf[InJvmTask]) {
-        throw new IllegalArgumentException(s"The running task was neither an InJvmTask nor ProcessTask: name[${task.name}] class[${task.getClass.getSimpleName}]")
+        throw new IllegalArgumentException(s"The running task was neither an InJvmTask nor ProcessTask: " +
+          s"name[${task.name}] class[${task.getClass.getSimpleName}]")
       }
     })
     readyTasks.foreach(task => {
       if (!task.isInstanceOf[ProcessTask] && !task.isInstanceOf[InJvmTask]) {
-        throw new IllegalArgumentException(s"The ready task was neither an InJvmTask nor ProcessTask: name[${task.name}] class[${task.getClass.getSimpleName}]")
+        throw new IllegalArgumentException(s"The ready task was neither an InJvmTask nor ProcessTask: " +
+          s"name[${task.name}] class[${task.getClass.getSimpleName}]")
       }
     })
 

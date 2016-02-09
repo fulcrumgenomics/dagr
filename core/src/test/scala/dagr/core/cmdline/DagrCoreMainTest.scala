@@ -24,8 +24,8 @@
 
 package dagr.core.cmdline
 
-import dagr.core.util.{Logger, LogLevel, UnitSpec, Io}
 import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
+import dagr.core.util.{Io, LogLevel, Logger, UnitSpec}
 
 class NoOpPipeline extends Pipeline {
   override def build(): Unit = {

@@ -1,6 +1,6 @@
 package dagr.core.util
 
-import java.lang.reflect.{InvocationTargetException, Constructor}
+import java.lang.reflect.{Constructor, InvocationTargetException}
 
 import dagr.core.cmdline._
 

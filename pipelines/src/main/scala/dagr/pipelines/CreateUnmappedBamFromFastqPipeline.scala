@@ -26,7 +26,7 @@ package dagr.pipelines
 import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{ProcessTask, ShellCommand, Pipeline, ValidationException}
+import dagr.core.tasksystem.{Pipeline, ProcessTask, ShellCommand, ValidationException}
 import dagr.core.util.Io
 import dagr.tasks._
 import dagr.tasks.picard.{FastqToUnmappedSam, MergeSamFiles, RemoveBam}

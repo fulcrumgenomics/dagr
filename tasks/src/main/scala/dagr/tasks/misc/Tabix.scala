@@ -1,14 +1,15 @@
 package dagr.tasks.misc
 
+import dagr.core.config.Configuration
 import dagr.core.tasksystem.ShellCommand
 import dagr.tasks.PathToVcf
-import dagr.core.config.Configuration
+import java.nio.file.Path
 
 /** Tabix (https://github.com/samtools/htslib) */
 object Tabix extends Configuration {
   val TabixExecutableConfigKey = "tabix.executable"
 
-  def findTabix = configureExecutable(TabixExecutableConfigKey, "tabix")
+  def findTabix: Path = configureExecutable(TabixExecutableConfigKey, "tabix")
 }
 
 /** Indexes a VCF.gz using tabix */

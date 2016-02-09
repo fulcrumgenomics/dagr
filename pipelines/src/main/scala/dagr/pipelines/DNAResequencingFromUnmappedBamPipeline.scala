@@ -27,7 +27,7 @@ package dagr.pipelines
 import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{ProcessTask, Callbacks, Pipeline, Task}
+import dagr.core.tasksystem.{Callbacks, Pipeline, ProcessTask, Task}
 import dagr.core.util.{Io, PathUtil}
 import dagr.tasks._
 import dagr.tasks.bwa.{Bwa, BwaBacktrack}
@@ -93,7 +93,12 @@ class DnaResequencingFromUnmappedBamPipeline(
     root ==> bwa
 
     // Just collect quality yield metrics on the pre-de-duped BAM as we need this for downsampling
-    val yieldMetrics        = new CollectMultipleMetrics(in=mappedBam, prefix=Some(prefix), programs=List(MetricsProgram.CollectQualityYieldMetrics), ref=referenceFasta)
+    val yieldMetrics        = new CollectMultipleMetrics(
+      in=mappedBam,
+      prefix=Some(prefix),
+      programs=List(MetricsProgram.CollectQualityYieldMetrics),
+      ref=referenceFasta
+    )
     val calculateProportion = new CalculateDownsamplingProportion(PathUtil.pathTo(prefix + ".quality_yield_metrics.txt"), downsampleToReads)
     val downsampleSam       = new DownsampleSam(in=mappedBam, out=dsMappedBam, proportion=1, accuracy=Some(0.00001))
 

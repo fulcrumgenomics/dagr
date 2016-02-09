@@ -28,8 +28,8 @@ import java.nio.file.{Files, Path}
 import dagr.core.cmdline._
 import dagr.core.tasksystem._
 import dagr.core.util.Io
-import dagr.tasks.picard._
 import dagr.tasks._
+import dagr.tasks.picard._
 
 import scala.collection.mutable.ListBuffer
 

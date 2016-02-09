@@ -26,7 +26,7 @@ package dagr.tasks.samtools
 import java.nio.file.Path
 
 import dagr.core.tasksystem.FixedResources
-import dagr.tasks.{PathToBam, PathToIntervals, PathToFasta}
+import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals}
 
 import scala.collection.mutable.ListBuffer
 

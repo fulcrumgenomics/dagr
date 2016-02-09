@@ -70,7 +70,14 @@ class TumorNormalVariantCallingPipeline(
     val tpileup   = new SamtoolsPileup(ref=reference, regions=Some(targetBed), bam=tumorBam, output=Some(tumorPileupFile))
     val npileup   = new SamtoolsPileup(ref=reference, regions=Some(targetBed), bam=normalBam, output=Some(normalPileupFile))
     val varscan   = new Varscan2Somatic(tumorPileupFile, normalPileupFile, varscanDir)
-    val mutect1   = new Mutect1(tumorBam=tumorBam, normalBam=normalBam, reference=reference, intervals=intervals, vcfOutput=mutect1Vcf, callStatsOutput=mutect1Callstats)
+    val mutect1   = new Mutect1(
+      tumorBam=tumorBam,
+      normalBam=normalBam,
+      reference=reference,
+      intervals=intervals,
+      vcfOutput=mutect1Vcf,
+      callStatsOutput=mutect1Callstats
+    )
     val mutect2   =
       if (includeMutect2)
         new Mutect2(tumorBam=tumorBam, normalBam=normalBam, reference=reference, intervals=intervals, output=mutect2Vcf)

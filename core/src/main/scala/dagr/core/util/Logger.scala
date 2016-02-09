@@ -47,7 +47,7 @@ class Logger(clazz : Class[_]) {
   private var out: Option[PrintStream] = None
 
   /** Sets the given instance of the logger for this task. */
-  def setLogger(out: Option[PrintStream]): Unit = this.out = out
+  def set(out: Option[PrintStream]): Unit = this.out = out
 
   /** Checks to see if a message should be emitted given the current log level, and then emits atomically. */
   protected def emit(l: LogLevel, parts: TraversableOnce[Any]) : Unit = {

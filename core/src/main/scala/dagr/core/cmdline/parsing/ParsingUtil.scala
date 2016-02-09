@@ -33,7 +33,6 @@ import dagr.core.util.{PathUtil, ReflectionUtil}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.Map
-import scala.collection.mutable.ListBuffer
 
 /** Variables and Methods to support command line parsing */
 private[parsing] object ParsingUtil extends Configuration  {
@@ -87,10 +86,10 @@ private[parsing] object ParsingUtil extends Configuration  {
       }.map(_.asInstanceOf[PipelineClass])
 
     // Get all the name collisions
-    var nameCollisions = new ListBuffer[String]()
-    classes.groupBy(_.getSimpleName).foreach { case (k, v) =>
-      if (v.size > 1) nameCollisions += v.mkString(", ")
-    }
+    val nameCollisions = classes
+      .groupBy(_.getSimpleName)
+      .filter { case (k, v) => v.size > 1 }
+      .map { case (k, v) => v.mkString(", ") }
 
     // SimpleName should be unique
     if (nameCollisions.nonEmpty) {
@@ -151,7 +150,10 @@ private[parsing] object ParsingUtil extends Configuration  {
       case e: IllegalAccessException =>
         throw new CommandLineParserInternalException(s"String constructor for argument class ''${unitType.getSimpleName}'' must be public.", e)
       case e: InvocationTargetException =>
-        throw new BadArgumentValue(s"Problem constructing '${unitType.getSimpleName}' from the string${plural(value.size)} '" + value.toList.mkString(", ") + "'.")
+        throw new BadArgumentValue(
+          s"Problem constructing '${unitType.getSimpleName}' from the string${plural(value.size)} '" +
+            value.toList.mkString(", ") + "'."
+        )
     }
   }
 
@@ -171,7 +173,9 @@ private[parsing] object ParsingUtil extends Configuration  {
           }
           catch {
             case e: IllegalArgumentException =>
-              throw new CommandLineParserInternalException(s"Collection of type '${resultType.getSimpleName}' cannot be constructed or auto-initialized with a known type.")
+              throw new CommandLineParserInternalException(
+                s"Collection of type '${resultType.getSimpleName}' cannot be constructed or auto-initialized with a known type."
+              )
           }
         }
         else if (ReflectionUtil.isSeqClass(clazz) || ReflectionUtil.isSetClass(clazz)) {
@@ -181,7 +185,9 @@ private[parsing] object ParsingUtil extends Configuration  {
           throw new CommandLineParserInternalException(s"Unknown collection type '${resultType.getSimpleName}'")
         }
       case clazz =>
-        if (value.size != 1) throw new CommandLineException(s"Expecting a single argument to convert to ${resultType.getSimpleName} but got ${value.size}")
+        if (value.size != 1) {
+          throw new CommandLineException(s"Expecting a single argument to convert to ${resultType.getSimpleName} but got ${value.size}")
+        }
         getUnitOrOptionFromString(resultType, unitType, value.head)
     }
   }
@@ -202,7 +208,8 @@ private[parsing] object ParsingUtil extends Configuration  {
   private def getUnitFromStringBuilder(unitType: Class[_], value: String) : Any = {
     ReflectionUtil.ifPrimitiveThenWrapper(unitType) match {
       case clazz if clazz.isEnum =>
-        lazy val badArgumentString = s"'$value' is not a valid value for ${clazz.getSimpleName}. " + ClpArgumentDefinitionPrinting.getEnumOptions(clazz.asInstanceOf[Class[_ <: Enum[_ <: Enum[_]]]])
+        lazy val badArgumentString = s"'$value' is not a valid value for ${clazz.getSimpleName}. " +
+          ClpArgumentDefinitionPrinting.getEnumOptions(clazz.asInstanceOf[Class[_ <: Enum[_ <: Enum[_]]]])
         val maybeEnum = clazz.getEnumConstants.map(_.asInstanceOf[Enum[_]]).find(e => e.name() == value)
         maybeEnum.getOrElse(throw new BadArgumentValue(badArgumentString))
       case clazz if clazz == classOf[Path] =>

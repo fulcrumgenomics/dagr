@@ -26,8 +26,8 @@ package dagr.tasks.bwa
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.tasks.DataTypes.Sam
 import dagr.core.tasksystem.{FixedResources, Pipe, ProcessTask}
+import dagr.tasks.DataTypes.Sam
 
 object BwaK8AltProcessor {
   val BwaKitDirConfigKey = "bwa-kit.dir"

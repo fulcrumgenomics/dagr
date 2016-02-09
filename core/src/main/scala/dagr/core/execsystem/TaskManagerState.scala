@@ -322,40 +322,45 @@ trait TaskManagerState extends LazyLogging {
 
     // TODO: how to replace UnitTask vs. Workflows
 
-    if (!hasTask(original)) return false
-    if (replacement.getTasksDependedOn.nonEmpty || replacement.getTasksDependingOnThisTask.nonEmpty) return false
+    if (!hasTask(original)) false
+    else if (replacement.getTasksDependedOn.nonEmpty || replacement.getTasksDependingOnThisTask.nonEmpty) return false
+    else {
+      val originalTaskId: BigInt = getTaskId(original).get
+      val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(originalTaskId).get
 
-    val originalTaskId: BigInt = getTaskId(original).get
-    val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(originalTaskId).get
+      // Update the inter-task dependencies for the swap
+      original.getTasksDependingOnThisTask.foreach(t => {
+        t.removeDependency(original); replacement ==> t
+      })
+      original.getTasksDependedOn.foreach(t => {
+        original.removeDependency(t); t ==> replacement;
+      })
 
-    // Update the inter-task dependencies for the swap
-    original.getTasksDependingOnThisTask.foreach( t => {t.removeDependency(original); replacement ==> t})
-    original.getTasksDependedOn.foreach( t => {original.removeDependency(t); t ==> replacement;})
+      // update the task id map
+      tasksToIds.removeValue(originalTaskId)
+      tasksToIds.add(replacement, originalTaskId)
 
-    // update the task id map
-    tasksToIds.removeValue(originalTaskId)
-    tasksToIds.add(replacement, originalTaskId)
+      // update the task info
+      taskInfo.task = replacement
 
-    // update the task info
-    taskInfo.task = replacement
+      // update the graph node
+      val node: GraphNode = nodesToIds.getKey(originalTaskId).get
+      node.task = replacement
 
-    // update the graph node
-    val node: GraphNode = nodesToIds.getKey(originalTaskId).get
-    node.task = replacement
-
-    // reset to no predecessors and ready for execution
-    if (!isTaskDone(taskInfo.status)) {
-      if (List(GraphNodeState.RUNNING, GraphNodeState.NO_PREDECESSORS, GraphNodeState.ONLY_PREDECESSORS).contains(node.state)) {
-        node.state = GraphNodeState.PREDECESSORS_AND_UNEXPANDED
+      // reset to no predecessors and ready for execution
+      if (!isTaskDone(taskInfo.status)) {
+        if (List(GraphNodeState.RUNNING, GraphNodeState.NO_PREDECESSORS, GraphNodeState.ONLY_PREDECESSORS).contains(node.state)) {
+          node.state = GraphNodeState.PREDECESSORS_AND_UNEXPANDED
+        }
+        taskInfo.status = TaskStatus.UNKNOWN
       }
-      taskInfo.status = TaskStatus.UNKNOWN
+
+      // update the task <-> node
+      tasksToNodes.removeValue(node)
+      tasksToNodes.add(replacement, node)
+
+      true
     }
-
-    // update the task <-> node
-    tasksToNodes.removeValue(node)
-    tasksToNodes.add(replacement, node)
-
-    true
   }
 
   /** Resubmit a task for execution.  This will stop the task if it is currently running, and queue
@@ -385,10 +390,14 @@ trait TaskManagerState extends LazyLogging {
    * @return a list of graph nodes if predecessors were found, Nil if empty, and None if there were predecessors with no associated graph node
     */
   protected def getPredecessors(task: Task): Option[Traversable[GraphNode]] = {
-    if (task.getTasksDependedOn.isEmpty) return Some(Nil)
-    val predecessors: Traversable[Option[GraphNode]] = for (dependency <- task.getTasksDependedOn) yield getGraphNode(dependency)
-    if (predecessors.exists(_.isEmpty)) return None // we found predecessors that have no associated graph node
-    Some(predecessors.map(_.get))
+    if (task.getTasksDependedOn.isEmpty) {
+      Some(Nil)
+    }
+    else {
+      val predecessors: Traversable[Option[GraphNode]] = for (dependency <- task.getTasksDependedOn) yield getGraphNode(dependency)
+      if (predecessors.exists(_.isEmpty)) None // we found predecessors that have no associated graph node
+      else Some(predecessors.map(_.get))
+    }
   }
 
   /** Gets the graph nodes in a given state.

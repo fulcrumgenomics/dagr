@@ -149,11 +149,14 @@ trait OptionLookup {
     */
   private[sopt] def findExactOrPrefix(optionName: String): List[OptionAndValues] = {
     // first see if the name is just in the map
-    if (optionMap.contains(optionName)) return List(optionMap.get(optionName).get)
-    // next, check abbreviations
-    getOptionNamesWithPrefix(optionName)
-      .map { name => optionMap.get(name).get }
-      .toList
+    if (optionMap.contains(optionName)) {
+      List(optionMap.get(optionName).get)
+    }
+    else { // next, check abbreviations
+      getOptionNamesWithPrefix(optionName)
+        .map { name => optionMap.get(name).get }
+        .toList
+    }
   }
 
   /** True if there is one and only one option with this name or a prefix, false otherwise. */
@@ -227,12 +230,13 @@ trait OptionLookup {
         StringUtil.levenshteinDistance(optionName, name, 0, 2, 1, 4)
       }
       distances.put(name, distance)
-      if (distance < bestDistance) {
-        bestDistance = distance
-        bestN = 1
-      }
-      else if (distance == bestDistance) {
-        bestN += 1
+      distance match {
+        case d if d < bestDistance =>
+          bestDistance = distance
+          bestN = 1
+        case d if d == bestDistance =>
+          bestN += 1
+        case _ => Unit
       }
     }
     if (0 == bestDistance && 1 < bestN && bestN == optionNames.size) {

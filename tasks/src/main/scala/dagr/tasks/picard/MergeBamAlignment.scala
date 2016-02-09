@@ -23,9 +23,9 @@
  */
 package dagr.tasks.picard
 
-import dagr.core.execsystem.{Memory, Cores}
-import dagr.tasks.DataTypes.SamOrBam
+import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
+import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.{PathToBam, PathToFasta}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 

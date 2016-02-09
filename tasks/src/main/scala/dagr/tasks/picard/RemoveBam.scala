@@ -23,7 +23,7 @@
  */
 package dagr.tasks.picard
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 
 import dagr.core.tasksystem.SimpleInJvmTask
 import dagr.core.util.PathUtil
@@ -39,12 +39,12 @@ class RemoveBam(val bam: Path) extends SimpleInJvmTask {
 
   override def run(): Unit = {
     val paths = ListBuffer(bam)
-    if (bam.getFileName.toString.endsWith(".bam")) {
-      paths += PathUtil.pathTo(bam.toString + ".bai")
-      paths += PathUtil.replaceExtension(bam, ".bai")
-    }
-    else if (bam.getFileName.toString.endsWith(".cram")) {
-      paths += PathUtil.pathTo(bam.toString + ".crai")
+    bam.getFileName.toString match {
+      case str if str.endsWith(".bam") =>
+        paths += PathUtil.pathTo(bam.toString + ".bai")
+        paths += PathUtil.replaceExtension(bam, ".bai")
+      case str if str.endsWith(".cram") =>
+        paths += PathUtil.pathTo(bam.toString + ".crai")
     }
 
     paths.filter(Files.exists(_)).foreach(Files.delete)

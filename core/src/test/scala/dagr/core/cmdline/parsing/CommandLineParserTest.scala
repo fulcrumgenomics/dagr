@@ -334,11 +334,6 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     argumentDefinition.hasValue shouldBe true
   }
 
-  // TODO: why should an option with a default of None be disallowed?
-//  it should "throw a BadAnnotationException with a class with a default None-Option parameter when required" in {
-//    an[BadAnnotationException] should be thrownBy  parser(classOf[ClassWithOptionWithNoneDefault])
-//  }
-
   it should "create a class with a default None-Option parameter but optional annotation" in {
     val lookup = parser(classOf[ClassWithOptionWithNoneDefaultAndOptional]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
@@ -531,23 +526,23 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
 
   "CommandLineParser.usage" should "print out no arguments when no arguments are present" in {
     val usage = parser(classOf[NoArguments]).usage(printCommon = false, withPreamble = false, withSpecial = false)
-    usage.indexOf(REQUIRED_ARGUMENTS) should be < 0
-    usage.indexOf(OPTIONAL_ARGUMENTS) should be < 0
+    usage.indexOf(RequiredArguments) should be < 0
+    usage.indexOf(OptionalArguments) should be < 0
   }
 
   it should "print out only optional arguments when only optional arguments are present" in {
     val usage = parser(classOf[OptionalOnlyArguments]).usage(printCommon = false, withPreamble = false, withSpecial = false)
-    val reqIndex = usage.indexOf(REQUIRED_ARGUMENTS)
+    val reqIndex = usage.indexOf(RequiredArguments)
     reqIndex should be < 0
-    usage.indexOf(OPTIONAL_ARGUMENTS, reqIndex) should be > 0
+    usage.indexOf(OptionalArguments, reqIndex) should be > 0
   }
 
   it should "print out only required arguments when only required arguments are present and null default value" in {
 
     val usage = parser(classOf[RequiredOnlyArguments]).usage(printCommon = false, withPreamble = false, withSpecial = false)
-    val reqIndex = usage.indexOf(REQUIRED_ARGUMENTS)
+    val reqIndex = usage.indexOf(RequiredArguments)
     reqIndex should be > 0
-    usage.indexOf(OPTIONAL_ARGUMENTS, reqIndex) should be < 0
+    usage.indexOf(OptionalArguments, reqIndex) should be < 0
   }
 
   /**
@@ -556,9 +551,9 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     */
   def validateRequiredOptionalUsage(task: Any, printCommon: Boolean): Unit = {
     val usage = parser(task.getClass).usage(printCommon = false, withPreamble = false, withSpecial = false)
-    val reqIndex = usage.indexOf(REQUIRED_ARGUMENTS)
+    val reqIndex = usage.indexOf(RequiredArguments)
     reqIndex should be > 0
-    usage.indexOf(OPTIONAL_ARGUMENTS, reqIndex) should be > 0
+    usage.indexOf(OptionalArguments, reqIndex) should be > 0
   }
 
   it should "print out both required arguments and optional arguments when both are present" in {

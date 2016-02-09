@@ -28,8 +28,6 @@ import dagr.core.cmdline.{CommandLineArgumentEnum, CommandLineException}
 import dagr.core.util.StringUtil
 import dagr.core.util.StringUtil._
 
-import scala.collection.Map
-
 object ClpArgumentDefinitionPrinting {
 
   /** Prints the usage for a given argument definition */
@@ -55,8 +53,13 @@ object ClpArgumentDefinitionPrinting {
       sb.append(" Cannot be used in conjunction with argument(s): ")
       sb.append(argumentDefinition.mutuallyExclusive.map { targetFieldName =>
         val mutextArgumentDefinition: Option[ClpArgument] = argumentLookup.forField(targetFieldName)
-        if (mutextArgumentDefinition.isEmpty) throw new CommandLineException(s"Invalid argument definition in source code (see mutex).  $targetFieldName doesn't match any known argument.")
-        mutextArgumentDefinition.get.name + (if (mutextArgumentDefinition.get.shortName.nonEmpty) s" (${mutextArgumentDefinition.get.shortName})" else "")
+        if (mutextArgumentDefinition.isEmpty) {
+          throw new CommandLineException(s"Invalid argument definition in source code (see mutex). "+
+            s"$targetFieldName doesn't match any known argument."
+          )
+        }
+        mutextArgumentDefinition.get.name +
+          (if (mutextArgumentDefinition.get.shortName.nonEmpty) s" (${mutextArgumentDefinition.get.shortName})" else "")
       }.mkString(", "))
     }
     sb.toString
@@ -83,8 +86,8 @@ object ClpArgumentDefinitionPrinting {
   }
 
   // For formatting argument section of usage message.
-  private val ARGUMENT_COLUMN_WIDTH: Int = 30
-  private val DESCRIPTION_COLUMN_WIDTH: Int = 90
+  private val ArgumentColumnWidth: Int = 30
+  private val DescriptionColumnWidth: Int = 90
 
   /** Prints the usage for a given argument given its various elements */
   private def printArgumentUsage(stringBuilder: StringBuilder, name: String, shortName: String, theType: String, argumentDescription: String) {
@@ -96,17 +99,17 @@ object ClpArgumentDefinitionPrinting {
     stringBuilder.append(wrapString(KGRN, label, KNRM))
 
     // If the label is short enough, just pad out the column, otherwise wrap to the next line for the description
-    var numSpaces: Int = ARGUMENT_COLUMN_WIDTH - label.length
-    if (label.length > ARGUMENT_COLUMN_WIDTH) {
+    var numSpaces: Int = ArgumentColumnWidth - label.length
+    if (label.length > ArgumentColumnWidth) {
       stringBuilder.append("\n")
-      numSpaces = ARGUMENT_COLUMN_WIDTH
+      numSpaces = ArgumentColumnWidth
     }
     stringBuilder.append(" " * numSpaces)
 
     stringBuilder.append(KCYN)
-    val wrappedDescription: String = StringUtil.wordWrap(argumentDescription, DESCRIPTION_COLUMN_WIDTH)
+    val wrappedDescription: String = StringUtil.wordWrap(argumentDescription, DescriptionColumnWidth)
     wrappedDescription.split("\n").zipWithIndex.foreach { case (descriptionLine: String, i: Int) =>
-        if (0 < i) stringBuilder.append(" " * ARGUMENT_COLUMN_WIDTH)
+        if (0 < i) stringBuilder.append(" " * ArgumentColumnWidth)
       stringBuilder.append(s"$descriptionLine\n")
     }
     stringBuilder.append(s"$KNRM")
@@ -132,8 +135,8 @@ object ClpArgumentDefinitionPrinting {
   }
 
   // Also used for Boolean Options
-  private val ENUM_OPTION_DOC_PREFIX: String = "Options: "
-  private val ENUM_OPTION_DOC_SUFFIX: String = "."
+  private val EnumOptionDocPrefix: String = "Options: "
+  private val EnumOptionDocSuffix: String = "."
 
   /** Gets all the options for an enumeration.  If the enumeration extends [[dagr.core.cmdline.CommandLineArgumentEnum]],
     * it will also print the associated help documentation.
@@ -147,13 +150,14 @@ object ClpArgumentDefinitionPrinting {
     }
 
     if (classOf[CommandLineArgumentEnum].isAssignableFrom(clazz)) {
-      @SuppressWarnings(Array("unchecked")) val clpEnumCastedConstants: Array[CommandLineArgumentEnum] = enumConstants.asInstanceOf[Array[CommandLineArgumentEnum]]
+      @SuppressWarnings(Array("unchecked"))
+      val clpEnumCastedConstants: Array[CommandLineArgumentEnum] = enumConstants.asInstanceOf[Array[CommandLineArgumentEnum]]
       (enumConstants zip clpEnumCastedConstants).toList.map { case (c: Enum[_], cCast: CommandLineArgumentEnum) =>
         s"${c.name} (${cCast.getHelpDoc})"
-      }.mkString(ENUM_OPTION_DOC_PREFIX, ", ", ENUM_OPTION_DOC_SUFFIX)
+      }.mkString(EnumOptionDocPrefix, ", ", EnumOptionDocSuffix)
     }
     else {
-      enumConstants.map(_.name).mkString(ENUM_OPTION_DOC_PREFIX, ", ", ENUM_OPTION_DOC_SUFFIX)
+      enumConstants.map(_.name).mkString(EnumOptionDocPrefix, ", ", EnumOptionDocSuffix)
     }
   }
 }

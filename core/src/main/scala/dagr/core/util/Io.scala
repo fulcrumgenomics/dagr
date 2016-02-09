@@ -24,7 +24,7 @@
 package dagr.core.util
 
 import java.io._
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 
 /**
  * IO Utility class for working with Path objects.
@@ -139,9 +139,10 @@ object Io {
 
   /** Works its way up a path finding the first parent path that actually exists. */
   private[util] def findFirstExtentParent(p: Path) : Option[Path] = {
-    val parent = p.getParent
-    if (parent == null) None
-    else if (Files.exists(parent)) Some(parent)
-    else findFirstExtentParent(parent)
+    p.getParent match {
+      case null => None
+      case parent if Files.exists(parent) => Some(parent)
+      case parent => findFirstExtentParent(parent)
+    }
   }
 }

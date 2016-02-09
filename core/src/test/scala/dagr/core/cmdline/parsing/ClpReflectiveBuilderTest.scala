@@ -1,8 +1,6 @@
 package dagr.core.cmdline.parsing
 
-import java.util
-
-import dagr.core.cmdline.{CLPConstructor, Arg}
+import dagr.core.cmdline.{Arg, CLPConstructor}
 import dagr.core.util.UnitSpec
 
 /**

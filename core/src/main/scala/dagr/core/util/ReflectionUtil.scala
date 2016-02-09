@@ -23,9 +23,7 @@
  */
 package dagr.core.util
 
-import java.lang.reflect.{Field, Constructor}
-
-import dagr.core.cmdline.parsing.ClpReflectiveBuilder
+import java.lang.reflect.Constructor
 
 import scala.annotation.ClassfileAnnotation
 import scala.reflect.ClassTag
@@ -51,13 +49,15 @@ object ReflectionUtil {
       ctor.get.newInstance(args: _*).asInstanceOf[java.util.Collection[AnyRef]]
     }
     else {
-      if(classOf[java.util.Deque[_]].isAssignableFrom(clazz))        new java.util.ArrayDeque[AnyRef]()
-      if(classOf[java.util.Queue[_]].isAssignableFrom(clazz))        new java.util.ArrayDeque[AnyRef]()
-      if(classOf[java.util.List[_]].isAssignableFrom(clazz))         new java.util.ArrayList[AnyRef]()
-      if(classOf[java.util.NavigableSet[_]].isAssignableFrom(clazz)) new java.util.TreeSet[AnyRef]()
-      if(classOf[java.util.SortedSet[_]].isAssignableFrom(clazz))    new java.util.TreeSet[AnyRef]()
-      if(classOf[java.util.Set[_]].isAssignableFrom(clazz))          new java.util.HashSet[AnyRef]()
-      else /* treat it as any java.util.Collection */                new java.util.ArrayList[AnyRef]()
+      clazz match {
+        case _ if classOf[java.util.Deque[_]].isAssignableFrom(clazz)        => new java.util.ArrayDeque[AnyRef]()
+        case _ if classOf[java.util.Queue[_]].isAssignableFrom(clazz)        => new java.util.ArrayDeque[AnyRef]()
+        case _ if classOf[java.util.List[_]].isAssignableFrom(clazz)         => new java.util.ArrayList[AnyRef]()
+        case _ if classOf[java.util.NavigableSet[_]].isAssignableFrom(clazz) => new java.util.TreeSet[AnyRef]()
+        case _ if classOf[java.util.SortedSet[_]].isAssignableFrom(clazz)    => new java.util.TreeSet[AnyRef]()
+        case _ if classOf[java.util.Set[_]].isAssignableFrom(clazz)          => new java.util.HashSet[AnyRef]()
+        case _ =>  /* treat it as any java.util.Collection */                   new java.util.ArrayList[AnyRef]()
+      }
     }
 
     // add the args
@@ -97,30 +97,34 @@ object ReflectionUtil {
     * the value is not a supported collection class ([[Seq]], [[Set]] or [[java.util.Collection]]).
     */
   def isEmptyCollection(value: Any): Boolean = {
-    if (isJavaCollectionClass(value.getClass)) value.asInstanceOf[java.util.Collection[_]].isEmpty
-    else if (isSeqClass(value.getClass)) value.asInstanceOf[Seq[_]].isEmpty
-    else if (isSetClass(value.getClass)) value.asInstanceOf[Set[_]].isEmpty
-    else throw new IllegalArgumentException(s"Could not determine collection type of '${value.getClass.getSimpleName}")
+    value.getClass match {
+      case clazz if isJavaCollectionClass(clazz) => value.asInstanceOf[java.util.Collection[_]].isEmpty
+      case clazz if isSeqClass(clazz) => value.asInstanceOf[Seq[_]].isEmpty
+      case clazz if isSetClass(clazz) => value.asInstanceOf[Set[_]].isEmpty
+      case _ => throw new IllegalArgumentException(s"Could not determine collection type of '${value.getClass.getSimpleName}")
+    }
   }
 
   /** Ensures that the wrapper class is used for primitive classes. */
   def ifPrimitiveThenWrapper(`type`: Class[_]): Class[_] = {
     // NB: it is important the primitive class returned has a string constructor value
-    if (`type` eq Byte.getClass) return classOf[java.lang.Byte]
-    if (`type` eq Short.getClass) return classOf[java.lang.Short]
-    if (`type` eq Int.getClass) return classOf[java.lang.Integer]
-    if (`type` eq Long.getClass) return classOf[java.lang.Long]
-    if (`type` eq Float.getClass) return classOf[java.lang.Float]
-    if (`type` eq Double.getClass) return classOf[java.lang.Double]
-    if (`type` eq Boolean.getClass) return classOf[java.lang.Boolean]
-    if (`type` eq java.lang.Byte.TYPE) return classOf[java.lang.Byte]
-    if (`type` eq java.lang.Short.TYPE) return classOf[java.lang.Short]
-    if (`type` eq java.lang.Integer.TYPE) return classOf[java.lang.Integer]
-    if (`type` eq java.lang.Long.TYPE) return classOf[java.lang.Long]
-    if (`type` eq java.lang.Float.TYPE) return classOf[java.lang.Float]
-    if (`type` eq java.lang.Double.TYPE) return classOf[java.lang.Double]
-    if (`type` eq java.lang.Boolean.TYPE) return classOf[java.lang.Boolean]
-    `type`
+    `type` match {
+      case _ if `type` eq Byte.getClass          => classOf[java.lang.Byte]
+      case _ if `type` eq Short.getClass         => classOf[java.lang.Short]
+      case _ if `type` eq Int.getClass           => classOf[java.lang.Integer]
+      case _ if `type` eq Long.getClass          => classOf[java.lang.Long]
+      case _ if `type` eq Float.getClass         => classOf[java.lang.Float]
+      case _ if `type` eq Double.getClass        => classOf[java.lang.Double]
+      case _ if `type` eq Boolean.getClass       => classOf[java.lang.Boolean]
+      case _ if `type` eq java.lang.Byte.TYPE    => classOf[java.lang.Byte]
+      case _ if `type` eq java.lang.Short.TYPE   => classOf[java.lang.Short]
+      case _ if `type` eq java.lang.Integer.TYPE => classOf[java.lang.Integer]
+      case _ if `type` eq java.lang.Long.TYPE    => classOf[java.lang.Long]
+      case _ if `type` eq java.lang.Float.TYPE   => classOf[java.lang.Float]
+      case _ if `type` eq java.lang.Double.TYPE  => classOf[java.lang.Double]
+      case _ if `type` eq java.lang.Boolean.TYPE => classOf[java.lang.Boolean]
+      case _ => `type`
+    }
   }
 
   /** Attempts to find a Java constructor with the given parameter types, and return it. Returns None if there is none. */

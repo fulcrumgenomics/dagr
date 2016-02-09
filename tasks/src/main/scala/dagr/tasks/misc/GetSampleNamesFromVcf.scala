@@ -27,7 +27,8 @@ package dagr.tasks.misc
 import dagr.core.tasksystem.SimpleInJvmTask
 import dagr.tasks.PathToVcf
 import htsjdk.samtools.util.CloserUtil
-import htsjdk.variant.vcf.{VCFHeader, VCFFileReader}
+import htsjdk.variant.vcf.{VCFFileReader, VCFHeader}
+
 import scala.collection.JavaConversions._
 
 /** Gets the sample names from a VCF */

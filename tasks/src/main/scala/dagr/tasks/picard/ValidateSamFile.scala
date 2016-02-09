@@ -30,7 +30,7 @@ import dagr.tasks.{PathToBam, PathToFasta}
 import scala.collection.mutable.ListBuffer
 
 object ValidateSamFile {
-  val MetricsExtension: String = ".validation_metrics"
+  val MetricsExtension = ".validation_metrics"
 }
 
 class ValidateSamFile(in: PathToBam, prefix: Option[Path], ref: PathToFasta) extends PicardMetricsTask(input = in, prefix = prefix) {

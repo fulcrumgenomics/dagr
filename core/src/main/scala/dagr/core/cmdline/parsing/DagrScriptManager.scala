@@ -26,7 +26,11 @@
 
 package dagr.core.cmdline.parsing
 
-import dagr.core.util.{LazyLogging, LogLevel}
+import java.net.{URL, URLClassLoader}
+import java.nio.file.Path
+
+import dagr.core.cmdline.parsing.DagrScriptManager._
+import dagr.core.util.{Io, LazyLogging, LogLevel}
 import org.reflections.util.ClasspathHelper
 
 import scala.collection.JavaConversions._
@@ -34,10 +38,6 @@ import scala.reflect.internal.util.{FakePos, NoPosition, Position, StringOps}
 import scala.tools.nsc.io.PlainFile
 import scala.tools.nsc.reporters.AbstractReporter
 import scala.tools.nsc.{Global, Settings}
-
-import java.nio.file.Path
-import java.net.URL
-import java.net.URLClassLoader
 
 object DagrScriptManager {
   /**
@@ -78,15 +78,16 @@ object DagrScriptManager {
         case WARNING => LogLevel.Warning
         case ERROR => LogLevel.Error
       }
-      val pos = if (posIn eq null) NoPosition
-      else if (posIn.isDefined) posIn.finalPosition //posIn.inUltimateSource(posIn.source)
-      else posIn
-      pos match {
+      (posIn match {
+        case p if p eq null => NoPosition
+        case p if p.isDefined => p.finalPosition //posIn.inUltimateSource(posIn.source)
+        case p => p
+      }) match {
         case FakePos(fmsg) =>
           printMessage(level, s"$fmsg $msg")
         case NoPosition =>
           printMessage(level, msg)
-        case _ =>
+        case pos =>
           val file = pos.source.file
           printMessage(level, file.name + ":" + pos.line + ": " + msg)
           printSourceLine(level, pos)
@@ -130,30 +131,21 @@ object DagrScriptManager {
       * @param message Message content.
       */
     private def printMessage(level: LogLevel, message: String) {
-      if (quiet) return
-      level match {
-        case l if l == LogLevel.Debug =>
-          logger.debug(message)
-        case l if l == LogLevel.Info =>
-          logger.info(message)
-        case l if l == LogLevel.Warning =>
-          logger.info(message)
-        case l if l == LogLevel.Error =>
-          logger.info(message)
-        case l if l == LogLevel.Fatal =>
-          logger.info(message)
-        case _ =>
-          throw new RuntimeException(s"Could not determine log level: $level")
+      if (!quiet) {
+        level match {
+          case l if l == LogLevel.Debug   => logger.debug(message)
+          case l if l == LogLevel.Info    => logger.info(message)
+          case l if l == LogLevel.Warning => logger.warning(message)
+          case l if l == LogLevel.Error   => logger.error(message)
+          case l if l == LogLevel.Fatal   => logger.fatal(message)
+          case _ => throw new RuntimeException(s"Could not determine log level: $level")
+        }
       }
     }
   }
 }
 
-import dagr.core.util.{Io, LazyLogging}
-
 private[parsing] class DagrScriptManager extends LazyLogging {
-  import DagrScriptManager._
-
   /**
     * Compiles and loads the scripts in the files into the current classloader.
     * Heavily based on scala/src/compiler/scala/tools/ant/Scalac.scala
@@ -164,41 +156,41 @@ private[parsing] class DagrScriptManager extends LazyLogging {
     Io.assertWritableDirectory(tempDir)
 
     // Do nothing if we have nothing to load
-    if (scripts.isEmpty) return
+    if (scripts.nonEmpty) {
+      val settings = new Settings((error: String) => logger.error(error))
+      settings.deprecation.value = true
+      settings.outdir.value = tempDir.toString
 
-    val settings = new Settings((error: String) => logger.error(error))
-    settings.deprecation.value = true
-    settings.outdir.value = tempDir.toString
+      // Set the classpath to the current class path.
+      ClasspathHelper.forManifest.foreach(url => {
+        settings.bootclasspath.append(url.getPath)
+        settings.classpath.append(url.getPath)
+      })
 
-    // Set the classpath to the current class path.
-    ClasspathHelper.forManifest.foreach(url => {
-      settings.bootclasspath.append(url.getPath)
-      settings.classpath.append(url.getPath)
-    })
+      val reporter = new DagrReporter(settings, quiet)
+      val compiler: Global = new Global(settings, reporter)
+      val run = new compiler.Run
 
-    val reporter = new DagrReporter(settings, quiet)
-    val compiler: Global = new Global(settings, reporter)
-    val run = new compiler.Run
+      if (!quiet) {
+        logger.info("Compiling %s Dagr Script%s".format(scripts.size, plural(scripts.size)))
+        logger.debug("Compilation directory: " + settings.outdir.value)
+      }
+      run.compileFiles(scripts.toList.map(script => new PlainFile(script.toFile)))
 
-    if (!quiet) {
-      logger.info("Compiling %s Dagr Script%s".format(scripts.size, plural(scripts.size)))
-      logger.debug("Compilation directory: " + settings.outdir.value)
-    }
-    run.compileFiles(scripts.toList.map(script => new PlainFile(script.toFile)))
+      // add `tempDir` to the classpath
+      if (!reporter.hasErrors) addToClasspath(urls = Seq(tempDir.toUri.toURL))
 
-    // add `tempDir` to the classpath
-    if (!reporter.hasErrors) addToClasspath(urls = Seq(tempDir.toUri.toURL))
-
-    reporter.printSummary()
-    if (reporter.hasErrors) {
-      val msg = "Compile of %s failed with %d error%s".format(scripts.mkString(", "), reporter.ERROR.count, plural(reporter.ERROR.count))
-      throw new RuntimeException(msg)
-    }
-    else if (reporter.WARNING.count > 0) {
-      if (!quiet) logger.warning("Compile succeeded with %d warning%s".format(reporter.WARNING.count, plural(reporter.WARNING.count)))
-    }
-    else {
-      if (!quiet) logger.info("Compilation complete")
+      reporter.printSummary()
+      if (reporter.hasErrors) {
+        val msg = "Compile of %s failed with %d error%s".format(scripts.mkString(", "), reporter.ERROR.count, plural(reporter.ERROR.count))
+        throw new RuntimeException(msg)
+      }
+      else if (reporter.WARNING.count > 0) {
+        if (!quiet) logger.warning("Compile succeeded with %d warning%s".format(reporter.WARNING.count, plural(reporter.WARNING.count)))
+      }
+      else {
+        if (!quiet) logger.info("Compilation complete")
+      }
     }
   }
 }

@@ -31,7 +31,10 @@ class NaiveScheduler extends Scheduler {
     * Takes the list of tasks that could be scheduled if their resource needs can be met and attempts
     * to schedule a single task for execution.
     */
-  private[execsystem] def scheduleOneTask(readyTasks: Traversable[UnitTask], remainingSystemCores: Cores, remainingSystemMemory: Memory, remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
+  private[execsystem] def scheduleOneTask(readyTasks: Traversable[UnitTask],
+                                          remainingSystemCores: Cores,
+                                          remainingSystemMemory: Memory,
+                                          remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
     val systemResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingSystemMemory)
     val jvmResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingJvmMemory)
     // Find the first task that can be executed and let it pick it's resources
@@ -54,7 +57,10 @@ class NaiveScheduler extends Scheduler {
     * @param remainingJvmMemory the set of remaining JVM memory, not including running tasks.
     * @return a map of tasks should be scheduled and their allocate resources.
     */
-  private def scheduleOnce(readyTasks: Traversable[UnitTask], remainingSystemCores: Cores, remainingSystemMemory: Memory, remainingJvmMemory: Memory): List[(UnitTask, ResourceSet)] = {
+  private def scheduleOnce(readyTasks: Traversable[UnitTask],
+                           remainingSystemCores: Cores,
+                           remainingSystemMemory: Memory,
+                           remainingJvmMemory: Memory): List[(UnitTask, ResourceSet)] = {
     // no more tasks ready to be scheduled
     if (readyTasks.isEmpty) return Nil
 
@@ -71,9 +77,19 @@ class NaiveScheduler extends Scheduler {
         logger.debug(s"task [${task.name}] uses the following resources [" + resourceSet + "]")
         List[(UnitTask, ResourceSet)]((task, resourceSet)) ++ (task match {
           case processTask: ProcessTask =>
-            scheduleOnce(readyTasks.filterNot(t => t == task), remainingSystemCores - resourceSet.cores, remainingSystemMemory - resourceSet.memory, remainingJvmMemory)
+            scheduleOnce(
+              readyTasks = readyTasks.filterNot(t => t == task),
+              remainingSystemCores = remainingSystemCores - resourceSet.cores,
+              remainingSystemMemory = remainingSystemMemory - resourceSet.memory,
+              remainingJvmMemory = remainingJvmMemory
+            )
           case inJvmTask: InJvmTask =>
-            scheduleOnce(readyTasks.filterNot(t => t == task), remainingSystemCores - resourceSet.cores, remainingSystemMemory, remainingJvmMemory - resourceSet.memory)
+            scheduleOnce(
+              readyTasks = readyTasks.filterNot(t => t == task),
+              remainingSystemCores = remainingSystemCores - resourceSet.cores,
+              remainingSystemMemory = remainingSystemMemory,
+              remainingJvmMemory = remainingJvmMemory - resourceSet.memory
+            )
         })
     }
   }

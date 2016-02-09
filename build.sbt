@@ -1,10 +1,10 @@
-import sbt._
+import com.typesafe.sbt.SbtGit.GitCommand
 import sbt.Keys._
+import sbt._
 import sbtassembly.AssemblyKeys.assembly
 import sbtassembly.MergeStrategy
-import com.typesafe.sbt.SbtGit.GitCommand
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys._
-import ReleaseTransformations._
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // We have the following "settings" in this build.sbt:
@@ -79,6 +79,7 @@ val docScalacOptions = Seq("-groups", "-implicits")
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Common settings for all projects
 ////////////////////////////////////////////////////////////////////////////////////////////////
+
 lazy val commonSettings = Seq(
   organization         := "com.fulcrumgenomics",
   organizationName     := "Fulcrum Genomics LLC",
@@ -163,6 +164,12 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
 lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
   .settings(description := "A set of example dagr pipelines.")
   .settings(commonSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.github.samtools"       % "htsjdk" % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*),
+      "com.github.broadinstitute" % "picard" % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*)
+    )
+  )
   .dependsOn(tasks, core)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

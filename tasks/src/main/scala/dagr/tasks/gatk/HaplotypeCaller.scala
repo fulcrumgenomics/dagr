@@ -23,7 +23,7 @@
  */
 package dagr.tasks.gatk
 
-import dagr.tasks.{PathToBam, PathToVcf, PathToIntervals, PathToFasta}
+import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer
 

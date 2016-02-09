@@ -24,8 +24,8 @@
 
 package dagr.sopt
 
+import dagr.sopt.OptionLookup.{OptionAndValues, OptionType}
 import dagr.sopt.util.UnitSpec
-import dagr.sopt.OptionLookup.{OptionType, OptionAndValues}
 
 import scala.util.Try
 

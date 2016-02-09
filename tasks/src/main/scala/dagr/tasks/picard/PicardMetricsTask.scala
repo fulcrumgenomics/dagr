@@ -23,7 +23,7 @@
  */
 package dagr.tasks.picard
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
 
 import dagr.core.util.PathUtil
 import dagr.tasks.PathToBam

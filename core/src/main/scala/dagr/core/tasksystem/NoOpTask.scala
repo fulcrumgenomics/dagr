@@ -25,7 +25,7 @@ package dagr.core.tasksystem
 
 /** A task that runs and does nothing. */
 class NoOpTask extends ProcessTask with FixedResources {
-  override def args = List("exit",  0)
+  override def args: Seq[Any] = List("exit",  0)
 }
 
 

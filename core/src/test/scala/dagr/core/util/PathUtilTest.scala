@@ -23,8 +23,7 @@
  */
 package dagr.core.util
 
-import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.Paths
 
 /** Tests for the PathUtil. */
 class PathUtilTest extends UnitSpec {
