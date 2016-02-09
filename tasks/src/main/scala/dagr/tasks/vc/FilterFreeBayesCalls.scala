@@ -65,9 +65,9 @@ object FilterFreeBayesCalls {
   * on your PATH.
   *
   * */
-class FilterFreeBayesCalls(val input: PathToVcf,
-                           val output: PathToVcf,
-                           val reference: PathToFasta,
+class FilterFreeBayesCalls(val in: PathToVcf,
+                           val out: PathToVcf,
+                           val ref: PathToFasta,
                            val compress: Boolean = true,
                            val somatic: Boolean = false,
                            val minQual: Int = 5
@@ -81,7 +81,7 @@ class FilterFreeBayesCalls(val input: PathToVcf,
     val buffer = ListBuffer[Any]()
 
     // De-compress the input VCF
-    buffer.append(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip"), "-c", "-d", input)
+    buffer.append(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip"), "-c", "-d", in)
 
     // Remove low quality calls
     buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcffilter"), "-f", s"'QUAL > $minQual'", "-s")
@@ -116,14 +116,14 @@ class FilterFreeBayesCalls(val input: PathToVcf,
 
     // standardizes the representation of variants using parsimony and left-alignment relative to the reference genome
     // See: http://genome.sph.umich.edu/wiki/Variant_Normalization
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VtBinConfigKey,     "vt"), "normalize", "-n", "-r", reference, "-q", "-", "2> /dev/null")
+    buffer.append(PipeArg, configureExecutableFromBinDirectory(VtBinConfigKey,     "vt"), "normalize", "-n", "-r", ref, "-q", "-", "2> /dev/null")
 
     // remove both duplicate and reference alternate alleles
     buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniqalleles"))
 
     // Output it
     if (compress) buffer.append(PipeArg, configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip"), "-c")
-    buffer.append(">", output)
+    buffer.append(">", out)
 
     buffer
   }

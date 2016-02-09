@@ -49,14 +49,14 @@ class BiMap[K, V]() extends Iterable[(K, V)] {
    * @param value the value to lookup.
    * @return the key associated with the value, None if not found.
    */
-  def getKey(value: V): Option[K] = reverse.get(value)
+  def keyFor(value: V): Option[K] = reverse.get(value)
 
   /** Get a value associated with a given key.
    *
    * @param key the key to lookup.
    * @return the value associated with the key, None if not found.
    */
-  def getValue(key: K): Option[V] = forward.get(key)
+  def valueFor(key: K): Option[V] = forward.get(key)
 
   /** Checks if the map contains the given key.
    *
@@ -78,11 +78,15 @@ class BiMap[K, V]() extends Iterable[(K, V)] {
    * @return true if the key and associated value were removed successfully, false otherwise.
    */
   def removeKey(key: K): Boolean = {
-    val value = getValue(key)
-    if (value.isEmpty) return false
-    forward.remove(key)
-    reverse.remove(value.get)
-    true
+    val value = valueFor(key)
+    if (value.isEmpty) {
+      false
+    }
+    else {
+      forward.remove(key)
+      reverse.remove(value.get)
+      true
+    }
   }
 
   /** Remove a value and associated key from the map.
@@ -91,11 +95,15 @@ class BiMap[K, V]() extends Iterable[(K, V)] {
     * @return true if the value and associated key were removed successfully, false otherwise.
     */
   def removeValue(value: V): Boolean = {
-    val key = getKey(value)
-    if (key.isEmpty) return false
-    forward.remove(key.get)
-    reverse.remove(value)
-    true
+    val key = keyFor(value)
+    if (key.isEmpty) {
+      false
+    }
+    else {
+      forward.remove(key.get)
+      reverse.remove(value)
+      true
+    }
   }
 
   /**
@@ -121,6 +129,6 @@ class BiMap[K, V]() extends Iterable[(K, V)] {
    * @return an iterator over tuples in this map.
    */
   def iterator: Iterator[(K, V)] = {
-    forward.keysIterator.map(k => (k, forward.get(k).get))
+    forward.iterator
   }
 }

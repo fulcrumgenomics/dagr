@@ -23,6 +23,8 @@
  */
 package dagr.tasks.picard
 
+import dagr.core.tasksystem.Pipe
+import dagr.tasks.DataTypes.Vcf
 import dagr.tasks.PathToVcf
 
 import scala.collection.mutable.ListBuffer
@@ -30,18 +32,18 @@ import scala.collection.mutable.ListBuffer
 /**
   * Run's Picard's FilterVcf tool to provide hard filtering of variants.
   */
-class FilterVcf(val input: PathToVcf,
-                val output: PathToVcf,
+class FilterVcf(val in: PathToVcf,
+                val out: PathToVcf,
                 val minHetAlleleBalance: Double = 0.2,
                 val minDepth: Int = 0,
                 val minQd: Double = 6.0,
                 val maxFisherStrandValue: Double = 50,
                 val minGenotypeQuality: Int = 20)
-  extends PicardTask {
+  extends PicardTask with Pipe[Vcf,Vcf] {
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("I=" + input.toAbsolutePath)
-    buffer.append("O=" + output.toAbsolutePath)
+    buffer.append("I=" + in.toAbsolutePath)
+    buffer.append("O=" + out.toAbsolutePath)
     buffer.append("MIN_AB=" + minHetAlleleBalance)
     buffer.append("MIN_DP=" + minDepth)
     buffer.append("MIN_GQ=" + minGenotypeQuality)

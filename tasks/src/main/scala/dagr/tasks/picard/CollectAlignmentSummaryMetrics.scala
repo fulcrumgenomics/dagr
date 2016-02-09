@@ -25,13 +25,12 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Cores, Memory}
 import dagr.tasks.{PathToBam, PathToFasta}
 
 import scala.collection.mutable.ListBuffer
 
 object CollectAlignmentSummaryMetrics {
-   def getMetricsExtension: String = ".alignment_summary_metrics"
+   def metricsExtension: String = ".alignment_summary_metrics"
 }
 
 class CollectAlignmentSummaryMetrics(in: PathToBam,
@@ -39,13 +38,13 @@ class CollectAlignmentSummaryMetrics(in: PathToBam,
                                      ref: PathToFasta,
                                      assumeSorted: Boolean = true,
                                      programs: List[MetricsProgram.Value] = MetricsProgram.values.toList)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in=in, prefix=prefix) {
 
-  override def getMetricsExtension: String = CollectAlignmentSummaryMetrics.getMetricsExtension
+  override def metricsExtension: String = CollectAlignmentSummaryMetrics.metricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
-    buffer.append("O=" + getMetricsFile)
+    buffer.append("O=" + metricsFile)
     buffer.append("R=" + ref)
     buffer.append("AS=" + assumeSorted)
     programs.foreach(program => buffer.append("PROGRAM=" + program.toString))

@@ -158,7 +158,7 @@ class OptionParserTest extends UnitSpec with PrivateMethodTester {
           }
           found shouldBe true
         }
-        parser.getRemaining shouldBe 'empty
+        parser.remaining shouldBe 'empty
       }
     }
   }

@@ -23,7 +23,7 @@
  */
 package dagr.core.util
 
-import java.nio.file.{Paths, Files, Path}
+import java.nio.file.{Files, Path}
 
 /**
  * Tests for various methods in the Io class
@@ -61,11 +61,11 @@ class IoTest extends UnitSpec {
 
   it should "throw an exception for when file isn't readable" in {
     val nullpath: Path = null
-    a [IllegalArgumentException] should be thrownBy { Io.assertReadable(nullpath) }
-    a [IllegalArgumentException] should be thrownBy { Io.assertReadable(List(nullpath)) }
-    a [IllegalArgumentException] should be thrownBy { Io.assertReadable(Some(nullpath)) }
-    a [AssertionError] should be thrownBy {Io.assertReadable(tmpdir())}
-    a [AssertionError] should be thrownBy {Io.assertReadable(tmpfile(readable=false))}
+    an[IllegalArgumentException] should be thrownBy { Io.assertReadable(nullpath) }
+    an[IllegalArgumentException] should be thrownBy { Io.assertReadable(List(nullpath)) }
+    an[IllegalArgumentException] should be thrownBy { Io.assertReadable(Some(nullpath)) }
+    an[AssertionError] should be thrownBy {Io.assertReadable(tmpdir())}
+    an[AssertionError] should be thrownBy {Io.assertReadable(tmpfile(readable=false))}
   }
 
   "Io.assertListable" should "not throw an exception for extent dirs" in {
@@ -76,13 +76,13 @@ class IoTest extends UnitSpec {
 
   it should "not throw an exception when a directory isn't listable" in {
     val nullpath: Path = null
-    a [IllegalArgumentException] should be thrownBy { Io.assertListable(nullpath) }
-    a [IllegalArgumentException] should be thrownBy { Io.assertListable(List(nullpath)) }
-    a [IllegalArgumentException] should be thrownBy { Io.assertListable(Some(nullpath)) }
-    a [AssertionError] should be thrownBy {Io.assertListable(tmpfile())}
-    a [AssertionError] should be thrownBy {Io.assertListable(tmpdir(readable=false))}
-    a [AssertionError] should be thrownBy {Io.assertListable(tmpdir(executable=false))}
-    a [AssertionError] should be thrownBy {Io.assertListable(tmpdir(readable=false, executable=false))}
+    an[IllegalArgumentException] should be thrownBy { Io.assertListable(nullpath) }
+    an[IllegalArgumentException] should be thrownBy { Io.assertListable(List(nullpath)) }
+    an[IllegalArgumentException] should be thrownBy { Io.assertListable(Some(nullpath)) }
+    an[AssertionError] should be thrownBy {Io.assertListable(tmpfile())}
+    an[AssertionError] should be thrownBy {Io.assertListable(tmpdir(readable=false))}
+    an[AssertionError] should be thrownBy {Io.assertListable(tmpdir(executable=false))}
+    an[AssertionError] should be thrownBy {Io.assertListable(tmpdir(readable=false, executable=false))}
   }
 
   "Io.assertCanWriteFile" should "throw an exception because the parent directory does not exist" in {
@@ -102,7 +102,21 @@ class IoTest extends UnitSpec {
   "Io.assertWritableDirectory" should "succeed in assessing writability of a directory" in {
     val dir = tmpdir();
     Io.assertWritableDirectory(List(dir))
-  } // TODO: more tests of this method
+  }
+
+  it should "throw an exception because the parent does not exist" in {
+    an[AssertionError] should be thrownBy { Io.assertWritableDirectory(PathUtil.pathTo("/path/to/nowhere")) }
+  }
+
+  it should "throw an exception because the parent directory is not writable" in {
+    val dir = tmpdir(writable=false);
+    an[AssertionError] should be thrownBy Io.assertWritableDirectory(dir)
+  }
+
+  it should "throw an exception because the path was null" in {
+    val nullpath: Path = null
+    an[IllegalArgumentException] should be thrownBy Io.assertWritableDirectory(nullpath)
+  }
 
   "Io.mkdirs" should "be able to create a directory" in {
     val dir = tmpdir()

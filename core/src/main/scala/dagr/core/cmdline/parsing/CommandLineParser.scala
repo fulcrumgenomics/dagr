@@ -27,6 +27,7 @@ import dagr.core.cmdline._
 import dagr.core.cmdline.parsing.ParseResult.ParseResult
 import dagr.core.tasksystem.ValidationException
 import dagr.core.util.LazyLogging
+import dagr.core.util.StringUtil._
 import dagr.sopt.{OptionParser, OptionParsingException}
 
 import scala.collection.mutable
@@ -35,17 +36,18 @@ import scala.util.{Failure, Success}
 
 /** Stores strings used in the usage and error messages */
 private object CommandLineParserStrings {
-  val REQUIRED_ARGUMENTS = "Required Arguments:"
-  val OPTIONAL_ARGUMENTS = "Optional Arguments:"
-  val USAGE_PREFIX = "USAGE:"
-  val COMMENT = "#"
+  val RequiredArguments = "Required Arguments:"
+  val OptionalArguments = "Optional Arguments:"
+  val UsagePrefix = "USAGE:"
+  val Comment = "#"
 
-  def getRequiredArgument(fullName: String): String = {
+  def requiredArgumentErrorMessage(fullName: String): String = {
     s"Argument '$fullName' is required"
   }
 
-  def getRequiredArgumentWithMutex(fullName: String, argumentDefinition: ClpArgument): String = {
-    s"${getRequiredArgument(fullName)}" + (if (argumentDefinition.mutuallyExclusive.isEmpty) "." else s" unless any of ${argumentDefinition.mutuallyExclusive} are specified.")
+  def requiredArgumentWithMutexErrorMessage(fullName: String, arg: ClpArgument): String = {
+    s"${requiredArgumentErrorMessage(fullName)}" +
+      (if (arg.mutuallyExclusive.isEmpty) "." else s" unless any of ${arg.mutuallyExclusive} are specified.")
   }
 }
 
@@ -62,24 +64,27 @@ private[parsing] object CommandLineParser {
   def parseArgumentsFile(lines: Traversable[String]): Traversable[String] = {
     val args: mutable.ListBuffer[String] = new mutable.ListBuffer[String]
     lines.foreach { line =>
-      if (!line.startsWith(CommandLineParserStrings.COMMENT) && line.trim.nonEmpty) {
+      if (!line.startsWith(CommandLineParserStrings.Comment) && line.trim.nonEmpty) {
         // split apart by spaces, but all neighbouring strings without a leading dash ('-') should be grouped
         // ex. => "--aab s --b -c -d wer we -c"
         val tokens: List[String] = line.split(" ").filter(_.nonEmpty).filter(0 != _.compareTo(" ")).toList
         // ex. => "--aab" "s" "--b" "-c" "-d" "wer" "we" "-c"
-        if (tokens.nonEmpty) {
-          var prev: String = tokens.head
-          for (i <- 1 until tokens.size) {
-            if (!prev.startsWith("-") && !tokens(i).startsWith("-")) {
-              prev += s" ${tokens(i)}"
+        tokens.headOption match {
+          case Some(p: String) =>
+            var prev: String = p
+            tokens.drop(1).foreach {
+              case token =>
+                if (!prev.startsWith("-") && !token.startsWith("-")) {
+                  prev += s" $token"
+                }
+                else {
+                  args += prev
+                  prev = token
+                }
             }
-            else {
-              args += prev
-              prev = tokens(i)
-            }
-          }
-          args += prev
+            args += prev
           // ex. => "--aab" "s" "--b" "-c" "-d" "wer we" "-c"
+          case _ => Unit
         }
       }
     }
@@ -94,7 +99,6 @@ private[parsing] object CommandLineParser {
 private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends LazyLogging {
   import CommandLineParserStrings._
   import ParsingUtil._
-  import dagr.core.util.StringUtil._
 
   val argumentLookup: ClpArgumentLookup = new ClpArgumentLookup()
   //private val argumentsFilesLoadedAlready: mutable.Set[String] = new mutable.HashSet[String]
@@ -112,16 +116,16 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
 
   private[parsing] def setMutexArguments(lookup: ClpArgumentLookup): Unit = {
     // set mutex arguments
-    lookup.ordered.filterNot(_.omitFromCommandLine).foreach { argumentDefinition: ClpArgument =>
+    lookup.ordered.filterNot(_.hidden).foreach { argumentDefinition: ClpArgument =>
       val argumentAnnotation = argumentDefinition.annotation
       val sourceFieldName = argumentDefinition.name
       argumentAnnotation.get.mutex.foreach { targetFieldName =>
-        val mutexArgumentDef: Option[ClpArgument] = lookup.forField(targetFieldName)
-        if (mutexArgumentDef.isDefined) {
-          mutexArgumentDef.get.mutuallyExclusive.add(sourceFieldName)
-        }
-        else {
-          throw new BadAnnotationException(s"Bad Arg annotation in field '$sourceFieldName': mutex field '$targetFieldName' was not found in the list of fields.")
+        lookup.fieldFor(targetFieldName) match {
+          case Some(mutexArgumentDef) => mutexArgumentDef.mutuallyExclusive.add(sourceFieldName)
+          case None =>
+            throw new BadAnnotationException(s"Bad Arg annotation in field '$sourceFieldName': " +
+                s"mutex field '$targetFieldName' was not found in the list of fields."
+            )
         }
       }
     }
@@ -147,27 +151,31 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
   def parseAndBuild(errorMessageBuilder: StringBuilder, args: Array[String]): ParseResult = {
     // Try parsing the arguments
     if (!parseArgs(errorMessageBuilder = errorMessageBuilder, args = args)) {
-      return ParseResult.Failure
+      ParseResult.Failure
     }
-
-    // Then build the instances
-    try {
-      val (specials, normals) = this.argumentLookup.ordered.partition(p => p.declaringClass == classOf[SpecialArgumentsCollection])
-      val specialHelper = new ClpReflectiveBuilder(classOf[SpecialArgumentsCollection])
-      this.specialArguments = Some(specialHelper.build(specials.map(d => d.value.get)))
-      this.specialArguments.foreach(special => {
-        if (special.version) return ParseResult.Version
-        if (special.help) return ParseResult.Help
-      })
-
-      assertArgumentsAreValid(this.argumentLookup)
-      val normalHelper = new ClpReflectiveBuilder(targetClass)
-      this.instance = Some(normalHelper.build(normals.map(d => d.value.orNull)))
-      ParseResult.Success
-    }
-    catch {
-      case ValidationException(xs) => xs.foreach {errorMessageBuilder.append("\n").append(_).append("\n")}; ParseResult.Failure
-      case e: Exception => errorMessageBuilder.append(s"\n${e.getClass.getSimpleName}: ${e.getMessage}\n"); ParseResult.Failure
+    else { // Then build the instances
+      try {
+        val (specials, normals) = this.argumentLookup.ordered.partition(p => p.declaringClass == classOf[SpecialArgumentsCollection])
+        val specialHelper = new ClpReflectiveBuilder(classOf[SpecialArgumentsCollection])
+        this.specialArguments = Some(specialHelper.build(specials.map(d => d.value.get)))
+        this.specialArguments.find(special => special.version || special.help) match {
+          case Some(sp) if sp.version => ParseResult.Version
+          case Some(sp) if sp.help => ParseResult.Help
+          case _ => // neither version nor help
+            assertArgumentsAreValid(this.argumentLookup)
+            val normalHelper = new ClpReflectiveBuilder(targetClass)
+            this.instance = Some(normalHelper.build(normals.map(d => d.value.orNull)))
+            ParseResult.Success
+        }
+      }
+      catch {
+        case ValidationException(xs) =>
+          xs foreach { errorMessageBuilder.append("\n").append(_).append("\n") }
+          ParseResult.Failure
+        case e: Exception =>
+          errorMessageBuilder.append(s"\n${e.getClass.getSimpleName}: ${e.getMessage}\n")
+          ParseResult.Failure
+      }
     }
   }
 
@@ -180,7 +188,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
       val parser: OptionParser = new OptionParser
 
       // Add to the option parsers
-      this.argumentLookup.ordered.filterNot(_.omitFromCommandLine).foreach {
+      this.argumentLookup.ordered.filterNot(_.hidden).foreach {
         case arg if arg.isFlag =>        parser.acceptFlag(          arg.names: _*)
         case arg if !arg.isCollection => parser.acceptSingleValue(   arg.names: _*)
         case arg =>                      parser.acceptMultipleValues(arg.names: _*)
@@ -215,7 +223,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
       // set the values
       parser.foreach {
         case (name: String, values: List[String]) =>
-          this.argumentLookup.forArg(name).get.setArgument(values:_*)
+          this.argumentLookup.argFor(name).foreach(arg => arg.setArgument(values:_*))
         case _ =>
           throw new IllegalStateException("Parser returned an unexpected set of values")
       }
@@ -224,7 +232,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
     }
     catch {
       case ex: OptionParsingException => errorMessageBuilder.append(s"\n${ex.getMessage}\n"); false
-      case ex : CommandLineException => errorMessageBuilder.append(s"\n${ex.toString}\n"); false
+      case ex: CommandLineException => errorMessageBuilder.append(s"\n${ex.toString}\n"); false
       case ex: Exception => errorMessageBuilder.append(s"\n${ex.toString}\n" + ex.getStackTrace.mkString("\t\n")); false
     }
   }
@@ -232,9 +240,8 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
   /**
     * A typical command line program will call this to get the beginning of the usage message,
     * and then append a description of the program, like this:
-
     */
-  protected def getStandardUsagePreamble: String = s"$KRED$USAGE_PREFIX $KBLDRED" + targetName + s"$KNRM$KRED [arguments]$KNRM\n\n"
+  protected def standardUsagePreamble: String = s"$KRED$UsagePrefix $KBLDRED" + targetName + s"$KNRM$KRED [arguments]$KNRM\n\n"
 
   /**
     * Print a usage message for a given command line task.
@@ -245,7 +252,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
     val builder = new StringBuilder()
 
     if (withPreamble) {
-      builder.append(s"$getStandardUsagePreamble")
+      builder.append(s"$standardUsagePreamble")
       findClpAnnotation(targetClass) match {
         case Some(anno) => builder.append(wrapString(KCYN, s"${formatLongDescription(anno.description())}", KNRM))
         case None =>
@@ -255,13 +262,13 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
 
     // filter on common and partition on optional
     val (required, optional) = argumentLookup.view
-      .filterNot { _.omitFromCommandLine }
+      .filterNot { _.hidden }
       .filter { printCommon || !_.isCommon }
       .filter { withSpecial || !_.isSpecial }
       .partition { !_.optional }
 
     if (required.nonEmpty) {
-      builder.append(wrapString(KRED, s"\n$KBLDRED$targetName$KNRM$KRED $REQUIRED_ARGUMENTS\n", KNRM))
+      builder.append(wrapString(KRED, s"\n$KBLDRED$targetName$KNRM$KRED $RequiredArguments\n", KNRM))
       builder.append(wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM))
       new ClpArgumentLookup(required:_*).ordered.foreach { arg =>
         ClpArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, arg, argumentLookup)
@@ -269,7 +276,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
     }
 
     if (optional.nonEmpty) {
-      builder.append(wrapString(KRED, s"\n$KBLDRED$targetName$KNRM$KRED $OPTIONAL_ARGUMENTS\n", KNRM))
+      builder.append(wrapString(KRED, s"\n$KBLDRED$targetName$KNRM$KRED $OptionalArguments\n", KNRM))
       builder.append(wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM))
       new ClpArgumentLookup(optional:_*).ordered.foreach { argumentDefinition =>
         ClpArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, argumentDefinition, argumentLookup)
@@ -284,12 +291,12 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
     val desc = description.stripMargin
     desc
       .dropWhile(_ == '\n')
-      .dropRight(1) + (if (desc.isEmpty) "" else desc.last) + "\n"
+      .dropRight(1) + desc.lastOption.getOrElse("") + "\n"
   }
 
   /** Gets the command line assuming `parseTasks` has been called */
-  def getCommandLine(printCommon: Boolean = true): String = {
-    val argumentList = this.argumentLookup.ordered.filterNot(_.omitFromCommandLine)
+  def commandLine(printCommon: Boolean = true): String = {
+    val argumentList = this.argumentLookup.ordered.filterNot(_.hidden)
     val toolName: String = targetName
     val commandLineString: StringBuilder = new StringBuilder
 
@@ -305,10 +312,9 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
     *
     * throws [[CommandLineException]] if arguments requirements are not satisfied.
     */
-  private def assertArgumentsAreValid(args: ClpArgumentLookup) {
+  private def assertArgumentsAreValid(args: ClpArgumentLookup): Unit = {
     try {
       args.view.foreach { argumentDefinition =>
-        // TODO: move the inside of this loop to [[ArgumentDefintion]]
         val fullName: String = argumentDefinition.longName
         val mutextArgumentNames: StringBuilder = new StringBuilder
 
@@ -316,12 +322,10 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
         //NB:  Make sure to remove duplicates
         mutextArgumentNames.append(
           argumentDefinition.mutuallyExclusive
-            .toList
-            .filter { mutexArgument =>
-              val mutextArgumentDef: Option[ClpArgument] = args.forField(mutexArgument)
-              mutextArgumentDef.isDefined && mutextArgumentDef.get.isSetByUser
-            }
-            .map { args.forField(_).get }
+            .toList.flatMap(args.fieldFor(_) match {
+              case Some(m) if m.isSetByUser => Some(m)
+              case _ => None
+            }) // gets rid of the None
             .distinct.sortBy(_.index)
             .map { _.longName}
             .mkString(", ")
@@ -334,7 +338,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
           argumentDefinition.validateCollection()
         }
         else if (!argumentDefinition.optional && !argumentDefinition.hasValue && mutextArgumentNames.isEmpty) {
-          throw new UserException(getRequiredArgumentWithMutex(fullName, argumentDefinition))
+          throw new UserException(requiredArgumentWithMutexErrorMessage(fullName, argumentDefinition))
         }
       }
     }
@@ -346,7 +350,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
 
   /**
     * Read an argument file and return a list of the args contained in it
-    * A line that starts with [[CommandLineParserStrings.COMMENT]] is ignored.
+    * A line that starts with [[CommandLineParserStrings.Comment]] is ignored.
     *
     * @param argumentsFile a text file containing args
     * @return the list of arguments from the file

@@ -54,7 +54,7 @@ class CollectVariantCallingMetrics(vcf: PathToVcf,
     buffer.append("OUTPUT=" + prefix.toAbsolutePath)
     buffer.append("DBSNP=" + dbsnp.toAbsolutePath)
     intervals.foreach(interval => buffer.append("INTERVALS=" + interval.toAbsolutePath))
-    dict.foreach(d => buffer.append("SEQUENCE_DICTIONARY=" + dict.get.toAbsolutePath))
+    dict.foreach(d => buffer.append("SEQUENCE_DICTIONARY=" + d.toAbsolutePath))
     buffer.append("GVCF_INPUT=" + gvcf)
     buffer.append("THREAD_COUNT=" + resources.cores.toInt)
   }

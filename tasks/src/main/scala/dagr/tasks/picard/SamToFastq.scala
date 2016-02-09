@@ -24,18 +24,18 @@
 package dagr.tasks.picard
 
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.tasks.DataTypes.{Fastq, SamOrBam}
 import dagr.core.tasksystem.Pipe
+import dagr.tasks.DataTypes.{Fastq, SamOrBam}
 import dagr.tasks.{PathToBam, PathToFastq}
 
 import scala.collection.mutable.ListBuffer
 
 object SamToFastq {
   /** Generates a SamToFastq that will generate interleaved output for pairs, or a single fastq for unpaired data. */
-  def apply(in: PathToBam, out: PathToFastq) = new SamToFastq(in=in, fastq1=out, interleave=true)
+  def apply(in: PathToBam, out: PathToFastq): SamToFastq = new SamToFastq(in=in, fastq1=out, interleave=true)
 
   /** Generates a SamToFastq that will generate a separate fastq file for read1 and read2. */
-  def apply(in: PathToBam, r1Fastq: PathToFastq, r2Fastq: PathToFastq) =
+  def apply(in: PathToBam, r1Fastq: PathToFastq, r2Fastq: PathToFastq): SamToFastq =
     new SamToFastq(in=in, fastq1=r1Fastq, fastq2=Some(r2Fastq), interleave=false)
 }
 

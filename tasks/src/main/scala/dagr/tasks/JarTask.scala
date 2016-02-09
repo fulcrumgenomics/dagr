@@ -25,17 +25,17 @@ package dagr.tasks
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Memory, Resource}
+import dagr.core.execsystem.Memory
 
 import scala.collection.mutable.ListBuffer
 
 trait JarTask {
 
-  protected def getJarArgs(jarPath: Path,
-                           jvmArgs: Traversable[String] = Nil,
-                           jvmProperties: collection.Map[String,String] = Map.empty,
-                           jvmMemory: Memory,
-                           useAdvancedGcOptions: Boolean = true): List[String] = {
+  protected def jarArgs(jarPath: Path,
+                        jvmArgs: Traversable[String] = Nil,
+                        jvmProperties: collection.Map[String,String] = Map.empty,
+                        jvmMemory: Memory,
+                        useAdvancedGcOptions: Boolean = true): List[String] = {
     val args= ListBuffer[String]()
     args.append("java")
     args.appendAll(jvmArgs)

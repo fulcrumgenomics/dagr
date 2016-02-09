@@ -25,7 +25,7 @@ package dagr.tasks.picard
 
 import java.nio.file.Files
 
-import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import dagr.core.execsystem.{Cores, Memory}
 import dagr.tasks.PathToBam
 import dagr.tasks.picard.DownsamplingStrategy.DownsamplingStrategy
 
@@ -77,6 +77,6 @@ class DownsampleSam(in: PathToBam, out: PathToBam, var proportion: Double,
     buffer.append("O=" + out)
     buffer.append("P=" + p)
     buffer.append("STRATEGY=" + strat.toString)
-    if (accuracy.isDefined) buffer.append("ACCURACY=" + accuracy.get)
+    accuracy.foreach(acc => buffer.append("ACCURACY=" + acc))
   }
 }

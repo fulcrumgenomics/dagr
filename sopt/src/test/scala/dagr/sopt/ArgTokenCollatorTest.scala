@@ -24,10 +24,10 @@
 
 package dagr.sopt
 
+import dagr.sopt.ArgTokenizer.{ArgOption, ArgOptionAndValue, ArgValue}
 import dagr.sopt.util.UnitSpec
-import dagr.sopt.ArgTokenizer.{ArgOptionAndValue, ArgValue, Token, ArgOption}
 
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success}
 
 
 class ArgTokenCollatorTest extends UnitSpec {

@@ -29,8 +29,8 @@ import java.nio.file.{Files, Path}
 import dagr.core.cmdline.parsing.DagrCommandLineParser
 import dagr.core.config.Configuration
 import dagr.core.execsystem._
-import dagr.core.tasksystem.{Pipeline, ValidationException, Task}
-import dagr.core.util.{LazyLogging, BiMap, LogLevel, Logger, Io}
+import dagr.core.tasksystem.{Pipeline, Task, ValidationException}
+import dagr.core.util.{BiMap, Io, LazyLogging, LogLevel, Logger}
 
 import scala.collection.mutable.ListBuffer
 
@@ -56,7 +56,7 @@ object DagrCoreMain {
 
   /** Provide an command line validation error message */
   private[cmdline] def buildErrorMessage(msgOption: Option[String] = None, exceptionOption: Option[Exception] = None): String = {
-    val extraMsg: String = if (msgOption.isDefined) s"\nmessage: ${msgOption.get}" else ""
+    val extraMsg = msgOption map { text => s"\nmessage: $text" } getOrElse ""
     exceptionOption match {
       case Some(e) =>
         s"${e.getClass.getCanonicalName}: ${Configuration.commandLineName} command line validation error: ${e.getMessage}$extraMsg"
@@ -130,8 +130,10 @@ class DagrCoreMain(
       val systemMemory = config.optionallyConfigure[String](Configuration.Keys.SystemMemory) orElse this.memory
 
       // scripts & logs directories
-      val scriptsDirectory = pick(this.scriptDir, pipeline.outputDirectory.map(_.resolve("scripts")), config.optionallyConfigure(Configuration.Keys.ScriptDirectory))
-      val logDirectory     = pick(this.logDir,    pipeline.outputDirectory.map(_.resolve("logs")),    config.optionallyConfigure(Configuration.Keys.LogDirectory))
+      val scriptsDirectory = pick(this.scriptDir, pipeline.outputDirectory.map(_.resolve("scripts")),
+        config.optionallyConfigure(Configuration.Keys.ScriptDirectory))
+      val logDirectory     = pick(this.logDir,    pipeline.outputDirectory.map(_.resolve("logs")),
+        config.optionallyConfigure(Configuration.Keys.LogDirectory))
 
       {
         val errors: ListBuffer[String] = ListBuffer[String]()
@@ -172,18 +174,8 @@ class DagrCoreMain(
     pw.close()
 
     // return an exit code based on the number of non-completed tasks
-    val taskInfoMap: BiMap[Task, TaskExecutionInfo] = taskMan.getTaskToInfoBiMap
-    var numNotCompleted: Int = 0
-    val iterator: Iterator[Task] = taskInfoMap.keys.toIterator
-    var numCompleted: Int = iterator.size
-    while (iterator.hasNext) {
-      val taskInfo: TaskExecutionInfo = taskInfoMap.getValue(iterator.next).get
-      if (TaskStatus.isTaskNotDone(taskInfo.status, failedIsDone=false)) {
-        numNotCompleted += 1
-        numCompleted -= 1
-      }
+    taskMan.taskToInfoBiMapFor.count { case (task, info) =>
+      TaskStatus.isTaskNotDone(info.status, failedIsDone=false)
     }
-
-    numNotCompleted
   }
 }

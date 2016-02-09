@@ -24,5 +24,5 @@
 package dagr.tasks.picard
 
 object CollectInsertSizeMetrics {
-  def getMetricsExtension: String = ".insert_size_metrics"
+  def metricsExtension: String = ".insert_size_metrics"
 }

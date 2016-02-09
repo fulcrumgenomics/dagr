@@ -25,18 +25,16 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.Memory
 import dagr.tasks.PathToBam
 
 import scala.collection.mutable.ListBuffer
 
 object EstimateLibraryComplexity {
-  def getMinIdenticalBases(minIdenticalBases: Int, numPfReads: Option[Long]): Int = {
-    if (numPfReads.isEmpty || numPfReads.get < 10000000) {
-      minIdenticalBases
-    }
-    else {
-      math.ceil( (math.log(numPfReads.get) / math.log(4)) - 7 ).toInt
+  def minIdenticalBasesFor(minIdenticalBases: Int, numPfReads: Option[Long]): Int = {
+    numPfReads match {
+      case None => minIdenticalBases
+      case Some(n) if n < 10000000 => minIdenticalBases
+      case Some(n) => math.ceil( (math.log(n) / math.log(4)) - 7 ).toInt
     }
   }
 
@@ -47,14 +45,15 @@ class EstimateLibraryComplexity(in: PathToBam,
                                 prefix: Option[Path],
                                 var minIdenticalBases: Int = 5,
                                 var numPfReads: Option[Long] = None)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in = in, prefix = prefix) {
 
-  override def getMetricsExtension: String = EstimateLibraryComplexity.MetricsExtension
+  override def metricsExtension: String = EstimateLibraryComplexity.MetricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
-    buffer.append("O=" + getMetricsFile)
-    buffer.append("MIN_IDENTICAL_BASES=" + EstimateLibraryComplexity.getMinIdenticalBases(minIdenticalBases = minIdenticalBases,
-                                                                                          numPfReads = numPfReads))
+    buffer.append("O=" + metricsFile)
+    buffer.append("MIN_IDENTICAL_BASES=" +
+      EstimateLibraryComplexity.minIdenticalBasesFor(minIdenticalBases=minIdenticalBases, numPfReads=numPfReads)
+    )
   }
 }

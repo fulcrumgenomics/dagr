@@ -29,7 +29,7 @@ import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{ProcessTask, VariableResources}
 import dagr.tasks.jeanluc.GenerateRegionsFromFasta
 import dagr.tasks.vc.FreeBayes._
-import dagr.tasks.{PathToIntervals, PathToBam, PathToFasta, PathToVcf}
+import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer
 
@@ -77,7 +77,7 @@ object FreeBayes {
   *
   * Please note that if the output VCF is a bgzip'ed VCF (vcf.gz) no index will be generated.
   */
-abstract class FreeBayes(val reference: PathToFasta,
+abstract class FreeBayes(val ref: PathToFasta,
                          val targetIntervals: Option[PathToIntervals],
                          val bam: List[PathToBam],
                          val vcf: PathToVcf,
@@ -95,8 +95,8 @@ abstract class FreeBayes(val reference: PathToFasta,
   // NB: we could re-implement the FreeBayes Parallel script as individual tasks, but keep this for now.
   protected def numThreads = (this.resources.cores.value - 1).toInt
 
-  if (!somatic && minAlternateAlleleFraction.isDefined) {
-    throw new IllegalArgumentException("Somatic calling but minAlternateAlleleFraction is defined")
+  if (!somatic) {
+    minAlternateAlleleFraction.foreach { throw new IllegalArgumentException("Somatic calling but minAlternateAlleleFraction is defined") }
   }
 
   /** Attempts to pick the resources required to run. The required resources are:
@@ -115,11 +115,12 @@ abstract class FreeBayes(val reference: PathToFasta,
     def applyArgs[T](arg: String, value: Option[T]): Unit = value.foreach(buffer.append(arg, _))
 
     // Generates the regions on the fly
-    if (targetIntervals.isEmpty) { // Split using the FASTA
-      new GenerateRegionsFromFasta(reference=reference, regionSize=Some(regionSize.toInt)).getTasks.foreach(task => buffer.append(task.args))
-    }
-    else { // Split using the intervals
-      buffer.append("cat " + targetIntervals.get.toAbsolutePath + """ | grep -v ^@ | awk '{printf("%s:%d-%d\n", $1, $2-1, $3);}'""")
+    targetIntervals match {
+      case None => // Split using the FASTA
+        new GenerateRegionsFromFasta(ref=ref, regionSize=Some(regionSize.toInt)).getTasks.foreach(task => buffer.append(task.args))
+      case Some(targets) => // Split using the intervals
+        buffer.append("cat " + targets.toAbsolutePath + """ | grep -v ^@ | awk '{printf("%s:%d-%d\n", $1, $2-1, $3);}'""")
+
     }
 
     buffer.append(PipeArg, s"parallel -k -j $numThreads")
@@ -128,7 +129,7 @@ abstract class FreeBayes(val reference: PathToFasta,
     buffer.append(configureExecutable(FreeBayesExecutableConfigKey, "freebayes"))
 
     // FreeBayes args
-    buffer.append("-f", reference)
+    buffer.append("-f", ref)
     applyArgs("--use-best-n-alleles",     useBestNAlleles)
     applyArgs("--max-coverage",           maxCoverage)
     applyArgs("--min-repeat-entropy",     minRepeatEntropy)
@@ -153,7 +154,7 @@ abstract class FreeBayes(val reference: PathToFasta,
 }
 
 /** Performs Germline variant calling using FreeBayes according the the BCBIO best Practices */
-class FreeBayesGermline(reference: PathToFasta,
+class FreeBayesGermline(ref: PathToFasta,
                         targetIntervals: Option[PathToIntervals],
                         bam: List[PathToBam],
                         vcf: PathToVcf,
@@ -165,11 +166,11 @@ class FreeBayesGermline(reference: PathToFasta,
                         useBestNAlleles: Option[Int]  = DefaultUseBestNAlleles,
                         maxCoverage: Option[Int]      = DefaultMaxCoverage,
                         minRepeatEntropy: Option[Int] = DefaultMinRepeatEntropy
-) extends FreeBayes(reference, targetIntervals, bam, vcf, false, compress, memory, minThreads, maxThreads,
+) extends FreeBayes(ref, targetIntervals, bam, vcf, false, compress, memory, minThreads, maxThreads,
   regionSize, useBestNAlleles, maxCoverage, minRepeatEntropy)
 
 /** Performs Somatic (Tumor/Normal) variant calling using FreeBayes according the the BCBIO best Practices */
-class FreeBayesSomatic(reference: PathToFasta,
+class FreeBayesSomatic(ref: PathToFasta,
                        targetIntervals: Option[PathToIntervals],
                        tumorBam: PathToBam,
                        normalBam: PathToBam,
@@ -183,5 +184,5 @@ class FreeBayesSomatic(reference: PathToFasta,
                        maxCoverage: Option[Int]                      = DefaultMaxCoverage,
                        minRepeatEntropy: Option[Int]                 = DefaultMinRepeatEntropy,
                        val minAlternateAlleleFraction: Option[Float] = DefaultMinAlternateAlleleFraction
-) extends FreeBayes(reference, targetIntervals, List(tumorBam, normalBam), vcf, true, compress, memory, minThreads, maxThreads,
+) extends FreeBayes(ref, targetIntervals, List(tumorBam, normalBam), vcf, true, compress, memory, minThreads, maxThreads,
   regionSize, useBestNAlleles, maxCoverage, minRepeatEntropy, minAlternateAlleleFraction)

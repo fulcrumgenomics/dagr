@@ -171,7 +171,7 @@ class TaskTest extends UnitSpec with LazyLogging {
       )
 
       // Make sure the task completed
-      val completedMap: Map[BigInt, (Int, Boolean)] = taskRunner.getCompletedTasks()
+      val completedMap: Map[BigInt, (Int, Boolean)] = taskRunner.completedTasks()
       completedMap should contain key id
       completedMap.get(id).get._1 should be(0) // exit code
       completedMap.get(id).get._2 should be(true) // on complete
@@ -221,62 +221,62 @@ class TaskTest extends UnitSpec with LazyLogging {
       val (a, b, c, d, e, f, g) = (new Noop("A"), new Noop("B"), new Noop("C"), new Noop("D"), new Noop("E"), new Noop("F"), new Noop("G"))
       a ==> (b :: c :: d) ==> e ==> (f :: g)
 
-      a.getTasksDependedOn.isEmpty shouldBe true
-      a.getTasksDependingOnThisTask.toArray shouldBe Array(b, c, d)
+      a.tasksDependedOn.isEmpty shouldBe true
+      a.tasksDependingOnThisTask.toArray shouldBe Array(b, c, d)
 
-      b.getTasksDependedOn.toArray shouldBe Array(a)
-      b.getTasksDependingOnThisTask.toArray shouldBe Array(e)
+      b.tasksDependedOn.toArray shouldBe Array(a)
+      b.tasksDependingOnThisTask.toArray shouldBe Array(e)
 
-      c.getTasksDependedOn.toArray shouldBe Array(a)
-      c.getTasksDependingOnThisTask.toArray shouldBe Array(e)
+      c.tasksDependedOn.toArray shouldBe Array(a)
+      c.tasksDependingOnThisTask.toArray shouldBe Array(e)
 
-      d.getTasksDependedOn.toArray shouldBe Array(a)
-      d.getTasksDependingOnThisTask.toArray shouldBe Array(e)
+      d.tasksDependedOn.toArray shouldBe Array(a)
+      d.tasksDependingOnThisTask.toArray shouldBe Array(e)
 
-      e.getTasksDependedOn.toArray shouldBe Array(b, c, d)
-      e.getTasksDependingOnThisTask.toArray shouldBe Array(f, g)
+      e.tasksDependedOn.toArray shouldBe Array(b, c, d)
+      e.tasksDependingOnThisTask.toArray shouldBe Array(f, g)
 
-      f.getTasksDependedOn.toArray shouldBe Array(e)
-      f.getTasksDependingOnThisTask.isEmpty shouldBe true
+      f.tasksDependedOn.toArray shouldBe Array(e)
+      f.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      g.getTasksDependedOn.toArray shouldBe Array(e)
-      g.getTasksDependingOnThisTask.isEmpty shouldBe true
+      g.tasksDependedOn.toArray shouldBe Array(e)
+      g.tasksDependingOnThisTask.isEmpty shouldBe true
 
       a !=> (b :: c :: d) !=> e !=> (f :: g)
 
-      List(a, b, c, d, e, f, g).foreach(t => t.getTasksDependedOn.isEmpty shouldBe true)
-      List(a, b, c, d, e, f, g).foreach(t => t.getTasksDependingOnThisTask.isEmpty shouldBe true)
+      List(a, b, c, d, e, f, g).foreach(t => t.tasksDependedOn.isEmpty shouldBe true)
+      List(a, b, c, d, e, f, g).foreach(t => t.tasksDependingOnThisTask.isEmpty shouldBe true)
     }
 
     it should "dependencies should bind & tighter than ==> and -=>" in {
       val (a, b, c, d, e, f, g) = (new Noop("A"), new Noop("B"), new Noop("C"), new Noop("D"), new Noop("E"), new Noop("F"), new Noop("G"))
       a :: b ==> c :: d ==> e :: f :: g
 
-      a.getTasksDependedOn.isEmpty shouldBe true
-      a.getTasksDependingOnThisTask.toArray shouldBe Array(c, d)
+      a.tasksDependedOn.isEmpty shouldBe true
+      a.tasksDependingOnThisTask.toArray shouldBe Array(c, d)
 
-      b.getTasksDependedOn.isEmpty shouldBe true
-      b.getTasksDependingOnThisTask.toArray shouldBe Array(c, d)
+      b.tasksDependedOn.isEmpty shouldBe true
+      b.tasksDependingOnThisTask.toArray shouldBe Array(c, d)
 
-      c.getTasksDependedOn.toArray shouldBe Array(a, b)
-      c.getTasksDependingOnThisTask.toArray shouldBe Array(e, f, g)
+      c.tasksDependedOn.toArray shouldBe Array(a, b)
+      c.tasksDependingOnThisTask.toArray shouldBe Array(e, f, g)
 
-      d.getTasksDependedOn.toArray shouldBe Array(a, b)
-      d.getTasksDependingOnThisTask.toArray shouldBe Array(e, f, g)
+      d.tasksDependedOn.toArray shouldBe Array(a, b)
+      d.tasksDependingOnThisTask.toArray shouldBe Array(e, f, g)
 
-      e.getTasksDependedOn.toArray shouldBe Array(c, d)
-      e.getTasksDependingOnThisTask.isEmpty shouldBe true
+      e.tasksDependedOn.toArray shouldBe Array(c, d)
+      e.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      f.getTasksDependedOn.toArray shouldBe Array(c, d)
-      f.getTasksDependingOnThisTask.isEmpty shouldBe true
+      f.tasksDependedOn.toArray shouldBe Array(c, d)
+      f.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      g.getTasksDependedOn.toArray shouldBe Array(c, d)
-      g.getTasksDependingOnThisTask.isEmpty shouldBe true
+      g.tasksDependedOn.toArray shouldBe Array(c, d)
+      g.tasksDependingOnThisTask.isEmpty shouldBe true
 
       a :: b !=> c :: d !=> e :: f :: g
 
-      List(a, b, c, d, e, f, g).foreach(t => t.getTasksDependedOn.isEmpty shouldBe true)
-      List(a, b, c, d, e, f, g).foreach(t => t.getTasksDependingOnThisTask.isEmpty shouldBe true)
+      List(a, b, c, d, e, f, g).foreach(t => t.tasksDependedOn.isEmpty shouldBe true)
+      List(a, b, c, d, e, f, g).foreach(t => t.tasksDependingOnThisTask.isEmpty shouldBe true)
     }
   }
 
@@ -369,11 +369,17 @@ class TaskTest extends UnitSpec with LazyLogging {
     "SimpleInJvmTask" should "execute as expected" in {
       val b = ListBuffer[Int]()
       val s = SimpleInJvmTask("foo", () => b += 7)
+      val s2 = SimpleInJvmTask(() => b(0) -= 7)
+      val s3 = SimpleInJvmTask(() => throw new IllegalArgumentException("Expected Exception"))
 
       b.length shouldBe 0
-      s.inJvmMethod()
+      s.inJvmMethod() shouldBe 0
       b.length shouldBe 1
       b.head shouldBe 7
+      s2.inJvmMethod() shouldBe 0
+      b.length shouldBe 1
+      b.head shouldBe 0
+      s3.inJvmMethod() shouldBe 1
     }
   }
 }

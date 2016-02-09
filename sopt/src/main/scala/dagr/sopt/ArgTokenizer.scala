@@ -24,6 +24,8 @@
 
 package dagr.sopt
 
+import java.util.NoSuchElementException
+
 import scala.util.{Failure, Success, Try}
 
 object ArgTokenizer {
@@ -57,8 +59,11 @@ class ArgTokenizer(args: TraversableOnce[String]) extends Iterator[Try[ArgTokeni
   override def next(): Try[Token] = {
     // bad user
     if (!hasNext()) throw new NoSuchElementException("Called 'next' when 'hasNext' is false")
-
-    val tryVal = nextToken.get
+    val tryVal = nextToken match {
+      case None =>
+        throw new NoSuchElementException("Called 'next' when 'hasNext' is false")
+      case Some(value) => value
+    }
     nextToken = None
     tryVal
   }
@@ -68,13 +73,14 @@ class ArgTokenizer(args: TraversableOnce[String]) extends Iterator[Try[ArgTokeni
 
   /** Sets the `nextToken` if it is not defined and we have more strings in the iterator */
   private def updateNextToken(): Unit = {
-    if (nextToken.isDefined || !iterator.hasNext) return
-    nextToken = iterator.next() match {
-      case "--" => None
-      case arg if arg.startsWith("--") => Some(convertDoubleDashOption(arg.substring(2)))
-      case arg if arg.startsWith("-") => Some(convertSingleDash(arg.substring(1)))
-      case arg if arg.isEmpty => Some(Failure(new OptionNameException("Empty argument given.")))
-      case arg => Some(Success(ArgValue(value = arg)))
+    if (nextToken.isEmpty && iterator.hasNext) {
+      nextToken = iterator.next() match {
+        case "--" => None
+        case ""   => Some(Failure(new OptionNameException("Empty argument given.")))
+        case arg if arg.startsWith("--") => Some(convertDoubleDashOption(arg.substring(2)))
+        case arg if arg.startsWith("-") => Some(convertSingleDash(arg.substring(1)))
+        case arg => Some(Success(ArgValue(value = arg)))
+      }
     }
   }
 
@@ -89,12 +95,15 @@ class ArgTokenizer(args: TraversableOnce[String]) extends Iterator[Try[ArgTokeni
     * separated by an '=' character.
     */
   private def convertSingleDash(input: String): Try[Token] = {
-    if (input.isEmpty) return emptyFailure(input)
-    val name = input.substring(0, 1)
-    input.substring(1) match {
-      case "" => Success(ArgOption(name = name))
-      case value if value.startsWith("=") && value.length > 1 => Success(ArgOptionAndValue(name = name, value = value.substring(1))) // NB: must have characters after the "="
-      case value => Success(ArgOptionAndValue(name = name, value = value))
+    if (input.isEmpty) emptyFailure(input)
+    else {
+      val name = input.substring(0, 1)
+      input.substring(1) match {
+        case "" => Success(ArgOption(name = name))
+        // NB: must have characters after the "="
+        case value if value.startsWith("=") && value.length > 1 => Success(ArgOptionAndValue(name = name, value = value.substring(1)))
+        case value => Success(ArgOptionAndValue(name = name, value = value))
+      }
     }
   }
 

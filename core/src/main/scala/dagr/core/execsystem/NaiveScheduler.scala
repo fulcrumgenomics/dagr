@@ -31,22 +31,32 @@ class NaiveScheduler extends Scheduler {
     * Takes the list of tasks that could be scheduled if their resource needs can be met and attempts
     * to schedule a single task for execution.
     */
-  private[execsystem] def scheduleOneTask(readyTasks: Traversable[UnitTask], remainingSystemCores: Cores, remainingSystemMemory: Memory, remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
+  private[execsystem] def scheduleOneTask(readyTasks: Traversable[UnitTask],
+                                          remainingSystemCores: Cores,
+                                          remainingSystemMemory: Memory,
+                                          remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
     val systemResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingSystemMemory)
     val jvmResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingJvmMemory)
-    // Find the first task that can be executed and let it pick it's resources
-    readyTasks.find {
-      case task: ProcessTask => Scheduler.canScheduleTask(task, systemResourceSet)
-      case task: InJvmTask => Scheduler.canScheduleTask(task, jvmResourceSet)
-    }
-    .map {
-      case task: ProcessTask => (task, task.pickResources(systemResourceSet).get)
-      case task: InJvmTask => (task, task.pickResources(jvmResourceSet).get)
-    }
+    // Find the first task that can be executed
+    readyTasks
+      .view // lazy
+      .map { // pick resources
+        case task: ProcessTask => (task, task.pickResources(systemResourceSet))
+        case task: InJvmTask   => (task, task.pickResources(jvmResourceSet))
+      }
+      .find { // find the first that returned a resource set
+        case (_, Some(resourceSet)) => true
+        case _ => false
+      }
+      .map { // get the resource set
+        case (task, Some(resourceSet)) => (task, resourceSet)
+        case _ => throw new IllegalStateException("BUG")
+      }
   }
 
-  /** Schedule a task.  Picks a task that uses the most memory, cores, then disk.  All tasks should have
-    * a resource matching each system resource.
+  /** Runs one round of scheduling, trying to schedule as many ready tasks as possible given the
+    * resources.  Each time, it chooses the first task that can be executed with the available
+    * resources.
     *
     * @param readyTasks the tasks that should be considered to be schedule.
     * @param remainingSystemCores the set of remaining system cores, not including running tasks.
@@ -54,27 +64,41 @@ class NaiveScheduler extends Scheduler {
     * @param remainingJvmMemory the set of remaining JVM memory, not including running tasks.
     * @return a map of tasks should be scheduled and their allocate resources.
     */
-  private def scheduleOnce(readyTasks: Traversable[UnitTask], remainingSystemCores: Cores, remainingSystemMemory: Memory, remainingJvmMemory: Memory): List[(UnitTask, ResourceSet)] = {
+  private def scheduleOnce(readyTasks: Traversable[UnitTask],
+                           remainingSystemCores: Cores,
+                           remainingSystemMemory: Memory,
+                           remainingJvmMemory: Memory): List[(UnitTask, ResourceSet)] = {
     // no more tasks ready to be scheduled
-    if (readyTasks.isEmpty) return Nil
+    if (readyTasks.isEmpty) Nil
+    else {
+      logger.debug(s"the resources were [System cores=" + remainingSystemCores.value
+        + " System memory=" + Resource.parseBytesToSize(remainingSystemMemory.value)
+        + " JVM memory=" + Resource.parseBytesToSize(remainingJvmMemory.value) + " ]")
 
-    logger.debug(s"the resources were [System cores=" + remainingSystemCores.value
-      + " System memory=" + Resource.parseBytesToSize(remainingSystemMemory.value)
-      + " JVM memory=" + Resource.parseBytesToSize(remainingJvmMemory.value) + " ]")
-
-    // try one round of scheduling, and recurse if a task could be scheduled
-    scheduleOneTask(readyTasks, remainingSystemCores, remainingSystemMemory, remainingJvmMemory) match {
-      case None =>
-        Nil
-      case Some((task: UnitTask, resourceSet: ResourceSet)) =>
-        logger.debug("task to schedule is [" + task.name + "]")
-        logger.debug(s"task [${task.name}] uses the following resources [" + resourceSet + "]")
-        List[(UnitTask, ResourceSet)]((task, resourceSet)) ++ (task match {
-          case processTask: ProcessTask =>
-            scheduleOnce(readyTasks.filterNot(t => t == task), remainingSystemCores - resourceSet.cores, remainingSystemMemory - resourceSet.memory, remainingJvmMemory)
-          case inJvmTask: InJvmTask =>
-            scheduleOnce(readyTasks.filterNot(t => t == task), remainingSystemCores - resourceSet.cores, remainingSystemMemory, remainingJvmMemory - resourceSet.memory)
-        })
+      // try one round of scheduling, and recurse if a task could be scheduled
+      scheduleOneTask(readyTasks, remainingSystemCores, remainingSystemMemory, remainingJvmMemory) match {
+        case None =>
+          Nil
+        case Some((task: UnitTask, resourceSet: ResourceSet)) =>
+          logger.debug("task to schedule is [" + task.name + "]")
+          logger.debug(s"task [${task.name}] uses the following resources [" + resourceSet + "]")
+          List[(UnitTask, ResourceSet)]((task, resourceSet)) ++ (task match {
+            case processTask: ProcessTask =>
+              scheduleOnce(
+                readyTasks = readyTasks.filterNot(t => t == task),
+                remainingSystemCores = remainingSystemCores - resourceSet.cores,
+                remainingSystemMemory = remainingSystemMemory - resourceSet.memory,
+                remainingJvmMemory = remainingJvmMemory
+              )
+            case inJvmTask: InJvmTask =>
+              scheduleOnce(
+                readyTasks = readyTasks.filterNot(t => t == task),
+                remainingSystemCores = remainingSystemCores - resourceSet.cores,
+                remainingSystemMemory = remainingSystemMemory,
+                remainingJvmMemory = remainingJvmMemory - resourceSet.memory
+              )
+          })
+      }
     }
   }
 

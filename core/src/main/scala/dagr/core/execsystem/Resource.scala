@@ -24,6 +24,7 @@
 package dagr.core.execsystem
 
 import java.util.regex.{Matcher, Pattern}
+
 import oshi.SystemInfo
 import oshi.hardware.platform.mac.MacHardwareAbstractionLayer
 
@@ -50,30 +51,24 @@ object Resource {
     * @return the number of bytes.
     */
   def parseSizeToBytes(value: String): BigInt = {
-    var size: Option[BigInt] = None
     // is it just a number
-    try {
-      size = Some(BigInt.apply(value))
-    } catch {
-      case e: Exception =>
-    }
-    if (size.isDefined) return size.get
-    // not a number, so try pattern matching
-    val pattern: Pattern = Pattern.compile("([\\d.]+)([PTGMK]B?)", Pattern.CASE_INSENSITIVE)
-    val matcher: Matcher = pattern.matcher(value.toLowerCase) // ignore case
-    if (!matcher.find()) return -1 // no match found
-    val number: String = matcher.group(1)
-    var power: String = matcher.group(2)
-    if (!power.endsWith("b")) power = power + "b" // for matching below
-    val pow: Int = power match {
-        case "kb" => 1
-        case "mb" => 2
-        case "gb" => 3
-        case "tb" => 4
-        case "pb" => 5
-        case _ => 0
+    val size: Option[BigInt] = try { Some(BigInt.apply(value)) } catch { case e: NumberFormatException => None }
+    size getOrElse {
+      val regex = """([\d\.]+)([ptgmk])b?""".r
+      value.toLowerCase match {
+        case regex(number, power) =>
+          val pow: Int = power match {
+            case "k" => 1
+            case "m" => 2
+            case "g" => 3
+            case "t" => 4
+            case "p" => 5
+            case _ => 0
+          }
+          BigInt(number) * BigInt(1024).pow(pow)
+        case _ => -1
       }
-    BigInt.apply(number) * BigInt.apply(1024).pow(pow)
+    }
   }
 
   /** Get the number of bytes as a string.

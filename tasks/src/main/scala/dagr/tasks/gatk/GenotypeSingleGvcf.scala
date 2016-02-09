@@ -30,12 +30,12 @@ import scala.collection.mutable.ListBuffer
 /**
   * Genotypes a single GVCF.
   */
-class GenotypeSingleGvcf(reference: PathToFasta,
-                         val targetIntervals: PathToIntervals,
+class GenotypeSingleGvcf(ref: PathToFasta,
+                         intervals: PathToIntervals,
                          val gvcf: PathToVcf,
                          val vcf: PathToVcf,
                          val dbSnpVcf: Option[PathToVcf] = None)
-  extends GatkTask("GenotypeGVCFs", reference, intervals=Some(targetIntervals)) {
+  extends GatkTask("GenotypeGVCFs", ref, intervals=Some(intervals)) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     dbSnpVcf.foreach(v => buffer.append("--dbsnp", v.toAbsolutePath.toString))

@@ -23,8 +23,7 @@
  */
 package dagr.core.util
 
-import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.Paths
 
 /** Tests for the PathUtil. */
 class PathUtilTest extends UnitSpec {
@@ -89,5 +88,18 @@ class PathUtilTest extends UnitSpec {
     val cwd = Paths.get(".").toAbsolutePath.normalize
     PathUtil.pathTo("relative/path.txt") shouldBe cwd.resolve("relative/path.txt")
     PathUtil.pathTo("../relative/path2.txt") shouldBe cwd.getParent.resolve("relative/path2.txt")
+  }
+
+  "PathUtil.extensionOf" should "return the correct extension when present" in {
+    PathUtil.extensionOf(Paths.get("foo.txt")) shouldBe Some(".txt")
+    PathUtil.extensionOf(PathUtil.pathTo("foo.txt")) shouldBe Some(".txt")
+    PathUtil.extensionOf(PathUtil.pathTo("/foo/bar.splat/one.two.three.four")) shouldBe Some(".four")
+    PathUtil.extensionOf(PathUtil.pathTo("/foo/bar.splat/.one")) shouldBe Some(".one")
+  }
+
+  it should "return None when there is no extension" in {
+    PathUtil.extensionOf(Paths.get("foo")) shouldBe None
+    PathUtil.extensionOf(PathUtil.pathTo("foo")) shouldBe None
+    PathUtil.extensionOf(PathUtil.pathTo("/foo/bar/.splat/my.dir/foo")) shouldBe None
   }
 }

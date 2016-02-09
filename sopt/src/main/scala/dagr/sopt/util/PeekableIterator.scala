@@ -33,12 +33,16 @@ class PeekableIterator[T](private val iterator: Iterator[T]) extends Iterator[T]
   def hasNext: Boolean = nextObject.isDefined
 
   def next: T = {
-    val retVal = this.nextObject.get
-    this.advance()
-    retVal
+    this.nextObject match {
+      case Some(obj) => this.advance(); obj
+      case None => throw new NoSuchElementException("Calling 'next' when 'hasNext' is false")
+    }
   }
 
-  def peek: T = this.nextObject.get
+  def peek: T = this.nextObject match {
+    case Some(obj) => obj
+    case None => throw new NoSuchElementException("Calling 'peek' when 'hasNext' is false")
+  }
 
   private def advance(): Unit = {
     this.nextObject = if (this.iterator.hasNext) Some(this.iterator.next()) else None

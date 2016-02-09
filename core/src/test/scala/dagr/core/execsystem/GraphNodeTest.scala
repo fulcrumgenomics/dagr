@@ -50,11 +50,11 @@ class GraphNodeTest extends UnitSpec {
     val alice = new GraphNode(taskId=BigInt(0), task=new ShellCommand("make it so"))
     val bob = new GraphNode(taskId=BigInt(0), task=new ShellCommand("make it so"), predecessorNodes = Seq(alice))
 
-    alice.getOriginalPredecessors shouldBe List.empty
-    bob.getOriginalPredecessors shouldBe List(alice)
+    alice.originalPredecessors shouldBe List.empty
+    bob.originalPredecessors shouldBe List(alice)
     bob.addPredecessors(bob)
-    bob.getOriginalPredecessors shouldBe List(alice, bob)
+    bob.originalPredecessors shouldBe List(alice, bob)
     bob.removePredecessor(alice)
-    bob.getOriginalPredecessors shouldBe List(alice, bob) // alice was removed, but we should still return alice
+    bob.originalPredecessors shouldBe List(alice, bob) // alice was removed, but we should still return alice
   }
 }

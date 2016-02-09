@@ -64,19 +64,19 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     // add the task
     taskManager.addTask(task)
-    TaskStatus.isTaskDone(taskManager.getTaskStatus(task).get) should be(false)
+    TaskStatus.isTaskDone(taskManager.taskStatusFor(task).get) should be(false)
 
     // run the task, and do not report failed tasks as completed
     for (i <- 1 to numTimes) {
       logger.debug("running the scheduler the " + i + "th time")
       runSchedulerOnce(taskManager = taskManager, tasksToScheduleContains = List[Task](task), runningTasksContains = Nil, completedTasksContains = Nil, failedAreCompleted = false)
-      TaskStatus.isTaskDone(taskStatus = taskManager.getTaskStatus(task).get, failedIsDone = false) should be(false)
+      TaskStatus.isTaskDone(taskStatus = taskManager.taskStatusFor(task).get, failedIsDone = false) should be(false)
     }
 
     // run the task a fourth time, but set that any failed tasks should be assumed to be completed
     logger.debug("running the scheduler the last (" + (numTimes + 1) + "th) time")
     runSchedulerOnce(taskManager = taskManager, tasksToScheduleContains = Nil, runningTasksContains = Nil, completedTasksContains = List[Task](task), failedAreCompleted = failedAreCompletedFinally)
-    TaskStatus.isTaskDone(taskStatus = taskManager.getTaskStatus(task).get, failedIsDone = failedAreCompletedFinally) should be(taskIsDoneFinally)
+    TaskStatus.isTaskDone(taskStatus = taskManager.taskStatusFor(task).get, failedIsDone = failedAreCompletedFinally) should be(taskIsDoneFinally)
   }
 
   "TaskManager" should "not overwrite an existing task when adding a task, or throw an IllegalArgumentException when ignoreExists is false" in {
@@ -91,37 +91,37 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
     val taskManager: TaskManager = getDefaultTaskManager
     taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
-    val node = taskManager.getGraphNode(task).get
-    taskManager.getTask(node).foreach(t => t shouldBe task)
+    val node = taskManager.graphNodeFor(task).get
+    taskManager.taskFor(node).foreach(t => t shouldBe task)
     val unknownNode = new GraphNode(taskId=1, task=task)
-    taskManager.getTask(unknownNode) shouldBe 'empty
+    taskManager.taskFor(unknownNode) shouldBe 'empty
   }
 
   it should "get a task info by its graph node only if the graph node is being tracked by TaskManagerState" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
     val taskManager: TaskManager = getDefaultTaskManager
     taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
-    val taskInfo = taskManager.getTaskExecutionInfo(task).get
-    val node = taskManager.getGraphNode(task).get
-    taskManager.getTaskExecutionInfo(node).foreach(info => info shouldBe taskInfo)
+    val taskInfo = taskManager.taskExecutionInfoFor(task).get
+    val node = taskManager.graphNodeFor(task).get
+    taskManager.taskExecutionInfoFor(node).foreach(info => info shouldBe taskInfo)
     val unknownNode = new GraphNode(taskId=1, task=task)
-    taskManager.getTaskExecutionInfo(unknownNode) shouldBe 'empty
+    taskManager.taskExecutionInfoFor(unknownNode) shouldBe 'empty
   }
 
   it should "get the task status for only tracked tasks" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
     val taskManager: TaskManager = getDefaultTaskManager
     taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
-    taskManager.getTaskStatus(0) shouldBe 'defined
-    taskManager.getTaskStatus(1) shouldBe 'empty
+    taskManager.taskStatusFor(0) shouldBe 'defined
+    taskManager.taskStatusFor(1) shouldBe 'empty
   }
 
   it should "get the graph node state for only tracked tasks" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
     val taskManager: TaskManager = getDefaultTaskManager
     taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
-    taskManager.getGraphNodeState(0) shouldBe 'defined
-    taskManager.getGraphNodeState(1) shouldBe 'empty
+    taskManager.graphNodeStateFor(0) shouldBe 'defined
+    taskManager.graphNodeStateFor(1) shouldBe 'empty
   }
 
   // ******************************************
@@ -175,7 +175,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     map.containsKey(task) should be(true)
 
-    val taskInfo: TaskExecutionInfo = map.getValue(task).get
+    val taskInfo: TaskExecutionInfo = map.valueFor(task).get
     taskInfo.id should be(0)
     taskInfo.task should be(task)
     taskInfo.status should be(TaskStatus.SUCCEEDED)
@@ -202,10 +202,10 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     val taskManager: TaskManager = getDefaultTaskManager
     taskManager.addTasks(longTask, failedTask)
     taskManager.runAllTasks(sleepMilliseconds=1, timeout=1)
-    taskManager.getTaskStatus(failedTask).value should be(TaskStatus.FAILED_COMMAND)
-    taskManager.getGraphNodeState(failedTask).value should be(GraphNodeState.COMPLETED)
-    taskManager.getTaskStatus(longTask).value should be(TaskStatus.FAILED_COMMAND)
-    taskManager.getGraphNodeState(longTask).value should be(GraphNodeState.COMPLETED)
+    taskManager.taskStatusFor(failedTask).value should be(TaskStatus.FAILED_COMMAND)
+    taskManager.graphNodeStateFor(failedTask).value should be(GraphNodeState.COMPLETED)
+    taskManager.taskStatusFor(longTask).value should be(TaskStatus.FAILED_COMMAND)
+    taskManager.graphNodeStateFor(longTask).value should be(GraphNodeState.COMPLETED)
   }
 
   // ******************************************
@@ -229,14 +229,14 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.runAllTasks(sleepMilliseconds = 10)
 
     // the task identifier for 'original' should now be found
-    val originalTaskId: BigInt = taskManager.getTaskId(original).value
+    val originalTaskId: BigInt = taskManager.taskIdFor(original).value
 
     // check the original task status
-    val taskInfo: TaskExecutionInfo = taskManager.getTaskExecutionInfo(originalTaskId).value
+    val taskInfo: TaskExecutionInfo = taskManager.taskExecutionInfoFor(originalTaskId).value
     taskInfo.status should be(originalTaskStatus)
 
     // check the original graph node state
-    val state: GraphNodeState.Value = taskManager.getGraphNodeState(originalTaskId).value
+    val state: GraphNodeState.Value = taskManager.graphNodeStateFor(originalTaskId).value
     state should be(originalGraphNodeState)
   }
 
@@ -377,8 +377,8 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   def runTasksMultipleTimes(taskManager: TaskManager, task: UnitTask, statuses: List[(TaskStatus.Value, Int, Boolean)]): Unit = {
     // add the task
     taskManager.addTask(task)
-    TaskStatus.isTaskDone(taskManager.getTaskStatus(task).get) should be(false)
-    val taskId: BigInt = taskManager.getTaskId(task).value
+    TaskStatus.isTaskDone(taskManager.taskStatusFor(task).get) should be(false)
+    val taskId: BigInt = taskManager.taskIdFor(task).value
 
     for ((taskStatus, exitCode, onCompleteSuccessful) <- statuses) {
       // run the task once
@@ -387,12 +387,12 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       // we need to check the status of the task after it has completed but before it has been retried, so do this part manually.
       val taskRunner: TaskRunner = taskManager invokePrivate PrivateMethod[TaskRunner]('taskRunner)()
       val processCompletedTask = PrivateMethod[Unit]('processCompletedTask)
-      val completedTasks = taskRunner.getCompletedTasks(failedAreCompleted = false) // get the complete tasks from the task runner
+      val completedTasks = taskRunner.completedTasks(failedAreCompleted = false) // get the complete tasks from the task runner
 
       // now we can check status, exit code, and onComplete success
       completedTasks.get(taskId).value._1 should be(exitCode)
       completedTasks.get(taskId).value._2 should be(onCompleteSuccessful)
-      taskManager.getTaskStatus(task).value should be(taskStatus)
+      taskManager.taskStatusFor(task).value should be(taskStatus)
 
       // retry and update the completed tasks
       completedTasks.keys.foreach(tid => {
@@ -529,9 +529,9 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     val taskManager: TaskManager = getDefaultTaskManager
     predecessor ==> successor
     taskManager.addTask(successor)
-    taskManager.getGraphNodeState(successor).value should be(GraphNodeState.ORPHAN)
+    taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.ORPHAN)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(successor).value should be(GraphNodeState.ORPHAN)
+    taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.ORPHAN)
   }
 
   it should "should resolve an orphan when its predecessor is added" in {
@@ -540,18 +540,18 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     val taskManager: TaskManager = getDefaultTaskManager
     predecessor ==> successor
     taskManager.addTask(successor)
-    taskManager.getGraphNodeState(successor).value should be(GraphNodeState.ORPHAN)
+    taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.ORPHAN)
     taskManager.addTask(predecessor)
-    taskManager.getGraphNodeState(predecessor).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
+    taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(successor).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
-    taskManager.getGraphNodeState(predecessor).value should be(GraphNodeState.RUNNING)
+    taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
+    taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.RUNNING)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(successor).value should be(GraphNodeState.RUNNING)
-    taskManager.getGraphNodeState(predecessor).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.RUNNING)
+    taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.COMPLETED)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(successor).value should be(GraphNodeState.COMPLETED)
-    taskManager.getGraphNodeState(predecessor).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.COMPLETED)
   }
 
   it should "should resolve multiple orphans when their ancestor is added" in {
@@ -571,31 +571,31 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.addTasks(leftA, leftB, rightB, finalTask)
 
     // run it until we cannot run any more tasks
-    taskManager.getGraphNodeState(rightA) should be ('empty)
-    taskManager.getGraphNodeState(rightB).value should be(GraphNodeState.ORPHAN)
+    taskManager.graphNodeStateFor(rightA) should be ('empty)
+    taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.ORPHAN)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(leftA).value should be(GraphNodeState.RUNNING)
+    taskManager.graphNodeStateFor(leftA).value should be(GraphNodeState.RUNNING)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(leftA).value should be(GraphNodeState.COMPLETED)
-    taskManager.getGraphNodeState(leftB).value should be(GraphNodeState.RUNNING)
+    taskManager.graphNodeStateFor(leftA).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(leftB).value should be(GraphNodeState.RUNNING)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(leftB).value should be(GraphNodeState.COMPLETED)
-    taskManager.getGraphNodeState(finalTask).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
-    taskManager.getGraphNodeState(rightB).value should be(GraphNodeState.ORPHAN)
+    taskManager.graphNodeStateFor(leftB).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(finalTask).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
+    taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.ORPHAN)
 
     // now add right A
     taskManager.addTask(rightA)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(rightA).value should be(GraphNodeState.RUNNING)
-    taskManager.getGraphNodeState(rightB).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
+    taskManager.graphNodeStateFor(rightA).value should be(GraphNodeState.RUNNING)
+    taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(rightA).value should be(GraphNodeState.COMPLETED)
-    taskManager.getGraphNodeState(rightB).value should be(GraphNodeState.RUNNING)
+    taskManager.graphNodeStateFor(rightA).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.RUNNING)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(rightB).value should be(GraphNodeState.COMPLETED)
-    taskManager.getGraphNodeState(finalTask).value should be(GraphNodeState.RUNNING)
+    taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(finalTask).value should be(GraphNodeState.RUNNING)
     taskManager.runSchedulerOnce()
-    taskManager.getGraphNodeState(finalTask).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(finalTask).value should be(GraphNodeState.COMPLETED)
   }
 
 
@@ -610,7 +610,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     val taskManager: TaskManager = getDefaultTaskManager
     taskManager.addTask(task)
     taskManager.runSchedulerOnce()
-    taskManager.getTaskStatus(task).value should be(TaskStatus.FAILED_GET_TASKS)
+    taskManager.taskStatusFor(task).value should be(TaskStatus.FAILED_GET_TASKS)
   }
 
   // **************************************************
@@ -633,14 +633,14 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     successorWorkflow.getTasks.size should be(2)
 
     // no dependencies for either pipeline
-    predecessorWorkflow.getTasksDependedOn.size should be(0)
-    successorWorkflow.getTasksDependedOn.size should be(0)
+    predecessorWorkflow.tasksDependedOn.size should be(0)
+    successorWorkflow.tasksDependedOn.size should be(0)
 
     // predecessor should be added to the tasks for the successor
     predecessorWorkflow ==> successorWorkflow
     successorWorkflow.getTasks.size should be(2)
-    predecessorWorkflow.getTasksDependedOn.size should be(0)
-    successorWorkflow.getTasksDependedOn.size should be(1)
+    predecessorWorkflow.tasksDependedOn.size should be(0)
+    successorWorkflow.tasksDependedOn.size should be(1)
 
     val taskManager: TaskManager = getDefaultTaskManager
     taskManager.addTask(predecessorWorkflow)
@@ -650,42 +650,42 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     // The predecessor pipeline and its "predecessor" tasks should run, while the successor pipeline should be queued waiting
     // for the predecessor pipeline to finish.
     taskManager.runSchedulerOnce()
-    taskManager.getTaskStatus(predecessorWorkflow).value should be(TaskStatus.STARTED)
-    taskManager.getTaskStatus(predecessorWorkflow.firstTask).value should be(TaskStatus.STARTED)
-    taskManager.getTaskStatus(predecessorWorkflow.secondTask).value should be(TaskStatus.STARTED)
-    taskManager.getGraphNodeState(predecessorWorkflow).value should be(GraphNodeState.ONLY_PREDECESSORS)
-    taskManager.getGraphNodeState(predecessorWorkflow.firstTask).value should be(GraphNodeState.RUNNING)
-    taskManager.getGraphNodeState(predecessorWorkflow.secondTask).value should be(GraphNodeState.RUNNING)
-    taskManager.getTaskStatus(successorWorkflow.firstTask) should be('empty)
-    taskManager.getTaskStatus(successorWorkflow.secondTask) should be('empty)
-    taskManager.getTaskStatus(successorWorkflow).value should be(TaskStatus.UNKNOWN)
-    taskManager.getGraphNodeState(successorWorkflow).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
+    taskManager.taskStatusFor(predecessorWorkflow).value should be(TaskStatus.STARTED)
+    taskManager.taskStatusFor(predecessorWorkflow.firstTask).value should be(TaskStatus.STARTED)
+    taskManager.taskStatusFor(predecessorWorkflow.secondTask).value should be(TaskStatus.STARTED)
+    taskManager.graphNodeStateFor(predecessorWorkflow).value should be(GraphNodeState.ONLY_PREDECESSORS)
+    taskManager.graphNodeStateFor(predecessorWorkflow.firstTask).value should be(GraphNodeState.RUNNING)
+    taskManager.graphNodeStateFor(predecessorWorkflow.secondTask).value should be(GraphNodeState.RUNNING)
+    taskManager.taskStatusFor(successorWorkflow.firstTask) should be('empty)
+    taskManager.taskStatusFor(successorWorkflow.secondTask) should be('empty)
+    taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.UNKNOWN)
+    taskManager.graphNodeStateFor(successorWorkflow).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
 
     // Run the scheduler again
     // The "predecessor" tasks should be complete, and so the successor pipeline and its "successor" tasks should be running.
     taskManager.runSchedulerOnce()
-    taskManager.getTaskStatus(predecessorWorkflow).value should be(TaskStatus.SUCCEEDED)
-    taskManager.getTaskStatus(predecessorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
-    taskManager.getTaskStatus(predecessorWorkflow.secondTask).value should be(TaskStatus.SUCCEEDED)
-    taskManager.getGraphNodeState(predecessorWorkflow).value should be(GraphNodeState.COMPLETED)
-    taskManager.getGraphNodeState(predecessorWorkflow.firstTask).value should be(GraphNodeState.COMPLETED)
-    taskManager.getGraphNodeState(predecessorWorkflow.secondTask).value should be(GraphNodeState.COMPLETED)
-    taskManager.getTaskStatus(successorWorkflow).value should be(TaskStatus.STARTED)
-    taskManager.getTaskStatus(successorWorkflow.firstTask).value should be(TaskStatus.STARTED)
-    taskManager.getTaskStatus(successorWorkflow.secondTask).value should be(TaskStatus.STARTED)
-    taskManager.getGraphNodeState(successorWorkflow).value should be(GraphNodeState.ONLY_PREDECESSORS)
-    taskManager.getGraphNodeState(successorWorkflow.firstTask).value should be(GraphNodeState.RUNNING)
-    taskManager.getGraphNodeState(successorWorkflow.secondTask).value should be(GraphNodeState.RUNNING)
+    taskManager.taskStatusFor(predecessorWorkflow).value should be(TaskStatus.SUCCEEDED)
+    taskManager.taskStatusFor(predecessorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
+    taskManager.taskStatusFor(predecessorWorkflow.secondTask).value should be(TaskStatus.SUCCEEDED)
+    taskManager.graphNodeStateFor(predecessorWorkflow).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(predecessorWorkflow.firstTask).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(predecessorWorkflow.secondTask).value should be(GraphNodeState.COMPLETED)
+    taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.STARTED)
+    taskManager.taskStatusFor(successorWorkflow.firstTask).value should be(TaskStatus.STARTED)
+    taskManager.taskStatusFor(successorWorkflow.secondTask).value should be(TaskStatus.STARTED)
+    taskManager.graphNodeStateFor(successorWorkflow).value should be(GraphNodeState.ONLY_PREDECESSORS)
+    taskManager.graphNodeStateFor(successorWorkflow.firstTask).value should be(GraphNodeState.RUNNING)
+    taskManager.graphNodeStateFor(successorWorkflow.secondTask).value should be(GraphNodeState.RUNNING)
 
     // Run the scheduler again
     // The successor pipeline and its "successor" tasks should be complete.
     taskManager.runSchedulerOnce()
-    taskManager.getTaskStatus(successorWorkflow).value should be(TaskStatus.SUCCEEDED)
-    taskManager.getTaskStatus(successorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
-    taskManager.getTaskStatus(successorWorkflow.secondTask).value should be(TaskStatus.SUCCEEDED)
-    taskManager.getGraphNodeState(successorWorkflow).value should be(GraphNodeState.COMPLETED)
-    taskManager.getGraphNodeState(successorWorkflow.firstTask).value should be(GraphNodeState.COMPLETED)
-    taskManager.getGraphNodeState(successorWorkflow.secondTask).value should be(GraphNodeState.COMPLETED)
+    taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.SUCCEEDED)
+    taskManager.taskStatusFor(successorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
+    taskManager.taskStatusFor(successorWorkflow.secondTask).value should be(TaskStatus.SUCCEEDED)
+    taskManager.graphNodeStateFor(successorWorkflow).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(successorWorkflow.firstTask).value should be(GraphNodeState.COMPLETED)
+    taskManager.graphNodeStateFor(successorWorkflow.secondTask).value should be(GraphNodeState.COMPLETED)
 
     // Run the scheduler a final time
     // There should be no running readyTasks, tasksToSchedule, runningTasks, or completedTasks in this round of scheduling.
@@ -696,11 +696,11 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     completedTasks should have size 0
 
     // Make sure all tasks submitted to the system are completed
-    for (taskId <- taskManager.getTaskIds()) {
-      taskManager.getTaskStatus(taskId).value should be (TaskStatus.SUCCEEDED)
-      taskManager.getGraphNodeState(taskId).value should be(GraphNodeState.COMPLETED)
+    for (taskId <- taskManager.taskIdsFor()) {
+      taskManager.taskStatusFor(taskId).value should be (TaskStatus.SUCCEEDED)
+      taskManager.graphNodeStateFor(taskId).value should be(GraphNodeState.COMPLETED)
     }
-    taskManager.getTaskIds() should have size 6
+    taskManager.taskIdsFor() should have size 6
   }
 
   // **************************************************
@@ -828,14 +828,14 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     // make sure all tasks have been completed
     tasks.foreach { task =>
-      taskManager.getTaskStatus(task).value should be(TaskStatus.SUCCEEDED)
-      taskManager.getGraphNodeState(task).value should be(GraphNodeState.COMPLETED)
+      taskManager.taskStatusFor(task).value should be(TaskStatus.SUCCEEDED)
+      taskManager.graphNodeStateFor(task).value should be(GraphNodeState.COMPLETED)
     }
   }
 
   private def getAndTestTaskExecutionInfo(taskManager: TaskManager, task: Task): TaskExecutionInfo = {
     // make sure the execution info and timestamps are set for this taske
-    val info = taskManager.getTaskExecutionInfo(task)
+    val info = taskManager.taskExecutionInfoFor(task)
     info shouldBe 'defined
     info.get.submissionDate shouldBe 'defined
     info.get.startDate shouldBe 'defined

@@ -23,9 +23,10 @@
  */
 package dagr.tasks.picard
 
-import dagr.tasks.DataTypes.{Fastq, SamOrBam}
 import dagr.core.tasksystem.Pipe
+import dagr.tasks.DataTypes.{Fastq, SamOrBam}
 import dagr.tasks.{PathToBam, PathToFastq}
+import htsjdk.samtools.util.FastqQualityFormat
 
 import scala.collection.mutable.ListBuffer
 
@@ -38,14 +39,15 @@ class FastqToSam(fastq1: PathToFastq,
                  library: Option[String] = None,
                  readGroupName: Option[String] = None,
                  stripUnpairedMateNumber: Boolean = true,
-                 useSequentialFastqs: Boolean = false)
+                 useSequentialFastqs: Boolean = false,
+                 qualityFormat: Option[FastqQualityFormat] = None)
   extends PicardTask with Pipe[Fastq,SamOrBam]{
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     // add custom args
     buffer.append("F1=" + fastq1)
     fastq2.foreach(f => buffer.append("F2=" + f))
-    buffer.append("QUALITY_FORMAT=Standard") // TODO: expose this
+    qualityFormat.foreach(f => buffer.append("QUALITY_FORMAT=" + f.name()))
     buffer.append("O=" + out)
     readGroupName.foreach(rg => buffer.append("RG=" + rg))
     buffer.append("SM=" + sample)

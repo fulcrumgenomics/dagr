@@ -36,13 +36,13 @@ object CollectWgsMetrics {
 class CollectWgsMetrics(in: PathToBam,
                         prefix: Option[Path],
                         ref: PathToFasta)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in = in, prefix = prefix) {
 
-  override def getMetricsExtension: String = CollectWgsMetrics.MetricsExtension
+  override def metricsExtension: String = CollectWgsMetrics.MetricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
-    buffer.append("O=" + getMetricsFile)
+    buffer.append("O=" + metricsFile)
     buffer.append("R=" + ref)
   }
 }

@@ -33,7 +33,7 @@ import scala.util.{Failure, Success, Try}
   * [[OptionLookup.acceptSingleValue()]], [[OptionLookup.acceptMultipleValues()]].
   * 2. Call [[parse()]] to parse the argument strings.
   * 3. Either (1) Query for option values in [[OptionLookup]]: [[OptionLookup.hasOptionValues]] and
-  * [[OptionLookup.getOptionValues()]], or (2) traverse tuples of name and values using [[OptionParser().foreach()]] or
+  * [[OptionLookup.optionValues()]], or (2) traverse tuples of name and values using [[OptionParser().foreach()]] or
   * similar methods.
   *
   * See the README.md for more information on valid arguments to [[OptionParser]]. */
@@ -42,7 +42,7 @@ class OptionParser extends OptionLookup with Traversable[(OptionName, List[Optio
   private var remainingArgs: Traversable[String] = Nil
 
   /** returns any remaining args that were not parsed in the previous call to `parse`. */
-  def getRemaining: Traversable[String] = remainingArgs
+  def remaining: Traversable[String] = remainingArgs
 
   /** Parse the given args. If an error was found, the first error is returned */
   def parse(args: String*): Try[this.type] = {

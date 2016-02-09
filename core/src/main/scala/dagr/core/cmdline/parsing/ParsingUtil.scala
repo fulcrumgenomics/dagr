@@ -33,7 +33,6 @@ import dagr.core.util.{PathUtil, ReflectionUtil}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.Map
-import scala.collection.mutable.ListBuffer
 
 /** Variables and Methods to support command line parsing */
 private[parsing] object ParsingUtil extends Configuration  {
@@ -65,9 +64,9 @@ private[parsing] object ParsingUtil extends Configuration  {
   //val KERROR: String = initializeColor("\u001B[35;7;1m") // BLINKING: "\u001B[35;5;1m"
 
   /** Useful for testing */
-  private def getClassToPropertyMapFromSourceClasses(srcClasses: Traversable[Class[_]],
-                                                              omitSubClassesOf: Iterable[Class[_]] = Nil,
-                                                              includeHidden: Boolean = false)
+  private def classToPropertyMapFromSourceClasses(srcClasses: Traversable[Class[_]],
+                                                  omitSubClassesOf: Iterable[Class[_]] = Nil,
+                                                  includeHidden: Boolean = false)
   : Map[PipelineClass, CLPAnnotation] = {
 
     // Filter out interfaces, synthetic, primitive, local, or abstract classes.
@@ -87,10 +86,10 @@ private[parsing] object ParsingUtil extends Configuration  {
       }.map(_.asInstanceOf[PipelineClass])
 
     // Get all the name collisions
-    var nameCollisions = new ListBuffer[String]()
-    classes.groupBy(_.getSimpleName).foreach { case (k, v) =>
-      if (v.size > 1) nameCollisions += v.mkString(", ")
-    }
+    val nameCollisions = classes
+      .groupBy(_.getSimpleName)
+      .filter { case (name, cs) => cs.size > 1 }
+      .map    { case (name, cs) => cs.mkString(", ") }
 
     // SimpleName should be unique
     if (nameCollisions.nonEmpty) {
@@ -121,7 +120,7 @@ private[parsing] object ParsingUtil extends Configuration  {
       classFinder.find(pkg, classOf[Pipeline])
     }
 
-    getClassToPropertyMapFromSourceClasses(
+    classToPropertyMapFromSourceClasses(
       srcClasses = classFinder.getClasses,
       omitSubClassesOf = omitSubClassesOf,
       includeHidden = includeHidden)
@@ -141,7 +140,7 @@ private[parsing] object ParsingUtil extends Configuration  {
     }
 
     try {
-      getFromString(resultType, unitType, value:_*)
+      typedValueFromString(resultType, unitType, value:_*)
     }
     catch {
       case e: NoSuchMethodException =>
@@ -151,7 +150,10 @@ private[parsing] object ParsingUtil extends Configuration  {
       case e: IllegalAccessException =>
         throw new CommandLineParserInternalException(s"String constructor for argument class ''${unitType.getSimpleName}'' must be public.", e)
       case e: InvocationTargetException =>
-        throw new BadArgumentValue(s"Problem constructing '${unitType.getSimpleName}' from the string${plural(value.size)} '" + value.toList.mkString(", ") + "'.")
+        throw new BadArgumentValue(
+          s"Problem constructing '${unitType.getSimpleName}' from the string${plural(value.size)} '" +
+            value.toList.mkString(", ") + "'."
+        )
     }
   }
 
@@ -159,65 +161,69 @@ private[parsing] object ParsingUtil extends Configuration  {
     * Attempts to construct one or more unitType values from Strings, and return them as the resultType. Handles
     * the creation of and packaging into collections as necessary.
     */
-  def getFromString(resultType: Class[_], unitType: Class[_], value: String*): Any = {
-    resultType match {
-      case clazz if ReflectionUtil.isCollectionClass(clazz) =>
-        val typedValues = value.map(v => getUnitFromStringBuilder(unitType, v)).asInstanceOf[Seq[java.lang.Object]]
+  def typedValueFromString(resultType: Class[_], unitType: Class[_], value: String*): Any = {
+    if (ReflectionUtil.isCollectionClass(resultType)) {
+      val typedValues = value.map(v => buildUnitFromString(unitType, v)).asInstanceOf[Seq[java.lang.Object]]
 
-        // Condition for the collection type
-        if (ReflectionUtil.isJavaCollectionClass(clazz)) {
-          try {
-            ReflectionUtil.newJavaCollectionInstance(clazz.asInstanceOf[Class[java.util.Collection[AnyRef]]], typedValues)
-          }
-          catch {
-            case e: IllegalArgumentException =>
-              throw new CommandLineParserInternalException(s"Collection of type '${resultType.getSimpleName}' cannot be constructed or auto-initialized with a known type.")
-          }
+      // Condition for the collection type
+      if (ReflectionUtil.isJavaCollectionClass(resultType)) {
+        try {
+          ReflectionUtil.newJavaCollectionInstance(resultType.asInstanceOf[Class[java.util.Collection[AnyRef]]], typedValues)
         }
-        else if (ReflectionUtil.isSeqClass(clazz) || ReflectionUtil.isSetClass(clazz)) {
-          ReflectionUtil.newScalaCollection(clazz.asInstanceOf[Class[_ <: Iterable[_]]], typedValues)
+        catch {
+          case e: IllegalArgumentException =>
+            throw new CommandLineParserInternalException(
+              s"Collection of type '${resultType.getSimpleName}' cannot be constructed or auto-initialized with a known type."
+            )
         }
-        else {
-          throw new CommandLineParserInternalException(s"Unknown collection type '${resultType.getSimpleName}'")
-        }
-      case clazz =>
-        if (value.size != 1) throw new CommandLineException(s"Expecting a single argument to convert to ${resultType.getSimpleName} but got ${value.size}")
-        getUnitOrOptionFromString(resultType, unitType, value.head)
+      }
+      else if (ReflectionUtil.isSeqClass(resultType) || ReflectionUtil.isSetClass(resultType)) {
+        ReflectionUtil.newScalaCollection(resultType.asInstanceOf[Class[_ <: Iterable[_]]], typedValues)
+      }
+      else {
+        throw new CommandLineParserInternalException(s"Unknown collection type '${resultType.getSimpleName}'")
+      }
+    }
+    else if (value.size != 1) {
+      throw new CommandLineException(s"Expecting a single argument to convert to ${resultType.getSimpleName} but got ${value.size}")
+    }
+    else {
+        buildUnitOrOptionFromString(resultType, unitType, value.head)
     }
   }
-
-
 
   /**
     * Supports any class with a string constructor, [[Enum]], and [[java.nio.file.Path]].  If the class is an [[Option]],
     * it will either return `None` if `s == null`, or `Some` object wrapping the an object of the wrapped type.
     */
-  private def getUnitOrOptionFromString(resultType: Class[_], unitType: Class[_], value: String): Any = {
-    val unit = getUnitFromStringBuilder(unitType, value)
+  private def buildUnitOrOptionFromString(resultType: Class[_], unitType: Class[_], value: String): Any = {
+    val unit = buildUnitFromString(unitType, value)
     if (resultType == classOf[Option[_]]) Option(unit)
     else unit
   }
 
   /** Attempts to construct a single value of unitType from the provided String and return it. */
-  private def getUnitFromStringBuilder(unitType: Class[_], value: String) : Any = {
-    ReflectionUtil.ifPrimitiveThenWrapper(unitType) match {
-      case clazz if clazz.isEnum =>
-        lazy val badArgumentString = s"'$value' is not a valid value for ${clazz.getSimpleName}. " + ClpArgumentDefinitionPrinting.getEnumOptions(clazz.asInstanceOf[Class[_ <: Enum[_ <: Enum[_]]]])
-        val maybeEnum = clazz.getEnumConstants.map(_.asInstanceOf[Enum[_]]).find(e => e.name() == value)
-        maybeEnum.getOrElse(throw new BadArgumentValue(badArgumentString))
-      case clazz if clazz == classOf[Path] =>
-        PathUtil.pathTo(value)
+  private def buildUnitFromString(unitType: Class[_], value: String) : Any = {
+    val clazz = ReflectionUtil.ifPrimitiveThenWrapper(unitType)
+    if (clazz.isEnum) {
+      lazy val badArgumentString = s"'$value' is not a valid value for ${clazz.getSimpleName}. " +
+        ClpArgumentDefinitionPrinting.enumOptions(clazz.asInstanceOf[Class[_ <: Enum[_ <: Enum[_]]]])
+      val maybeEnum = clazz.getEnumConstants.map(_.asInstanceOf[Enum[_]]).find(e => e.name() == value)
+      maybeEnum.getOrElse(throw new BadArgumentValue(badArgumentString))
+    }
+    else if (clazz == classOf[Path]) {
+      PathUtil.pathTo(value)
+    }
+    else if (clazz == classOf[Option[_]]) {
       // unitType shouldn't be an option, since it's supposed to the type *inside* any containers
-      case clazz if clazz == classOf[Option[_]] =>
-        throw new CommandLineParserInternalException(s"Cannot construct an '${unitType.getSimpleName}' from a string.  Is this an Option[Option[...]]?")
-      case clazz =>
-        if (clazz == classOf[java.lang.Object]) value
-        else {
+      throw new CommandLineParserInternalException(s"Cannot construct an '${unitType.getSimpleName}' from a string.  Is this an Option[Option[...]]?")
+    }
+    else if (clazz == classOf[java.lang.Object]) value
+    else {
           import java.lang.reflect.Constructor
           val ctor: Constructor[_] = clazz.getDeclaredConstructor(classOf[String])
           ctor.setAccessible(true)
           ctor.newInstance(value)
-        }
     }
   }
 

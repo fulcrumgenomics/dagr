@@ -1,6 +1,6 @@
 package dagr.core.util
 
-import java.lang.reflect.{InvocationTargetException, Constructor}
+import java.lang.reflect.{Constructor, InvocationTargetException}
 
 import dagr.core.cmdline._
 
@@ -39,8 +39,10 @@ class ReflectiveBuilder[T](val clazz: Class[T]) {
 
   /** Picks the constructor that should be used. Can be overridden by child classes. */
   protected def pickConstructor(constructors: Seq[MethodSymbol]) : MethodSymbol = {
-    if (constructors.size == 1) constructors.head
-    else throw new IllegalArgumentException(s"${clazz.getSimpleName} must have 1 public constructor, but has ${constructors.size}.")
+    constructors match {
+      case Seq(ctor) => ctor
+      case _ => throw new IllegalArgumentException(s"${clazz.getSimpleName} must have 1 public constructor, but has ${constructors.size}.")
+    }
   }
 
   /** Uses some horribly hacky reflection to grab the Java constructor object from the scala one. */
@@ -58,41 +60,40 @@ class ReflectiveBuilder[T](val clazz: Class[T]) {
     */
   protected def extractParameterInformation(constructor : MethodSymbol): Unit = {
     if (constructor.paramLists.size > 1) throw new IllegalArgumentException("Constructors with more than one parameter list are not supported.")
+    else if (constructor.paramLists.nonEmpty) {
+      // More reflection objects that are needed to extract everything
+      val hasCompanion = clazzSymbol.companion.isModule
+      val companionObject = if (hasCompanion) Some(clazzSymbol.companion.asModule) else None
+      val instanceMirror = if (hasCompanion) Some(mirror reflect (mirror reflectModule companionObject.get).instance) else None
+      val companionMembers = if (hasCompanion) Some(instanceMirror.get.symbol.typeSignature) else None
 
-    // More reflection objects that are needed to extract everything
-    val hasCompanion     = clazzSymbol.companion.isModule
-    val companionObject  = if (hasCompanion) Some(clazzSymbol.companion.asModule) else None
-    val instanceMirror   = if (hasCompanion) Some(mirror reflect (mirror reflectModule companionObject.get).instance) else None
-    val companionMembers = if (hasCompanion) Some(instanceMirror.get.symbol.typeSignature) else None
+      constructor.paramLists.head.zipWithIndex.foreach { case (param, index) =>
+        val name = param.name.toString
+        val paramType = param.typeSignature
+        if (paramType.typeArgs.size > 1) throw new CommandLineException(s"Parameter $name has multiple generic types and that is not currently supported")
 
-    constructor.paramLists.head.zipWithIndex.foreach { case (param, index) =>
-      val name = param.name.toString
-      val paramType = param.typeSignature
-      if (paramType.typeArgs.size > 1) throw new CommandLineException(s"Parameter $name has multiple generic types and that is not currently supported")
+        val paramClass = ReflectionUtil.typeToClass(paramType)
+        val paramUnitType = if (paramType.typeArgs.size == 1) paramType.typeArgs.head else paramType
+        val paramUnitClass = ReflectionUtil.typeToClass(paramUnitType)
+        val paramPrimitiveClass = ReflectionUtil.ifPrimitiveThenWrapper(paramUnitClass)
 
-      val paramClass = ReflectionUtil.typeToClass(paramType)
-      val paramUnitType = if (paramType.typeArgs.size == 1) paramType.typeArgs.head else paramType
-      val paramUnitClass = ReflectionUtil.typeToClass(paramUnitType)
-      val paramPrimitiveClass = ReflectionUtil.ifPrimitiveThenWrapper(paramUnitClass)
+        val paramTypeName = paramUnitType match {
+          case ref: TypeRef => ref.sym.name.toString
+          case _ => paramType.typeSymbol.asClass.name.decodedName.toString
+        }
 
-      val paramTypeName = paramUnitType match {
-        case ref: TypeRef => ref.sym.name.toString
-        case _ => paramType.typeSymbol.asClass.name.decodedName.toString
+        // Sort out the default argument if one exists
+        var defaultValue: Option[_] = None
+        if (hasCompanion) {
+          val defarg = companionMembers.get.member(TermName("$lessinit$greater$default$" + (index + 1)))
+          if (defarg != NoSymbol) defaultValue = Option(instanceMirror.get.reflectMethod(defarg.asMethod)())
+        }
+
+        this.argumentLookup add buildArgument(
+          param = param, declaringClass = clazz, index = index, name = name, defaultValue = defaultValue,
+          argumentType = paramClass, unitType = paramUnitClass, constructableType = paramPrimitiveClass, typeName = paramTypeName
+        )
       }
-
-      // Sort out the default argument if one exists
-      var defaultValue : Option[_] = None
-      if (hasCompanion) {
-        val defarg = companionMembers.get.member(TermName("$lessinit$greater$default$" + (index + 1)))
-        if (defarg != NoSymbol) defaultValue = Option(instanceMirror.get.reflectMethod(defarg.asMethod)())
-      }
-
-      val jParam = jConstructor.getParameters()(index)
-
-      this.argumentLookup add buildArgument(
-        param=param, declaringClass=clazz, index=index, name=name, defaultValue=defaultValue,
-        argumentType = paramClass, unitType=paramUnitClass, constructableType = paramPrimitiveClass, typeName=paramTypeName
-      )
     }
   }
 
@@ -134,9 +135,12 @@ class ReflectiveBuilder[T](val clazz: Class[T]) {
   }
 
   /** Attempts to build an instance using only default values. Will fail if any argument does not have a default. */
-  def buildDefault() : T = {
-    build(this.argumentLookup.ordered.map(a => a.value.get))
-  }
+  def buildDefault() : T = build(this.argumentLookup.ordered.map { a =>
+    a.value match {
+      case Some(v) => v
+      case None => throw new IllegalArgumentException(s"No default value for '${a.name}'")
+    }
+  })
 }
 
 
@@ -165,7 +169,7 @@ class ArgumentLookup[ArgType <: Argument](args: ArgType*) {
   def ordered : Seq[ArgType] = argumentDefinitions.toList.sortBy(_.index)
 
   /** Returns the ArgumentDefinition, if one exists, for the provided field name. */
-  def forField(fieldName: String) : Option[ArgType] = this.byFieldName.get(fieldName)
+  def fieldFor(fieldName: String) : Option[ArgType] = this.byFieldName.get(fieldName)
 }
 
 
@@ -205,7 +209,7 @@ class Argument(val declaringClass: Class[_],
   private var _value : Option[Any] = if (argumentType == classOf[Option[_]] && defaultValue.isEmpty) Some(None) else defaultValue
 
   /** Retrieves the current set value of the argument. */
-  def value = this._value
+  def value: Option[Any] = this._value
 
   /** Sets the value of the argument.  Passing null will cause the value to be set to None. */
   def value_=(value: Any): Unit = {
@@ -213,12 +217,12 @@ class Argument(val declaringClass: Class[_],
   }
 
   /** Gets the descriptive name of the Type of the field that should be used in printed output. */
-  def getTypeDescription: String = typeName
+  def typeDescription: String = typeName
 
   /** true if the field has been set, either by a default value or by the user */
   def hasValue: Boolean = _value match {
     case None               => false
-    case x if isCollection  => !ReflectionUtil.isEmptyCollection(this._value.get)
+    case _ if isCollection  => !ReflectionUtil.isEmptyCollection(this._value.get)
     case _                  => true
   }
 }

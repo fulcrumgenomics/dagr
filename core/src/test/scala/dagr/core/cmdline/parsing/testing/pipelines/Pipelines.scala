@@ -25,7 +25,7 @@ package dagr.core.cmdline.parsing.testing.pipelines
 
 import dagr.core.cmdline._
 import dagr.core.cmdline.parsing.TestGroup
-import dagr.core.tasksystem.{Pipeline, Task}
+import dagr.core.tasksystem.Pipeline
 
 @CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] class CommandLineTaskTesting extends Pipeline {

@@ -31,28 +31,28 @@ import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals}
 import scala.collection.mutable.ListBuffer
 
 object CollectTargetedPcrMetrics {
-  def getPerTargetName(metricsFile: Path): Path = {
+  def perTargetMetricsPath(metricsFile: Path): Path = {
     PathUtil.pathTo(metricsFile.toString + ".per_target")
   }
 
-  def getMetricsExtension: String = ".targeted_pcr_metrics"
+  def metricsExtension: String = ".targeted_pcr_metrics"
 }
 
 class CollectTargetedPcrMetrics(in: PathToBam,
                                 prefix: Option[Path],
                                 ref: PathToFasta,
                                 targets: PathToIntervals)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in = in, prefix = prefix) {
 
-  override def getMetricsExtension: String = CollectTargetedPcrMetrics.getMetricsExtension
+  override def metricsExtension: String = CollectTargetedPcrMetrics.metricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
-    buffer.append("O=" + getMetricsFile)
+    buffer.append("O=" + metricsFile)
     buffer.append("R=" + ref)
     buffer.append("TARGET_INTERVALS=" + targets)
     buffer.append("AMPLICON_INTERVALS=" + targets)
     buffer.append("LEVEL=ALL_READS")
-    buffer.append("PER_TARGET_COVERAGE=" + CollectTargetedPcrMetrics.getPerTargetName(getMetricsFile))
+    buffer.append("PER_TARGET_COVERAGE=" + CollectTargetedPcrMetrics.perTargetMetricsPath(metricsFile))
   }
 }

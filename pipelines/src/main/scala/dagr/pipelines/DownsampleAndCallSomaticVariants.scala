@@ -25,17 +25,17 @@ package dagr.pipelines
 
 import java.text.DecimalFormat
 
-import _root_.picard.analysis.directed.HsMetrics
 import dagr.core.cmdline.{Arg, CLP}
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.tasksystem.{NoOpInJvmTask, Callbacks, SimpleInJvmTask, Pipeline}
+import dagr.core.tasksystem.{Callbacks, NoOpInJvmTask, Pipeline, SimpleInJvmTask}
 import dagr.core.util.Io
 import dagr.tasks.jeanluc.FilterBam
-import dagr.tasks.picard.{DownsamplingStrategy, DownsampleSam, CollectHsMetrics}
-import dagr.tasks._
+import dagr.tasks.picard.{CollectHsMetrics, DownsampleSam, DownsamplingStrategy}
+import dagr.tasks.{DirPath, FilePath, PathToBam, PathToFasta, PathToIntervals}
 import htsjdk.samtools.metrics.MetricsFile
+import picard.analysis.directed.HsMetrics
 
-import collection.JavaConversions._
+import scala.collection.JavaConversions._
 
 /**
   * Pipeline to downsample a Tumor to a specific median coverage level (per CollectHsMetrics)
@@ -50,7 +50,7 @@ import collection.JavaConversions._
 class DownsampleAndCallSomaticVariants(
    @Arg(flag="t", doc="Tumor BAM file")                          val tumorBam:  PathToBam,
    @Arg(flag="n", doc="Normal BAM file")                         val normalBam: PathToBam,
-   @Arg(flag="r", doc="Reference FASTA file")                    val reference: PathToFasta,
+   @Arg(flag="r", doc="Reference FASTA file")                    val ref: PathToFasta,
    @Arg(flag="l", doc="Regions to call over")                    val intervals: PathToIntervals,
    @Arg(          doc="One or more coverage levels to call at.") val coverage:  Seq[Int],
    @Arg(flag="o", doc="Output directory")                        val output:    DirPath)
@@ -66,22 +66,23 @@ class DownsampleAndCallSomaticVariants(
 
     val filterTumor  = new FilterBam(tumorBam,  filteredTumor,  Some(intervals))
     val filterNormal = new FilterBam(normalBam, filteredNormal, Some(intervals))
-    val hsMetrics    = new CollectHsMetrics(in=filteredTumor, ref=reference, targets=intervals)
-    val fetchMedian  = new FetchMedianCoverage(hsMetrics.getMetricsFile)
+    val hsMetrics    = new CollectHsMetrics(in=filteredTumor, ref=ref, targets=intervals)
+    val fetchMedian  = new FetchMedianCoverage(hsMetrics.metricsFile)
 
     root ==> (filterTumor :: filterNormal)
     filterTumor ==> hsMetrics ==> fetchMedian
 
     // Build a calling workflow for each coverage level
     val callers = coverage.foreach(cov => {
-      val call = new DsAndCallOnce(tumorBam=filteredTumor, normalBam=filteredNormal, reference=reference, intervals=intervals, outputPrefix=output.resolve(pad(cov)))
+      val prefix = output.resolve(pad(cov))
+      val call = new DsAndCallOnce(tumorBam=filteredTumor, normalBam=filteredNormal, ref=ref, intervals=intervals, outputPrefix=prefix)
       fetchMedian ==> call
       Callbacks.connect(call, fetchMedian) { (c,f) => c.downsamplingP = cov / f.medianCoverage.get.toDouble }
     })
   }
 
   /** Pads out a coverage number to a 3-digit String, and adds X on the end. */
-  def pad(i : Int) = new DecimalFormat("000").format(i) + "X"
+  def pad(i : Int): String = new DecimalFormat("000").format(i) + "X"
 }
 
 /**
@@ -90,7 +91,7 @@ class DownsampleAndCallSomaticVariants(
   */
 private class DsAndCallOnce(val tumorBam:  PathToBam,
                             val normalBam: PathToBam,
-                            val reference: PathToFasta,
+                            val ref: PathToFasta,
                             val intervals: PathToIntervals,
                             val outputPrefix: DirPath,
                             var downsamplingP: Double = 1) extends Pipeline {
@@ -101,9 +102,11 @@ private class DsAndCallOnce(val tumorBam:  PathToBam,
       root ==> new NoOpInJvmTask("NoOp")
     }
     else {
+      val strat = Some(DownsamplingStrategy.HighAccuracy)
       val dsBam = outputPrefix.getParent.resolve(outputPrefix.getFileName.toString + ".tumor.bam")
-      val downsample = new DownsampleSam(in=tumorBam, out=dsBam, proportion=downsamplingP, strategy=Some(DownsamplingStrategy.HighAccuracy)).requires(Cores(1), Memory("32g"))
-      val callOnce = new TumorNormalVariantCallingPipeline(tumorBam=dsBam, normalBam=normalBam, reference=reference, intervals=intervals, outputPrefix=outputPrefix)
+
+      val downsample = new DownsampleSam(in=tumorBam, out=dsBam, proportion=downsamplingP, strategy=strat).requires(Cores(1), Memory("32g"))
+      val callOnce = new SomaticVariantCallingPipeline(tumorBam=dsBam, normalBam=normalBam, ref=ref, intervals=intervals, outputPrefix=outputPrefix)
       root ==> downsample ==> callOnce
     }
   }

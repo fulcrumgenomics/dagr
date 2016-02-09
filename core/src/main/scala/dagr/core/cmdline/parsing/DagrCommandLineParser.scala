@@ -23,13 +23,17 @@
  */
 package dagr.core.cmdline.parsing
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 import dagr.core.cmdline._
+import dagr.core.cmdline.parsing.CommandLineParserStrings.UsagePrefix
+import dagr.core.cmdline.parsing.ParsingUtil._
 import dagr.core.config.Configuration
-import dagr.core.tasksystem.{ValidationException, Pipeline}
-import dagr.core.util.{PathUtil, StringUtil}
+import dagr.core.tasksystem.{Pipeline, ValidationException}
 import dagr.core.util.StringUtil._
+import dagr.core.util.{PathUtil, StringUtil}
+import DagrCommandLineParserStrings._
+import ParsingUtil._
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
@@ -37,33 +41,37 @@ import scala.collection.{Map, Set, mutable}
 
 /** Stores strings used in the usage and error messages */
 private[parsing] object DagrCommandLineParserStrings {
-  val AVAILABLE_PIPELINES = "Available Pipelines:"
+  val AvailablePipelines = "Available Pipelines:"
+  val MissingPipelineName = "No pipeline name given."
+  val SeparatorLine = wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM)
+  val PipelineGroupNameColumnLength = 48
+  val PipelineGroupDescriptionColumnLength = 45
+  val PipelineNameColumnLength = 45
 
-  def getUnknownPipeline(commandLineName: String): String = {
+  def unknownPipelineErrorMessage(commandLineName: String): String = {
     s"No known pipeline name found.  If using --scripts, try using '--' separator between $commandLineName options and Pipeline name."
   }
 
-  val MISSING_PIPELINE_NAME = "No pipeline name given."
-
-  def getUnknownCommand(command: String): String = {
+  def unknownCommandErrorMessage(command: String): String = {
     s"'$command' is not a valid command. See DagrCommandLine --help for more information."
   }
 }
 
+private[cmdline] object DagrCommandLineParser {
+  /** The maximum line lengths for pipeline descriptions */
+  val MaximumLineLength = 80
+
+  /** Similarity floor for matching in printUnknown **/
+  val HelpSimilarityFloor: Int = 7
+  val MinimumSubstringLength: Int = 5
+}
+
 /** Methods for parsing among top level command line tasks */
 private[cmdline] class DagrCommandLineParser(val commandLineName: String, val includeHidden: Boolean = false) {
-  import ParsingUtil._
-  import CommandLineParserStrings._
-  import DagrCommandLineParserStrings._
+  import DagrCommandLineParser._
 
   /** Wraps an error string in terminal escape codes for display. */
   private def wrapError(s: String) : String = StringUtil.wrapString(KERROR, s, KNRM)
-
-  private val SeparatorLine = wrapString(KWHT, s"--------------------------------------------------------------------------------------\n", KNRM)
-
-  private val PipelineGroupNameColumnLength = 48
-  private val PipelineGroupDescriptionColumnLength = 45
-  private val PipelineNameColumnLength = 45
 
   /**
     * Main entry point for the class, takes in the array of arguments from the command line, figueres out
@@ -83,8 +91,8 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
     // Parse the args for Dagr
     val mainClass = classOf[DagrCoreMain]
     val dagrArgParser = new CommandLineParser(mainClass) {
-      override protected def getStandardUsagePreamble: String = {
-        s"$KRED$USAGE_PREFIX $KBLDRED$commandLineName$KNRM$KRED [$commandLineName arguments] -- [Task Name] [task arguments]$KNRM\n\n"
+      override protected def standardUsagePreamble: String = {
+        s"$KRED$UsagePrefix $KBLDRED$commandLineName$KNRM$KRED [$commandLineName arguments] -- [Task Name] [task arguments]$KNRM\n\n"
       }
       override protected def targetName: String = Configuration.commandLineName
     }
@@ -93,34 +101,42 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
     val errorMessageBuilder: mutable.StringBuilder = new StringBuilder()
     val (dagrArgs, pipelineArgs) = splitArgs(args, packageList, Seq(classOf[DagrCoreMain]), errorMessageBuilder, includeHidden = this.includeHidden)
 
-    if (pipelineArgs.isEmpty) {
-      val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden).keys.toSet
-      print(dagrArgParser.usage())
-      print(pipelineListUsage(classes, Configuration.commandLineName))
-      print(getUnknownPipeline(Configuration.commandLineName))
-      None
-    }
-    else {
-      /////////////////////////////////////////////////////////////////////////
-      // Try parsing and building DagrMain and handle the outcomes
-      /////////////////////////////////////////////////////////////////////////
-      dagrArgParser.parseAndBuild(errorMessageBuilder=errorMessageBuilder, args=dagrArgs) match {
-        case ParseResult.Failure =>
-          print(dagrArgParser.usage())
+
+    /////////////////////////////////////////////////////////////////////////
+    // Try parsing and building DagrMain and handle the outcomes
+    /////////////////////////////////////////////////////////////////////////
+    dagrArgParser.parseAndBuild(errorMessageBuilder=errorMessageBuilder, args=dagrArgs) match {
+      case ParseResult.Failure =>
+        print(dagrArgParser.usage())
+        if (pipelineArgs.isEmpty) {
+          val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden).keys.toSet
+          print(pipelineListUsage(classes, Configuration.commandLineName))
+          print(unknownPipeline(Configuration.commandLineName))
+        }
+        else {
           print(wrapError(errorMessageBuilder.toString()))
-          None
-        case ParseResult.Help =>
+        }
+        None
+      case ParseResult.Help =>
+        val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden).keys.toSet
+        print(dagrArgParser.usage())
+        print(pipelineListUsage(classes, Configuration.commandLineName))
+        None
+      case ParseResult.Version =>
+        print(dagrArgParser.version)
+        None
+      case ParseResult.Success =>
+        /////////////////////////////////////////////////////////////////////////
+        // Get setup, and attempt to ID and load the pipeline class
+        /////////////////////////////////////////////////////////////////////////
+        if (pipelineArgs.isEmpty) {
           val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden).keys.toSet
           print(dagrArgParser.usage())
           print(pipelineListUsage(classes, Configuration.commandLineName))
+          print(unknownPipelineErrorMessage(Configuration.commandLineName))
           None
-        case ParseResult.Version =>
-          print(dagrArgParser.version)
-          None
-        case ParseResult.Success =>
-          /////////////////////////////////////////////////////////////////////////
-          // Get setup, and attempt to ID and load the pipeline class
-          /////////////////////////////////////////////////////////////////////////
+        }
+        else {
           val dagr = dagrArgParser.instance.get
 
           // Load any Dagr scripts and add them to the classpath.
@@ -166,14 +182,19 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
                       None
                   }
               }
+
           }
-      }
+        }
     }
   }
 
   private def loadScripts(clp: DagrCoreMain): Unit = {
     val scriptLoader = new DagrScriptManager
-    scriptLoader.loadScripts(clp.scripts, Files.createTempDirectory(PathUtil.pathTo(System.getProperty("java.io.tmpdir")), "dagrScripts"), quiet = false)
+    scriptLoader.loadScripts(
+      clp.scripts,
+      Files.createTempDirectory(PathUtil.pathTo(System.getProperty("java.io.tmpdir")), "dagrScripts"),
+      quiet = false
+    )
   }
 
   /** Splits the given args into two Arrays, first splitting based on a "--", and if not found,
@@ -195,8 +216,8 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
           case Some(n) => args.splitAt(n)
           case None => (args, Array[String]())
         }
-      case n  =>
-        (args.take(n), args.drop(n+1))
+      case idx =>
+        (args.take(idx), args.drop(idx+1))
     }
   }
 
@@ -208,7 +229,7 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
     val classes: Set[PipelineClass] = classToPropertyMap.keySet
 
     if (args.length < 1) {
-      Right(MISSING_PIPELINE_NAME)
+      Right(MissingPipelineName)
     }
     else {
       val clazzOption: Option[PipelineClass] = classes.find(clazz => 0 == args(0).compareTo(clazz.getSimpleName))
@@ -227,7 +248,7 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
     */
   private def pipelineListUsage(classes: Set[PipelineClass], commandLineName: String): String = {
     val builder = new StringBuilder
-    builder.append(wrapString(KBLDRED, s"$AVAILABLE_PIPELINES\n", KNRM))
+    builder.append(wrapString(KBLDRED, s"$AvailablePipelines\n", KNRM))
     val taskGroupClassToTaskGroupInstance: mutable.Map[Class[_ <: PipelineGroup], PipelineGroup] = new mutable.HashMap[Class[_ <: PipelineGroup], PipelineGroup]
     val tasksByGroup: java.util.Map[PipelineGroup, ListBuffer[PipelineClass]] = new java.util.TreeMap[PipelineGroup, ListBuffer[PipelineClass]]()
     val tasksToProperty: mutable.Map[PipelineClass, CLPAnnotation] = new mutable.HashMap[PipelineClass, CLPAnnotation]
@@ -237,24 +258,19 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
         case None => throw new BadAnnotationException(s"The class '${clazz.getSimpleName}' is missing the required CommandLineTaskProperties annotation.")
         case Some(clp) =>
           tasksToProperty.put(clazz, clp)
-          var pipelineGroup: Option[PipelineGroup] = taskGroupClassToTaskGroupInstance.get(clp.group)
-          if (pipelineGroup.isEmpty) {
-            try {
-              pipelineGroup = Some(clp.group.newInstance)
-            }
-            catch {
-              case e: InstantiationException => throw new RuntimeException(e)
-              case e: IllegalAccessException => throw new RuntimeException(e)
-            }
-            taskGroupClassToTaskGroupInstance.put(clp.group, pipelineGroup.get)
+          val pipelineGroup: PipelineGroup = taskGroupClassToTaskGroupInstance.get(clp.group) match {
+            case Some(group) => group
+            case None =>
+              val group: PipelineGroup = clp.group.newInstance
+              taskGroupClassToTaskGroupInstance.put(clp.group, group)
+              group
           }
-          var pipelines: ListBuffer[PipelineClass] = tasksByGroup.get(pipelineGroup.get)
-          if (null == pipelines) {
-            pipelines = ListBuffer[PipelineClass](clazz)
-            tasksByGroup.put(pipelineGroup.get, pipelines)
-          }
-          else {
-            pipelines.add(clazz)
+          Option(tasksByGroup.get(pipelineGroup)) match {
+            case Some(pipelines) =>
+              pipelines.add(clazz)
+            case None =>
+              val pipelines = ListBuffer[PipelineClass](clazz)
+              tasksByGroup.put(pipelineGroup, pipelines)
           }
       }
     }
@@ -270,7 +286,8 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
         .foreach{clazz =>
           val clpAnnotation: CLPAnnotation = tasksToProperty.get(clazz).get
           if (clazz.getSimpleName.length >= PipelineNameColumnLength) {
-            builder.append(wrapString(KGRN, String.format(s"    %s    %s\n", clazz.getSimpleName, wrapString(KCYN, formatShortDescription(clpAnnotation.description))), KNRM))
+            builder.append(wrapString(KGRN, String.format(s"    %s    %s\n",
+              clazz.getSimpleName, wrapString(KCYN, formatShortDescription(clpAnnotation.description))), KNRM))
           }
           else {
             builder.append(wrapString(KGRN, String.format(s"    %-${PipelineNameColumnLength}s%s\n",
@@ -283,8 +300,6 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
     builder.toString()
   }
 
-  /** The maximum line lengths for pipeline descriptions */
-  private val MaximumLineLength = 80
 
   /** find the first period (".") and keep only everything before it **/
   private def formatShortDescription(description: String): String = {
@@ -297,9 +312,6 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
     }
   }
 
-  /** Similarity floor for matching in printUnknown **/
-  private val HELP_SIMILARITY_FLOOR: Int = 7
-  private val MINIMUM_SUBSTRING_LENGTH: Int = 5
 
   /** When a command does not match any known command, searches for similar commands, using the same method as GIT **/
   private def unknownPipelineError(classes: Set[PipelineClass], command: String) : String = {
@@ -312,7 +324,7 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
       if (name == command) {
         throw new CommandLineParserInternalException("Command matches when searching for the unknown: " + command)
       }
-      val distance: Int = if (name.startsWith(command) || (MINIMUM_SUBSTRING_LENGTH <= command.length && name.contains(command))) {
+      val distance: Int = if (name.startsWith(command) || (MinimumSubstringLength <= command.length && name.contains(command))) {
         0
       }
       else {
@@ -323,15 +335,15 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
         bestDistance = distance
         bestN = 1
       }
-      else if (distance == bestDistance) {
+      else if(distance == bestDistance) {
         bestN += 1
       }
     }
     if (0 == bestDistance && bestN == classes.size) {
-      bestDistance = HELP_SIMILARITY_FLOOR + 1
+      bestDistance = HelpSimilarityFloor + 1
     }
-    builder.append(s"${getUnknownCommand(command)}\n")
-    if (bestDistance < HELP_SIMILARITY_FLOOR) {
+    builder.append(s"${unknownCommandErrorMessage(command)}\n")
+    if (bestDistance < HelpSimilarityFloor) {
       builder.append(String.format("Did you mean %s?\n", if (bestN < 2) "this" else "one of these"))
       builder.append(classes.filter(bestDistance == distances.get(_).get).mkString("\n        "))
     }

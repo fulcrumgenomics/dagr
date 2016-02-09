@@ -31,56 +31,56 @@ private[core] object CommandLineException {
 
 /** Base class for all exceptions thrown by the command line parsing */
 private[core] class CommandLineException(msg: String) extends RuntimeException(msg) {
-  def this(msg: String, e: Exception) {
+  def this(msg: String, e: Exception) = {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when the user forgets to specify an argument */
 private[core] case class MissingArgumentException(msg: String) extends CommandLineException(msg = msg) {
-  def this(msg: String, e: Exception) {
+  def this(msg: String, e: Exception) = {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when the user forgets to specify an annotation */
 private[core] case class MissingAnnotationException(msg: String) extends CommandLineException(msg = msg) {
-  def this(msg: String, e: Exception) {
+  def this(msg: String, e: Exception) = {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when trying to convert to specific value */
 private[core] case class ValueConversionException(msg: String) extends CommandLineException(msg = msg) {
-  def this(msg: String, e: Exception) {
+  def this(msg: String, e: Exception) = {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when something internally goes wrong with command line parsing */
 private[core] case class CommandLineParserInternalException(msg: String) extends CommandLineException(msg = msg) {
-  def this(msg: String, e: Exception) {
+  def this(msg: String, e: Exception) = {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when something there is user error (never happens) */
 private[core] case class UserException(msg: String) extends CommandLineException(msg = msg) {
-  def this(msg: String, e: Exception) {
+  def this(msg: String, e: Exception) = {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when something the user gives a bad value */
 private[core] case class BadArgumentValue(msg: String) extends CommandLineException(msg = msg) {
-  def this(msg: String, e: Exception) {
+  def this(msg: String, e: Exception) = {
     this(CommandLineException.format(msg, e))
   }
 }
 
 /** Exception thrown when something the annotation on a field is incorrect. */
 private[core] case class BadAnnotationException(msg: String) extends CommandLineException(msg = msg) {
-  def this(msg: String, e: Exception) {
+  def this(msg: String, e: Exception) = {
     this(CommandLineException.format(msg, e))
   }
 }

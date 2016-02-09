@@ -24,7 +24,7 @@
 package dagr.core.util
 
 import java.io._
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 
 /**
  * IO Utility class for working with Path objects.
@@ -54,10 +54,10 @@ object Io {
 
   /** Asserts that the Paths represents files that can be opened and read. */
   def assertReadable(path: Path) : Unit = {
-    if (path == null)            throw new IllegalArgumentException("Cannot check readability of null path.")
-    if (Files.notExists(path))   throw new AssertionError("Cannot read non-existent path: " + path)
-    if (Files.isDirectory(path)) throw new AssertionError("Cannot read path because it is a directory: " + path)
-    if (!Files.isReadable(path)) throw new AssertionError("Path exists but is not readable: " + path)
+    if (path == null)                throw new IllegalArgumentException("Cannot check readability of null path.")
+    assert(!Files.notExists(path),   "Cannot read non-existent path: " + path)
+    assert(!Files.isDirectory(path), "Cannot read path because it is a directory: " + path)
+    assert(Files.isReadable(path),   "Path exists but is not readable: " + path)
   }
 
   /** Asserts that the Paths represent directories that can be listed. */
@@ -65,11 +65,11 @@ object Io {
 
   /** Asserts that the Path represents a directory that can be listed. */
   def assertListable(path: Path) : Unit = {
-    if (path == null)              throw new IllegalArgumentException("Cannot check readability of null path.")
-    if (Files.notExists(path))     throw new AssertionError("Cannot read non-existent path: " + path)
-    if (!Files.isDirectory(path))  throw new AssertionError("Cannot read path as file because it is a directory: " + path)
-    if (!Files.isReadable(path))   throw new AssertionError("Directory exists but is not readable: " + path)
-    if (!Files.isExecutable(path)) throw new AssertionError("Directory exists but is not readable: " + path)
+    if (path == null)                throw new IllegalArgumentException("Cannot check readability of null path.")
+    assert(!Files.notExists(path),   "Cannot read non-existent path: " + path)
+    assert(Files.isDirectory(path),  "Cannot read path as file because it is a directory: " + path)
+    assert(Files.isReadable(path),   "Directory exists but is not readable: " + path)
+    assert(Files.isExecutable(path), "Directory exists but is not readable: " + path)
   }
 
   /**
@@ -92,20 +92,19 @@ object Io {
     */
   def assertCanWriteFile(path: Path, parentMustExist: Boolean=true) : Unit = {
     if (path == null) throw new IllegalArgumentException("Cannot check writability of null path.")
-
     if (Files.exists(path)) {
-      if (!Files.isWritable(path)) throw new AssertionError("File exists but is not writable: " + path)
-      if (Files.isDirectory(path)) throw new AssertionError("Cannot write file because it is a directory: " + path)
+      assert(Files.isWritable(path),   "File exists but is not writable: " + path)
+      assert(!Files.isDirectory(path), "Cannot write file because it is a directory: " + path)
     }
     else {
       val absolute = path.toAbsolutePath
       val maybeParent = if (parentMustExist) Option(absolute.getParent) else findFirstExtentParent(absolute)
       maybeParent match {
-        case None => throw new AssertionError("Cannot write file because parent directory does not exist: " + path)
+        case None => assert(false,          "Cannot write file because parent directory does not exist: " + path)
         case Some(parent) =>
-          if (Files.notExists(parent))      throw new AssertionError("Cannot write file because parent directory does not exist: " + path)
-          if (!Files.isDirectory(parent))   throw new AssertionError("Cannot write file because parent exits and is not a directory: " + path)
-          if (!Files.isWritable(parent))    throw new AssertionError("Cannot write file because parent directory is not writable: " + path)
+          assert(!Files.notExists(parent),  "Cannot write file because parent directory does not exist: " + path)
+          assert(Files.isDirectory(parent), "Cannot write file because parent exits and is not a directory: " + path)
+          assert(Files.isWritable(parent),  "Cannot write file because parent directory is not writable: " + path)
       }
     }
   }
@@ -113,13 +112,12 @@ object Io {
   /** Asserts that a path represents an existing directory and that new files can be created within the directory. */
   def assertWritableDirectory(paths : TraversableOnce[_ <: Path]) : Unit = paths.foreach(assertWritableDirectory)
 
-
   /** Asserts that a path represents an existing directory and that new files can be created within the directory. */
   def assertWritableDirectory(path : Path) : Unit = {
-    if (path == null)             throw new IllegalArgumentException("Cannot check readability of null path.")
-    if (Files.notExists(path))    throw new AssertionError("Path does not exist: " + path)
-    if (!Files.isDirectory(path)) throw new AssertionError("Cannot write to path because it is not a directory: " + path)
-    if (!Files.isWritable(path))  throw new AssertionError("Directory exists but is not writable: " + path)
+    if (path == null)                throw new IllegalArgumentException("Cannot check readability of null path.")
+    assert(!Files.notExists(path),  "Path does not exist: " + path)
+    assert(Files.isDirectory(path), "Cannot write to path because it is not a directory: " + path)
+    assert(Files.isWritable(path),  "Directory exists but is not writable: " + path)
   }
 
   /**
@@ -139,9 +137,10 @@ object Io {
 
   /** Works its way up a path finding the first parent path that actually exists. */
   private[util] def findFirstExtentParent(p: Path) : Option[Path] = {
-    val parent = p.getParent
-    if (parent == null) None
-    else if (Files.exists(parent)) Some(parent)
-    else findFirstExtentParent(parent)
+    p.getParent match {
+      case null => None
+      case parent if Files.exists(parent) => Some(parent)
+      case parent => findFirstExtentParent(parent)
+    }
   }
 }

@@ -64,8 +64,8 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None) extends Task w
 
   /** Recursively navigates dependencies, starting from the supplied task, and add all children to this.tasks. */
   private def addChildren(task : Task) : Unit = {
-    tasks ++= task.getTasksDependingOnThisTask
-    task.getTasksDependingOnThisTask.foreach(addChildren)
+    tasks ++= task.tasksDependingOnThisTask
+    task.tasksDependingOnThisTask.foreach(addChildren)
   }
 
   /** True if we this pipeline is tracking this direct ancestor task, false otherwise. */

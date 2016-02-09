@@ -1,10 +1,10 @@
-import sbt._
+import com.typesafe.sbt.SbtGit.GitCommand
 import sbt.Keys._
+import sbt._
 import sbtassembly.AssemblyKeys.assembly
 import sbtassembly.MergeStrategy
-import com.typesafe.sbt.SbtGit.GitCommand
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys._
-import ReleaseTransformations._
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // We have the following "settings" in this build.sbt:
@@ -79,6 +79,7 @@ val docScalacOptions = Seq("-groups", "-implicits")
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Common settings for all projects
 ////////////////////////////////////////////////////////////////////////////////////////////////
+
 lazy val commonSettings = Seq(
   organization         := "com.fulcrumgenomics",
   organizationName     := "Fulcrum Genomics LLC",

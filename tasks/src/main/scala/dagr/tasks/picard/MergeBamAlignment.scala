@@ -23,9 +23,9 @@
  */
 package dagr.tasks.picard
 
-import dagr.core.execsystem.{Memory, Cores}
-import dagr.tasks.DataTypes.SamOrBam
+import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
+import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.{PathToBam, PathToFasta}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
@@ -51,10 +51,10 @@ class MergeBamAlignment( unmapped: PathToBam,
     buffer.append("O=" + out)
     buffer.append("R=" + ref)
     buffer.append("CLIP_ADAPTERS=false")
-    if (programGroupId.isDefined) buffer.append("PG=" + programGroupId.get)
-    if (programGroupVersion.isDefined) buffer.append("PG_VERSION=" + programGroupVersion.get)
-    if (programGroupCommand.isDefined) buffer.append("PG_COMMAND=\'" + programGroupCommand.get + "\'")
-    if (programGroupName.isDefined) buffer.append("PG_NAME=" + programGroupName.get)
+    programGroupId.foreach(pg => buffer.append("PG=" + pg))
+    programGroupVersion.foreach(version => buffer.append("PG_VERSION=" + version))
+    programGroupCommand.foreach(cmd => buffer.append("PG_COMMAND=\'" + cmd + "\'"))
+    programGroupName.foreach(name => buffer.append("PG_NAME=" + name))
     attributesToRetain.foreach(attr => buffer.append("ATTRIBUTES_TO_RETAIN=" + attr))
     buffer.append("ORIENTATIONS=" + orientation)
     buffer.append("SO=" + sortOrder.name())

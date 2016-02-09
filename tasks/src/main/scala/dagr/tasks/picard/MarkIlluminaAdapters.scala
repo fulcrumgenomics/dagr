@@ -26,8 +26,8 @@ package dagr.tasks.picard
 import java.nio.file.Path
 
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.tasks.DataTypes.SamOrBam
 import dagr.core.tasksystem.Pipe
+import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.PathToBam
 
 import scala.collection.mutable.ListBuffer
@@ -41,15 +41,15 @@ class MarkIlluminaAdapters(in: PathToBam,
                            prefix: Option[Path],
                            fivePrimeAdapter: Option[String] = None,
                            threePrimeAdapter: Option[String] = None)
-  extends PicardMetricsTask(input = out, prefix = prefix) with Pipe[SamOrBam,SamOrBam] {
+  extends PicardMetricsTask(in = out, prefix = prefix) with Pipe[SamOrBam,SamOrBam] {
   requires(Cores(1), Memory("1G"))
 
-  override def getMetricsExtension: String = MarkIlluminaAdapters.MetricsExtension
+  override def metricsExtension: String = MarkIlluminaAdapters.MetricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
     buffer.append("O=" + out)
-    buffer.append("M=" + getMetricsFile)
+    buffer.append("M=" + metricsFile)
     fivePrimeAdapter.foreach(v  => buffer.append("FIVE_PRIME_ADAPTER=" + v))
     threePrimeAdapter.foreach(v => buffer.append("THREE_PRIME_ADAPTER=" + v))
   }
