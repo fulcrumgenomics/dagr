@@ -47,3 +47,7 @@ private[cmdline] case class PipelineThree @CLPConstructor
 @CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class PipelineFour @CLPConstructor
 (@Arg var argument: String = "default", @Arg var flag: Boolean = false) extends CommandLineTaskTesting
+
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
+private[cmdline] case class PipelineReallyLooooooooooooooooooooooooooooooooooooooooooooooooooooooooongName @CLPConstructor
+() extends CommandLineTaskTesting
