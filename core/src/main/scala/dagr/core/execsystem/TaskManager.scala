@@ -293,6 +293,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
    * @param task the task to resubmit.
    * @return true if the task was successfully resubmitted, false otherwise.
    */
+  // This method fails occasionally, so there likely is a race condition.  Turning it off until `resubmit` is used.
+  /*
   override def resubmitTask(task: Task): Boolean = {
     taskIdFor(task) match {
       case Some(taskId) =>
@@ -315,6 +317,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
         false
     }
   }
+  */
 
   /** Compares two timestamp options.  If either option is empty, zero is returned. */
   private def compareOptionalTimestamps(left: Option[Timestamp], right: Option[Timestamp]): Int = (left, right) match {

@@ -371,7 +371,8 @@ trait TaskManagerState extends LazyLogging {
     * @param task the task to resubmit.
     * @return true if the task was successfully resubmitted, false otherwise.
     */
-  def resubmitTask(task: Task): Boolean
+  // Turning it off until `resubmit` is used.
+  //def resubmitTask(task: Task): Boolean
 
   /** Checks if we have failed tasks.
    *

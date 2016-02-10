@@ -263,8 +263,9 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     }
     else {
       // resubmit...
-      logger.debug("*** RESUBMIT TASK ***")
-      taskManager.resubmitTask(original) shouldBe true
+      throw new IllegalStateException("Resubmission has been removed")
+      //logger.debug("*** RESUBMIT TASK ***")
+      //taskManager.resubmitTask(original) shouldBe true
     }
 
     // run and check again
@@ -297,12 +298,15 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     }
   }
 
+  // This test fails occasionally, so there likely is a race condition.  Turning it off until `resubmit` is used.
+  /*
   it should "resubmit a task that failed and re-run to completion" in {
     val original: UnitTask = new RetryMutatorTask
     val taskManager: TaskManager = getDefaultTaskManager
 
     doTryAgain(original = original, replacement = null, replaceTask = false, taskManager = taskManager)
   }
+  */
 
   it should "return false when replacing an un-tracked task" in {
     val task: UnitTask = new ShellCommand("exit 0") withName "Blah"
@@ -310,11 +314,14 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.replaceTask(task, null) should be(false)
   }
 
+  // This test fails occasionally, so there likely is a race condition.  Turning it off until `resubmit` is used.
+  /*
   it should "return false when resubmitting an un-tracked task" in {
     val task: UnitTask = new ShellCommand("exit 0") withName "Blah"
     val taskManager: TaskManager = getDefaultTaskManager
     taskManager.resubmitTask(task) should be(false)
   }
+  */
 
   // ******************************************
   // onComplete success and failure
