@@ -109,11 +109,14 @@ class ArgTokenizer(args: TraversableOnce[String]) extends Iterator[Try[ArgTokeni
 
   /** Given an long name option string without the leading dashes, and returns the option name, and optionally
     * a value for that option if one exists.  The latter may happen if the long name and value are separated by an '='
-    * character.
+    * character.  If no value is give after the "=", the a failure is returned.
     */
   private def convertDoubleDashOption(input: String): Try[Token] = {
     val idx = input.indexOf('=')
-    if (0 <= idx && 2 < input.length - idx) Success(ArgOptionAndValue(name = input.substring(0, idx), value = input.substring(idx+1)))
-    else Success(ArgOption(name = input))
+    (input.take(idx), input.drop(idx+1)) match {
+      case (before, after) if before.isEmpty => Success(ArgOption(name = after))
+      case (before, after) if after.isEmpty => Failure(new OptionNameException(s"Cannot have a trailing '=' in option '$before'"))
+      case (before, after) => Success(ArgOptionAndValue(name = before, value = after))
+    }
   }
 }
