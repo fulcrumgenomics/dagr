@@ -26,7 +26,7 @@ package dagr.pipelines
 import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{ProcessTask, ShellCommand, Pipeline, ValidationException}
+import dagr.core.tasksystem.{Pipeline, ProcessTask, ShellCommand, ValidationException}
 import dagr.core.util.Io
 import dagr.tasks._
 import dagr.tasks.picard.{FastqToUnmappedSam, MergeSamFiles, RemoveBam}
@@ -49,15 +49,15 @@ object CreateUnmappedBamFromFastqPipeline {
 class CreateUnmappedBamFromFastqPipeline(
   @Arg(doc="Input fastq file (optionally gzipped) for read 1.")                   val fastq1: List[PathToFastq],
   @Arg(doc="Input fastq file (optionally gzipped) for read 2.")                   val fastq2: List[PathToFastq],
-  @Arg(doc="Path to the reference FASTA.")                                        val referenceFasta: PathToFasta,
+  @Arg(doc="Path to the reference FASTA.")                                        val ref: PathToFasta,
   @Arg(flag="s", doc="The name of the sample.")                                   val sample: String,
   @Arg(flag="l", doc="The name of the library.")                                  val library: String,
   @Arg(flag="p", doc="The platform unit (@RG.PU).")                               val platformUnit: List[String],
   @Arg(doc="Path to a temporary directory.")                                      val tmp: Path,
-  @Arg(flag="o", doc="The output directory in which to write files.")             val output: DirPath,
+  @Arg(flag="o", doc="The output directory in which to write files.")             val out: DirPath,
   @Arg(doc="The filename prefix for output files. Library is used if omitted.")   val basename: Option[FilenamePrefix] = None,
   @Arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None
-) extends Pipeline(Some(output)) {
+) extends Pipeline(Some(out)) {
 
   name = "CreateUnmappedBamFromFastqPipeline"
 
@@ -74,10 +74,10 @@ class CreateUnmappedBamFromFastqPipeline(
     val prefix: String = basename.getOrElse(library)
 
     Io.assertReadable(fastq1 ++ fastq2)
-    Files.createDirectories(output)
-    Io.assertCanWriteFile(output.resolve(prefix), parentMustExist=false)
+    Files.createDirectories(out)
+    Io.assertCanWriteFile(out.resolve(prefix), parentMustExist=false)
 
-    val unmappedBamFile = unmappedBam.getOrElse(output.resolve(prefix + ".bam"))
+    val unmappedBamFile = unmappedBam.getOrElse(out.resolve(prefix + ".bam"))
     val inputs          = (fastq1, fastq2, platformUnit).zipped
     val fastqToBams     = ListBuffer[ProcessTask]()
     val unmappedBams    = ListBuffer[PathToBam]()
@@ -89,7 +89,7 @@ class CreateUnmappedBamFromFastqPipeline(
       val bam = Files.createTempFile(tmp, "unmapped.", ".bam")
       unmappedBams += bam
 
-      val fastqToSam = FastqToUnmappedSam(fq1=fq1, fq2=fq2, bam=bam, sm=sample, lb=library, pu=pu, prefix=Some(output.resolve(prefix)))
+      val fastqToSam = FastqToUnmappedSam(fq1=fq1, fq2=fq2, bam=bam, sm=sample, lb=library, pu=pu, prefix=Some(out.resolve(prefix)))
       fastqToBams += fastqToSam
       root ==> fastqToSam
     })
@@ -98,14 +98,13 @@ class CreateUnmappedBamFromFastqPipeline(
     // Then either merge all the input BAMs, or if we have just a single
     // one, then just rename it
     ///////////////////////////////////////////////////////////////////////
-    val prepareUnmappedBam = if (unmappedBams.size == 1) {
-      fastqToBams.head ==> ShellCommand("mv", unmappedBams.head.toString, unmappedBamFile.toString).withName("Move unmapped BAM")
-    }
-    else {
-      val mergeUnmappedSams = new MergeSamFiles(in=unmappedBams, out=unmappedBamFile, sortOrder=SortOrder.queryname)
-      fastqToBams.foreach(_ ==> mergeUnmappedSams)
-      unmappedBams.foreach(b => mergeUnmappedSams ==> new RemoveBam(b))
-      mergeUnmappedSams
+    unmappedBams.toList match {
+      case uBam :: Nil =>
+        fastqToBams.head ==> ShellCommand("mv", uBam.toString, unmappedBamFile.toString).withName("Move unmapped BAM")
+      case _ =>
+        val mergeUnmappedSams = new MergeSamFiles(in=unmappedBams, out=unmappedBamFile, sortOrder=SortOrder.queryname)
+        fastqToBams.foreach(_ ==> mergeUnmappedSams)
+        unmappedBams.foreach(b => mergeUnmappedSams ==> new RemoveBam(b))
     }
   }
 }

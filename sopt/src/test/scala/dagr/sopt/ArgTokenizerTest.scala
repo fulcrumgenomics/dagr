@@ -88,6 +88,12 @@ class ArgTokenizerTest extends UnitSpec {
     tokenizer.hasNext() shouldBe false
   }
 
+  it should "tokenize a long option: '--long=v'" in {
+    val tokenizer = new ArgTokenizer("--long=v")
+    tokenizer.next().get shouldBe ArgOptionAndValue(name = "long", value="v")
+    tokenizer.hasNext() shouldBe false
+  }
+
   it should "tokenize a long option: '--long value value'" in {
     val tokenizer = new ArgTokenizer("--long", "value", "value")
     tokenizer.next().get shouldBe ArgOption(name = "long")
@@ -128,6 +134,13 @@ class ArgTokenizerTest extends UnitSpec {
       tryVal shouldBe 'failure
       an[OptionNameException] should be thrownBy (throw tryVal.failed.get)
     }
+  }
+
+  it should "throw an [[OptionNameException]] when a long option ends with an equals ('--long=')" in {
+    val tokenizer = new ArgTokenizer("--long=")
+    val tryVal = tokenizer.next()
+    tryVal shouldBe 'failure
+    an[OptionNameException] should be thrownBy (throw tryVal.failed.get)
   }
 
   it should "tokenize a up until '--' is found" in {

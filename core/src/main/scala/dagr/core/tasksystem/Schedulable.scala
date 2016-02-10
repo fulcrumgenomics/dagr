@@ -23,7 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.core.execsystem.{Memory, Cores, ResourceSet}
+import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 
 /**
   * Traits that isolates methods about how Tasks interact with the Scheduler, and allows

@@ -22,15 +22,15 @@ class MultiConstructor2(val i:Int) {
 class ReflectiveBuilderTest extends UnitSpec {
   "ReflectiveBuilder" should "work with non-case classes" in {
     val builder = new ReflectiveBuilder(classOf[NonCase])
-    builder.argumentLookup.forField("i").get.value = 7
-    builder.argumentLookup.forField("s").get.value = "foo"
+    builder.argumentLookup.fieldFor("i").get.value = 7
+    builder.argumentLookup.fieldFor("s").get.value = "foo"
 
     val result = builder.build()
     result.ii shouldBe 7
     result.l shouldBe 42
     result.s shouldBe "foo"
 
-    builder.argumentLookup.forField("l").get.value = 43L
+    builder.argumentLookup.fieldFor("l").get.value = 43L
     val result2 = builder.build()
     result2.ii shouldBe 7
     result2.l shouldBe 43
@@ -39,15 +39,15 @@ class ReflectiveBuilderTest extends UnitSpec {
 
   it should "work with case classes" in {
     val builder = new ReflectiveBuilder(classOf[CaseClass])
-    builder.argumentLookup.forField("i").get.value = 7
-    builder.argumentLookup.forField("s").get.value = "foo"
+    builder.argumentLookup.fieldFor("i").get.value = 7
+    builder.argumentLookup.fieldFor("s").get.value = "foo"
 
     val result = builder.build()
     result.i shouldBe 7
     result.l shouldBe 42
     result.s shouldBe "foo"
 
-    builder.argumentLookup.forField("l").get.value = 43L
+    builder.argumentLookup.fieldFor("l").get.value = 43L
     val result2 = builder.build()
     result2.i shouldBe 7
     result2.l shouldBe 43
@@ -56,7 +56,7 @@ class ReflectiveBuilderTest extends UnitSpec {
 
   it should "work with a class with multiple non-public constructors" in {
     val builder = new ReflectiveBuilder(classOf[MultiConstructor1])
-    builder.argumentLookup.forField("i").get.value = 7
+    builder.argumentLookup.fieldFor("i").get.value = 7
     val result = builder.build()
     result.i shouldBe 7
   }

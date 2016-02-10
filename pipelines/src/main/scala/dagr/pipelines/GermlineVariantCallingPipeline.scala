@@ -26,7 +26,7 @@ package dagr.pipelines
 import java.nio.file.Path
 
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{Callbacks, Pipeline, ShellCommand}
+import dagr.core.tasksystem.{UnitTask, Callbacks, Pipeline, ShellCommand}
 import dagr.tasks._
 import dagr.tasks.gatk.{GenotypeSingleGvcf, HaplotypeCaller}
 import dagr.tasks.misc.{DeleteVcfs, GetSampleNamesFromVcf, IndexVcfGz}
@@ -47,24 +47,25 @@ description =
     |"""
 )
 class GermlineVariantCallingPipeline(
-  @Arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val input: PathToBam,
-  @Arg(flag="o", doc="Output prefix (including directories) for output files.")     val outputPrefix: Path,
+  @Arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val in: PathToBam,
+  @Arg(flag="o", doc="Output prefix (including directories) for output files.")     val out: Path,
   @Arg(flag="l", doc="Path to interval list of regions to call.")                   val intervals: PathToIntervals,
-  @Arg(flag="r", doc="Path to the reference FASTA.")                                val reference: PathToFasta,
+  @Arg(flag="r", doc="Path to the reference FASTA.")                                val ref: PathToFasta,
   @Arg(flag="d", doc="Path to dbSNP VCF (for GATK and CollectVariantCallingMetrics only).")
-                                                                                    val dbsnp: Option[PathToVcf] = None,
+                                                val dbsnp: Option[PathToVcf] = None,
   @Arg(          doc="If true, keep intermediate VCFs (GATK only).")                val keepIntermediates: Boolean = false,
   @Arg(          doc="Use GATK (true), otherwise use FreeBayes (false).")           val useGatk: Boolean = true,
   @Arg(          doc="The VCF with truth calls for assessing variants.")            val truthVcf: Option[PathToVcf] = None,
   @Arg(          doc="Path to the interval list(s) of regions to assess variants.", minElements = 0)
-                                                                                    val truthIntervals: List[PathToIntervals] = Nil
-) extends Pipeline(Some(outputPrefix.toAbsolutePath.getParent)) {
+                                                val truthIntervals: List[PathToIntervals] = Nil
+) extends Pipeline(Some(out.toAbsolutePath.getParent)) {
 
-  override def build(): Unit = {
-    val outputDir = outputPrefix.toAbsolutePath.getParent
-    val prefix = outputPrefix.getFileName.toString
-    val unfilteredVcf = outputDir.resolve(prefix + ".unfiltered.vcf.gz")
-    val finalVcf = outputDir.resolve(prefix + ".vcf.gz")
+  private val outputDir = out.toAbsolutePath.getParent
+  private val prefix = out.getFileName.toString
+  private val unfilteredVcf = outputDir.resolve(prefix + ".unfiltered.vcf.gz")
+  private val finalVcf = outputDir.resolve(prefix + ".vcf.gz")
+
+   override def build(): Unit = {
 
     // Ensure the output directory exists
     val mkdir = ShellCommand("mkdir", "-p", outputDir.toAbsolutePath)
@@ -75,13 +76,13 @@ class GermlineVariantCallingPipeline(
       val filterVcf = useGatk match {
         case true =>
           val gvcf = outputDir.resolve(prefix + ".gvcf.vcf.gz")
-          val hc = new HaplotypeCaller(reference=reference, targetIntervals=intervals, bam=input, vcf=gvcf)
-          val gt = new GenotypeSingleGvcf(reference=reference, targetIntervals=intervals, gvcf=gvcf, vcf=unfilteredVcf, dbSnpVcf=dbsnp)
-          val fvcf = new FilterVcf(input=unfilteredVcf, output=finalVcf)
+          val hc   = new HaplotypeCaller(ref=ref, intervals=intervals, bam=in, vcf=gvcf)
+          val gt   = new GenotypeSingleGvcf(ref=ref, intervals=intervals, gvcf=gvcf, vcf=unfilteredVcf, dbSnpVcf=dbsnp)
+          val fvcf = new FilterVcf(in=unfilteredVcf, out=finalVcf)
           mkdir ==> hc ==> gt ==> (fvcf :: new DeleteVcfs(gvcf))
         case false =>
-          val fb =  new FreeBayesGermline(reference=reference, targetIntervals=Some(intervals), bam=List(input), vcf=unfilteredVcf)
-          val fvcf = new FilterFreeBayesCalls(input=unfilteredVcf, output=finalVcf, reference=reference)
+          val fb   =  new FreeBayesGermline(ref=ref, targetIntervals=Some(intervals), bam=List(in), vcf=unfilteredVcf)
+          val fvcf = new FilterFreeBayesCalls(in=unfilteredVcf, out=finalVcf, ref=ref)
           mkdir ==> fb ==> fvcf
       }
       if (!keepIntermediates) filterVcf ==> new DeleteVcfs(unfilteredVcf)
@@ -89,38 +90,44 @@ class GermlineVariantCallingPipeline(
     }
 
     // Run variant calling metrics
-    if (dbsnp.isDefined) {
-      val vcMetrics = new CollectVariantCallingMetrics(vcf=finalVcf, prefix=outputPrefix, dbsnp=dbsnp.get, intervals=Some(intervals))
-      vc ==> vcMetrics
+    dbsnp match {
+      case Some(db) => vc ==> new CollectVariantCallingMetrics(vcf=finalVcf, prefix=out, dbsnp=db, intervals=Some(intervals))
+      case _ => Unit
     }
 
     // Perform variant assessment
-    if (truthVcf.isDefined) {
-      // Get the sample names from each VCF.  Assume each VCF has only one sample. */
-      val getCallSampleName = new GetSampleNamesFromVcf(finalVcf)
-      val getTruthSampleName = new GetSampleNamesFromVcf(truthVcf.get)
-      // Run genotype concordance, but only after we have the truth and call sample names.
-      val genotypeConcordance = new GenotypeConcordance(
-        truthVcf    = truthVcf.get,
-        callVcf     = finalVcf,
-        callSample  = "NA",
-        truthSample = "NA",
-        prefix      = outputPrefix,
-        intervals   = truthIntervals ++ List(intervals)
-      )
-      def checkAndSetSampleName(sn: GetSampleNamesFromVcf, gc: GenotypeConcordance, isCallSample: Boolean): Unit = {
-        if (sn.sampleNames.isEmpty) throw new IllegalStateException(s"Found no sample names in '${sn.vcf}")
-        else if (sn.sampleNames.length > 1) throw new IllegalStateException(s"Found more than one sample names in '${sn.vcf}: " + sn.sampleNames.mkString(", "))
-        if (isCallSample) gc.callSample = sn.sampleNames.head
-        else gc.truthSample = sn.sampleNames.head
-      }
-      // Connect genotype concordance to getting the sample name
-      Stream((getCallSampleName, true), (getTruthSampleName, false)).foreach{
-        case (getSampleName, isCallSample) =>
-          Callbacks.connect(genotypeConcordance, getSampleName)((gc, sn) => checkAndSetSampleName(sn, gc, isCallSample))
-      }
-      // Update the dependencies
-      vc ==> (getCallSampleName :: getTruthSampleName) ==> genotypeConcordance
+    truthVcf match {
+      case Some(tVcf) =>
+        // Get the sample names from each VCF.  Assume each VCF has only one sample. */
+        val getCallSampleName   = new GetSampleNamesFromVcf(finalVcf)
+        val getTruthSampleName  = new GetSampleNamesFromVcf(tVcf)
+        // Run genotype concordance, but only after we have the truth and call sample names.
+        val genotypeConcordance = new GenotypeConcordance(
+          truthVcf    = tVcf,
+          callVcf     = finalVcf,
+          callSample  = "NA",
+          truthSample = "NA",
+          prefix      = out,
+          intervals   = truthIntervals ++ List(intervals)
+        )
+        def checkAndSetSampleName(sn: GetSampleNamesFromVcf, gc: GenotypeConcordance, isCallSample: Boolean): Unit = {
+          sn.sampleNames match {
+            case Nil => throw new IllegalStateException(s"Found no sample names in '${sn.vcf}")
+            case sampleName :: Nil =>
+              if (isCallSample) gc.callSample = sampleName
+              else gc.truthSample = sampleName
+            case x :: xs =>
+              throw new IllegalStateException(s"Found more than one sample names in '${sn.vcf}: " + sn.sampleNames.mkString(", "))
+          }
+        }
+        // Connect genotype concordance to getting the sample name
+        Stream((getCallSampleName, true), (getTruthSampleName, false)).foreach {
+          case (getSampleName, isCallSample) =>
+            Callbacks.connect(genotypeConcordance, getSampleName)((gc, sn) => checkAndSetSampleName(sn, gc, isCallSample))
+        }
+        // Update the dependencies
+        vc ==> (getCallSampleName :: getTruthSampleName) ==> genotypeConcordance
+      case None => Unit
     }
   }
 }

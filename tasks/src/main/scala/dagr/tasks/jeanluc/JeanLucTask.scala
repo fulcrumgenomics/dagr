@@ -26,6 +26,7 @@ package dagr.tasks.jeanluc
 import java.nio.file.Path
 
 import dagr.tasks.picard.PicardTask
+import htsjdk.samtools.ValidationStringency
 
 import scala.collection.mutable.ListBuffer
 
@@ -37,7 +38,7 @@ object JeanLucTask {
   * Base Task for any task in the JeanLuc jar.
   */
 abstract class JeanLucTask(useAdvancedGcOptions: Boolean = true,
-                           validationStringency: Option[String] = Some("SILENT"),
+                           validationStringency: Option[ValidationStringency] = Some(ValidationStringency.SILENT),
                            useAsyncIo: Boolean = false,
                            compressionLevel: Option[Int] = None,
                            createIndex: Option[Boolean] = Some(true),

@@ -25,7 +25,6 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.util.PathUtil
 import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals}
 
@@ -34,7 +33,7 @@ import scala.collection.mutable.ListBuffer
 object CollectHsMetrics {
   val MetricsExtension   = ".hybrid_selection_metrics"
   val PerTargetExtension = ".per_target_coverage"
-  def getBaitSetName(baitSetIntervals: Path): String = PathUtil.basename(baitSetIntervals.toString, trimExt=true)
+  def baitSetName(baitSetIntervals: Path): String = PathUtil.basename(baitSetIntervals.toString, trimExt=true)
 }
 
 class CollectHsMetrics(in: PathToBam,
@@ -43,18 +42,18 @@ class CollectHsMetrics(in: PathToBam,
                        targets: PathToIntervals,
                        baits: Option[PathToIntervals] = None,
                        baitSetName: Option[String] = None)
-  extends PicardMetricsTask(input=in, prefix=prefix) {
+  extends PicardMetricsTask(in=in, prefix=prefix) {
 
-  override def getMetricsExtension: String = CollectHsMetrics.MetricsExtension
+  override def metricsExtension: String = CollectHsMetrics.MetricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
-    buffer.append("O=" + getMetricsFile)
+    buffer.append("O=" + metricsFile)
     buffer.append("R=" + ref)
     buffer.append("TI=" + targets)
     buffer.append("BI=" + baits.getOrElse(targets))
-    buffer.append("BAIT_SET_NAME=" + baitSetName.getOrElse(CollectHsMetrics.getBaitSetName(targets)))
+    buffer.append("BAIT_SET_NAME=" + baitSetName.getOrElse(CollectHsMetrics.baitSetName(targets)))
     buffer.append("LEVEL=ALL_READS")
-    buffer.append("PER_TARGET_COVERAGE=" + getMetricsFile(extension=CollectHsMetrics.PerTargetExtension, kind=PicardOutput.Text))
+    buffer.append("PER_TARGET_COVERAGE=" + metricsFile(extension=CollectHsMetrics.PerTargetExtension, kind=PicardOutput.Text))
   }
 }

@@ -25,7 +25,7 @@ package dagr.tasks.misc
 
 import java.nio.file.Path
 
-import dagr.core.tasksystem.{SimpleInJvmTask, InJvmTask}
+import dagr.core.tasksystem.SimpleInJvmTask
 import htsjdk.samtools.metrics.MetricsFile
 import picard.analysis.AlignmentSummaryMetrics
 
@@ -39,8 +39,13 @@ class GetNumPfReads(alignmentSummaryMetrics: Path) extends SimpleInJvmTask {
     * to indicate an error or problem during processing.
     */
   override def run(): Unit = {
-    val metricsList: java.util.List[AlignmentSummaryMetrics] = MetricsFile.readBeans(alignmentSummaryMetrics.toFile).asInstanceOf[java.util.List[AlignmentSummaryMetrics]]
+    val metricsList: java.util.List[AlignmentSummaryMetrics] = MetricsFile.readBeans(
+      alignmentSummaryMetrics.toFile
+    ).asInstanceOf[java.util.List[AlignmentSummaryMetrics]]
     val metrics: List[AlignmentSummaryMetrics] = metricsList.toList
-    numPfReads = metrics.filter(m => m.CATEGORY == AlignmentSummaryMetrics.Category.PAIR).head.PF_READS
+    numPfReads = metrics.find(m => m.CATEGORY == AlignmentSummaryMetrics.Category.PAIR) match {
+      case Some(value) => value.PF_READS
+      case None => throw new IllegalStateException("No PAIR found")
+    }
   }
 }

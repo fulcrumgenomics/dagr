@@ -50,10 +50,10 @@ trait TaskManagerState extends LazyLogging {
   private val tasksToNodes   = new BiMap[Task, GraphNode]  // Could be replaced with use of tasksToIds and nodesToIds
 
   /** Generates a path to a file to hold the task command */
-  protected def getTaskScript(task: Task, taskId: BigInt): Path
+  protected def scriptPathFor(task: Task, taskId: BigInt): Path
 
   /** Generates a path to file to store the log output of the task */
-  protected def getTaskLogFile(task: Task, taskId: BigInt): Path
+  protected def logPathFor(task: Task, taskId: BigInt): Path
 
   /** Checks for cycles in the graph to which the task belongs.
     *
@@ -89,44 +89,42 @@ trait TaskManagerState extends LazyLogging {
     val nowTimestamp = new Timestamp(System.currentTimeMillis)
 
     if (hasTaskId(nextTaskId)) throw new IllegalArgumentException(s"Task [${task.name}] with id [$nextTaskId] was already added!")
-    else if (hasTask(task)) {
-      if (ignoreExists) return getTaskId(task).get
-      else throw new IllegalArgumentException(s"Task [${task.name}] was already added!")
+
+    taskIdFor(task) match {
+      case Some(taskId) if ignoreExists => taskId
+      case Some(taskId) => throw new IllegalArgumentException(s"Task [${task.name}] was already added!")
+      case None =>
+        // check for cycles
+        checkForCycles(task = task)
+
+        // get the task id
+        val taskId = nextTaskId
+        nextTaskId += 1
+
+        // make a new task info and node
+        val taskInfo = new TaskExecutionInfo(
+          task           = task,
+          id             = taskId,
+          status         = UNKNOWN,
+          script         = scriptPathFor(task = task, taskId = taskId),
+          logFile        = logPathFor(task, taskId = taskId),
+          submissionDate = Some(nowTimestamp)
+        )
+
+        // check for orphans (state == ORPHAN)
+        // we could call allPredecessorsAdded, but this saves on some fn calls
+        val node: GraphNode = this.predecessorsOf(task = task) match {
+          case None => new GraphNode(taskId=taskId, task=task, predecessorNodes=Nil, state=GraphNodeState.ORPHAN, parent=parent)
+          case Some(predecessors) => new GraphNode(taskId=taskId, task=task, predecessorNodes=predecessors, parent=parent)
+        }
+
+        tasksToIds.add(task, taskId)
+        taskInfosToIds.add(taskInfo, taskId)
+        nodesToIds.add(node, taskId)
+        tasksToNodes.add(task, node)
+
+        taskId
     }
-
-    // check for cycles
-    checkForCycles(task = task)
-
-    // get the task id
-    val taskId = nextTaskId
-    nextTaskId += 1
-
-    // make a new task info and node
-    val taskInfo = new TaskExecutionInfo(
-      task           = task,
-      id             = taskId,
-      status         = UNKNOWN,
-      script         = getTaskScript(task = task, taskId = taskId),
-      logFile        = getTaskLogFile(task, taskId = taskId),
-      submissionDate = Some(nowTimestamp)
-    )
-
-    // check for orphans (state == ORPHAN)
-    val predecessors: Option[Traversable[GraphNode]] = getPredecessors(task = task) // we could call allPredecessorsAdded, but this saves on some fn calls
-
-    val node = if (predecessors.isEmpty) { // we have predecessors that have no graph node
-      new GraphNode(taskId=taskId, task=task, predecessorNodes=Nil, state=GraphNodeState.ORPHAN, parent=parent)
-    }
-    else {
-      new GraphNode(taskId=taskId, task=task, predecessorNodes=predecessors.get, parent=parent)
-    }
-
-    tasksToIds.add(task, taskId)
-    taskInfosToIds.add(taskInfo, taskId)
-    nodesToIds.add(node, taskId)
-    tasksToNodes.add(task, node)
-
-    taskId
   }
 
   /** Adds tasks to be managed
@@ -146,8 +144,8 @@ trait TaskManagerState extends LazyLogging {
     * @param tasks the given tasks.
     * @return the task identifiers.
     */
-  def addTasks(tasks: Task*) = {
-    tasks.map(task => addTask(task, ignoreExists=false))
+  def addTasks(tasks: Task*): List[BigInt] = {
+    tasks.map(task => addTask(task, ignoreExists=false)).toList
   }
 
   /** Checks if a task is being tracked.
@@ -169,16 +167,16 @@ trait TaskManagerState extends LazyLogging {
     * @param taskId the task id
     * @return the task associate with the id if found, None otherwise
     */
-  def getTask(taskId: BigInt): Option[Task] = tasksToIds.getKey(taskId)
+  def taskFor(taskId: BigInt): Option[Task] = tasksToIds.keyFor(taskId)
 
   /** Gets the task associated with the graph node
     *
     * @param node the node to lookup
     * @return the task if found, None otherwise
     */
-  def getTask(node: GraphNode): Option[Task] = {
-    nodesToIds.getValue(node) match {
-      case Some(taskId: BigInt) => tasksToIds.getKey(taskId)
+  def taskFor(node: GraphNode): Option[Task] = {
+    nodesToIds.valueFor(node) match {
+      case Some(taskId: BigInt) => tasksToIds.keyFor(taskId)
       case _ => None
     }
   }
@@ -188,16 +186,16 @@ trait TaskManagerState extends LazyLogging {
     * @param taskId the task identifier.
     * @return the task execution information if the task is managed, None otherwise
     */
-  def getTaskExecutionInfo(taskId: BigInt): Option[TaskExecutionInfo] = taskInfosToIds.getKey(taskId)
+  def taskExecutionInfoFor(taskId: BigInt): Option[TaskExecutionInfo] = taskInfosToIds.keyFor(taskId)
 
   /** Get the task's execution information if it exists.
     *
     * @param task the task.
     * @return the task execution information if the task is managed, None otherwise
     */
-  def getTaskExecutionInfo(task: Task): Option[TaskExecutionInfo] = {
-    tasksToIds.getValue(task) match {
-      case Some(taskId: BigInt) => taskInfosToIds.getKey(taskId)
+  def taskExecutionInfoFor(task: Task): Option[TaskExecutionInfo] = {
+    tasksToIds.valueFor(task) match {
+      case Some(taskId: BigInt) => taskInfosToIds.keyFor(taskId)
       case _ => None
     }
   }
@@ -207,9 +205,9 @@ trait TaskManagerState extends LazyLogging {
     * @param node the node associated with a task.
     * @return the task execution information if the task is managed, None otherwise
     */
-  def getTaskExecutionInfo(node: GraphNode): Option[TaskExecutionInfo] = {
-    nodesToIds.getValue(node) match {
-      case Some(taskId: BigInt) => taskInfosToIds.getKey(taskId)
+  def taskExecutionInfoFor(node: GraphNode): Option[TaskExecutionInfo] = {
+    nodesToIds.valueFor(node) match {
+      case Some(taskId: BigInt) => taskInfosToIds.keyFor(taskId)
       case _ => None
     }
   }
@@ -219,8 +217,8 @@ trait TaskManagerState extends LazyLogging {
     * @param task the task.
     * @return the task status if the task is managed, None otherwise.
     */
-  def getTaskStatus(task: Task): Option[TaskStatus.Value] = {
-    getTaskExecutionInfo(task) match {
+  def taskStatusFor(task: Task): Option[TaskStatus.Value] = {
+    taskExecutionInfoFor(task) match {
       case Some(taskInfo: TaskExecutionInfo) => Some(taskInfo.status)
       case _ => None
     }
@@ -231,8 +229,8 @@ trait TaskManagerState extends LazyLogging {
     * @param taskId the task identifier.
     * @return the task status if the task is managed, None otherwise.
     */
-  def getTaskStatus(taskId: BigInt): Option[TaskStatus.Value] = {
-    getTaskExecutionInfo(taskId) match {
+  def taskStatusFor(taskId: BigInt): Option[TaskStatus.Value] = {
+    taskExecutionInfoFor(taskId) match {
       case Some(taskInfo: TaskExecutionInfo) => Some(taskInfo.status)
       case _ => None
     }
@@ -243,22 +241,22 @@ trait TaskManagerState extends LazyLogging {
     * @param task the task.
     * @return the task identifier, None if the task is not being managed.
     */
-  def getTaskId(task: Task): Option[BigInt] = tasksToIds.getValue(task)
+  def taskIdFor(task: Task): Option[BigInt] = tasksToIds.valueFor(task)
 
   /** Get the task identifiers for all tracked tasks.
    *
    * @return the task ids
    */
-  def getTaskIds(): Iterable[BigInt] = tasksToIds.values
+  def taskIdsFor(): Iterable[BigInt] = tasksToIds.values
 
   /** Get the bi-directional map between managed tasks and their associated task execution information.
     *
     * @return the task and task execution information bi-directional map.
     */
-  def getTaskToInfoBiMap: BiMap[Task, TaskExecutionInfo] = {
+  def taskToInfoBiMapFor: BiMap[Task, TaskExecutionInfo] = {
     val map: BiMap[Task, TaskExecutionInfo] = new BiMap[Task, TaskExecutionInfo]()
     for ((task, taskId) <- tasksToIds) {
-      map.add(task, taskInfosToIds.getKey(taskId).get)
+      map.add(task, taskInfosToIds.keyFor(taskId).get)
     }
     map
   }
@@ -268,22 +266,22 @@ trait TaskManagerState extends LazyLogging {
     * @param taskId the task identifier
     * @return the graph node associated with the task identifier if found, None otherwise
     */
-  def getGraphNode(taskId: BigInt): Option[GraphNode] = nodesToIds.getKey(taskId)
+  def graphNodeFor(taskId: BigInt): Option[GraphNode] = nodesToIds.keyFor(taskId)
 
   /** Get the graph node associated with the task
     *
     * @param task a task in the graph
     * @return the graph node associated with the task if found, None otherwise
     */
-  def getGraphNode(task: Task): Option[GraphNode] = tasksToNodes.getValue(task)
+  def graphNodeFor(task: Task): Option[GraphNode] = tasksToNodes.valueFor(task)
 
   /** Get the execution state of the task.
     *
     * @param taskId the task identifier.
     * @return the execution state of the task.
     */
-  def getGraphNodeState(taskId: BigInt): Option[GraphNodeState.Value] = {
-    nodesToIds.getKey(taskId) match {
+  def graphNodeStateFor(taskId: BigInt): Option[GraphNodeState.Value] = {
+    nodesToIds.keyFor(taskId) match {
       case Some(node: GraphNode) => Some(node.state)
       case _ => None
     }
@@ -294,9 +292,9 @@ trait TaskManagerState extends LazyLogging {
     * @param task the task.
     * @return the execution state of the task.
     */
-  def getGraphNodeState(task: Task): Option[GraphNodeState.Value] = {
-    tasksToIds.getValue(task) match {
-      case Some(taskId: BigInt) => getGraphNodeState(taskId)
+  def graphNodeStateFor(task: Task): Option[GraphNodeState.Value] = {
+    tasksToIds.valueFor(task) match {
+      case Some(taskId: BigInt) => graphNodeStateFor(taskId)
       case _ => None
     }
   }
@@ -305,7 +303,7 @@ trait TaskManagerState extends LazyLogging {
     *
     * @return the graph nodes, in no particular order.
     */
-  def getGraphNodes: Iterable[GraphNode] = nodesToIds.keys
+  def graphNodes: Iterable[GraphNode] = nodesToIds.keys
 
   /** Replace the original task with the replacement task and update
     * any internal references.  If the task failed, it will requeue
@@ -322,40 +320,49 @@ trait TaskManagerState extends LazyLogging {
 
     // TODO: how to replace UnitTask vs. Workflows
 
-    if (!hasTask(original)) return false
-    if (replacement.getTasksDependedOn.nonEmpty || replacement.getTasksDependingOnThisTask.nonEmpty) return false
+    taskIdFor(original) match {
+      case None => false
+      case Some(originalTaskId: BigInt) =>
+        if (replacement.tasksDependedOn.nonEmpty || replacement.tasksDependingOnThisTask.nonEmpty) false
+        else {
+          val taskInfo: TaskExecutionInfo = taskExecutionInfoFor(originalTaskId).get
 
-    val originalTaskId: BigInt = getTaskId(original).get
-    val taskInfo: TaskExecutionInfo = getTaskExecutionInfo(originalTaskId).get
+          // Update the inter-task dependencies for the swap
+          original.tasksDependingOnThisTask.foreach(t => {
+            t.removeDependency(original)
+            replacement ==> t
+          })
+          original.tasksDependedOn.foreach(t => {
+            original.removeDependency(t)
+            t ==> replacement
+          })
 
-    // Update the inter-task dependencies for the swap
-    original.getTasksDependingOnThisTask.foreach( t => {t.removeDependency(original); replacement ==> t})
-    original.getTasksDependedOn.foreach( t => {original.removeDependency(t); t ==> replacement;})
+          // update the task id map
+          tasksToIds.removeValue(originalTaskId)
+          tasksToIds.add(replacement, originalTaskId)
 
-    // update the task id map
-    tasksToIds.removeValue(originalTaskId)
-    tasksToIds.add(replacement, originalTaskId)
+          // update the task info
+          taskInfo.task = replacement
 
-    // update the task info
-    taskInfo.task = replacement
+          // update the graph node
+          val node: GraphNode = nodesToIds.keyFor(originalTaskId).get
+          node.task = replacement
 
-    // update the graph node
-    val node: GraphNode = nodesToIds.getKey(originalTaskId).get
-    node.task = replacement
+          // reset to no predecessors and ready for execution
+          if (!isTaskDone(taskInfo.status)) {
+            if (List(GraphNodeState.RUNNING, GraphNodeState.NO_PREDECESSORS, GraphNodeState.ONLY_PREDECESSORS).contains(node.state)) {
+              node.state = GraphNodeState.PREDECESSORS_AND_UNEXPANDED
+            }
+            taskInfo.status = TaskStatus.UNKNOWN
+          }
 
-    // reset to no predecessors and ready for execution
-    if (!isTaskDone(taskInfo.status)) {
-      if (List(GraphNodeState.RUNNING, GraphNodeState.NO_PREDECESSORS, GraphNodeState.ONLY_PREDECESSORS).contains(node.state)) {
-        node.state = GraphNodeState.PREDECESSORS_AND_UNEXPANDED
-      }
-      taskInfo.status = TaskStatus.UNKNOWN
+          // update the task <-> node
+          tasksToNodes.removeValue(node)
+          tasksToNodes.add(replacement, node)
+
+          true
+        }
     }
-
-    // update the task <-> node
-    tasksToNodes.removeValue(node)
-    tasksToNodes.add(replacement, node)
-
-    true
   }
 
   /** Resubmit a task for execution.  This will stop the task if it is currently running, and queue
@@ -374,7 +381,7 @@ trait TaskManagerState extends LazyLogging {
 
   /** Returns true if all the predecessors of this task are known (have been added), false otherwise. */
   protected def allPredecessorsAdded(task: Task): Boolean = {
-    getPredecessors(task = task).nonEmpty
+    predecessorsOf(task = task).nonEmpty
   }
 
   /** Gets the predecessor graph nodes of the given task in the execution graph.
@@ -382,13 +389,17 @@ trait TaskManagerState extends LazyLogging {
    * This assumes that all predecessors of this task have been added with addTasks and not removed.
    *
    * @param task the task to lookup.
-   * @return a list of graph nodes if predecessors were found, Nil if empty, and None if there were predecessors with no associated graph node
+   * @return the list of precedessors, or Nil if this task has no predecessors.  If there were predecessors that
+    *         are not currently being tracked, None will be returned instead.
     */
-  protected def getPredecessors(task: Task): Option[Traversable[GraphNode]] = {
-    if (task.getTasksDependedOn.isEmpty) return Some(Nil)
-    val predecessors: Traversable[Option[GraphNode]] = for (dependency <- task.getTasksDependedOn) yield getGraphNode(dependency)
-    if (predecessors.exists(_.isEmpty)) return None // we found predecessors that have no associated graph node
-    Some(predecessors.map(_.get))
+  protected def predecessorsOf(task: Task): Option[Traversable[GraphNode]] = {
+    task.tasksDependedOn match {
+      case Nil => Some(Nil)
+      case _ =>
+        val predecessors: Traversable[Option[GraphNode]] = for (dependency <- task.tasksDependedOn) yield graphNodeFor(dependency)
+        if (predecessors.exists(_.isEmpty)) None // we found predecessors that have no associated graph node
+        else Some(predecessors.map(_.get))
+    }
   }
 
   /** Gets the graph nodes in a given state.
@@ -396,8 +407,8 @@ trait TaskManagerState extends LazyLogging {
    * @param state the state of the returned graph nodes.
    * @return the graph nodes with the given state.
    */
-  protected def getGraphNodesInState(state: GraphNodeState.Value): Iterable[GraphNode] = {
-    getGraphNodes.filter(n => n.state == state)
+  protected def graphNodesInStateFor(state: GraphNodeState.Value): Iterable[GraphNode] = {
+    graphNodes.filter(n => n.state == state)
   }
 
   /** Gets the graph nodes in the given states.
@@ -405,15 +416,15 @@ trait TaskManagerState extends LazyLogging {
     * @param states the states of the returned graph nodes.
     * @return the graph nodes with the given states.
     */
-  protected def getGraphNodesInStates(states: Traversable[GraphNodeState.Value]): Iterable[GraphNode] = {
-    getGraphNodes.filter(n => states.toList.contains(n.state))
+  protected def graphNodesInStatesFor(states: Traversable[GraphNodeState.Value]): Iterable[GraphNode] = {
+    graphNodes.filter(n => states.toList.contains(n.state))
   }
 
   /** Gets the graph nodes that imply they have predecessors.
     *
     * @return the graph nodes that have predecessors (unmet dependencies).
     */
-  protected def getGraphNodesWithPredecessors: Iterable[GraphNode] = {
-    getGraphNodes.filter(node => GraphNodeState.hasPredecessors(node.state))
+  protected def graphNodesWithPredecessors: Iterable[GraphNode] = {
+    graphNodes.filter(node => GraphNodeState.hasPredecessors(node.state))
   }
 }

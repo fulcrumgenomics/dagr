@@ -35,8 +35,8 @@ object Task {
   /** Helper class for Tarjan's strongly connected components algorithm */
   private class TarjanData {
     var index: Int = 0
-    var stack: mutable.Stack[Task] = new mutable.Stack[Task]()
-    var onStack: mutable.Set[Task] = new mutable.HashSet[Task]()
+    val stack: mutable.Stack[Task] = new mutable.Stack[Task]()
+    val onStack: mutable.Set[Task] = new mutable.HashSet[Task]()
     val indexes: mutable.Map[Task, Int] = new mutable.HashMap[Task, Int]()
     val lowLink: mutable.Map[Task, Int] = new mutable.HashMap[Task, Int]()
     val components: mutable.Set[mutable.Set[Task]] = new mutable.HashSet[mutable.Set[Task]]()
@@ -48,10 +48,7 @@ object Task {
     * @return true if the DAG to which this task belongs has a cycle, false otherwise.
     */
   private[core] def hasCycle(task: Task): Boolean = {
-    for (component <- findStronglyConnectedComponents(task)) {
-      if (isComponentACycle(component = component)) return true
-    }
-    false
+    findStronglyConnectedComponents(task).exists(component => isComponentACycle(component))
   }
 
   /** Finds all the strongly connected components of the graph to which this task is connected.
@@ -71,15 +68,13 @@ object Task {
     while (toVisit.nonEmpty) {
       val nextTask: Task = toVisit.head
       toVisit -= nextTask
-      (nextTask.getTasksDependedOn.toList ::: nextTask.getTasksDependingOnThisTask.toList).foreach(t => if (!visited.contains(t)) toVisit += t)
+      (nextTask.tasksDependedOn.toList ::: nextTask.tasksDependingOnThisTask.toList).foreach(t => if (!visited.contains(t)) toVisit += t)
       visited += nextTask
     }
 
     // 2. Runs Tarjan's strongly connected components algorithm
     val data: TarjanData = new TarjanData
-    for (v <- visited) {
-      if (!data.indexes.contains(v)) findStronglyConnectedComponent(v, data)
-    }
+    visited.filterNot(data.indexes.contains).foreach(v => findStronglyConnectedComponent(v, data))
 
     // return all the components
     data.components.map(component => component.toSet).toSet
@@ -94,9 +89,14 @@ object Task {
     */
   private[core] def isComponentACycle(component: Set[Task]): Boolean = {
     if (1 < component.size) true
-    else if (component.head.getTasksDependedOn.toSet.contains(component.head)) true
-    else if (component.head.getTasksDependingOnThisTask.toSet.contains(component.head)) true
-    else false
+    else {
+      component.headOption match {
+        case Some(task) =>
+          task.tasksDependedOn.toSet.contains(task) ||
+          task.tasksDependingOnThisTask.toSet.contains(task)
+        case _ => false
+      }
+    }
   }
 
   /** See https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm */
@@ -109,7 +109,7 @@ object Task {
     data.onStack += v
 
     // Consider successors of v
-    for(w <- v.getTasksDependedOn) {  // could alternatively use task.getTasksDependingOnThisTask
+    for(w <- v.tasksDependedOn) {  // could alternatively use task.getTasksDependingOnThisTask
       if (!data.indexes.contains(w)) {
         // Successor w has not yet been visited; recurse on it
         findStronglyConnectedComponent(w, data)
@@ -165,10 +165,10 @@ trait Task extends Dependable {
   private val callbacks = new ListBuffer[Callback]
 
   /** Gets the sequence of tasks that this task depends on.. */
-  private[core] def getTasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
+  private[core] def tasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
 
   /** Gets the sequence of tasks that depend on this task. */
-  private[core] def getTasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
+  private[core] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
 
   /** Sets up a dependency between two tasks.  The task on the left side of the arrow (i.e. this)
     * is set to be a predecessor/dependency of that task on the right hand side of the arrow (i.e. other).

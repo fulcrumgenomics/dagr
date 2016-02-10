@@ -25,7 +25,7 @@ package dagr.core.execsystem
 
 object ResourceSet {
   def apply(that: ResourceSet): ResourceSet = new ResourceSet(cores = Cores(that.cores.value), memory = Memory(that.memory.value))
-  def apply(cores: Double, memory: Long) = new ResourceSet(Cores(cores), Memory(memory))
+  def apply(cores: Double, memory: Long): ResourceSet = new ResourceSet(Cores(cores), Memory(memory))
 
   val empty = ResourceSet(0, 0)
   val infinite = ResourceSet(Double.MaxValue, Long.MaxValue)

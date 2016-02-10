@@ -24,9 +24,9 @@
 package dagr.tasks.bwa
 
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.tasks.DataTypes.{Fastq, Sam}
 import dagr.core.tasksystem.{Pipe, ProcessTask, VariableResources}
 import dagr.core.util.Io
+import dagr.tasks.DataTypes.{Fastq, Sam}
 import dagr.tasks.{PathToBam, PathToFasta, PathToFastq}
 
 class BwaMem(fastq: PathToFastq = Io.StdIn,
@@ -41,5 +41,5 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
     resources.subset(minCores=Cores(minThreads), maxCores=Cores(maxThreads), memory=memory)
   }
 
-  override def args = Bwa.findBwa :: "mem" :: "-p" :: "-t" :: resources.cores.toInt :: ref :: fastq :: out.map(f => "> " + f).toList
+  override def args: Seq[Any] = Bwa.findBwa :: "mem" :: "-p" :: "-t" :: resources.cores.toInt :: ref :: fastq :: out.map(f => "> " + f).toList
 }

@@ -31,7 +31,9 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.URLDecoder;
-import java.util.*;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -79,16 +81,16 @@ public final class ClassFinder {
      * with different packages. Classes are accumulated internally and
      * can be accessed by calling {@link #getClasses()}.
      */
-    public void find(String packageName, final Class<?> parentType) {
+    public void find(final String packageName, final Class<?> parentType) {
         this.parentType = parentType;
-        packageName = packageName.replace('.', '/');
+        final String updatedPackageName = packageName.replace('.', '/');
         final Enumeration<URL> urls;
 
         try {
-            urls = loader.getResources(packageName);
+            urls = loader.getResources(updatedPackageName);
         }
         catch (IOException ioe) {
-            log.warning(ioe, "Could not read package: " + packageName);
+            log.warning(ioe, "Could not read package: " + updatedPackageName);
             return;
         }
 
@@ -109,10 +111,10 @@ public final class ClassFinder {
                 //Log.info("Looking for classes in location: " + urlPath);
                 final File file = new File(urlPath);
                 if ( file.isDirectory() ) {
-                    scanDir(file, packageName);
+                    scanDir(file, updatedPackageName);
                 }
                 else {
-                    scanJar(file, packageName);
+                    scanJar(file, updatedPackageName);
                 }
             }
             catch (IOException ioe) {

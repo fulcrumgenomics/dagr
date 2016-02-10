@@ -44,10 +44,7 @@ object Logger {
 class Logger(clazz : Class[_]) {
   private val name = Logger.sanitizeSimpleClassName(clazz.getSimpleName)
   private val fmt = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss")
-  private var out: Option[PrintStream] = None
-
-  /** Sets the given instance of the logger for this task. */
-  def setLogger(out: Option[PrintStream]): Unit = this.out = out
+  var out: Option[PrintStream] = None
 
   /** Checks to see if a message should be emitted given the current log level, and then emits atomically. */
   protected def emit(l: LogLevel, parts: TraversableOnce[Any]) : Unit = {
@@ -55,8 +52,10 @@ class Logger(clazz : Class[_]) {
       val builder = new StringBuilder(256)
       builder.append("[").append(fmt.format(new Date())).append(" | ").append(name).append(" | ").append(l.toString).append("] ")
       parts.foreach(part => builder.append(part))
-      if (this.out.isDefined) out.get.println(builder.toString())
-      else Logger.out.println(builder.toString())
+      this.out match {
+        case Some(o) => o.println(builder.toString())
+        case _ => Logger.out.println(builder.toString())
+      }
     }
   }
 

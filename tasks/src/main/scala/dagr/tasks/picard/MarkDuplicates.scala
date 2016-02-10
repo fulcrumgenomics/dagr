@@ -41,15 +41,15 @@ class MarkDuplicates(in: PathToBam,
                      comment: Option[String] = None,
                      opticalDuplicatesPixelDistance: Option[Int] = None,
                      assumeSorted: Boolean = true)
-  extends PicardMetricsTask(input = out.getOrElse(in), prefix = prefix) {
+  extends PicardMetricsTask(in = out.getOrElse(in), prefix = prefix) {
   requires(Cores(1), Memory("6G"))
 
-  override def getMetricsExtension: String = MarkDuplicates.MetricsExtension
+  override def metricsExtension: String = MarkDuplicates.MetricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
     buffer.append("O=" + out.getOrElse(Io.DevNull))
-    buffer.append("M=" + getMetricsFile)
+    buffer.append("M=" + metricsFile)
     buffer.append("AS=" + assumeSorted)
   }
 }

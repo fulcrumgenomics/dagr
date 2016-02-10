@@ -23,9 +23,7 @@
  */
 package dagr.core.util
 
-import java.lang.reflect.{Field, Constructor}
-
-import dagr.core.cmdline.parsing.ClpReflectiveBuilder
+import java.lang.reflect.Constructor
 
 import scala.annotation.ClassfileAnnotation
 import scala.reflect.ClassTag
@@ -45,19 +43,19 @@ object ReflectionUtil {
     * it will attempt to determine the appropriate concrete class to instantiate and return that.
     */
   def newJavaCollectionInstance[T <: java.util.Collection[_]](clazz: Class[_ <: T], args: Seq[AnyRef]): T = {
-    val ctor = findConstructor(clazz)
-
-    val collection : java.util.Collection[AnyRef] = if (ctor.isDefined) {
-      ctor.get.newInstance(args: _*).asInstanceOf[java.util.Collection[AnyRef]]
-    }
-    else {
-      if(classOf[java.util.Deque[_]].isAssignableFrom(clazz))        new java.util.ArrayDeque[AnyRef]()
-      if(classOf[java.util.Queue[_]].isAssignableFrom(clazz))        new java.util.ArrayDeque[AnyRef]()
-      if(classOf[java.util.List[_]].isAssignableFrom(clazz))         new java.util.ArrayList[AnyRef]()
-      if(classOf[java.util.NavigableSet[_]].isAssignableFrom(clazz)) new java.util.TreeSet[AnyRef]()
-      if(classOf[java.util.SortedSet[_]].isAssignableFrom(clazz))    new java.util.TreeSet[AnyRef]()
-      if(classOf[java.util.Set[_]].isAssignableFrom(clazz))          new java.util.HashSet[AnyRef]()
-      else /* treat it as any java.util.Collection */                new java.util.ArrayList[AnyRef]()
+    val collection : java.util.Collection[AnyRef] = findConstructor(clazz) match {
+      case Some(ctor) =>
+        ctor.newInstance(args: _*).asInstanceOf[java.util.Collection[AnyRef]]
+      case None =>
+        clazz match {
+          case _ if classOf[java.util.Deque[_]].isAssignableFrom(clazz)        => new java.util.ArrayDeque[AnyRef]()
+          case _ if classOf[java.util.Queue[_]].isAssignableFrom(clazz)        => new java.util.ArrayDeque[AnyRef]()
+          case _ if classOf[java.util.List[_]].isAssignableFrom(clazz)         => new java.util.ArrayList[AnyRef]()
+          case _ if classOf[java.util.NavigableSet[_]].isAssignableFrom(clazz) => new java.util.TreeSet[AnyRef]()
+          case _ if classOf[java.util.SortedSet[_]].isAssignableFrom(clazz)    => new java.util.TreeSet[AnyRef]()
+          case _ if classOf[java.util.Set[_]].isAssignableFrom(clazz)          => new java.util.HashSet[AnyRef]()
+          case _ =>  /* treat it as any java.util.Collection */                   new java.util.ArrayList[AnyRef]()
+        }
     }
 
     // add the args
@@ -97,30 +95,31 @@ object ReflectionUtil {
     * the value is not a supported collection class ([[Seq]], [[Set]] or [[java.util.Collection]]).
     */
   def isEmptyCollection(value: Any): Boolean = {
-    if (isJavaCollectionClass(value.getClass)) value.asInstanceOf[java.util.Collection[_]].isEmpty
-    else if (isSeqClass(value.getClass)) value.asInstanceOf[Seq[_]].isEmpty
-    else if (isSetClass(value.getClass)) value.asInstanceOf[Set[_]].isEmpty
-    else throw new IllegalArgumentException(s"Could not determine collection type of '${value.getClass.getSimpleName}")
+    value.getClass match {
+      case clazz if isJavaCollectionClass(clazz) => value.asInstanceOf[java.util.Collection[_]].isEmpty
+      case clazz if isSeqClass(clazz) => value.asInstanceOf[Seq[_]].isEmpty
+      case clazz if isSetClass(clazz) => value.asInstanceOf[Set[_]].isEmpty
+      case _ => throw new IllegalArgumentException(s"Could not determine collection type of '${value.getClass.getSimpleName}")
+    }
   }
 
   /** Ensures that the wrapper class is used for primitive classes. */
-  def ifPrimitiveThenWrapper(`type`: Class[_]): Class[_] = {
-    // NB: it is important the primitive class returned has a string constructor value
-    if (`type` eq Byte.getClass) return classOf[java.lang.Byte]
-    if (`type` eq Short.getClass) return classOf[java.lang.Short]
-    if (`type` eq Int.getClass) return classOf[java.lang.Integer]
-    if (`type` eq Long.getClass) return classOf[java.lang.Long]
-    if (`type` eq Float.getClass) return classOf[java.lang.Float]
-    if (`type` eq Double.getClass) return classOf[java.lang.Double]
-    if (`type` eq Boolean.getClass) return classOf[java.lang.Boolean]
-    if (`type` eq java.lang.Byte.TYPE) return classOf[java.lang.Byte]
-    if (`type` eq java.lang.Short.TYPE) return classOf[java.lang.Short]
-    if (`type` eq java.lang.Integer.TYPE) return classOf[java.lang.Integer]
-    if (`type` eq java.lang.Long.TYPE) return classOf[java.lang.Long]
-    if (`type` eq java.lang.Float.TYPE) return classOf[java.lang.Float]
-    if (`type` eq java.lang.Double.TYPE) return classOf[java.lang.Double]
-    if (`type` eq java.lang.Boolean.TYPE) return classOf[java.lang.Boolean]
-    `type`
+  def ifPrimitiveThenWrapper(typ: Class[_]): Class[_] = typ match {
+    case _ if typ eq Byte.getClass          => classOf[java.lang.Byte]
+    case _ if typ eq Short.getClass         => classOf[java.lang.Short]
+    case _ if typ eq Int.getClass           => classOf[java.lang.Integer]
+    case _ if typ eq Long.getClass          => classOf[java.lang.Long]
+    case _ if typ eq Float.getClass         => classOf[java.lang.Float]
+    case _ if typ eq Double.getClass        => classOf[java.lang.Double]
+    case _ if typ eq Boolean.getClass       => classOf[java.lang.Boolean]
+    case _ if typ eq java.lang.Byte.TYPE    => classOf[java.lang.Byte]
+    case _ if typ eq java.lang.Short.TYPE   => classOf[java.lang.Short]
+    case _ if typ eq java.lang.Integer.TYPE => classOf[java.lang.Integer]
+    case _ if typ eq java.lang.Long.TYPE    => classOf[java.lang.Long]
+    case _ if typ eq java.lang.Float.TYPE   => classOf[java.lang.Float]
+    case _ if typ eq java.lang.Double.TYPE  => classOf[java.lang.Double]
+    case _ if typ eq java.lang.Boolean.TYPE => classOf[java.lang.Boolean]
+    case _ => typ
   }
 
   /** Attempts to find a Java constructor with the given parameter types, and return it. Returns None if there is none. */
@@ -169,8 +168,8 @@ object ReflectionUtil {
       val helper = new ReflectiveBuilder[A](clz)
 
       args.foreach { arg =>
-        val name  = arg.children.head.toString
-        val argdef = helper.argumentLookup.forField(name).get
+        val name  = arg.children.headOption.map(_.toString).getOrElse(throw new IllegalStateException("Annotation param without name"))
+        val argdef = helper.argumentLookup.fieldFor(name).getOrElse(throw new IllegalStateException("Args must be in lookup"))
         var value = reifyAnnotationParameter(arg.children.tail.head)
 
         if (value.getClass.isArray) {
@@ -208,7 +207,7 @@ object ReflectionUtil {
     case Ident(name) if name.toString == "Array" =>
       // If the thing looks like an array, get the AST for the list of values and reify each one
       tree.productElement(1).asInstanceOf[List[Tree]].map(p => reifyAnnotationParameter(p)).toArray[Any]
-    case other =>
+    case other: Any =>
       throw new RuntimeException("Don't know how to handle a: " + other)
   }
 
@@ -228,9 +227,9 @@ object ReflectionUtil {
     * Takes a Type symbol that represents a concrete class and returns the Class object associated with it.
     */
   def typeToClass(typ : Type) : Class[_] = {
-    if (typ.typeSymbol.asClass == typeOf[Any].typeSymbol.asClass) classOf[Any]
-    else if (typ.typeSymbol.asClass == typeOf[AnyRef].typeSymbol.asClass) classOf[AnyRef]
-    else if (typ.typeSymbol.asClass == typeOf[AnyVal].typeSymbol.asClass) classOf[AnyVal]
+    if      (typ.typeSymbol.asClass == typeOf[Any].typeSymbol.asClass)      classOf[Any]
+    else if (typ.typeSymbol.asClass == typeOf[AnyRef].typeSymbol.asClass)   classOf[AnyRef]
+    else if (typ.typeSymbol.asClass == typeOf[AnyVal].typeSymbol.asClass)   classOf[AnyVal]
     else if (typ.typeSymbol.asClass == typeOf[Array[_]].typeSymbol.asClass) classOf[Array[_]]
     else mirror.runtimeClass(typ.typeSymbol.asClass)
   }

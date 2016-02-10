@@ -26,8 +26,8 @@ package dagr.tasks.bwa
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.tasks.DataTypes.Sam
 import dagr.core.tasksystem.{FixedResources, Pipe, ProcessTask}
+import dagr.tasks.DataTypes.Sam
 
 object BwaK8AltProcessor {
   val BwaKitDirConfigKey = "bwa-kit.dir"
@@ -41,7 +41,7 @@ object BwaK8AltProcessor {
 class BwaK8AltProcessor(in: Option[Path] = None, altFile: Path) extends ProcessTask
   with FixedResources with Configuration with Pipe[Sam,Sam] {
 
-  override def args = {
+  override def args: Seq[Any] = {
     val bwaKit = configure[Path](BwaK8AltProcessor.BwaKitDirConfigKey)
     bwaKit.resolve("k8") :: bwaKit.resolve(BwaK8AltProcessor.ScriptName) :: altFile :: in.toList
   }

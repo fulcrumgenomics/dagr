@@ -55,7 +55,7 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.isFlag should be(true)
     argument.value.get should be(false.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(false)
-    argument.getTypeDescription shouldBe "Boolean"
+    argument.typeDescription shouldBe "Boolean"
     argument.optional shouldBe true
     argument.hasValue shouldBe true
     // try with.value = 
@@ -66,7 +66,9 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.setArgument("false")
     argument.value.get should be(false.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(false)
+
     // try with setArgument with no value
+    argument.isSetByUser = false // override
     argument.setArgument()
     argument.value.get should be(true.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(true)
@@ -84,7 +86,7 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.isFlag should be(false)
     argument.value.get should be(path.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Path] should be(path)
-    argument.getTypeDescription shouldBe "Path"
+    argument.typeDescription shouldBe "Path"
     // try with.value = 
     argument.value = newPath
     argument.value.get should be(newPath.asInstanceOf[Any])
@@ -104,7 +106,7 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.value.get should be(seq.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Seq[_]] should be(seq)
     argument.value.get.asInstanceOf[Seq[_]](2) should be(3)
-    argument.getTypeDescription shouldBe "Any"
+    argument.typeDescription shouldBe "Any"
     // try with.value = 
     argument.value = newSeq
     argument.value.get should be(newSeq.asInstanceOf[Any])
@@ -125,7 +127,7 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.value.get should be(seq.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Seq[_]] should be(seq)
     argument.value.get.asInstanceOf[Seq[_]](2) should be(3)
-    argument.getTypeDescription shouldBe "Int"
+    argument.typeDescription shouldBe "Int"
     // try with.value = 
     argument.value = newSeq
     argument.value.get should be(newSeq.asInstanceOf[Any])
@@ -145,7 +147,7 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.isCollection should be(false)
     argument.value.get should be(aPath.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Option[PathToNowhere]] should be(aPath)
-    argument.getTypeDescription shouldBe "PathToNowhere"
+    argument.typeDescription shouldBe "PathToNowhere"
     // try with.value = 
     argument.value = aNewPath
     argument.value.get shouldBe aNewPath.asInstanceOf[Any]
@@ -163,7 +165,7 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     val field = parent.getClass.getDeclaredFields.head
     val annotation = field.getAnnotation(classOf[Arg])
     val argument = makeClpArgument(classOf[PathToNowhereOptionClass], null)
-    argument.getTypeDescription shouldBe "PathToNowhere"
+    argument.typeDescription shouldBe "PathToNowhere"
   }
 
   it should "store an argument without an annotation" in {
@@ -171,7 +173,7 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.isFlag should be(true)
     argument.value.get should be(false.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Boolean] should be(false)
-    argument.getTypeDescription shouldBe "Boolean"
+    argument.typeDescription shouldBe "Boolean"
     argument.optional shouldBe true
     argument.hasValue shouldBe true
     // try with.value = 

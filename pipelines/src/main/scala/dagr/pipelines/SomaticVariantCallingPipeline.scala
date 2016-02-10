@@ -41,10 +41,10 @@ import dagr.tasks.vc.{FilterFreeBayesCalls, FreeBayesSomatic, Varscan2Somatic}
       |Calls somatic variants in a single sample [pair] and then filters them.
     """"
 )
-class TumorNormalVariantCallingPipeline(
+class SomaticVariantCallingPipeline(
   @Arg(flag="t", doc="The tumor BAM file.")                                       val tumorBam: PathToBam,
   @Arg(flag="n", doc="The matched normal BAM file.")                              val normalBam: PathToBam,
-  @Arg(flag="r", doc="Path to the reference FASTA.")                              val reference: PathToFasta,
+  @Arg(flag="r", doc="Path to the reference FASTA.")                              val ref: PathToFasta,
   @Arg(flag="l", doc="Intervals to call over.")                                   val intervals: PathToIntervals,
   @Arg(flag="o", doc="Output prefix (including directories) for output files.")   val outputPrefix: DirPath,
   @Arg(          doc="Run MuTect2. Off by default since it is so slow.")          val includeMutect2: Boolean = false,
@@ -67,21 +67,21 @@ class TumorNormalVariantCallingPipeline(
 
     val mkdir     = ShellCommand("mkdir", "-p", outputDir.toAbsolutePath.toString)
     val makeBed   = new IntervalListToBed(intervals=intervals, bed=targetBed)
-    val tpileup   = new SamtoolsPileup(ref=reference, regions=Some(targetBed), bam=tumorBam, output=Some(tumorPileupFile))
-    val npileup   = new SamtoolsPileup(ref=reference, regions=Some(targetBed), bam=normalBam, output=Some(normalPileupFile))
+    val tpileup   = new SamtoolsPileup(ref=ref, regions=Some(targetBed), bam=tumorBam, out=Some(tumorPileupFile))
+    val npileup   = new SamtoolsPileup(ref=ref, regions=Some(targetBed), bam=normalBam, out=Some(normalPileupFile))
     val varscan   = new Varscan2Somatic(tumorPileupFile, normalPileupFile, varscanDir)
-    val mutect1   = new Mutect1(tumorBam=tumorBam, normalBam=normalBam, reference=reference, intervals=intervals, vcfOutput=mutect1Vcf, callStatsOutput=mutect1Callstats)
-    val mutect2   =
-      if (includeMutect2)
-        new Mutect2(tumorBam=tumorBam, normalBam=normalBam, reference=reference, intervals=intervals, output=mutect2Vcf)
+    val mutect1   =
+      new Mutect1(tumorBam=tumorBam, normalBam=normalBam, ref=ref, intervals=intervals, vcfOutput=mutect1Vcf, callStatsOutput=mutect1Callstats)
+    val mutect2   = if (includeMutect2)
+        new Mutect2(tumorBam=tumorBam, normalBam=normalBam, ref=ref, intervals=intervals, output=mutect2Vcf)
       else
         new NoOpInJvmTask("MuTect2NoOp")
 
     val freeBayes =
       if (includeFreeBayes) {
         val unfilteredVcf = outputDir.resolve(prefix + ".freeebayes.unfiltered.vcf")
-        val fb = new FreeBayesSomatic(reference=reference, Some(intervals), tumorBam=tumorBam, normalBam=normalBam, vcf=unfilteredVcf, compress=false)
-        val filterVcf = new FilterFreeBayesCalls(input=unfilteredVcf, output=freeBayesVcf, reference=reference, compress=false)
+        val fb = new FreeBayesSomatic(ref=ref, Some(intervals), tumorBam=tumorBam, normalBam=normalBam, vcf=unfilteredVcf, compress=false)
+        val filterVcf = new FilterFreeBayesCalls(in=unfilteredVcf, out=freeBayesVcf, ref=ref, compress=false)
         fb ==> filterVcf ==> new DeleteVcfs(unfilteredVcf)
         fb
       }

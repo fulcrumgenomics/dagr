@@ -38,16 +38,16 @@ object CollectGcBiasMetrics {
 class CollectGcBiasMetrics(in: PathToBam,
                            prefix: Option[Path],
                            ref: PathToFasta)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in = in, prefix = prefix) {
 
-  override def getMetricsExtension: String = ""
+  override def metricsExtension: String = ""
 
   /** Build method that Picard tasks should override instead of build(). */
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("R=" + ref)
     buffer.append("I=" + in)
-    buffer.append("O=" + getMetricsFile(CollectGcBiasMetrics.DetailMetricsExtension, PicardOutput.Text))
-    buffer.append("S=" + getMetricsFile(CollectGcBiasMetrics.SummaryMetricsExtension, PicardOutput.Text))
-    buffer.append("CHART=" + getMetricsFile(CollectGcBiasMetrics.HistogramExtension, PicardOutput.Pdf))
+    buffer.append("O=" + metricsFile(CollectGcBiasMetrics.DetailMetricsExtension, PicardOutput.Text))
+    buffer.append("S=" + metricsFile(CollectGcBiasMetrics.SummaryMetricsExtension, PicardOutput.Text))
+    buffer.append("CHART=" + metricsFile(CollectGcBiasMetrics.HistogramExtension, PicardOutput.Pdf))
   }
 }

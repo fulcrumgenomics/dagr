@@ -203,6 +203,6 @@ class ParsingUtilTest extends UnitSpec with OptionValues with PrivateMethodTeste
   }
 
   it should "not be able to construct a java collection with a bad value for its type" in {
-    an[InvocationTargetException] should be thrownBy getFromString(classOf[java.util.Set[Int]], classOf[Int], "blah balh")
+    an[InvocationTargetException] should be thrownBy typedValueFromString(classOf[java.util.Set[Int]], classOf[Int], "blah balh")
   }
 }

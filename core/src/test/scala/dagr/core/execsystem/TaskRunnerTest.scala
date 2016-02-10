@@ -26,10 +26,13 @@ package dagr.core.execsystem
 import java.nio.file.{Files, Path}
 
 import dagr.core.tasksystem._
-import dagr.core.util.{LazyLogging, UnitSpec}
-import org.scalatest.{OptionValues, PrivateMethodTester}
+import dagr.core.util.{LogLevel, Logger, LazyLogging, UnitSpec}
+import org.scalatest.{BeforeAndAfterAll, OptionValues}
 
-class TaskRunnerTest extends UnitSpec with PrivateMethodTester with OptionValues with LazyLogging {
+class TaskRunnerTest extends UnitSpec with OptionValues with BeforeAndAfterAll with LazyLogging {
+
+  override def beforeAll(): Unit = Logger.level = LogLevel.Fatal
+  override def afterAll(): Unit = Logger.level = LogLevel.Info
 
   /********************************************
   * Simple Tasks, both in Process and in Jvm
@@ -92,7 +95,7 @@ class TaskRunnerTest extends UnitSpec with PrivateMethodTester with OptionValues
 
   private def getCompletedTask(taskRunner: TaskRunner, task: UnitTask, taskId: BigInt, taskInfo: TaskExecutionInfo, taskStatus: TaskStatus.Value, exitCode: Int = 0, onCompleteSuccessful: Boolean = true, failedAreCompleted: Boolean = true): Unit = {
     // get the completed task
-    val completedTasks: Map[BigInt, (Int, Boolean)] = taskRunner.getCompletedTasks(timeout = 1000, failedAreCompleted = failedAreCompleted)
+    val completedTasks: Map[BigInt, (Int, Boolean)] = taskRunner.completedTasks(timeout = 1000, failedAreCompleted = failedAreCompleted)
     completedTasks should have size 1 // only one task right?
     completedTasks should contain key taskId // should contain the task id
     completedTasks.get(taskId).value._1 should be (exitCode) // exit code is zero
@@ -111,7 +114,7 @@ class TaskRunnerTest extends UnitSpec with PrivateMethodTester with OptionValues
 
     // run the task
     taskRunner.runTask(taskInfo = taskInfo)
-    taskRunner.getRunningTasks should have size 1 // there should be a running task
+    taskRunner.runningTaskIds should have size 1 // there should be a running task
 
     // get the completed task
     getCompletedTask(taskRunner = taskRunner, task = task, taskId = taskId, taskInfo = taskInfo, taskStatus = taskStatus, exitCode = exitCode, onCompleteSuccessful = onCompleteSuccessful, failedAreCompleted = failedAreCompleted)
@@ -166,7 +169,7 @@ class TaskRunnerTest extends UnitSpec with PrivateMethodTester with OptionValues
     val taskRunner: TaskRunner = new TaskRunner()
 
     taskRunner.runTask(taskInfo = taskInfo)
-    taskRunner.getRunningTasks should have size (1) // there should be a running task
+    taskRunner.runningTaskIds should have size (1) // there should be a running task
 
     // terminate it
     taskRunner.terminateTask(taskId = taskId) should be (true)
@@ -208,12 +211,11 @@ class TaskRunnerTest extends UnitSpec with PrivateMethodTester with OptionValues
     val taskRunner: TaskRunner = new TaskRunner()
 
     taskRunner.runTask(taskInfo = taskInfo)
-    val runningTasks: List[BigInt] = taskRunner.getRunningTasks.toList
+    val runningTasks: List[BigInt] = taskRunner.runningTaskIds.toList
     runningTasks should have size 1 // there should be a running task
     runningTasks.head should be (taskId)
     taskInfo.status should be (TaskStatus.STARTED)
-    val privateMethod: PrivateMethod[Option[Boolean]] = PrivateMethod[Option[Boolean]]('getOnCompleteSuccessful)
-    val onCompleteSuccesful: Option[Boolean] = taskRunner invokePrivate privateMethod(taskId)
+    val onCompleteSuccesful: Option[Boolean] = taskRunner.onCompleteSuccessful(taskId)
     onCompleteSuccesful should be ('empty)
 
     // the rest of the tests after this are just to make sure things work out and that we do not have a zombie process
@@ -226,7 +228,7 @@ class TaskRunnerTest extends UnitSpec with PrivateMethodTester with OptionValues
   }
 
   class ProcessBuilderExceptionTask extends ProcessTask with FixedResources {
-    override def getProcessBuilder(script: Path, logFile: Path, setPipefail: Boolean = true): scala.sys.process.ProcessBuilder = {
+    override def processBuilder(script: Path, logFile: Path, setPipefail: Boolean = true): scala.sys.process.ProcessBuilder = {
       throw new IllegalStateException("I failed creating my process builder")
     }
     override def onComplete(exitCode: Int): Boolean = false
@@ -254,7 +256,7 @@ class TaskRunnerTest extends UnitSpec with PrivateMethodTester with OptionValues
       logFile = null)
     taskRunner.runTask(taskInfo)
     taskInfo.status should be(TaskStatus.STARTED)
-    val completedTasks: Map[BigInt, (Int, Boolean)] = taskRunner.getCompletedTasks()
+    val completedTasks: Map[BigInt, (Int, Boolean)] = taskRunner.completedTasks()
     completedTasks.get(1).value._1 should be(1) // exit code
     completedTasks.get(1).value._2 should be(false) // on complete
   }
@@ -319,7 +321,7 @@ class TaskRunnerTest extends UnitSpec with PrivateMethodTester with OptionValues
       logFile = null
     )
     taskRunner.runTask(taskInfo=taskInfo, simulate=false) shouldBe true
-    val completedTask = taskRunner.getCompletedTasks()
+    val completedTask = taskRunner.completedTasks()
     completedTask.contains(1) shouldBe true
     completedTask.get(1).value shouldBe (1, true)
   }

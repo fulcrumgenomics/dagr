@@ -24,8 +24,8 @@
 
 package dagr.sopt
 
+import dagr.sopt.OptionLookup.{OptionAndValues, OptionType}
 import dagr.sopt.util.UnitSpec
-import dagr.sopt.OptionLookup.{OptionType, OptionAndValues}
 
 import scala.util.Try
 
@@ -225,21 +225,21 @@ class OptionLookupTest extends UnitSpec {
   "OptionLookup.getSingleValues" should "return the single value for the option with the given name or prefix, or a failure." in {
     new OptionLookup {}.acceptMultipleValues("name").foreach { optionLookup =>
       // empty
-      var value: Try[String] = optionLookup.getSingleValues("name")
+      var value: Try[String] = optionLookup.singleValue("name")
       value.isFailure shouldBe true
       value.failed.get.getClass shouldBe classOf[IllegalOptionNameException]
       // one element
       optionLookup.addOptionValues("name", "value")
-      value = optionLookup.getSingleValues("name")
+      value = optionLookup.singleValue("name")
       value.isSuccess shouldBe true
       value.get shouldBe "value"
       // two elements
       optionLookup.addOptionValues("name", "proposition")
-      value = optionLookup.getSingleValues("name")
+      value = optionLookup.singleValue("name")
       value.isFailure shouldBe true
       value.failed.get.getClass shouldBe classOf[IllegalOptionNameException]
       // option name is not found
-      value = optionLookup.getSingleValues("value")
+      value = optionLookup.singleValue("value")
       value.isFailure shouldBe true
       value.failed.get.getClass shouldBe classOf[IllegalOptionNameException]
     }
@@ -247,25 +247,25 @@ class OptionLookupTest extends UnitSpec {
 
   "OptionLookup.getOptionValues" should "get options that exist including prefixes of option names" in {
     import OptionLookupWithPrefixes._
-    Seq(name1, name2, name3).foreach(name => optionLookup.getOptionValues(name).get shouldBe List(s"$name-value"))
-    optionLookup.getOptionValues("0123").get shouldBe List(s"$name1-value") // prefix
-    optionLookup.getOptionValues("012A").get shouldBe List(s"$name2-value") // prefix
-    optionLookup.getOptionValues("no").get shouldBe List(s"$name3-value") // prefix
+    Seq(name1, name2, name3).foreach(name => optionLookup.optionValues(name).get shouldBe List(s"$name-value"))
+    optionLookup.optionValues("0123").get shouldBe List(s"$name1-value") // prefix
+    optionLookup.optionValues("012A").get shouldBe List(s"$name2-value") // prefix
+    optionLookup.optionValues("no").get shouldBe List(s"$name3-value") // prefix
   }
 
   it should "return a failure with a IllegalOptionNameException when no values are found for the option name" in {
     import OptionLookupWithPrefixes._
-    val returnValue = optionLookup.getOptionValues("thisisnotanoption")
+    val returnValue = optionLookup.optionValues("thisisnotanoption")
     returnValue.isFailure shouldBe true
     returnValue.failed.get.getClass shouldBe classOf[IllegalOptionNameException]
   }
 
   it should "return a failure with a DuplicateOptionNameException when multiple options with that name exist" in {
     import OptionLookupWithPrefixes._
-    var returnValue = optionLookup.getOptionValues("012") // multiple options with the given prefix
+    var returnValue = optionLookup.optionValues("012") // multiple options with the given prefix
     returnValue.isFailure shouldBe true
     returnValue.failed.get.getClass shouldBe classOf[DuplicateOptionNameException]
-    returnValue = optionLookup.getOptionValues("") // all options with the given prefix
+    returnValue = optionLookup.optionValues("") // all options with the given prefix
     returnValue.isFailure shouldBe true
     returnValue.failed.get.getClass shouldBe classOf[DuplicateOptionNameException]
   }

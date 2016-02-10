@@ -267,7 +267,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithIntDefault]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("an-int")
-    val arg = lookup.forArg("an-int").get
+    val arg = lookup.argFor("an-int").get
     arg.value.get shouldBe 2
     arg.argumentType shouldBe classOf[Int]
     arg.hasValue shouldBe true
@@ -277,7 +277,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithStringDefault]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-string")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-string").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-string").get
     argumentDefinition.value.get shouldBe "string"
     argumentDefinition.argumentType shouldBe classOf[java.lang.String]
     argumentDefinition.hasValue shouldBe true
@@ -287,7 +287,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithNullString]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-string")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-string").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-string").get
     argumentDefinition.value shouldBe None
     argumentDefinition.argumentType shouldBe classOf[java.lang.String]
     argumentDefinition.hasValue shouldBe false
@@ -297,7 +297,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithBooleanDefault]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-boolean")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-boolean").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-boolean").get
     argumentDefinition.value.get shouldBe true
     argumentDefinition.argumentType shouldBe classOf[Boolean]
     argumentDefinition.hasValue shouldBe true
@@ -307,7 +307,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithJavaIntegerWithDefault]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-java-integer")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-java-integer").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-java-integer").get
     argumentDefinition.value.get shouldBe 2
     argumentDefinition.argumentType shouldBe classOf[java.lang.Integer]
     argumentDefinition.hasValue shouldBe true
@@ -317,7 +317,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithJavaBooleanWithDefault]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-java-boolean")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-java-boolean").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-java-boolean").get
     argumentDefinition.value.get shouldBe true
     argumentDefinition.argumentType shouldBe classOf[java.lang.Boolean]
     argumentDefinition.hasValue shouldBe true
@@ -327,23 +327,18 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithOptionWithSomeDefault]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("an-option")
-    val argumentDefinition: ClpArgument = lookup.forArg("an-option").get
+    val argumentDefinition: ClpArgument = lookup.argFor("an-option").get
     argumentDefinition.value.get shouldBe Some(2)
     argumentDefinition.argumentType shouldBe classOf[Option[_]]
     argumentDefinition.unitType shouldBe classOf[Any]
     argumentDefinition.hasValue shouldBe true
   }
 
-  // TODO: why should an option with a default of None be disallowed?
-//  it should "throw a BadAnnotationException with a class with a default None-Option parameter when required" in {
-//    an[BadAnnotationException] should be thrownBy  parser(classOf[ClassWithOptionWithNoneDefault])
-//  }
-
   it should "create a class with a default None-Option parameter but optional annotation" in {
     val lookup = parser(classOf[ClassWithOptionWithNoneDefaultAndOptional]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("an-option")
-    val argumentDefinition: ClpArgument = lookup.forArg("an-option").get
+    val argumentDefinition: ClpArgument = lookup.argFor("an-option").get
     argumentDefinition.value.get.asInstanceOf[Option[_]] shouldBe 'empty
     argumentDefinition.argumentType shouldBe classOf[Option[_]]
     argumentDefinition.hasValue shouldBe true
@@ -353,7 +348,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithIntOptionWithSomeDefault]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("an-option")
-    val argumentDefinition: ClpArgument = lookup.forArg("an-option").get
+    val argumentDefinition: ClpArgument = lookup.argFor("an-option").get
     argumentDefinition.value.get shouldBe Some(2)
     argumentDefinition.argumentType shouldBe classOf[Option[_]]
     argumentDefinition.unitType shouldBe classOf[Int]
@@ -364,7 +359,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithList]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-list")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-list").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-list").get
     argumentDefinition.value.get shouldBe Nil
     argumentDefinition.argumentType shouldBe classOf[List[_]]
     argumentDefinition.unitType shouldBe classOf[Any]
@@ -375,7 +370,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithIntList]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-list")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-list").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-list").get
     argumentDefinition.value.get shouldBe Nil
     argumentDefinition.argumentType shouldBe classOf[List[Int]]
     argumentDefinition.unitType shouldBe classOf[Int]
@@ -386,7 +381,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithSeq]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-seq")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-seq").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-seq").get
     argumentDefinition.value.get shouldBe Nil
     argumentDefinition.argumentType shouldBe classOf[Seq[_]]
     argumentDefinition.unitType shouldBe classOf[Any]
@@ -397,7 +392,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithCollection]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-collection")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-collection").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-collection").get
     argumentDefinition.value.get.asInstanceOf[java.util.Collection[_]].size shouldBe 0
     argumentDefinition.argumentType shouldBe classOf[java.util.Collection[_]]
     argumentDefinition.unitType shouldBe classOf[Any]
@@ -408,7 +403,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithJavaSet]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("a-set")
-    val argumentDefinition: ClpArgument = lookup.forArg("a-set").get
+    val argumentDefinition: ClpArgument = lookup.argFor("a-set").get
     argumentDefinition.value.get.asInstanceOf[java.util.Collection[_]].size shouldBe 0
     argumentDefinition.argumentType shouldBe classOf[java.util.Set[_]]
     argumentDefinition.unitType shouldBe classOf[Any]
@@ -419,7 +414,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val lookup = parser(classOf[ClassWithEnum]).argumentLookup
     lookup.names should have size (1+numSpecialArguments)
     lookup.names should contain ("an-enum")
-    val argumentDefinition: ClpArgument = lookup.forArg("an-enum").get
+    val argumentDefinition: ClpArgument = lookup.argFor("an-enum").get
     argumentDefinition.value.get shouldBe LogLevel.Debug
     argumentDefinition.argumentType shouldBe classOf[LogLevel]
     argumentDefinition.hasValue shouldBe true
@@ -490,11 +485,11 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     lookup.names should have size (2+numSpecialArguments)
     lookup.names should contain ("an-int")
     lookup.names should contain ("a-boolean")
-    val argInt = lookup.forArg("an-int").get
+    val argInt = lookup.argFor("an-int").get
     argInt.value.get shouldBe 2
     argInt.argumentType shouldBe classOf[Int]
     argInt.hasValue shouldBe true
-    val argBoolean = lookup.forArg("a-boolean").get
+    val argBoolean = lookup.argFor("a-boolean").get
     argBoolean.value.get shouldBe true
     argBoolean.argumentType shouldBe classOf[Boolean]
     argBoolean.hasValue shouldBe true
@@ -531,23 +526,23 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
 
   "CommandLineParser.usage" should "print out no arguments when no arguments are present" in {
     val usage = parser(classOf[NoArguments]).usage(printCommon = false, withPreamble = false, withSpecial = false)
-    usage.indexOf(REQUIRED_ARGUMENTS) should be < 0
-    usage.indexOf(OPTIONAL_ARGUMENTS) should be < 0
+    usage.indexOf(RequiredArguments) should be < 0
+    usage.indexOf(OptionalArguments) should be < 0
   }
 
   it should "print out only optional arguments when only optional arguments are present" in {
     val usage = parser(classOf[OptionalOnlyArguments]).usage(printCommon = false, withPreamble = false, withSpecial = false)
-    val reqIndex = usage.indexOf(REQUIRED_ARGUMENTS)
+    val reqIndex = usage.indexOf(RequiredArguments)
     reqIndex should be < 0
-    usage.indexOf(OPTIONAL_ARGUMENTS, reqIndex) should be > 0
+    usage.indexOf(OptionalArguments, reqIndex) should be > 0
   }
 
   it should "print out only required arguments when only required arguments are present and null default value" in {
 
     val usage = parser(classOf[RequiredOnlyArguments]).usage(printCommon = false, withPreamble = false, withSpecial = false)
-    val reqIndex = usage.indexOf(REQUIRED_ARGUMENTS)
+    val reqIndex = usage.indexOf(RequiredArguments)
     reqIndex should be > 0
-    usage.indexOf(OPTIONAL_ARGUMENTS, reqIndex) should be < 0
+    usage.indexOf(OptionalArguments, reqIndex) should be < 0
   }
 
   /**
@@ -556,9 +551,9 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     */
   def validateRequiredOptionalUsage(task: Any, printCommon: Boolean): Unit = {
     val usage = parser(task.getClass).usage(printCommon = false, withPreamble = false, withSpecial = false)
-    val reqIndex = usage.indexOf(REQUIRED_ARGUMENTS)
+    val reqIndex = usage.indexOf(RequiredArguments)
     reqIndex should be > 0
-    usage.indexOf(OPTIONAL_ARGUMENTS, reqIndex) should be > 0
+    usage.indexOf(OptionalArguments, reqIndex) should be > 0
   }
 
   it should "print out both required arguments and optional arguments when both are present" in {
@@ -1021,7 +1016,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
 
     val p = parser(classOf[GeneralTestingTask])
     p.parseAndBuild(errorMessageBuilder = errorMessageBuilder, args = args) shouldBe ParseResult.Success
-    val commandLine: String = p.getCommandLine()
+    val commandLine: String = p.commandLine()
     commandLine shouldBe "GeneralTestingTask --string-set Foo Bar --int-set 1 2 --int-arg 1 --enum-arg Debug --string-list Foo Bar --flag false"
   }
 
@@ -1031,7 +1026,7 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     val args = Array[String]()
     val p = parser(classOf[SensitiveArgTestingTask])
     p.parseAndBuild(errorMessageBuilder = errorMessageBuilder, args = args) shouldBe ParseResult.Success
-    val commandLine: String = p.getCommandLine()
+    val commandLine: String = p.commandLine()
     commandLine shouldBe s"${task.getClass.getSimpleName} --flag ***********"
   }
 }

@@ -1,12 +1,12 @@
 package dagr.tasks.bwa
 
-import java.nio.file.Files
+import java.nio.file.{Path, Files}
 
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.tasks.DataTypes.{Fastq, Sam, SamOrBam}
-import dagr.core.tasksystem.{Pipes, Pipe}
+import dagr.core.tasksystem.{Pipe, Pipes}
 import dagr.core.util.{Io, PathUtil}
+import dagr.tasks.DataTypes.{Fastq, Sam, SamOrBam}
 import dagr.tasks._
 import dagr.tasks.picard.{FifoBuffer, MergeBamAlignment, SamToFastq}
 import htsjdk.samtools.SAMFileHeader.SortOrder
@@ -17,7 +17,7 @@ import htsjdk.samtools.SAMFileHeader.SortOrder
 object Bwa extends Configuration {
   val BwaExecutableConfigKey: String = "bwa.executable"
 
-  def findBwa = configureExecutable(BwaExecutableConfigKey, "bwa")
+  def findBwa: Path = configureExecutable(BwaExecutableConfigKey, "bwa")
 
   /**
     * Constructs a piped task that pipes from an unmapped SAM or BAM in queryname order through
@@ -56,7 +56,9 @@ object Bwa extends Configuration {
     val bwaMem     = new BwaMem(fastq=Io.StdIn, ref=ref, minThreads=minThreads, maxThreads=maxThreads, memory=Memory(bwaMemMemory))
     val bwaBuffer  = new FifoBuffer[Sam].requires(memory=fifoMem)
     val altPipe    =  if (doAlt) new BwaK8AltProcessor(altFile=alt) | new FifoBuffer[Sam].requires(memory=fifoMem) else Pipes.empty[Sam]
-    val mergeBam   = new MergeBamAlignment(unmapped=unmappedBam, mapped=Io.StdIn, out=mappedBam, ref=ref, sortOrder=sortOrder).requires(memory=Memory(mergeBamAlignmentMem))
+    val mergeBam   = new MergeBamAlignment(unmapped=unmappedBam, mapped=Io.StdIn, out=mappedBam, ref=ref, sortOrder=sortOrder)
+    mergeBam.requires(memory=Memory(mergeBamAlignmentMem))
+
     (samToFastq | fqBuffer | bwaMem | bwaBuffer | altPipe | mergeBam).withName("BwaMemThroughMergeBam")
   }
 }

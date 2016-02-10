@@ -24,18 +24,18 @@
 
 package dagr.tasks.jeanluc
 
-import dagr.core.execsystem.{Memory, Cores}
+import dagr.core.execsystem.{Cores, Memory}
 import dagr.tasks.PathToFasta
 
 import scala.collection.mutable.ListBuffer
 
 /** Tool to generate FreeBayes/bamtools region lists from a FASTA, for use when parallelizing FreeBayes. */
-class GenerateRegionsFromFasta(reference: PathToFasta,
-                              regionSize: Option[Int] = None) extends JeanLucTask {
+class GenerateRegionsFromFasta(ref: PathToFasta,
+                               regionSize: Option[Int] = None) extends JeanLucTask {
   requires(Cores(1), Memory("1G"))
 
   override def addJeanLucArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("INPUT=" + reference)
+    buffer.append("INPUT=" + ref)
     regionSize.foreach(rs => buffer.append("REGION_SIZE=" + rs))
   }
 }

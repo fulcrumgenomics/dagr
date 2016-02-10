@@ -23,7 +23,7 @@
  */
 package dagr.core.cmdline.parsing.testing.missing
 
-import dagr.core.tasksystem.{Pipeline, Task}
+import dagr.core.tasksystem.Pipeline
 
 /** For testing the ability to find and filter classes with the CLP property */
 

@@ -25,8 +25,8 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Cores, Memory}
 import dagr.tasks.{PathToBam, PathToFasta}
+import dagr.core.util.Io
 
 import scala.collection.mutable.ListBuffer
 
@@ -46,15 +46,15 @@ class CollectMultipleMetrics(in: PathToBam,
                              ref: PathToFasta,
                              assumeSorted: Boolean = true,
                              programs: List[MetricsProgram.Value] = MetricsProgram.values.toList)
-  extends PicardMetricsTask(input = in, prefix = prefix) {
+  extends PicardMetricsTask(in = in, prefix = prefix) {
 
   // Since we do not actually want any extensions, the tool will do that itself
-  override def getMetricsExtension: String = ""
+  override def metricsExtension: String = ""
 
   /** Build method that Picard tasks should override instead of build(). */
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
-    buffer.append("O=" + this.prefix.get)
+    buffer.append("O=" + prefix)
     buffer.append("R=" + ref)
     buffer.append("AS=" + assumeSorted)
     buffer.append("PROGRAM=null")

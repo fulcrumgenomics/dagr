@@ -26,9 +26,6 @@ package dagr.core.tasksystem
 import java.io.{BufferedWriter, FileWriter}
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Resource, ResourceSet}
-
-import scala.collection.mutable.ListBuffer
 import scala.sys.process._
 
 /** A task that can execute a set of commands in its own process, and does not generate any new tasks.
@@ -46,7 +43,7 @@ trait ProcessTask extends UnitTask {
     * @param setPipefail true if we are to fail if any command in a pipe fails, false if we only check the last command in a pipe or otherwise.
     * @return the command string.
     */
-  private def getCommand(setPipefail: Boolean = true): String = {
+  private def command(setPipefail: Boolean = true): String = {
     if (setPipefail) {
       "set -o pipefail > /dev/null && " + args.mkString(" ")
     }
@@ -62,10 +59,10 @@ trait ProcessTask extends UnitTask {
     * @param setPipefail true if we are to fail if any command in a pipe fails, false if we only check the last command in a pipe or otherwise.
     * @return a process to execute.
     */
-  private[core] def getProcessBuilder(script: Path,
-                                      logFile: Path,
-                                      setPipefail: Boolean = true): ProcessBuilder = {
-    val argv: String = getCommand(setPipefail = false)
+  private[core] def processBuilder(script: Path,
+                                   logFile: Path,
+                                   setPipefail: Boolean = true): ProcessBuilder = {
+    val argv: String = command(setPipefail = false)
 
     logger.debug("Executing call with argv: " + argv)
     logger.debug("Executing script: " + script)
@@ -85,11 +82,11 @@ trait ProcessTask extends UnitTask {
     // NB: cannot put piping or anything else here as scala.sys.process.Process
     // does not execute in a shell, but instead passes anything after the first whitespace
     // as arguments to the command before that whitespace, which in this case is /bin/bash.
-    val command = s"/bin/bash $script"
-    logger.debug("Command is: " + command)
+    val cmd = s"/bin/bash $script"
+    logger.debug("Command is: " + cmd)
 
     // TODO: use ProgressLogger to capture input and output
-    Process.apply(command)
+    Process.apply(cmd)
   }
 
   /**

@@ -26,18 +26,6 @@ package dagr.core.execsystem
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
 import dagr.core.util.LazyLogging
 
-/** Utility methods for scheduling tasks. */
-object Scheduler {
-  /** Check if a task can be scheduled given the system resources.  This will ignore task resources
-   * that are not found in system resources but requires the opposite.
-   *
-   * @param task the task to schedule.
-   * @param availableResources the set of  system resources.
-   * @return true if there are enough system resources for the given task.
-   */
-  def canScheduleTask(task: UnitTask, availableResources: ResourceSet): Boolean = task.pickResources(availableResources).isDefined
-}
-
 /** Scheduler of [[Task]] tasks */
 abstract class Scheduler extends LazyLogging {
 
@@ -60,12 +48,14 @@ abstract class Scheduler extends LazyLogging {
     // Make sure we either have tasks that inherit from ProcessTask or InJvmTask.
     runningTasks.keys.foreach(task => {
       if (!task.isInstanceOf[ProcessTask] && !task.isInstanceOf[InJvmTask]) {
-        throw new IllegalArgumentException(s"The running task was neither an InJvmTask nor ProcessTask: name[${task.name}] class[${task.getClass.getSimpleName}]")
+        throw new IllegalArgumentException(s"The running task was neither an InJvmTask nor ProcessTask: " +
+          s"name[${task.name}] class[${task.getClass.getSimpleName}]")
       }
     })
     readyTasks.foreach(task => {
       if (!task.isInstanceOf[ProcessTask] && !task.isInstanceOf[InJvmTask]) {
-        throw new IllegalArgumentException(s"The ready task was neither an InJvmTask nor ProcessTask: name[${task.name}] class[${task.getClass.getSimpleName}]")
+        throw new IllegalArgumentException(s"The ready task was neither an InJvmTask nor ProcessTask: " +
+          s"name[${task.name}] class[${task.getClass.getSimpleName}]")
       }
     })
 

@@ -38,10 +38,10 @@ abstract class InJvmTask extends UnitTask {
    */
   final def inJvmMethod(script: Path, logFile: Path): Int = {
     val writer = new PrintStream(logFile.toFile)
-    logger.setLogger(Some(writer))
+    logger.out = Some(writer)
     val exitCode = inJvmMethod()
     writer.close()
-    logger.setLogger(None)
+    logger.out = None
     exitCode
   }
 

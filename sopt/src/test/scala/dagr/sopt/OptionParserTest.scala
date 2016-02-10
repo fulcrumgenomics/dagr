@@ -59,6 +59,7 @@ class OptionParserTest extends UnitSpec with PrivateMethodTester {
   }
 
   it should "parse a flag field" in {
+    // short names
     new OptionParser().acceptFlag("f").get.parse("-f").get.foreach {
       case (optionName, optionValues) =>
         optionName shouldBe "f"
@@ -83,6 +84,50 @@ class OptionParserTest extends UnitSpec with PrivateMethodTester {
       case (optionName, optionValues) =>
         optionName shouldBe "f"
         optionValues shouldBe List("false")
+    }
+    // long names
+    new OptionParser().acceptFlag("flag").get.parse("--flag").get.foreach {
+      case (optionName, optionValues) =>
+        optionName shouldBe "flag"
+        optionValues shouldBe List("true")
+    }
+    new OptionParser().acceptFlag("flag").get.parse("--flag", "true").get.foreach {
+      case (optionName, optionValues) =>
+        optionName shouldBe "flag"
+        optionValues shouldBe List("true")
+    }
+    new OptionParser().acceptFlag("flag").get.parse("--flag", "false").get.foreach {
+      case (optionName, optionValues) =>
+        optionName shouldBe "flag"
+        optionValues shouldBe List("false")
+    }
+    new OptionParser().acceptFlag("flag").get.parse("--flag=false").get.foreach {
+      case (optionName, optionValues) =>
+        optionName shouldBe "flag"
+        optionValues shouldBe List("false")
+    }
+    new OptionParser().acceptFlag("this-is-a-flag").get.parse("--this-is-a-flag=false").get.foreach {
+      case (optionName, optionValues) =>
+        optionName shouldBe "this-is-a-flag"
+        optionValues shouldBe List("false")
+    }
+  }
+
+  it should "parse multiple long option names with their values separated by an equals sign, when there value is of length one" in {
+    val parser = new OptionParser().acceptSingleValue("single-a").get.acceptSingleValue("single-b").get
+    parser.parse("--single-b=3", "--single-a=1") shouldBe 'success
+    parser should have size 2
+    parser.foreach { case (observedArgument, optionValues) =>
+      val found = observedArgument match {
+        case "single-a" =>
+          optionValues.toList should contain("1")
+          true
+        case "single-b" =>
+          optionValues.toList should contain("3")
+          true
+        case _ => false
+      }
+      found shouldBe true
     }
   }
 
@@ -158,7 +203,7 @@ class OptionParserTest extends UnitSpec with PrivateMethodTester {
           }
           found shouldBe true
         }
-        parser.getRemaining shouldBe 'empty
+        parser.remaining shouldBe 'empty
       }
     }
   }

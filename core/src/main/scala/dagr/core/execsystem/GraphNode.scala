@@ -43,11 +43,11 @@ class GraphNode(val taskId: BigInt,
                 var state: GraphNodeState.Value = GraphNodeState.PREDECESSORS_AND_UNEXPANDED,
                 val parent: Option[GraphNode] = None) {
 
-  private val predecessors = new ListBuffer[GraphNode]()
-  private val predecessorsStatic = new ListBuffer[GraphNode]()
+  private val _predecessors = new ListBuffer[GraphNode]()
+  private val _predecessorsStatic = new ListBuffer[GraphNode]()
 
-  predecessors ++= predecessorNodes
-  predecessorsStatic ++= predecessorNodes
+  _predecessors ++= predecessorNodes
+  _predecessorsStatic ++= predecessorNodes
 
 
   /** Remove a predecessor from the execution graph.
@@ -56,16 +56,20 @@ class GraphNode(val taskId: BigInt,
    * @return true if the predecessor was found and removed, false otherwise
    */
   def removePredecessor(predecessor: GraphNode): Boolean = {
-    if (predecessors.isEmpty || !predecessors.contains(predecessor)) return false
-    predecessors -= predecessor
-    true
+    if (_predecessors.isEmpty || !_predecessors.contains(predecessor)) {
+      false
+    }
+    else {
+      _predecessors -= predecessor
+      true
+    }
   }
 
   /** Does this node have predecessors currently?
    *
    * @return true if this node has predecessors, false otherwise
    */
-  def hasPredecessor: Boolean = predecessors.nonEmpty
+  def hasPredecessor: Boolean = _predecessors.nonEmpty
 
   /** Adds predecessor(s) associated with this node.
    *
@@ -73,17 +77,14 @@ class GraphNode(val taskId: BigInt,
    * @return true if any duplicate predecessor was found, include those already added, false otherwise
    */
   def addPredecessors(predecessors: GraphNode*): Boolean = {
-    var missingParent: Boolean = false
+    val originalPredecessorsSize = this._predecessors.size
     predecessors.foreach(predecessor => {
-      if (predecessors.isEmpty || !this.predecessors.contains(predecessor)) {
-        this.predecessors += predecessor
-        this.predecessorsStatic += predecessor
-      }
-      else {
-        missingParent = true
+      if (!this._predecessors.contains(predecessor)) {
+        this._predecessors += predecessor
+        this._predecessorsStatic += predecessor
       }
     })
-    missingParent
+    originalPredecessorsSize != (this._predecessors.size - predecessors.size)
   }
 
   /** Adds predecessor(s) associated with this node.
@@ -99,11 +100,11 @@ class GraphNode(val taskId: BigInt,
    *
    * @return the current set of predecessors, if any
    */
-  def getPredecessors: List[GraphNode] = predecessors.toList
+  def predecessors: List[GraphNode] = _predecessors.toList
 
   /** Gets all predecessors that have ever been added. This could be useful to re-create the original execution graph.
    *
    * @return  the set of predecessors that have ever been added, ignoring any predecessors that were removed
    */
-  def getOriginalPredecessors: List[GraphNode] = predecessorsStatic.toList
+  def originalPredecessors: List[GraphNode] = _predecessorsStatic.toList
 }

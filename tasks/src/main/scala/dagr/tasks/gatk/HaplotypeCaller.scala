@@ -23,21 +23,21 @@
  */
 package dagr.tasks.gatk
 
-import dagr.tasks.{PathToBam, PathToVcf, PathToIntervals, PathToFasta}
+import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer
 
 /**
   * Runs the GATK haplotype caller i GVCF mode on a single sample.
   */
-class HaplotypeCaller(reference: PathToFasta,
-                      val targetIntervals: PathToIntervals,
+class HaplotypeCaller(ref: PathToFasta,
+                      intervals: PathToIntervals,
                       val bam: PathToBam,
                       val vcf: PathToVcf,
                       val maxAlternateAlleles: Int = 3,
                       val contaminationFraction: Double = 0.0
                       )
- extends GatkTask("HaplotypeCaller", reference, intervals=Some(targetIntervals)) {
+ extends GatkTask("HaplotypeCaller", ref, intervals=Some(intervals)) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("--minPruning", "3")

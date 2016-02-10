@@ -39,7 +39,9 @@ object PathUtil {
     * @param replacement an optional replacement character, defaulting to '_'; if None characters are just removed
     * @return the filename without illegal characters
     */
-  def sanitizeFileName(fileName: String, illegalCharacters: String = PathUtil.illegalCharacters, replacement: Option[Char] = Some('_')): String = replacement match {
+  def sanitizeFileName(fileName: String,
+                       illegalCharacters: String = PathUtil.illegalCharacters,
+                       replacement: Option[Char] = Some('_')): String = replacement match {
     case None    => fileName.filter(c => !illegalCharacters.contains(c))
     case Some(r) => fileName.map(c => if (illegalCharacters.contains(c)) r else c)
   }
@@ -59,6 +61,16 @@ object PathUtil {
   def removeExtension(pathname: String) : String = {
     // Use Paths.get here so as not to turn the name into an absolute path, since we just toString it again
     removeExtension(Paths.get(pathname)).toString
+  }
+
+  /** Returns the extension of the filename (including the period) within the path,
+    * or None if there is no period in the name.
+    */
+  def extensionOf(path: Path) : Option[String] = {
+    val name  = path.getFileName.toString
+    val index = name.lastIndexOf('.')
+    if (index < 0) None
+    else Some(name.substring(index))
   }
 
   /** Works similarly to the unix command basename, by optionally removing an extension, and all leading path elements. */

@@ -25,8 +25,6 @@ package dagr.core.tasksystem
 
 import dagr.core.execsystem.ResourceSet
 
-import scala.collection.mutable.ListBuffer
-
 ///////////////////////////////////////////////////////////////////////////////
 // Section: General traits related to piping
 ///////////////////////////////////////////////////////////////////////////////
@@ -139,8 +137,7 @@ object Pipes {
       */
     override def applyResources(resources: ResourceSet): Unit = {
       val (fixed, variable) = partition
-      var remainingResource = resources
-      fixed.foreach(task => { task.applyResources(task.resources); remainingResource -= task.resources })
+      val remainingResource = fixed.map(task => { task.applyResources(task.resources); task.resources }).fold(resources)(_ - _)
       variable.foreach(task => task.applyResources(remainingResource))
     }
   }
@@ -161,9 +158,9 @@ object Pipes {
     */
   private[tasksystem] def chain[In1,Out1,In2 >:Out1,Out2](left: Pipe[In1,Out1], right: Pipe[In2,Out2]): Pipe[In1,Out2] = {
     (left, right) match {
-      case (p: EmptyPipe[Out1], _) => right.asInstanceOf[Pipe[In1,Out2]]
-      case (_, p: EmptyPipe[Out2]) => left.asInstanceOf[Pipe[In1,Out2]]
-      case (_, _)                  => new PipeChain(tasks=(left.ordered ++ right.ordered), first=left.left, last=right.right)
+      case (p: EmptyPipe[_], _) => right.asInstanceOf[Pipe[In1,Out2]]
+      case (_, p: EmptyPipe[_]) => left.asInstanceOf[Pipe[In1,Out2]]
+      case (_, _)               => new PipeChain(tasks=(left.ordered ++ right.ordered), first=left.left, last=right.right)
     }
   }
 }

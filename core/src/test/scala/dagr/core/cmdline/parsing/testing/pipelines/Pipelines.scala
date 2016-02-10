@@ -25,7 +25,7 @@ package dagr.core.cmdline.parsing.testing.pipelines
 
 import dagr.core.cmdline._
 import dagr.core.cmdline.parsing.TestGroup
-import dagr.core.tasksystem.{Pipeline, Task}
+import dagr.core.tasksystem.Pipeline
 
 @CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] class CommandLineTaskTesting extends Pipeline {
@@ -47,3 +47,11 @@ private[cmdline] case class PipelineThree @CLPConstructor
 @CLP(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class PipelineFour @CLPConstructor
 (@Arg var argument: String = "default", @Arg var flag: Boolean = false) extends CommandLineTaskTesting
+
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
+private[cmdline] case class PipelineReallyLooooooooooooooooooooooooooooooooooooooooooooooooooooooooongName @CLPConstructor
+() extends CommandLineTaskTesting
+
+@CLP(description = "", group = classOf[TestGroup], hidden = true)
+private[cmdline] case class PipelineWithMutex @CLPConstructor
+(@Arg(mutex = Array("another")) var argument: String, @Arg(mutex = Array("argument")) var another: String) extends CommandLineTaskTesting // argument should be required

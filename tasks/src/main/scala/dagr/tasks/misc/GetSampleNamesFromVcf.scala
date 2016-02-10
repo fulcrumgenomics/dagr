@@ -27,17 +27,21 @@ package dagr.tasks.misc
 import dagr.core.tasksystem.SimpleInJvmTask
 import dagr.tasks.PathToVcf
 import htsjdk.samtools.util.CloserUtil
-import htsjdk.variant.vcf.{VCFHeader, VCFFileReader}
+import htsjdk.variant.vcf.{VCFFileReader, VCFHeader}
+import scala.collection.mutable
+
 import scala.collection.JavaConversions._
+import scala.collection.mutable.ListBuffer
 
 /** Gets the sample names from a VCF */
 class GetSampleNamesFromVcf(val vcf: PathToVcf) extends SimpleInJvmTask {
-  var sampleNames: List[String] = Nil
+  private val _sampleNames: mutable.ListBuffer[String] = new ListBuffer[String]()
+  def sampleNames: List[String] = this._sampleNames.toList
 
   override def run(): Unit = {
     val reader: VCFFileReader = new VCFFileReader(vcf.toFile, false)
     val header: VCFHeader = reader.getFileHeader
-    this.sampleNames = header.getSampleNamesInOrder.toList
+    this._sampleNames ++= header.getSampleNamesInOrder.toList
     CloserUtil.close(reader)
   }
 }

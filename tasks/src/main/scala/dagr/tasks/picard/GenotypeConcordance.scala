@@ -24,6 +24,7 @@
 package dagr.tasks.picard
 
 import java.nio.file.Path
+
 import dagr.tasks.{PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer

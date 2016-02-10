@@ -31,7 +31,6 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
 // NB: no manipulation of the values or names should be performed prior to calling addOptionValues...
-// TODO: how to string along multiple acceptFlag without using get all the time
 
 /** Helper methods for looking up options, including their names, types, and values */
 protected object OptionLookup {
@@ -48,38 +47,60 @@ protected object OptionLookup {
 
     private val values: ListBuffer[String] = new ListBuffer[String]()
 
+    private def ensureSingleValue(optionName: String): Try[this.type] = {
+      if (1 < values.size) Failure(OptionSpecifiedMultipleTimesException(s"'$optionName' specified more than once."))
+      else Success(this)
+    }
+
+    private def addFlag(optionName: String, addedValues: String*): Try[this.type] = {
+      addedValues.toList match {
+        case Nil =>
+          values += "true"
+          ensureSingleValue(optionName)
+        case xs :: Nil =>
+          val converted = addedValues.map(convertFlagValue)
+          converted.find(_.isFailure) match {
+            case Some(Failure(ex)) => Failure(ex)
+            case _ =>
+              values ++= converted.map(_.get)
+              ensureSingleValue(optionName)
+          }
+        case _ => Failure(TooManyValuesException(s"Trying to add more than one value for the flag option: '$optionName'"))
+      }
+    }
+
+    private def addSingleValue(optionName: String, addedValues: String*): Try[this.type] = {
+      addedValues.toList match {
+        case Nil => Failure(TooFewValuesException(s"No values given for the single-value option: '$optionName'"))
+        case xs :: Nil =>
+          values ++= addedValues
+          if (1 < values.size) Failure(OptionSpecifiedMultipleTimesException(s"'$optionName' specified more than once."))
+          else Success(this)
+        case _ => Failure(TooManyValuesException(s"Trying to add more than one value for the single-value option: '$optionName'"))
+      }
+    }
+
     def add(optionName: String, addedValues: String*): Try[this.type] = {
       if (!optionNames.exists( name => name.startsWith(optionName))) {
-        return Failure(IllegalOptionNameException(s"Option name '$optionName' was not found in the list of option names (or as a prefix)"))
+         Failure(IllegalOptionNameException(s"Option name '$optionName' was not found in the list of option names (or as a prefix)"))
       }
-
-      // 1. Check that there we have the correct # of addedValues based on the option type
-      // 2. Add the values
-      // 3. Check that we have the correct # of values based on the option type
-      this.optionType match {
-        case Flag =>
-          if (1 < addedValues.size) return Failure(TooManyValuesException(s"Trying to add more than one value for the flag option: '$optionName'"))
-          if (addedValues.isEmpty) values += "true"
-          else {
-            values ++= addedValues.map(addedValue =>
-              convertFlagValue(addedValue) match {
-                case Success(str) => str
-                case Failure(ex) => return Failure(ex)
-              }
-            )
-          }
-          if (1 < values.size) return Failure(OptionSpecifiedMultipleTimesException(s"'$optionName' specified more than once."))
-        case SingleValue =>
-          if (addedValues.isEmpty) return Failure(TooFewValuesException(s"No values given for the single-value option: '$optionName'"))
-          else if (1 < addedValues.size) return Failure(TooManyValuesException(s"Trying to add more than one value for the single-value option: '$optionName'"))
-          values ++= addedValues
-          if (1 < values.size) return Failure(OptionSpecifiedMultipleTimesException(s"'$optionName' specified more than once."))
-        case MultiValue =>
-          if (addedValues.isEmpty) return Failure(TooFewValuesException(s"No values given for the multi-value option: '$optionName'"))
-          values ++= addedValues
+      else {
+        // 1. Check that we have the correct # of addedValues based on the option type
+        // 2. Add the values
+        // 3. Check that we have the correct # of values based on the option type
+        this.optionType match {
+          case Flag =>
+            addFlag(optionName = optionName, addedValues: _*)
+          case SingleValue =>
+            addSingleValue(optionName = optionName, addedValues: _*)
+          case MultiValue =>
+            if (addedValues.isEmpty) Failure(TooFewValuesException(s"No values given for the multi-value option: '$optionName'"))
+            else {
+              values ++= addedValues
+              Success(this)
+            }
+        }
       }
-
-      Success(this)
     }
 
     def isEmpty: Boolean = values.isEmpty
@@ -130,18 +151,29 @@ trait OptionLookup {
   /** Adds the given argument type with argument name(s) */
   private def accept(optionType: OptionType.Value, optionName: String*): Try[this.type] = {
     val optionValues = new OptionAndValues(optionType, optionName.toSeq)
-    optionName.foreach { name =>
-      if (optionMap.contains(name)) return Failure(DuplicateOptionNameException(s"option name '$name' specified more than once"))
-      optionMap.put(name, optionValues)
+    optionName.view.map { name =>
+      optionMap.put(name, optionValues) match {
+        case Some(_) => Failure(DuplicateOptionNameException(s"option name '$name' specified more than once"))
+        case _ => Success(this)
+      }
+    }.find(_.isFailure) match {
+      case Some(Failure(ex)) => Failure(ex)
+      case _ => Success(this)
     }
-    Success(this)
   }
 
   /** Gets all the option names with the given string as a prefix */
-  private def getOptionNamesWithPrefix(prefix: String): Traversable[String] = {
+  private def optionNamesWithPrefix(prefix: String): Traversable[String] = {
     this.optionNames.filter { name =>
       name.startsWith(prefix)
     }
+  }
+
+  /** Gets all the option  and values with the given string as a prefix of name */
+  private def optionAndValuesWithPrefix(prefix: String): Traversable[OptionAndValues] = {
+    this.optionMap
+      .filter { case (name, optionAndValues) => name.startsWith(prefix) }
+      .map { case (name, optionAndValues) => optionAndValues }
   }
 
   /** Gets the single option with this name.  If no option with the name is found, returns all options that have this
@@ -149,11 +181,11 @@ trait OptionLookup {
     */
   private[sopt] def findExactOrPrefix(optionName: String): List[OptionAndValues] = {
     // first see if the name is just in the map
-    if (optionMap.contains(optionName)) return List(optionMap.get(optionName).get)
-    // next, check abbreviations
-    getOptionNamesWithPrefix(optionName)
-      .map { name => optionMap.get(name).get }
-      .toList
+    optionMap.get(optionName) match {
+      case Some(v) => List(v)
+      case None => // next, check abbreviations
+        optionAndValuesWithPrefix(optionName).toList
+    }
   }
 
   /** True if there is one and only one option with this name or a prefix, false otherwise. */
@@ -162,7 +194,7 @@ trait OptionLookup {
   /** True if the option name or its abbreviation will return at least one value if `getOptionValues` were called, false otherwise. */
   def hasOptionValues(optionName: String): Boolean = {
     if (hasOptionName(optionName)) {
-      getOptionValues(optionName) match {
+      optionValues(optionName) match {
         case Success(list) => list.nonEmpty
         case Failure(_) => false
       }
@@ -173,8 +205,8 @@ trait OptionLookup {
   }
 
   /** Gets the single value for the option with the given name or prefix.  A success requires one and only one value. */
-  def getSingleValues(optionName: String): Try[String] = {
-    getOptionValues(optionName) match {
+  def singleValue(optionName: String): Try[String] = {
+    optionValues(optionName) match {
       case Success(list) if list.size == 1 => Success(list.head)
       case Success(list) if list.isEmpty   => Failure(IllegalOptionNameException(s"No values found for option '$optionName'"))
       case Success(list) if list.size > 1  => Failure(IllegalOptionNameException(s"Multiple values found for option '$optionName': " + list.mkString(", ")))
@@ -183,13 +215,13 @@ trait OptionLookup {
   }
 
   /** Gets the values for the option with the given name or prefix.  A success requires at least one value. */
-  def getOptionValues(optionName: String): Try[List[String]] = {
+  def optionValues(optionName: String): Try[List[String]] = {
     this.findExactOrPrefix(optionName) match {
       case Nil =>
         Failure(IllegalOptionNameException(s"No option found with name '$optionName'.${printUnknown(optionName)}"))
       case option :: Nil => Success(option.toList)
       case _ =>
-        Failure(DuplicateOptionNameException(s"Multiple options found for name '$optionName': " + getOptionNamesWithPrefix(optionName).mkString(", ")))
+        Failure(DuplicateOptionNameException(s"Multiple options found for name '$optionName': " + optionNamesWithPrefix(optionName).mkString(", ")))
     }
   }
 
@@ -203,7 +235,7 @@ trait OptionLookup {
           case Failure(failure) => Failure(failure)
         }
       case _ =>
-        Failure(DuplicateOptionNameException(s"Multiple options found for name '$optionName': " + getOptionNamesWithPrefix(optionName).mkString(", ")))
+        Failure(DuplicateOptionNameException(s"Multiple options found for name '$optionName': " + optionNamesWithPrefix(optionName).mkString(", ")))
     }
   }
 
@@ -231,7 +263,7 @@ trait OptionLookup {
         bestDistance = distance
         bestN = 1
       }
-      else if (distance == bestDistance) {
+      else if(distance == bestDistance) {
         bestN += 1
       }
     }

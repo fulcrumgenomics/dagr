@@ -26,22 +26,23 @@ package dagr.tasks.picard
 import java.nio.file.Path
 
 import dagr.tasks.{PathToBam, PathToFasta}
+import htsjdk.samtools.ValidationStringency
 
 import scala.collection.mutable.ListBuffer
 
 object ValidateSamFile {
-  val MetricsExtension: String = ".validation_metrics"
+  val MetricsExtension = ".validation_metrics"
 }
 
-class ValidateSamFile(in: PathToBam, prefix: Option[Path], ref: PathToFasta) extends PicardMetricsTask(input = in, prefix = prefix) {
+class ValidateSamFile(in: PathToBam, prefix: Option[Path], ref: PathToFasta) extends PicardMetricsTask(in = in, prefix = prefix) {
   // Override the default stringency
-  validationStringency = Option("STRICT")
+  validationStringency = Option(ValidationStringency.STRICT)
 
-  def getMetricsExtension: String = ValidateSamFile.MetricsExtension
+  def metricsExtension: String = ValidateSamFile.MetricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
-    buffer.append("O=" + getMetricsFile)
+    buffer.append("O=" + metricsFile)
     buffer.append("R=" + ref)
     buffer.append("MODE=SUMMARY")
   }

@@ -23,7 +23,6 @@
  */
 package dagr.core.cmdline.parsing.testing.fields
 
-import dagr.core.cmdline.parsing.testing.fields.Fields.PathToSomething
 import dagr.core.util.LogLevel
 
 /** For testing the ability to find and filter classes with the CLP property */
@@ -39,9 +38,9 @@ class WithOption(var v: Option[_])
 class WithIntOption(var v: Option[Int])
 class WithInt(var v: Int)
 class WithMap(var map: Map[_, _])
-class WithPathToBamOption(var path: Option[PathToSomething])
+class WithPathToBamOption(var path: Option[Fields.PathToSomething])
 class WithString(var s: String)
-class WithPathToBam(var path: PathToSomething)
+class WithPathToBam(var path: Fields.PathToSomething)
 class WithStringParent(var s: String = "")
 class WithStringChild(var t: String) extends WithStringParent
 class WithEnum(var verbosity: LogLevel = LogLevel.Info)
