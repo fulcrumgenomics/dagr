@@ -101,42 +101,46 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
     val errorMessageBuilder: mutable.StringBuilder = new StringBuilder()
     val (dagrArgs, pipelineArgs) = splitArgs(args, packageList, Seq(classOf[DagrCoreMain]), errorMessageBuilder, includeHidden = this.includeHidden)
 
+    /** A brief developer note about the precedence of printing error messages and usages.
+      *
+      * 1. Complain if dagr options are mis-specified.
+      * 2. Print the dagr-only help message if --help is used before a pipeline name.
+      * 3. Print the version if --version is used before a pipeline name.
+      * 4. Complain if (a) no pipeline name is given, or (b) it is not recognized.
+      * 5. Complain if pipeline options are mis-specified.
+      * 6. Print the dagr-and-pipeline help message if --help is used after a pipeline name.
+      * 7. Print the version if --version is used after a pipeline name.
+      * 8. ... execute dagr ...
+      * */
 
     /////////////////////////////////////////////////////////////////////////
     // Try parsing and building DagrMain and handle the outcomes
     /////////////////////////////////////////////////////////////////////////
     dagrArgParser.parseAndBuild(errorMessageBuilder=errorMessageBuilder, args=dagrArgs) match {
-      case ParseResult.Failure =>
+      case ParseResult.Failure => // Case (1)
         print(dagrArgParser.usage())
-        if (pipelineArgs.isEmpty) {
-          val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden).keys.toSet
-          print(pipelineListUsage(classes, Configuration.commandLineName))
-          print(unknownPipeline(Configuration.commandLineName))
-        }
-        else {
-          print(wrapError(errorMessageBuilder.toString()))
-        }
+        print(wrapError(errorMessageBuilder.toString()))
         None
-      case ParseResult.Help =>
+      case ParseResult.Help => // Case (2)
         val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden).keys.toSet
         print(dagrArgParser.usage())
         print(pipelineListUsage(classes, Configuration.commandLineName))
         None
-      case ParseResult.Version =>
+      case ParseResult.Version => // Case (3)
         print(dagrArgParser.version)
         None
-      case ParseResult.Success =>
+      case ParseResult.Success => // Case (4-8)
         /////////////////////////////////////////////////////////////////////////
         // Get setup, and attempt to ID and load the pipeline class
         /////////////////////////////////////////////////////////////////////////
-        if (pipelineArgs.isEmpty) {
+        if (pipelineArgs.isEmpty) { // Case 4 (a)
           val classes = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden).keys.toSet
           print(dagrArgParser.usage())
           print(pipelineListUsage(classes, Configuration.commandLineName))
           print(unknownPipelineErrorMessage(Configuration.commandLineName))
           None
         }
-        else {
+        else { // Case 4-8
           val dagr = dagrArgParser.instance.get
 
           // Load any Dagr scripts and add them to the classpath.
@@ -145,7 +149,7 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
           // Try parsing the task name
           val classToClpAnnotation = findPipelineClasses(packageList, omitSubClassesOf = Seq(mainClass), includeHidden = includeHidden)
           parseTaskName(args = pipelineArgs, classToPropertyMap = classToClpAnnotation) match {
-            case Right(error) =>
+            case Right(error) => // Case 4 (b)
               print(dagrArgParser.usage())
               print(pipelineListUsage(classToClpAnnotation.keySet, Configuration.commandLineName))
               print(wrapError(error))
@@ -156,19 +160,19 @@ private[cmdline] class DagrCommandLineParser(val commandLineName: String, val in
               /////////////////////////////////////////////////////////////////////////
               val pipelineParser = new CommandLineParser(clazz)
               pipelineParser.parseAndBuild(errorMessageBuilder, pipelineArgs.drop(1)) match {
-                case ParseResult.Failure =>
+                case ParseResult.Failure => // Case 5
                   print(dagrArgParser.usage())
                   print(pipelineParser.usage())
                   print(wrapError(errorMessageBuilder.toString()))
                   None
-                case ParseResult.Help =>
+                case ParseResult.Help => // Case 6
                   print(dagrArgParser.usage())
                   print(pipelineParser.usage())
                   None
-                case ParseResult.Version =>
+                case ParseResult.Version => // Case 7
                   print(pipelineParser.version)
                   None
-                case ParseResult.Success =>
+                case ParseResult.Success => // Case 8
                   val pipeline = pipelineParser.instance.get
                   try {
                     dagr.configure(pipeline)

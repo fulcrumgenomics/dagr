@@ -161,7 +161,6 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
 
   it should "print just the dagr usage when an unknown pipeline name is passed to dagr" in {
     Stream(
-      Array[String]("PipelineFive"),
       Array[String]("--", "PipelineFive"),
       Array[String]("--", "PipelineFive", "--flag")
     ).foreach { args =>
