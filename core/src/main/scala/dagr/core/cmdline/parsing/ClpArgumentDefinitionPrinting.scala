@@ -41,6 +41,8 @@ object ClpArgumentDefinitionPrinting {
       makeArgumentDescription(argumentDefinition, argumentLookup))
   }
 
+  def mutexErrorHeader: String = " Cannot be used in conjunction with argument(s): "
+
   /** Gets a string for the given argument definition. */
   private def makeArgumentDescription(argumentDefinition: ClpArgument,
                                       argumentLookup: ClpArgumentLookup): String = {
@@ -51,7 +53,7 @@ object ClpArgumentDefinitionPrinting {
     sb.append(possibleValues(argumentDefinition.unitType))
 
     if (argumentDefinition.mutuallyExclusive.nonEmpty) {
-      sb.append(" Cannot be used in conjunction with argument(s): ")
+      sb.append(mutexErrorHeader)
       sb.append(argumentDefinition.mutuallyExclusive.map { targetFieldName =>
         argumentLookup.fieldFor(targetFieldName) match {
           case None =>

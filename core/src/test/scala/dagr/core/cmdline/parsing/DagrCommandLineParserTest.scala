@@ -251,6 +251,18 @@ class DagrCommandLineParserTest extends UnitSpec with CaptureSystemStreams {
     }
   }
 
+  it should "print the dagr and task usage when task arguments are specified but are mutually exlusive" in {
+    Stream(
+      Array[String]("--", nameOf(classOf[PipelineWithMutex]), "--argument", "value", "--another", "value"),
+      Array[String](nameOf(classOf[PipelineWithMutex]), "--argument", "value", "--another", "value")
+    ).foreach { args =>
+      val (taskOption, output) = TestParseDagrArgsData.parseDagrArgs(args)
+      taskOption shouldBe 'empty
+      output should include(classOf[UserException].getSimpleName)
+      output should include(ClpArgumentDefinitionPrinting.mutexErrorHeader)
+    }
+  }
+
   it should "return a valid task with and without using the pipeline name separator \"--\" and valid arguments" in {
     Stream(
       //Array[String]("--", getName(classOf[PipelineThree]), "--argument", "value"),
