@@ -143,7 +143,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
   private val actualLogsDirectory    = logDirectory getOrElse Io.makeTempDir("logs")
 
-  private val taskRunner: TaskExecutionRunner = new TaskExecutionRunner()
+  private val taskExecutionRunner: TaskExecutionRunnerApi = new TaskExecutionRunner()
 
   import GraphNodeState._
   import TaskStatus._
@@ -175,7 +175,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
 
         if (taskInfo.status == STARTED) {
           // the task has been started, kill it
-          taskRunner.terminateTask(taskId)
+          taskExecutionRunner.terminateTask(taskId)
           processCompletedTask(taskId = taskId, doRetry = false)
         }
 
@@ -281,7 +281,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     * @return for each completed task, a map from a task identifier to a tuple of the exit code and the status of the `onComplete` method
     */
   private def updateCompletedTasks(timeout: Int = 1000): Map[TaskId, (Int, Boolean)] = {
-    val completedTasks: Map[TaskId, (Int, Boolean)] = taskRunner.completedTasks(timeout = timeout)
+    val completedTasks: Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks(timeout = timeout)
     completedTasks.keys.foreach(taskId => processCompletedTask(taskId))
     logger.debug("updateCompletedTasks: found " + completedTasks.size + " completed tasks")
     for (taskId <- completedTasks.keys) {
@@ -465,7 +465,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
       val taskInfo       = infoAndNode.info
       val node           = infoAndNode.node
       taskInfo.resources = taskResourceSet // update the resource set that was used when scheduling the task
-      if (taskRunner.runTask(taskInfo, simulate)) {
+      if (taskExecutionRunner.runTask(taskInfo, simulate)) {
         node.state = RUNNING
       }
       else {
@@ -492,7 +492,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
 
     // get the running tasks to estimate currently used resources
     val runningTasks: Map[UnitTask, ResourceSet] = Map(
-      taskRunner.runningTaskIds.toList.map(id => infoFor(id).info).map(info => (info.task.asInstanceOf[UnitTask], info.resources)) : _*)
+      taskExecutionRunner.runningTaskIds.toList.map(id => infoFor(id).info).map(info => (info.task.asInstanceOf[UnitTask], info.resources)) : _*)
 
     // get the tasks that are eligible for execution (tasks with no dependents)
     val readyTasks: List[UnitTask] = graphNodesInStateFor(NO_PREDECESSORS).toList.map(node => node.task.asInstanceOf[UnitTask])
@@ -547,7 +547,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
 
     // terminate all running tasks
     for (node <- graphNodes.filter(node => node.state == RUNNING)) {
-      taskRunner.terminateTask(node.id)
+      taskExecutionRunner.terminateTask(node.id)
       processCompletedTask(taskId = node.id, doRetry = false)
     }
 

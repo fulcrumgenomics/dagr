@@ -376,7 +376,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       runSchedulerOnce(taskManager = taskManager, tasksToScheduleContains = List[Task](task), runningTasksContains = Nil, completedTasksContains = Nil, failedAreCompleted = false)
 
       // we need to check the status of the task after it has completed but before it has been retried, so do this part manually.
-      val taskRunner: TaskExecutionRunner = taskManager invokePrivate PrivateMethod[TaskExecutionRunner]('taskRunner)()
+      val taskRunner: TaskExecutionRunner = taskManager invokePrivate PrivateMethod[TaskExecutionRunner]('taskExecutionRunner)()
       val processCompletedTask = PrivateMethod[Unit]('processCompletedTask)
       val completedTasks = taskRunner.completedTasks(failedAreCompleted = false) // get the complete tasks from the task runner
 
