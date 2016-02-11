@@ -23,6 +23,7 @@
  */
 package dagr.core.execsystem
 
+import dagr.DagrDef._
 import dagr.core.tasksystem._
 import dagr.core.util._
 import org.scalatest._
@@ -46,14 +47,18 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   override def beforeAll(): Unit = Logger.level = LogLevel.Fatal
   override def afterAll(): Unit = Logger.level = LogLevel.Info
 
-  def getDefaultTaskManager: TaskManager = new TaskManager(taskManagerResources = TaskManagerResources.infinite, scriptsDirectory = None)
+  def getDefaultTaskManager(sleepMilliseconds: Int = 10): TaskManager = new TaskManager(
+    taskManagerResources = TaskManagerResources.infinite,
+    scriptsDirectory = None,
+    sleepMilliseconds = sleepMilliseconds
+  )
 
   private def runSchedulerOnce(taskManager:TaskManager,
                                tasksToScheduleContains: List[Task],
                                runningTasksContains: List[Task],
                                completedTasksContains: List[Task],
                                failedAreCompleted: Boolean = true) = {
-    val (readyTasks, tasksToSchedule, runningTasks, completedTasks) = taskManager.runSchedulerOnce()
+    val (readyTasks, tasksToSchedule, runningTasks, completedTasks) = taskManager.stepExecution()
     tasksToScheduleContains.foreach(task => tasksToSchedule should contain(task))
     runningTasksContains.foreach(task => runningTasks should contain(task))
     completedTasksContains.foreach(task => completedTasks should contain(task))
@@ -81,45 +86,23 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
   "TaskManager" should "not overwrite an existing task when adding a task, or throw an IllegalArgumentException when ignoreExists is false" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
-    val taskManager: TaskManager = getDefaultTaskManager
-    taskManager.addTasks(tasks=Seq(task, task), parent=None, ignoreExists=true) shouldBe List(0, 0)
-    an[IllegalArgumentException] should be thrownBy taskManager.addTask(task=task, parent=None, ignoreExists=false)
-
-  }
-
-  it should "get a task by its graph node only if the graph node is being tracked by TaskManagerState" in {
-    val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
-    val taskManager: TaskManager = getDefaultTaskManager
-    taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
-    val node = taskManager.graphNodeFor(task).get
-    taskManager.taskFor(node).foreach(t => t shouldBe task)
-    val unknownNode = new GraphNode(taskId=1, task=task)
-    taskManager.taskFor(unknownNode) shouldBe 'empty
-  }
-
-  it should "get a task info by its graph node only if the graph node is being tracked by TaskManagerState" in {
-    val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
-    val taskManager: TaskManager = getDefaultTaskManager
-    taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
-    val taskInfo = taskManager.taskExecutionInfoFor(task).get
-    val node = taskManager.graphNodeFor(task).get
-    taskManager.taskExecutionInfoFor(node).foreach(info => info shouldBe taskInfo)
-    val unknownNode = new GraphNode(taskId=1, task=task)
-    taskManager.taskExecutionInfoFor(unknownNode) shouldBe 'empty
+    val taskManager: TaskManager = getDefaultTaskManager()
+    taskManager.addTasks(tasks=Seq(task, task), ignoreExists=true) shouldBe List(0, 0)
+    an[IllegalArgumentException] should be thrownBy taskManager.addTask(task=task, enclosingNode=None, ignoreExists=false)
   }
 
   it should "get the task status for only tracked tasks" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
-    val taskManager: TaskManager = getDefaultTaskManager
-    taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
+    val taskManager: TaskManager = getDefaultTaskManager()
+    taskManager.addTask(task=task) shouldBe 0
     taskManager.taskStatusFor(0) shouldBe 'defined
     taskManager.taskStatusFor(1) shouldBe 'empty
   }
 
   it should "get the graph node state for only tracked tasks" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
-    val taskManager: TaskManager = getDefaultTaskManager
-    taskManager.addTask(task=task, parent=None, ignoreExists=true) shouldBe 0
+    val taskManager: TaskManager = getDefaultTaskManager()
+    taskManager.addTask(task=task) shouldBe 0
     taskManager.graphNodeStateFor(0) shouldBe 'defined
     taskManager.graphNodeStateFor(1) shouldBe 'empty
   }
@@ -130,28 +113,28 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
   it should "run a simple task" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
 
     tryTaskNTimes(taskManager = taskManager, task = task, numTimes = 1, taskIsDoneFinally = true, failedAreCompletedFinally = true)
   }
 
   it should "run a simple task that fails but we allow it" in {
     val task: UnitTask = new ShellCommand("exit", "1") withName "exit 1"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
 
     tryTaskNTimes(taskManager = taskManager, task = task, numTimes = 1, taskIsDoneFinally = true, failedAreCompletedFinally = true)
   }
 
   it should "run a simple task that fails and is never done" in {
     val task: UnitTask = new ShellCommand("exit", "1") withName "exit 1"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
 
     tryTaskNTimes(taskManager = taskManager, task = task, numTimes = 1, taskIsDoneFinally = false, failedAreCompletedFinally = false)
   }
 
   it should "retry a task three times that ends up failed" in {
     val task: UnitTask = new ShellCommand("exit 1") with TaskManagerTest.TryThreeTimesTask withName "retry three times"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
 
     // try it three times, and it will keep failing, and not omit a task at the last attempt
     tryTaskNTimes(taskManager = taskManager, task = task, numTimes = 3, taskIsDoneFinally = true, failedAreCompletedFinally = true)
@@ -159,7 +142,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
   it should "retry a task three times and succeed on the last try" in {
     val task: UnitTask = new ShellCommand("exit 1") with TaskManagerTest.SucceedOnTheThirdTry withName "succeed on the third try"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
 
     // try it three times, and it will keep failing, and not omit a task at the last attempt
     tryTaskNTimes(taskManager = taskManager, task = task, numTimes = 3, taskIsDoneFinally = false, failedAreCompletedFinally = true)
@@ -199,9 +182,9 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     val longTask: UnitTask = new ShellCommand("sleep", "1000") withName "sleep 1000"
     val failedTask: UnitTask = new ShellCommand("exit", "1") withName "exit 1"
 
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager(sleepMilliseconds=1)
     taskManager.addTasks(longTask, failedTask)
-    taskManager.runAllTasks(sleepMilliseconds=1, timeout=1)
+    taskManager.runToCompletion(timeout=1)
     taskManager.taskStatusFor(failedTask).value should be(TaskStatus.FAILED_COMMAND)
     taskManager.graphNodeStateFor(failedTask).value should be(GraphNodeState.COMPLETED)
     taskManager.taskStatusFor(longTask).value should be(TaskStatus.FAILED_COMMAND)
@@ -226,10 +209,10 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
                     originalGraphNodeState: GraphNodeState.Value,
                     taskManager: TaskManager): Unit = {
     // run it once, make sure tasks that are failed are not marked as completed
-    taskManager.runAllTasks(sleepMilliseconds = 10)
+    taskManager.runToCompletion()
 
     // the task identifier for 'original' should now be found
-    val originalTaskId: BigInt = taskManager.taskIdFor(original).value
+    val originalTaskId: TaskId = taskManager.taskIdFor(original).value
 
     // check the original task status
     val taskInfo: TaskExecutionInfo = taskManager.taskExecutionInfoFor(originalTaskId).value
@@ -260,6 +243,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       // replace
       logger.debug("*** REPLACING TASK ***")
       taskManager.replaceTask(original = original, replacement = replacement)
+      original._id shouldBe 'empty
     }
     else {
       // resubmit...
@@ -302,7 +286,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   /*
   it should "resubmit a task that failed and re-run to completion" in {
     val original: UnitTask = new RetryMutatorTask
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
 
     doTryAgain(original = original, replacement = null, replaceTask = false, taskManager = taskManager)
   }
@@ -310,7 +294,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
   it should "return false when replacing an un-tracked task" in {
     val task: UnitTask = new ShellCommand("exit 0") withName "Blah"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     taskManager.replaceTask(task, null) should be(false)
   }
 
@@ -318,7 +302,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   /*
   it should "return false when resubmitting an un-tracked task" in {
     val task: UnitTask = new ShellCommand("exit 0") withName "Blah"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     taskManager.resubmitTask(task) should be(false)
   }
   */
@@ -385,14 +369,14 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     // add the task
     taskManager.addTask(task)
     TaskStatus.isTaskDone(taskManager.taskStatusFor(task).get) should be(false)
-    val taskId: BigInt = taskManager.taskIdFor(task).value
+    val taskId: TaskId = taskManager.taskIdFor(task).value
 
     for ((taskStatus, exitCode, onCompleteSuccessful) <- statuses) {
       // run the task once
       runSchedulerOnce(taskManager = taskManager, tasksToScheduleContains = List[Task](task), runningTasksContains = Nil, completedTasksContains = Nil, failedAreCompleted = false)
 
       // we need to check the status of the task after it has completed but before it has been retried, so do this part manually.
-      val taskRunner: TaskRunner = taskManager invokePrivate PrivateMethod[TaskRunner]('taskRunner)()
+      val taskRunner: TaskExecutionRunner = taskManager invokePrivate PrivateMethod[TaskExecutionRunner]('taskRunner)()
       val processCompletedTask = PrivateMethod[Unit]('processCompletedTask)
       val completedTasks = taskRunner.completedTasks(failedAreCompleted = false) // get the complete tasks from the task runner
 
@@ -410,19 +394,19 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
   it should "run a task that fails its onComplete method, is retried, where it modifies the onComplete method return value, and succeeds" in {
     val task: UnitTask = new ShellCommand("exit 0") with FailOnCompleteTask withName "Dummy"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     runTasksMultipleTimes(taskManager = taskManager, task = task, statuses = List((TaskStatus.FAILED_ON_COMPLETE, 0, false), (TaskStatus.SUCCEEDED, 0, true)))
   }
 
   it should "run a task that fails its onComplete method, whereby it changes its args to empty, and succeeds" in {
     val task: UnitTask = new FailOnCompleteAndClearArgsTask(name = "Dummy", originalArgs = List("exit 0"))
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     runTasksMultipleTimes(taskManager = taskManager, task = task, statuses = List((TaskStatus.FAILED_ON_COMPLETE, 0, false), (TaskStatus.SUCCEEDED, 0, true)))
   }
 
   it should "run a task, that its onComplete method mutates its args and return value based on the attempt index" in {
     val task: UnitTask = new MultiFailTask(name = "Dummy")
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
 
     runTasksMultipleTimes(taskManager = taskManager,
       task = task,
@@ -502,19 +486,19 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   }
 
   it should "run an in Jvm that fails" in {
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     tryTaskNTimes(taskManager = taskManager, task = new SimpleInJvmTask(exitCode = 1), numTimes = 1, taskIsDoneFinally = true, failedAreCompletedFinally = true)
   }
 
   it should "run inJvm tasks that can retry" in {
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     tryTaskNTimes(taskManager = taskManager, task = new SimpleRetryInJvmTask, numTimes = 2, taskIsDoneFinally = true, failedAreCompletedFinally = true)
     tryTaskNTimes(taskManager = taskManager, task = new SimpleRetryOnCompleteInJvmTask, numTimes = 2, taskIsDoneFinally = true, failedAreCompletedFinally = true)
   }
 
   it should "run an in Jvm task, that its onComplete method mutates its args and return value based on the attempt index" in {
     val task: UnitTask = new MultiFailInJvmTask(name = "Dummy")
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
 
     runTasksMultipleTimes(taskManager = taskManager,
       task = task,
@@ -533,30 +517,30 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   it should "run a task for which its predecessor has not been added and put it into an orphan state" in {
     val predecessor: UnitTask = new ShellCommand("exit", "0") withName "predecessor"
     val successor: UnitTask = new ShellCommand("exit", "0") withName "successor"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     predecessor ==> successor
     taskManager.addTask(successor)
     taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.ORPHAN)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.ORPHAN)
   }
 
   it should "should resolve an orphan when its predecessor is added" in {
     val predecessor: UnitTask = new ShellCommand("exit", "0") withName "predecessor"
     val successor: UnitTask = new ShellCommand("exit", "0") withName "successor"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     predecessor ==> successor
     taskManager.addTask(successor)
     taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.ORPHAN)
     taskManager.addTask(predecessor)
     taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
     taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.RUNNING)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.RUNNING)
     taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.COMPLETED)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.COMPLETED)
   }
@@ -567,7 +551,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     val rightA: UnitTask = new ShellCommand("exit", "0") withName "leftA"
     val rightB: UnitTask = new ShellCommand("exit", "0") withName "leftB"
     val finalTask: UnitTask = new ShellCommand("exit", "0") withName "finalTask"
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
 
     // leftA <- leftB <- finalTask -> rightB -> rightA
     (leftB :: rightB) ==> finalTask
@@ -580,28 +564,28 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     // run it until we cannot run any more tasks
     taskManager.graphNodeStateFor(rightA) should be ('empty)
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.ORPHAN)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(leftA).value should be(GraphNodeState.RUNNING)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(leftA).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(leftB).value should be(GraphNodeState.RUNNING)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(leftB).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(finalTask).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.ORPHAN)
 
     // now add right A
     taskManager.addTask(rightA)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(rightA).value should be(GraphNodeState.RUNNING)
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(rightA).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.RUNNING)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(finalTask).value should be(GraphNodeState.RUNNING)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.graphNodeStateFor(finalTask).value should be(GraphNodeState.COMPLETED)
   }
 
@@ -614,9 +598,9 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
   it should "mark a task that fails when getTasks is called on it" in {
     val task: Pipeline = new GetTasksExceptionTask()
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     taskManager.addTask(task)
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.taskStatusFor(task).value should be(TaskStatus.FAILED_GET_TASKS)
   }
 
@@ -649,14 +633,14 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     predecessorWorkflow.tasksDependedOn.size should be(0)
     successorWorkflow.tasksDependedOn.size should be(1)
 
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager()
     taskManager.addTask(predecessorWorkflow)
     taskManager.addTask(successorWorkflow)
 
     // Run the scheduler once
     // The predecessor pipeline and its "predecessor" tasks should run, while the successor pipeline should be queued waiting
     // for the predecessor pipeline to finish.
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.taskStatusFor(predecessorWorkflow).value should be(TaskStatus.STARTED)
     taskManager.taskStatusFor(predecessorWorkflow.firstTask).value should be(TaskStatus.STARTED)
     taskManager.taskStatusFor(predecessorWorkflow.secondTask).value should be(TaskStatus.STARTED)
@@ -670,7 +654,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     // Run the scheduler again
     // The "predecessor" tasks should be complete, and so the successor pipeline and its "successor" tasks should be running.
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.taskStatusFor(predecessorWorkflow).value should be(TaskStatus.SUCCEEDED)
     taskManager.taskStatusFor(predecessorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
     taskManager.taskStatusFor(predecessorWorkflow.secondTask).value should be(TaskStatus.SUCCEEDED)
@@ -686,7 +670,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     // Run the scheduler again
     // The successor pipeline and its "successor" tasks should be complete.
-    taskManager.runSchedulerOnce()
+    taskManager.stepExecution()
     taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.SUCCEEDED)
     taskManager.taskStatusFor(successorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
     taskManager.taskStatusFor(successorWorkflow.secondTask).value should be(TaskStatus.SUCCEEDED)
@@ -696,18 +680,18 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     // Run the scheduler a final time
     // There should be no running readyTasks, tasksToSchedule, runningTasks, or completedTasks in this round of scheduling.
-    val (readyTasks, tasksToSchedule, runningTasks, completedTasks) = taskManager.runSchedulerOnce()
+    val (readyTasks, tasksToSchedule, runningTasks, completedTasks) = taskManager.stepExecution()
     readyTasks should have size 0
     tasksToSchedule should have size 0
     runningTasks should have size 0
     completedTasks should have size 0
 
     // Make sure all tasks submitted to the system are completed
-    for (taskId <- taskManager.taskIdsFor()) {
+    for (taskId <- taskManager.taskIds()) {
       taskManager.taskStatusFor(taskId).value should be (TaskStatus.SUCCEEDED)
       taskManager.graphNodeStateFor(taskId).value should be(GraphNodeState.COMPLETED)
     }
-    taskManager.taskIdsFor() should have size 6
+    taskManager.taskIds() should have size 6
   }
 
   // **************************************************
@@ -722,7 +706,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       // make a simple cycle
       predecessor ==> successor ==> predecessor
 
-      val taskManager: TaskManager = getDefaultTaskManager
+      val taskManager: TaskManager = getDefaultTaskManager()
       an[IllegalArgumentException] should be thrownBy taskManager.addTask(predecessor)
     }
 
@@ -747,7 +731,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 //      task.getTasksDependedOn should have size 1
 //      task.getTasksDependingOnThisTask should have size 0
 //
-//      val taskManager: TaskManager = getDefaultTaskManager
+//      val taskManager: TaskManager = getDefaultTaskManager()
 //      taskManager.addTask(naughtyPipeline) should be(0)
 //      taskManager.addTask(task) should be(1)
 //
@@ -827,11 +811,11 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     }
 
     // add the tasks to the task manager
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
     taskManager.addTasks(tasks)
 
     // run the tasks
-    taskManager.runAllTasks(sleepMilliseconds = 1, timeout = 1)
+    taskManager.runToCompletion(timeout = 1)
 
     // make sure all tasks have been completed
     tasks.foreach { task =>
@@ -860,11 +844,11 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     }
 
     // add the tasks to the task manager
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
     taskManager.addTasks(pipeline)
 
     // run the tasks
-    taskManager.runAllTasks(sleepMilliseconds = 1, timeout = 1)
+    taskManager.runToCompletion(timeout = 1)
 
     // get and check the info
     val pipelineInfo: TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, pipeline)
@@ -899,11 +883,11 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     // NB: the execution is really: root ==> firstTask ==> secondTask
 
     // add the tasks to the task manager
-    val taskManager: TaskManager = getDefaultTaskManager
+    val taskManager: TaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
     taskManager.addTasks(outerPipeline)
 
     // run the tasks
-    taskManager.runAllTasks(sleepMilliseconds = 1, timeout = 1)
+    taskManager.runToCompletion(timeout = 1)
 
     // get and check the info
     val firstTaskInfo : TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, firstTask)

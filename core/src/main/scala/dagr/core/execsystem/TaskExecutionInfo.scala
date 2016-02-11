@@ -26,12 +26,12 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.sql.Timestamp
 
+import dagr.DagrDef._
 import dagr.core.tasksystem.Task
 
 /** The state of execution of a [[Task]].
  *
  * @param task the task that will be executed.
- * @param id the task identifier
  * @param status the initial state of the task.
  * @param script the path to the script where the task commands should be stored.
  * @param logFile the path to the log file where the task stderr and stdout should be stored.
@@ -42,7 +42,6 @@ import dagr.core.tasksystem.Task
  * @param attemptIndex the one-based count of attempts to run this task.
  */
 class TaskExecutionInfo(var task: Task,
-                        val id: BigInt,
                         var status: TaskStatus.Value,
                         val script: Path,
                         val logFile: Path,
@@ -53,6 +52,8 @@ class TaskExecutionInfo(var task: Task,
                         var attemptIndex: Int = 1 // one-based
                          ) {
   if (attemptIndex < 1) throw new RuntimeException("attemptIndex must be greater than zero")
+
+  def id: TaskId = task._id.getOrElse(unreachable(s"Task id not found for task with name '${task.name}'"))
 
   override def toString: String = {
     val na: String = "NA"

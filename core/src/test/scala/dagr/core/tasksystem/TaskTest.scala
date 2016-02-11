@@ -25,6 +25,7 @@ package dagr.core.tasksystem
 
 import java.nio.file.{Files, Path}
 
+import dagr.DagrDef._
 import dagr.core.execsystem._
 import dagr.core.util.{LazyLogging, UnitSpec}
 
@@ -156,13 +157,14 @@ class TaskTest extends UnitSpec with LazyLogging {
       // remember to run "getTasks" on the task
       task.getTasks should have size 1
 
-      val taskRunner: TaskRunner = new TaskRunner
-      val id: BigInt = 1
+      val taskRunner: TaskExecutionRunner = new TaskExecutionRunner
+      val id: TaskId = 1
+
+      task._id = Some(id)
 
       // Run the task
       taskRunner.runTask(taskInfo = new TaskExecutionInfo(
           task = task,
-          id = id,
           status = TaskStatus.UNKNOWN,
           script = script,
           logFile = logFile,
@@ -171,7 +173,7 @@ class TaskTest extends UnitSpec with LazyLogging {
       )
 
       // Make sure the task completed
-      val completedMap: Map[BigInt, (Int, Boolean)] = taskRunner.completedTasks()
+      val completedMap: Map[TaskId, (Int, Boolean)] = taskRunner.completedTasks()
       completedMap should contain key id
       completedMap.get(id).get._1 should be(0) // exit code
       completedMap.get(id).get._2 should be(true) // on complete

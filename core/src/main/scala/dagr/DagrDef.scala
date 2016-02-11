@@ -59,4 +59,7 @@ object DagrDef {
     block
     retval
   }
+
+  /** The type of identifier used to uniquely identify tasks tracked by the execution system. */
+  type TaskId = BigInt
 }

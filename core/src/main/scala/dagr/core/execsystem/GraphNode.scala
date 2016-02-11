@@ -23,32 +23,32 @@
  */
 package dagr.core.execsystem
 
+import dagr.DagrDef._
 import dagr.core.tasksystem.Task
 
 import scala.collection.mutable.ListBuffer
 
+abstract class BaseGraphNode
+
 /** A node in the execution graph
   *
-  * @param taskId           the id of the task
   * @param task             the task itself
   * @param predecessorNodes the current list of nodes on which this node depends
   * @param state            the execution state of this node
-  * @param parent           some other graph node that generated this node, and now depends on this node, or None.  This
-  *                         is used to track submission, start, and end dates for the parent node.  Typically parent nodes
-  *                         are [[dagr.core.tasksystem.Pipeline]]s.
+  * @param enclosingNode    Some other graph node that generated this node, and now depends on this node, or None.  This
+  *                         is used to track submission, start, and end dates for the enclsoing node.  Typically enclosing
+  *                         nodes are [[dagr.core.tasksystem.Pipeline]]s.
   */
-class GraphNode(val taskId: BigInt,
-                var task: Task,
+class GraphNode(var task: Task,
                 predecessorNodes: Traversable[GraphNode] = Nil,
                 var state: GraphNodeState.Value = GraphNodeState.PREDECESSORS_AND_UNEXPANDED,
-                val parent: Option[GraphNode] = None) {
+                val enclosingNode: Option[GraphNode] = None) extends BaseGraphNode {
 
   private val _predecessors = new ListBuffer[GraphNode]()
-  private val _predecessorsStatic = new ListBuffer[GraphNode]()
 
   _predecessors ++= predecessorNodes
-  _predecessorsStatic ++= predecessorNodes
 
+  def id: TaskId = task._id.getOrElse(unreachable(s"Task id not found for task with name '${task.name}'"))
 
   /** Remove a predecessor from the execution graph.
    *
@@ -79,10 +79,7 @@ class GraphNode(val taskId: BigInt,
   def addPredecessors(predecessors: GraphNode*): Boolean = {
     val originalPredecessorsSize = this._predecessors.size
     predecessors.foreach(predecessor => {
-      if (!this._predecessors.contains(predecessor)) {
-        this._predecessors += predecessor
-        this._predecessorsStatic += predecessor
-      }
+      if (!this._predecessors.contains(predecessor)) this._predecessors += predecessor
     })
     originalPredecessorsSize != (this._predecessors.size - predecessors.size)
   }
@@ -101,10 +98,4 @@ class GraphNode(val taskId: BigInt,
    * @return the current set of predecessors, if any
    */
   def predecessors: List[GraphNode] = _predecessors.toList
-
-  /** Gets all predecessors that have ever been added. This could be useful to re-create the original execution graph.
-   *
-   * @return  the set of predecessors that have ever been added, ignoring any predecessors that were removed
-   */
-  def originalPredecessors: List[GraphNode] = _predecessorsStatic.toList
 }

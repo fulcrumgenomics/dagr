@@ -26,13 +26,17 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.sql.Timestamp
 
+import dagr.DagrDef._
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
 import dagr.core.util.LazyLogging
 
 import scala.collection.mutable
-import scala.util.Try
 
-private object TaskRunner {
+private object TaskExecutionRunner {
+
+  /** The exit code of any interrupted execution of a task. */
+  val InterruptedExitCode = 255
+
   abstract class TaskRunnable(task: UnitTask) extends Runnable {
     var exitCode: Int = -1
     var onCompleteSuccessful: Option[Boolean] = None
@@ -47,7 +51,7 @@ private object TaskRunner {
     * @param script the location of the task's script
     * @param logFile the location of the task's log file
     */
-  class SingleTaskRunner(task: ProcessTask, script: Path, logFile: Path) extends TaskRunnable(task = task) {
+  class ProcessTaskExecutionRunner(task: ProcessTask, script: Path, logFile: Path) extends TaskRunnable(task = task) {
     override def run(): Unit = {
       var process: Option[scala.sys.process.Process] = None
       try {
@@ -60,7 +64,7 @@ private object TaskRunner {
       } catch {
         case e: InterruptedException =>
           process.foreach(p => p.destroy())
-          exitCode = 1
+          exitCode = InterruptedExitCode
           throwable = Some(e)
         case t: Throwable =>
           exitCode = 1
@@ -75,11 +79,14 @@ private object TaskRunner {
     * @param script the location of the task's script
     * @param logFile the location of the task's log file
     */
-  class InJvmTaskRunner(task: InJvmTask, script: Path, logFile: Path) extends TaskRunnable(task = task) {
+  class InJvmTaskExecutionRunner(task: InJvmTask, script: Path, logFile: Path) extends TaskRunnable(task = task) {
     override def run(): Unit = {
       try {
         exitCode = task.inJvmMethod(script = script, logFile = logFile)
       } catch {
+        case e: InterruptedException =>
+          exitCode = InterruptedExitCode
+          throwable = Some(e)
         case t: Throwable =>
           exitCode = 1
           throwable = Some(t)
@@ -88,8 +95,8 @@ private object TaskRunner {
     }
   }
 
-  /** Simple class that sets the exit code to zero */
-  class NoOpTaskRunner(task: UnitTask) extends TaskRunnable(task = task) {
+  /** Simple class to allow for simulation that sets the exit code to zero. */
+  class SimulatedTaskExecutionRunner(task: UnitTask) extends TaskRunnable(task = task) {
 
     override def run(): Unit = exitCode = 0 // does absolutely nothing... well almost
 
@@ -98,24 +105,24 @@ private object TaskRunner {
 }
 
 /** Tracks and run a set of [[Task]]s. */
-private[core] class TaskRunner extends LazyLogging {
-  import TaskRunner._
-  private val processes: mutable.Map[BigInt, Thread] = new mutable.HashMap[BigInt, Thread]()
-  private val taskRunners: mutable.Map[BigInt, TaskRunnable] = new mutable.HashMap[BigInt, TaskRunnable]()
-  private val taskInfos: mutable.Map[BigInt, TaskExecutionInfo] = new mutable.HashMap[BigInt, TaskExecutionInfo]()
+private[core] class TaskExecutionRunner extends LazyLogging {
+  import TaskExecutionRunner._
+  private val processes: mutable.Map[TaskId, Thread] = new mutable.HashMap[TaskId, Thread]()
+  private val taskRunners: mutable.Map[TaskId, TaskRunnable] = new mutable.HashMap[TaskId, TaskRunnable]()
+  private val taskInfos: mutable.Map[TaskId, TaskExecutionInfo] = new mutable.HashMap[TaskId, TaskExecutionInfo]()
 
   /** Stop tracking the given task.
    *
    * @param taskId the task identifier
    * @return true if information was removed successfully, false otherwise.
    */
-  private def removeTask(taskId: BigInt): Boolean = {
+  private def removeTask(taskId: TaskId): Boolean = {
     processes.remove(taskId).isDefined &&
       taskRunners.remove(taskId).isDefined &&
       taskInfos.remove(taskId).isDefined
   }
 
-  /** Start running a task.  Call [[TaskRunner.completedTasks]] to see if subsequently completes.
+  /** Start running a task.  Call [[TaskExecutionRunner.completedTasks]] to see if subsequently completes.
    *
    * @param taskInfo the info associated with this task.
    * @param simulate true if we are to simulate to run a task, false otherwise.
@@ -126,9 +133,9 @@ private[core] class TaskRunner extends LazyLogging {
       try {
         unitTask.applyResources(taskInfo.resources)
         val taskRunner: TaskRunnable = (simulate, unitTask) match {
-          case (true,  t: UnitTask)    => new NoOpTaskRunner(task = t)
-          case (false, t: InJvmTask)   => new InJvmTaskRunner(task = t, script = taskInfo.script, logFile = taskInfo.logFile)
-          case (false, t: ProcessTask) => new SingleTaskRunner(task = t, script = taskInfo.script, logFile = taskInfo.logFile)
+          case (true,  t: UnitTask)    => new SimulatedTaskExecutionRunner(task = t)
+          case (false, t: InJvmTask)   => new InJvmTaskExecutionRunner(task = t, script = taskInfo.script, logFile = taskInfo.logFile)
+          case (false, t: ProcessTask) => new ProcessTaskExecutionRunner(task = t, script = taskInfo.script, logFile = taskInfo.logFile)
           case _                       => throw new RuntimeException("Could not run a unknown type of task")
         }
         val thread = new Thread(taskRunner)
@@ -150,7 +157,7 @@ private[core] class TaskRunner extends LazyLogging {
   }
 
   /** Sets the end date and task status for a complete task and logs any exceptions. */
-  private def completeTask(taskId: BigInt,
+  private def completeTask(taskId: TaskId,
                            taskInfo: TaskExecutionInfo,
                            exitCode: Int,
                            onCompleteSuccessful: Boolean,
@@ -172,14 +179,15 @@ private[core] class TaskRunner extends LazyLogging {
     }
   }
 
+  // TODO: timeout should be an Option with type http://www.scala-lang.org/api/2.11.0/scala/concurrent/duration/Duration.html
   /** Get the completed tasks.
    *
    * @param timeout the length of time in milliseconds to wait for running threads to join
    * @param failedAreCompleted true if treat tasks that fail as completed by setting their task status to [[TaskStatus.SUCCEEDED]], false otherwise
    * @return a map from task identifiers to exit code and on complete success for all completed tasks.
    */
-  def completedTasks(timeout: Int = 1000, failedAreCompleted: Boolean = false): Map[BigInt, (Int, Boolean)] = {
-    val completedTasks: mutable.Map[BigInt, (Int, Boolean)] = new mutable.HashMap[BigInt, (Int, Boolean)]()
+  def completedTasks(timeout: Int = 1000, failedAreCompleted: Boolean = false): Map[TaskId, (Int, Boolean)] = {
+    val completedTasks: mutable.Map[TaskId, (Int, Boolean)] = new mutable.HashMap[TaskId, (Int, Boolean)]()
     for ((taskId, thread) <- processes) {
       thread.join(timeout)
       if (!thread.isAlive) {
@@ -212,7 +220,7 @@ private[core] class TaskRunner extends LazyLogging {
    *
    * @return the set of task identifiers of running tasks.
    */
-  def runningTaskIds: Iterable[BigInt] = {
+  def runningTaskIds: Iterable[TaskId] = {
     processes.keys
   }
 
@@ -222,7 +230,7 @@ private[core] class TaskRunner extends LazyLogging {
    * @param taskId the identifier of the task to terminate
    * @return true if successful, false otherwise
    */
-  def terminateTask(taskId: BigInt): Boolean = {
+  def terminateTask(taskId: TaskId): Boolean = {
       processes.get(taskId) match {
         case Some(thread) =>
           thread.join(1) // just give it 0.001 of second
@@ -243,7 +251,7 @@ private[core] class TaskRunner extends LazyLogging {
   }
 
   // for testing
-  private[execsystem] def onCompleteSuccessful(taskId: BigInt): Option[Boolean] = {
+  private[execsystem] def onCompleteSuccessful(taskId: TaskId): Option[Boolean] = {
     taskRunners.get(taskId) match {
       case Some(thread) => thread.onCompleteSuccessful
       case None => None
