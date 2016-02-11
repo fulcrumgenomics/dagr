@@ -23,6 +23,7 @@
  */
 package dagr.core.tasksystem
 
+import dagr.DagrDef._
 import dagr.core.execsystem.TaskExecutionInfo
 
 import scala.collection.mutable
@@ -153,6 +154,9 @@ object Task {
 trait Task extends Dependable {
   // A string set by the enclosing workflow to distinguish the task
   private[tasksystem] var contextName : Option[String] = None
+
+  /** The unique id given to this task by the execution system, or None if not being tracked. */
+  private[core] var _id : Option[TaskId] = None
 
   /** The name of the task. */
   var name: String = getClass.getSimpleName

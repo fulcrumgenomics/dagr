@@ -166,11 +166,11 @@ class DagrCoreMain(
     val report  = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
 
     taskMan.addTask(pipeline)
-    taskMan.runAllTasks()
+    taskMan.runToCompletion()
 
     // Write out the execution report
     val pw = new PrintWriter(Io.toWriter(report))
-    TaskManager.logTaskStatusReport(taskMan, {str: String => pw.write(str + "\n")})
+    taskMan.logReport({str: String => pw.write(str + "\n")})
     pw.close()
 
     // return an exit code based on the number of non-completed tasks

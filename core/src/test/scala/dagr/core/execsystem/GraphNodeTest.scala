@@ -30,7 +30,7 @@ import dagr.core.util.UnitSpec
 class GraphNodeTest extends UnitSpec {
 
   "GraphNode.addPredecessors" should "return true if a predecessor is added twice" in {
-    val node = new GraphNode(taskId=BigInt(0), task=new ShellCommand("make it so"))
+    val node = new GraphNode(task=new ShellCommand("make it so"))
 
     // add itself
     node.addPredecessors(node) shouldBe false
@@ -44,17 +44,5 @@ class GraphNodeTest extends UnitSpec {
     // add itself twice
     node.addPredecessors(node, node) shouldBe true
     node.hasPredecessor shouldBe true
-  }
-
-  "GraphNode.getOriginalPredecessors" should "return only original predecssors" in {
-    val alice = new GraphNode(taskId=BigInt(0), task=new ShellCommand("make it so"))
-    val bob = new GraphNode(taskId=BigInt(0), task=new ShellCommand("make it so"), predecessorNodes = Seq(alice))
-
-    alice.originalPredecessors shouldBe List.empty
-    bob.originalPredecessors shouldBe List(alice)
-    bob.addPredecessors(bob)
-    bob.originalPredecessors shouldBe List(alice, bob)
-    bob.removePredecessor(alice)
-    bob.originalPredecessors shouldBe List(alice, bob) // alice was removed, but we should still return alice
   }
 }
