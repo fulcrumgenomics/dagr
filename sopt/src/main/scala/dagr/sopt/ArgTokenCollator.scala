@@ -25,7 +25,6 @@
 package dagr.sopt
 
 import dagr.sopt.ArgTokenizer.{ArgOption, ArgOptionAndValue, ArgValue, Token}
-import dagr.sopt.util.PeekableIterator
 
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
@@ -44,7 +43,7 @@ object ArgTokenCollator {
 
 /** Collates Tokens into name and values, such that there is no value without an associated option name. */
 class ArgTokenCollator(argTokenizer: ArgTokenizer) extends Iterator[Try[ArgOptionAndValues]] {
-  private val iterator = new PeekableIterator[Try[Token]](argTokenizer)
+  private val iterator = argTokenizer.buffered
   private var nextOption: Option[Try[ArgOptionAndValues]] = None
 
   this.advance() // to initialize nextOption
@@ -78,7 +77,7 @@ class ArgTokenCollator(argTokenizer: ArgTokenizer) extends Iterator[Try[ArgOptio
   /** Find values with the same option name, may only be ArgValue and ArgOptionAndValue. */
   private def addValuesWithSameName(name: String, values: ListBuffer[String]): Unit = {
     // find values with the same option name, may only be ArgValue and ArgOptionAndValue
-    while (iterator.hasNext && ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(iterator.peek, name)) {
+    while (iterator.hasNext && ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(iterator.head, name)) {
       iterator.next match {
         case Success(ArgValue(value)) => values += value
         case Success(ArgOptionAndValue(`name`, value)) => values += value
