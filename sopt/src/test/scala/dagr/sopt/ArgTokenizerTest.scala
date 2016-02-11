@@ -1,9 +1,22 @@
 package dagr.sopt
 
+import java.nio.file.Files
+
 import dagr.sopt.util.UnitSpec
+
+import scala.util.{Failure, Success}
 
 class ArgTokenizerTest extends UnitSpec {
   import ArgTokenizer._
+
+  /** Creates a temporary directory, writes the lines to it, then returns the path as a String. */
+  private def writeTmpArgFile(lines: Seq[String]) : String = {
+    import scala.collection.JavaConversions.asJavaIterable
+    val tmp = Files.createTempFile("args.", ".txt")
+    Files.write(tmp, lines)
+    tmp.toFile.deleteOnExit()
+    tmp.toAbsolutePath.toString
+  }
 
   "ArgTokenizer" should "iterate nothing if given no args" in {
     new ArgTokenizer().hasNext() shouldBe false
@@ -165,4 +178,67 @@ class ArgTokenizerTest extends UnitSpec {
     val tokenizer = new ArgTokenizer("-f-1")
     tokenizer.next().get shouldBe ArgOptionAndValue(name="f", value="-1") // FIXME
   }
+
+  it should "substitute values from a file" in {
+    val path = writeTmpArgFile(Seq("--foo=oof", "--bar", "1 2 3"))
+    val tokenizer = new ArgTokenizer(Seq("--hello", "@" + path, "--good=bye"), Some("@"))
+    tokenizer.next() shouldBe Success(ArgOption(name="hello"))
+    tokenizer.next() shouldBe Success(ArgOptionAndValue(name="foo", value="oof"))
+    tokenizer.next() shouldBe Success(ArgOption(name="bar"))
+    tokenizer.next() shouldBe Success(ArgValue(value="1 2 3"))
+    tokenizer.next() shouldBe Success(ArgOptionAndValue(name="good", value="bye"))
+  }
+
+  it should "handle an empty arguments file" in {
+    val path = writeTmpArgFile(Seq())
+    val tokenizer = new ArgTokenizer(Seq("--hello", "@" + path, "--good=bye"), Some("@"))
+    tokenizer.next() shouldBe Success(ArgOption(name="hello"))
+    tokenizer.next() shouldBe Success(ArgOptionAndValue(name="good", value="bye"))
+  }
+
+  it should "handle an arguments file with empty and whitespace-only lines" in {
+    val path = writeTmpArgFile(Seq("--foo", "", "  ", "--bar"))
+    val tokenizer = new ArgTokenizer(Seq("--hello", "@" + path, "--good=bye"), Some("@"))
+    tokenizer.next() shouldBe Success(ArgOption(name="hello"))
+    tokenizer.next() shouldBe Success(ArgOption(name="foo"))
+    tokenizer.next() shouldBe Success(ArgOption(name="bar"))
+    tokenizer.next() shouldBe Success(ArgOptionAndValue(name="good", value="bye"))
+  }
+
+  it should "trim leading and trailing whitespace from argument file lines" in {
+    val path = writeTmpArgFile(Seq("  --foo", "--bar ", " --whee "))
+    val tokenizer = new ArgTokenizer(Seq("--hello", "@" + path, "--good=bye"), Some("@"))
+    tokenizer.next() shouldBe Success(ArgOption(name="hello"))
+    tokenizer.next() shouldBe Success(ArgOption(name="foo"))
+    tokenizer.next() shouldBe Success(ArgOption(name="bar"))
+    tokenizer.next() shouldBe Success(ArgOption(name="whee"))
+    tokenizer.next() shouldBe Success(ArgOptionAndValue(name="good", value="bye"))
+  }
+
+  it should "recursive parse arg files" in {
+    val path1 = writeTmpArgFile(Seq("--three"))
+    val path2 = writeTmpArgFile(Seq("--two", "@" + path1, "--four"))
+    val path3 = writeTmpArgFile(Seq("--one", "@" + path2, "--five"))
+
+    val tokenizer = new ArgTokenizer(Seq("--zero", "@" + path3, "--six"), Some("@"))
+    tokenizer.next() shouldBe Success(ArgOption(name="zero"))
+    tokenizer.next() shouldBe Success(ArgOption(name="one"))
+    tokenizer.next() shouldBe Success(ArgOption(name="two"))
+    tokenizer.next() shouldBe Success(ArgOption(name="three"))
+    tokenizer.next() shouldBe Success(ArgOption(name="four"))
+    tokenizer.next() shouldBe Success(ArgOption(name="five"))
+    tokenizer.next() shouldBe Success(ArgOption(name="six"))
+  }
+
+  it should "return a Failure when hitting an argment file that doesn't exist" in {
+    val path = "/path/to/nowhere/I/mean_it/12345.txt"
+
+    val tokenizer = new ArgTokenizer(Seq("--one", "--two=three", "-f", "@" + path, "--six"), Some("@"))
+    tokenizer.next() shouldBe Success(ArgOption(name="one"))
+    tokenizer.next() shouldBe Success(ArgOptionAndValue(name="two", value="three"))
+    tokenizer.next() shouldBe Success(ArgOption(name="f"))
+    tokenizer.next() shouldBe an[Failure[_]]
+    tokenizer.takeRemaining shouldBe Seq("--six")
+  }
+
 }

@@ -50,6 +50,4 @@ private[parsing] final case class SpecialArgumentsCollection(
   var help: Boolean = false,
   @Arg(name = "version", doc = "Display the version number for this tool.", special = true)
   var version: Boolean = false
-  //@Arg(name = "arguments-file", doc = "Read one or more arguments files and add them to the command line.", special = true, minElements=0)
-  //var argumentsFile: List[Path] = Nil
 )
