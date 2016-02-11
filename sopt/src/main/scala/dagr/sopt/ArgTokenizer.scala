@@ -24,8 +24,12 @@
 
 package dagr.sopt
 
+import java.io.IOException
+import java.nio.file.{Files, Paths}
 import java.util.NoSuchElementException
 
+import scala.collection.JavaConversions._
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 object ArgTokenizer {
@@ -41,13 +45,15 @@ object ArgTokenizer {
 
 /** A class to tokenize a sequence of strings prior to option parsing.  A series of tokens will
   * be available.  If any errors are encountered, a failure will be present instead of the token.  */
-class ArgTokenizer(args: TraversableOnce[String]) extends Iterator[Try[ArgTokenizer.Token]] {
+class ArgTokenizer(args: Seq[String],
+                   val argFilePrefix: Option[String] = None) extends Iterator[Try[ArgTokenizer.Token]] {
   import ArgTokenizer._
 
   private var nextToken: Option[Try[Token]] = None
-  private val iterator = args.toIterator
+  private val stack = mutable.Stack[String](args:_*)
 
-  def this(args: String*) = this(args.toTraversable)
+  /** Alternate constructor that supports var-arg syntax for testing. */
+  private[sopt] def this(args: String*) = this(args.toSeq, None)
 
   /** True if there are more tokens, false otherwise */
   override def hasNext(): Boolean = {
@@ -60,8 +66,7 @@ class ArgTokenizer(args: TraversableOnce[String]) extends Iterator[Try[ArgTokeni
     // bad user
     if (!hasNext()) throw new NoSuchElementException("Called 'next' when 'hasNext' is false")
     val tryVal = nextToken match {
-      case None =>
-        throw new NoSuchElementException("Called 'next' when 'hasNext' is false")
+      case None        => throw new NoSuchElementException("Called 'next' when 'hasNext' is false")
       case Some(value) => value
     }
     nextToken = None
@@ -69,19 +74,33 @@ class ArgTokenizer(args: TraversableOnce[String]) extends Iterator[Try[ArgTokeni
   }
 
   /** Returns any remaining args that were not tokenized. This is a destructive operation, so should only be called once. */
-  def takeRemaining: Traversable[String] = this.iterator.toTraversable
+  def takeRemaining: Seq[String] = this.stack.toSeq
 
   /** Sets the `nextToken` if it is not defined and we have more strings in the iterator */
-  private def updateNextToken(): Unit = {
-    if (nextToken.isEmpty && iterator.hasNext) {
-      nextToken = iterator.next() match {
-        case "--" => None
-        case ""   => Some(Failure(new OptionNameException("Empty argument given.")))
-        case arg if arg.startsWith("--") => Some(convertDoubleDashOption(arg.substring(2)))
-        case arg if arg.startsWith("-") => Some(convertSingleDash(arg.substring(1)))
-        case arg => Some(Success(ArgValue(value = arg)))
+  private def updateNextToken(): Unit = if (nextToken.isEmpty && this.stack.nonEmpty) nextToken = takeNextToken
+
+  /**
+    * Requires that the stack have at least one item left in it; pulls the top item from the
+    * stack and processes it.
+    */
+  private def takeNextToken: Option[Try[Token]] = (this.stack.pop(), argFilePrefix) match {
+    case ("--", _) => None
+    case ("",   _) => Some(Failure(new OptionNameException("Empty argument given.")))
+    case (arg,  _) if arg.startsWith("--") => Some(convertDoubleDashOption(arg.substring(2)))
+    case (arg,  _) if arg.startsWith("-") => Some(convertSingleDash(arg.substring(1)))
+    case (arg, Some(pre)) if arg.startsWith(pre) =>
+      loadArgumentFile(arg.drop(pre.length)) match {
+        case Failure(failure) => Some(Failure(failure))
+        case Success(newArgs) =>
+          this.stack.pushAll(newArgs.reverseIterator)
+          if (this.stack.nonEmpty) takeNextToken else None
       }
-    }
+    case (arg, _) => Some(Success(ArgValue(value = arg)))
+  }
+
+  /** Loads an arguments file and returns the list of tokens it contains. */
+  private def loadArgumentFile(filename: String): Try[Seq[String]] = {
+    Try { Files.readAllLines(Paths.get(filename)).map(s => s.trim).filter(s => s.nonEmpty).toSeq }
   }
 
   /** If the arg was an option (leading dash or dashes) but has no characters after the dash, create an appropriate

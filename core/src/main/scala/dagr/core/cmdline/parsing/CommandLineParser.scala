@@ -23,6 +23,8 @@
  */
 package dagr.core.cmdline.parsing
 
+import java.io.{IOException, FileNotFoundException}
+
 import dagr.core.cmdline._
 import dagr.core.cmdline.parsing.ParseResult.ParseResult
 import dagr.core.tasksystem.ValidationException
@@ -30,8 +32,6 @@ import dagr.core.util.LazyLogging
 import dagr.core.util.StringUtil._
 import dagr.sopt.{OptionParser, OptionParsingException}
 
-import scala.collection.mutable
-import scala.io.Source
 import scala.util.{Failure, Success}
 
 /** Stores strings used in the usage and error messages */
@@ -58,38 +58,6 @@ private[parsing] object ParseResult extends Enumeration {
   val Failure = Value // Something went wrong (unknown option, missing arg, etc.)
   val Help    = Value // A require for command line help was encountered
   val Version = Value // A request to display version was encountered
-}
-
-private[parsing] object CommandLineParser {
-  def parseArgumentsFile(lines: Traversable[String]): Traversable[String] = {
-    val args: mutable.ListBuffer[String] = new mutable.ListBuffer[String]
-    lines.foreach { line =>
-      if (!line.startsWith(CommandLineParserStrings.Comment) && line.trim.nonEmpty) {
-        // split apart by spaces, but all neighbouring strings without a leading dash ('-') should be grouped
-        // ex. => "--aab s --b -c -d wer we -c"
-        val tokens: List[String] = line.split(" ").filter(_.nonEmpty).filter(0 != _.compareTo(" ")).toList
-        // ex. => "--aab" "s" "--b" "-c" "-d" "wer" "we" "-c"
-        tokens.headOption match {
-          case Some(p: String) =>
-            var prev: String = p
-            tokens.drop(1).foreach {
-              case token =>
-                if (!prev.startsWith("-") && !token.startsWith("-")) {
-                  prev += s" $token"
-                }
-                else {
-                  args += prev
-                  prev = token
-                }
-            }
-            args += prev
-          // ex. => "--aab" "s" "--b" "-c" "-d" "wer we" "-c"
-          case _ => Unit
-        }
-      }
-    }
-    args.toList
-  }
 }
 
 /******************************************************************************
@@ -185,7 +153,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
     */
   private def parseArgs(errorMessageBuilder: StringBuilder, args: Array[String]): Boolean = {
     try {
-      val parser: OptionParser = new OptionParser
+      val parser: OptionParser = new OptionParser(argFilePrefix=Some("@"))
 
       // Add to the option parsers
       this.argumentLookup.ordered.filterNot(_.hidden).foreach {
@@ -195,30 +163,10 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
       }
 
       // Parse the args
-      parser.parse(args: _*) match {
+      parser.parse(args.toList) match {
         case Success(_) =>
         case Failure(throwable) => throw throwable // TODO: should we wrap this in CommandLineException?
       }
-
-      // Check for the special arguments file flag
-      // If it's seen, read arguments from that file and recursively call parseArgsWithDefinitions()
-      /*
-      if (parser.hasOptionValues(SpecialArgumentsCollection.ARGUMENTS_FILE_FULLNAME)) {
-        val argFiles: List[String] = parser.getOptionValues(SpecialArgumentsCollection.ARGUMENTS_FILE_FULLNAME) match {
-          case Success(list) => list
-          case Failure(throwable) => throw throwable // TODO: should we wrap this in CommandLineException?
-        }
-        var newArgs: List[String] = argFiles.distinct.filter(file => !argumentsFilesLoadedAlready.contains(file)).flatMap { file =>
-          argumentsFilesLoadedAlready.add(file)
-          loadArgumentsFile(file)
-        }
-        argumentsFilesLoadedAlready.addAll(argFiles)
-        if (newArgs.nonEmpty) {
-          newArgs ++= args.toList
-          return parseArgs(usageBuilder, errorMessageBuilder, newArgs.toArray, withPreamble)
-        }
-      }
-      */
 
       // set the values
       parser.foreach {
@@ -232,8 +180,9 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
     }
     catch {
       case ex: OptionParsingException => errorMessageBuilder.append(s"\n${ex.getMessage}\n"); false
-      case ex: CommandLineException => errorMessageBuilder.append(s"\n${ex.toString}\n"); false
-      case ex: Exception => errorMessageBuilder.append(s"\n${ex.toString}\n" + ex.getStackTrace.mkString("\t\n")); false
+      case ex: CommandLineException   => errorMessageBuilder.append(s"\n${ex.toString}\n"); false
+      case ex: IOException            => errorMessageBuilder.append(s"\nCouldn't load arguments file: ${ex.getMessage}\n"); false
+      case ex: Exception => errorMessageBuilder.append(s"\nWibble: ${ex.toString}\n" + ex.getStackTrace.mkString("\t\n")); false
     }
   }
 
@@ -346,17 +295,6 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
       case e: IllegalAccessException =>
         throw new CommandLineParserInternalException("Should never happen", e)
     }
-  }
-
-  /**
-    * Read an argument file and return a list of the args contained in it
-    * A line that starts with [[CommandLineParserStrings.Comment]] is ignored.
-    *
-    * @param argumentsFile a text file containing args
-    * @return the list of arguments from the file
-    */
-  private def loadArgumentsFile(argumentsFile: String): Traversable[String] = {
-    CommandLineParser.parseArgumentsFile(Source.fromFile(argumentsFile).getLines.toTraversable)
   }
 
   /** Returns the implementation version string of the given class */

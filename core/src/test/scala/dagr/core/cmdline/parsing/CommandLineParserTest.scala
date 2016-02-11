@@ -499,31 +499,6 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     an[IllegalStateException] should be thrownBy parser(classOf[NoArgAnnotationWithoutDefaults]).argumentLookup
   }
 
-  "CommandLineParser.parseArgumentsFile" should "return no arguments with no lines" in {
-    CommandLineParser.parseArgumentsFile(Nil) shouldBe 'empty
-  }
-
-  it should "return no arguments with only comments" in {
-    val lines: List[String] = List[String]("# nothing", "# here")
-    CommandLineParser.parseArgumentsFile(lines) shouldBe 'empty
-  }
-
-  it should "return a single flag argument" in {
-    CommandLineParser.parseArgumentsFile(List[String]("-c")) shouldBe List("-c")
-    CommandLineParser.parseArgumentsFile(List[String]("--flag")) shouldBe List("--flag")
-  }
-
-  it should "return a single argument with a required value" in {
-    CommandLineParser.parseArgumentsFile(List[String]("-c val")) shouldBe List("-c", "val")
-    CommandLineParser.parseArgumentsFile(List[String]("--arg val")) shouldBe List("--arg", "val")
-  }
-
-  it should "return a two arguments with a required values" in {
-    CommandLineParser.parseArgumentsFile(List[String]("-c val -d val")) shouldBe List("-c", "val", "-d", "val")
-    CommandLineParser.parseArgumentsFile(List[String]("--arg val --barg val")) shouldBe List("--arg", "val", "--barg", "val")
-    CommandLineParser.parseArgumentsFile(List[String]("--aab s --b -c -d wer we -c")) shouldBe List("--aab", "s", "--b", "-c", "-d", "wer we", "-c")
-  }
-
   "CommandLineParser.usage" should "print out no arguments when no arguments are present" in {
     val usage = parser(classOf[NoArguments]).usage(printCommon = false, withPreamble = false, withSpecial = false)
     usage.indexOf(RequiredArguments) should be < 0
@@ -712,91 +687,6 @@ class CommandLineParserTest extends UnitSpec with OptionValues {
     errorMessageBuilder.isEmpty shouldBe false
     errorMessageBuilder.toString().indexOf("verbosity") should be > 0
   }
-
-  /*
-  private def writeTempArgumentsFile(lines: List[String]): Path = {
-    val tmpDir: Path = Files.createTempDirectory("argumentFile")
-    val tmpFile: Path = Files.createTempFile(tmpDir, "dagr", ".arguments")
-    val writer = new PrintWriter(tmpFile.toFile)
-    lines.foreach(writer.println)
-    writer.close()
-    tmpFile.toFile.deleteOnExit()
-    tmpDir.toFile.deleteOnExit()
-    tmpFile
-  }
-
-  it should "accept arguments from a file" in {
-    // write a temp file
-    val tmpFile = writeTempArgumentsFile(List("--string-set Foo\n Bar"))
-    // now try to parse and check the return
-    val usageBuilder: StringBuilder = new StringBuilder
-    val errorMessageBuilder: StringBuilder = new StringBuilder
-    val args = Array[String](
-      "--arguments-file", tmpFile.toString,
-      "--int-set", "1", "2",
-      "--int-arg", "1",
-      "--string-list", "Foo", "Bar"
-    )
-    val p = parser(classOf[GeneralTestingTask])
-    p.parse(usageBuilder = usageBuilder, errorMessageBuilder = errorMessageBuilder, args = args) shouldBe true
-    val task = p.instance.get    
-    task.stringList should have size 2
-    task.stringList shouldBe List[String]("Foo", "Bar")
-    task.stringSet should have size 2
-    task.stringSet shouldBe Set[String]("Foo", "Bar")
-    task.intSet should have size 2
-    task.intSet shouldBe Set[Int](1, 2)
-    task.intArg shouldBe 1
-    task.flag shouldBe false
-    (task.enumArg == LogLevel.Debug) shouldBe true
-  }
-
-  it should "accept arguments from multiple argument files" in {
-    // write top two temp files
-    val tmpFileOne = writeTempArgumentsFile(List("--string-set Foo\n Bar"))
-    val tmpFileTwo = writeTempArgumentsFile(List("--int-set 1\n 2"))
-    // now try to parse and check the return
-    val usageBuilder: StringBuilder = new StringBuilder
-    val errorMessageBuilder: StringBuilder = new StringBuilder
-    val args = Array[String](
-      "--arguments-file", tmpFileOne.toString,
-      "--arguments-file", tmpFileTwo.toString,
-      "--int-arg", "1",
-      "--string-list", "Foo", "Bar"
-    )
-    val p = parser(classOf[GeneralTestingTask])
-    p.parse(usageBuilder = usageBuilder, errorMessageBuilder = errorMessageBuilder, args = args) shouldBe true
-    val task = p.instance.get    
-    task.stringList should have size 2
-    task.stringList shouldBe List[String]("Foo", "Bar")
-    task.stringSet should have size 2
-    task.stringSet shouldBe Set[String]("Foo", "Bar")
-    task.intSet should have size 2
-    task.intSet shouldBe Set[Int](1, 2)
-    task.intArg shouldBe 1
-    task.flag shouldBe false
-    (task.enumArg == LogLevel.Debug) shouldBe true
-  }
-
-  it should "fail when an argument from an argument file is the same as from the command line" in {
-    // write a temp file
-    val tmpFile = writeTempArgumentsFile(List("--int-arg 1"))
-    // now try to parse and check the return
-    val usageBuilder: StringBuilder = new StringBuilder
-    val errorMessageBuilder: StringBuilder = new StringBuilder
-    val args = Array[String](
-      "--string-set", "Foo", "Bar",
-      "--arguments-file", tmpFile.toString,
-      "--int-set", "1", "2",
-      "--int-arg", "1",
-      "--string-list", "Foo", "Bar"
-    )
-    val p = parser(classOf[GeneralTestingTask])
-    p.parse(usageBuilder = usageBuilder, errorMessageBuilder = errorMessageBuilder, args = args) shouldBe false
-    errorMessageBuilder.nonEmpty shouldBe true
-    errorMessageBuilder.toString.indexOf(classOf[OptionSpecifiedMultipleTimesException].getSimpleName) should be > 0
-  }
-  */
 
   it should "accept mutex arguments" in {
     val errorMessageBuilder: StringBuilder = new StringBuilder

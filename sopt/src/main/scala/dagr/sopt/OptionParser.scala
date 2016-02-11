@@ -37,16 +37,18 @@ import scala.util.{Failure, Success, Try}
   * similar methods.
   *
   * See the README.md for more information on valid arguments to [[OptionParser]]. */
-class OptionParser extends OptionLookup with Traversable[(OptionName, List[OptionValue])] {
-
+class OptionParser(val argFilePrefix: Option[String] = None) extends OptionLookup with Traversable[(OptionName, List[OptionValue])] {
   private var remainingArgs: Traversable[String] = Nil
 
   /** returns any remaining args that were not parsed in the previous call to `parse`. */
   def remaining: Traversable[String] = remainingArgs
 
   /** Parse the given args. If an error was found, the first error is returned */
-  def parse(args: String*): Try[this.type] = {
-    val argTokenizer = new ArgTokenizer(args:_*)
+  def parse(args: String*): Try[this.type] = parse(args.toList)
+
+  /** Parse the given args. If an error was found, the first error is returned */
+  def parse(args: List[String]) : Try[this.type] = {
+    val argTokenizer = new ArgTokenizer(args, argFilePrefix=argFilePrefix)
     val argTokenCollator = new ArgTokenCollator(argTokenizer)
 
     argTokenCollator.foreach {
@@ -59,7 +61,6 @@ class OptionParser extends OptionLookup with Traversable[(OptionName, List[Optio
     }
 
     remainingArgs = argTokenizer.takeRemaining
-
     Success(this)
   }
 
