@@ -88,7 +88,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
       val argumentAnnotation = argumentDefinition.annotation
       val sourceFieldName = argumentDefinition.name
       argumentAnnotation.get.mutex.foreach { targetFieldName =>
-        lookup.fieldFor(targetFieldName) match {
+        lookup.forField(targetFieldName) match {
           case Some(mutexArgumentDef) => mutexArgumentDef.mutuallyExclusive.add(sourceFieldName)
           case None =>
             throw new BadAnnotationException(s"Bad Arg annotation in field '$sourceFieldName': " +
@@ -171,7 +171,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
       // set the values
       parser.foreach {
         case (name: String, values: List[String]) =>
-          this.argumentLookup.argFor(name).foreach(arg => arg.setArgument(values:_*))
+          this.argumentLookup.forArg(name).foreach(arg => arg.setArgument(values:_*))
         case _ =>
           throw new IllegalStateException("Parser returned an unexpected set of values")
       }
@@ -271,7 +271,7 @@ private[parsing] class CommandLineParser[T](val targetClass: Class[T]) extends L
         //NB:  Make sure to remove duplicates
         mutextArgumentNames.append(
           argumentDefinition.mutuallyExclusive
-            .toList.flatMap(args.fieldFor(_) match {
+            .toList.flatMap(args.forField(_) match {
               case Some(m) if m.isSetByUser => Some(m)
               case _ => None
             }) // gets rid of the None

@@ -3,6 +3,7 @@ package dagr.core.util
 import java.lang.reflect.{Constructor, InvocationTargetException}
 
 import dagr.core.cmdline._
+import dagr.DagrDef._
 
 import scala.collection.mutable
 import scala.reflect.runtime.universe._
@@ -59,41 +60,45 @@ class ReflectiveBuilder[T](val clazz: Class[T]) {
     * @param constructor a method to be examined - for now always a constructor
     */
   protected def extractParameterInformation(constructor : MethodSymbol): Unit = {
-    if (constructor.paramLists.size > 1) throw new IllegalArgumentException("Constructors with more than one parameter list are not supported.")
-    else if (constructor.paramLists.nonEmpty) {
-      // More reflection objects that are needed to extract everything
-      val hasCompanion = clazzSymbol.companion.isModule
-      val companionObject = if (hasCompanion) Some(clazzSymbol.companion.asModule) else None
-      val instanceMirror = if (hasCompanion) Some(mirror reflect (mirror reflectModule companionObject.get).instance) else None
-      val companionMembers = if (hasCompanion) Some(instanceMirror.get.symbol.typeSignature) else None
+    constructor.paramLists match {
+      case Nil | _ :: _ :: _ =>
+        throw new IllegalArgumentException("Only constructors with a single parameter list are supported.")
+      case paramList :: Nil =>
+        // More reflection objects that are needed to extract everything
+        val hasCompanion     = clazzSymbol.companion.isModule
+        val companionObject  = if (hasCompanion) Some(clazzSymbol.companion.asModule) else None
+        val instanceMirror   = companionObject map { companion => mirror reflect (mirror reflectModule companion).instance }
+        val companionMembers = instanceMirror map { mirror => mirror.symbol.typeSignature }
 
-      constructor.paramLists.head.zipWithIndex.foreach { case (param, index) =>
-        val name = param.name.toString
-        val paramType = param.typeSignature
-        if (paramType.typeArgs.size > 1) throw new CommandLineException(s"Parameter $name has multiple generic types and that is not currently supported")
+        paramList.zipWithIndex.foreach { case (param, index) =>
+          val name = param.name.toString
+          val paramType = param.typeSignature
+          if (paramType.typeArgs.size > 1) throw new CommandLineException(s"Parameter $name has multiple generic types and that is not currently supported")
 
-        val paramClass = ReflectionUtil.typeToClass(paramType)
-        val paramUnitType = if (paramType.typeArgs.size == 1) paramType.typeArgs.head else paramType
-        val paramUnitClass = ReflectionUtil.typeToClass(paramUnitType)
-        val paramPrimitiveClass = ReflectionUtil.ifPrimitiveThenWrapper(paramUnitClass)
+          val paramClass          = ReflectionUtil.typeToClass(paramType)
+          val paramUnitType       = paramType.typeArgs.headOption getOrElse paramType
+          val paramUnitClass      = ReflectionUtil.typeToClass(paramUnitType)
+          val paramPrimitiveClass = ReflectionUtil.ifPrimitiveThenWrapper(paramUnitClass)
 
-        val paramTypeName = paramUnitType match {
-          case ref: TypeRef => ref.sym.name.toString
-          case _ => paramType.typeSymbol.asClass.name.decodedName.toString
+          val paramTypeName = paramUnitType match {
+            case ref: TypeRef => ref.sym.name.toString
+            case _ => paramType.typeSymbol.asClass.name.decodedName.toString
+          }
+
+          // Sort out the default argument if one exists
+          val defaultValue: Option[_] = (companionMembers, instanceMirror) match {
+            // They are either both None or both Some given how they are instantiated above
+            case (None, None) => None
+            case (Some(mem), Some(mir)) =>
+              val defarg = mem.member(TermName("$lessinit$greater$default$" + (index + 1)))
+              if (defarg != NoSymbol) Option(mir.reflectMethod(defarg.asMethod)()) else None
+          }
+
+          this.argumentLookup add buildArgument(
+            param = param, declaringClass = clazz, index = index, name = name, defaultValue = defaultValue,
+            argumentType = paramClass, unitType = paramUnitClass, constructableType = paramPrimitiveClass, typeName = paramTypeName
+          )
         }
-
-        // Sort out the default argument if one exists
-        var defaultValue: Option[_] = None
-        if (hasCompanion) {
-          val defarg = companionMembers.get.member(TermName("$lessinit$greater$default$" + (index + 1)))
-          if (defarg != NoSymbol) defaultValue = Option(instanceMirror.get.reflectMethod(defarg.asMethod)())
-        }
-
-        this.argumentLookup add buildArgument(
-          param = param, declaringClass = clazz, index = index, name = name, defaultValue = defaultValue,
-          argumentType = paramClass, unitType = paramUnitClass, constructableType = paramPrimitiveClass, typeName = paramTypeName
-        )
-      }
     }
   }
 
@@ -115,32 +120,23 @@ class ReflectiveBuilder[T](val clazz: Class[T]) {
 
   /** Constructs a new instance of type T with the parameter values set on the builder (including defaults). */
   def build() : T = {
-    val xs = argumentLookup.ordered.filterNot(arg => arg.hasValue).map(arg => arg.name)
-    if (xs.nonEmpty) {
-      throw new IllegalStateException(s"Arguments not set: ${xs.mkString(", ")}")
+    argumentLookup.ordered.filterNot(_.hasValue).map(_.name) match {
+      case Seq() => build(argumentLookup.ordered.map(_.value getOrElse unreachable("value disappeared")))
+      case missing: Seq[String] => throw new IllegalStateException(s"Arguments not set: ${missing.mkString(", ")}")
     }
-
-    build(argumentLookup.ordered.map(_.value.get))
   }
 
   /** Constructs a new instance of type T with the parameter values supplied. */
   def build(params: Seq[_]) : T = {
     val ps = params.map(_.asInstanceOf[Object])
-    try {
-      jConstructor.newInstance(ps: _*).asInstanceOf[T]
-    }
-    catch {
-      case ite: InvocationTargetException => throw ite.getTargetException
-    }
+    try   { jConstructor.newInstance(ps: _*).asInstanceOf[T] }
+    catch { case ite: InvocationTargetException => throw ite.getTargetException }
   }
 
   /** Attempts to build an instance using only default values. Will fail if any argument does not have a default. */
-  def buildDefault() : T = build(this.argumentLookup.ordered.map { a =>
-    a.value match {
-      case Some(v) => v
-      case None => throw new IllegalArgumentException(s"No default value for '${a.name}'")
-    }
-  })
+  def buildDefault() : T = {
+    build(this.argumentLookup.ordered.map(a => a.value getOrElse { throw new IllegalStateException(s"Missing ${a.name}") }))
+  }
 }
 
 
@@ -169,7 +165,7 @@ class ArgumentLookup[ArgType <: Argument](args: ArgType*) {
   def ordered : Seq[ArgType] = argumentDefinitions.toList.sortBy(_.index)
 
   /** Returns the ArgumentDefinition, if one exists, for the provided field name. */
-  def fieldFor(fieldName: String) : Option[ArgType] = this.byFieldName.get(fieldName)
+  def forField(fieldName: String) : Option[ArgType] = this.byFieldName.get(fieldName)
 }
 
 
@@ -221,8 +217,8 @@ class Argument(val declaringClass: Class[_],
 
   /** true if the field has been set, either by a default value or by the user */
   def hasValue: Boolean = _value match {
-    case None               => false
-    case _ if isCollection  => !ReflectionUtil.isEmptyCollection(this._value.get)
-    case _                  => true
+    case None                    => false
+    case Some(c) if isCollection => !ReflectionUtil.isEmptyCollection(c)
+    case _                       => true
   }
 }
