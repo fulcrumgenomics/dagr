@@ -41,6 +41,7 @@ class MergeBamAlignment( unmapped: PathToBam,
                          programGroupName: Option[String] = None,
                          attributesToRetain: List[String] = List[String]("X0", "ZS", "ZI", "ZM", "ZC", "ZN"),
                          orientation: String = "FR",
+                         maxGaps: Int = -1,
                          sortOrder: SortOrder = SortOrder.coordinate)
   extends PicardTask with Pipe[SamOrBam,SamOrBam] {
   requires(Cores(1), Memory("4g"))
@@ -57,6 +58,7 @@ class MergeBamAlignment( unmapped: PathToBam,
     programGroupName.foreach(name => buffer.append("PG_NAME=" + name))
     attributesToRetain.foreach(attr => buffer.append("ATTRIBUTES_TO_RETAIN=" + attr))
     buffer.append("ORIENTATIONS=" + orientation)
+    buffer.append("MAX_GAPS=" + maxGaps)
     buffer.append("SO=" + sortOrder.name())
   }
 }

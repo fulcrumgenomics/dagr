@@ -35,7 +35,8 @@ class HaplotypeCaller(ref: PathToFasta,
                       val bam: PathToBam,
                       val vcf: PathToVcf,
                       val maxAlternateAlleles: Int = 3,
-                      val contaminationFraction: Double = 0.0
+                      val contaminationFraction: Double = 0.0,
+                      val rnaMode: Boolean = false
                       )
  extends GatkTask("HaplotypeCaller", ref, intervals=Some(intervals)) {
 
@@ -46,9 +47,15 @@ class HaplotypeCaller(ref: PathToFasta,
     buffer.append("-variant_index_type", "LINEAR")
     buffer.append("--emitRefConfidence", "GVCF")
 
-    buffer.append("--max_alternate_alleles", maxAlternateAlleles.toString)
-    buffer.append("--contamination_fraction_to_filter", contaminationFraction.toString)
-    buffer.append("-I", bam.toAbsolutePath.toString)
-    buffer.append("-o", vcf.toAbsolutePath.toString)
+    buffer.append("--max_alternate_alleles", maxAlternateAlleles)
+    buffer.append("--contamination_fraction_to_filter", contaminationFraction)
+    buffer.append("-I", bam.toAbsolutePath)
+    buffer.append("-o", vcf.toAbsolutePath)
+
+    if (rnaMode) {
+      buffer.append("-dontUseSoftClippedBases")
+      buffer.append("-stand_call_conf", 20)
+      buffer.append("-stand_emit_conf", 20)
+    }
   }
 }

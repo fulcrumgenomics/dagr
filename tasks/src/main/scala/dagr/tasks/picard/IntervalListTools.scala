@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,32 +23,31 @@
  */
 package dagr.tasks.picard
 
-import java.nio.file.Path
-
-import dagr.tasks.{PathToBam, PathToFasta}
-import picard.analysis.CollectMultipleMetrics.Program
+import dagr.tasks.PathToIntervals
+import picard.util.IntervalListTools.Action
 
 import scala.collection.mutable.ListBuffer
 
-class CollectMultipleMetrics(in: PathToBam,
-                             prefix: Option[Path] = None,
-                             ref: PathToFasta,
-                             assumeSorted: Boolean = true,
-                             programs: Seq[Program] = Program.values().toSeq,
-                             fileExtension: Option[String] = Some("." + PicardOutput.Text.toString))
-  extends PicardMetricsTask(in = in, prefix = prefix) {
-
-  // Since we do not actually want any extensions, the tool will do that itself
-  override def metricsExtension: String = ""
-
-  /** Build method that Picard tasks should override instead of build(). */
+/**
+  * Task to run Picard's IntervalListTools.
+  */
+class IntervalListTools(val in:  Seq[PathToIntervals],
+                        val secondIn: Seq[PathToIntervals] = Nil,
+                        val out: PathToIntervals,
+                        val padding: Int = 0,
+                        val sort: Boolean = true,
+                        val unique: Boolean = false,
+                        val action: Action = Action.CONCAT,
+                        val invert: Boolean = false
+                       ) extends PicardTask {
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("I=" + in)
-    buffer.append("O=" + pathPrefix)
-    buffer.append("R=" + ref)
-    buffer.append("AS=" + assumeSorted)
-    buffer.append("PROGRAM=null")
-    programs.foreach(program => buffer.append("PROGRAM=" + program.name()))
-    fileExtension.foreach(ext => buffer.append("FILE_EXTENSION=" + ext))
+    in.foreach(p => buffer += "I=" + p)
+    secondIn.foreach(p => buffer += "SI=" + p)
+    buffer += "O=" + out
+    buffer += "PADDING=" + padding
+    buffer += "SORT=" + sort
+    buffer += "UNIQUE=" + unique
+    buffer += "ACTION=" + action.name()
+    buffer += "INVERT=" + invert
   }
 }

@@ -54,20 +54,22 @@ class PipeTest extends UnitSpec {
   case class BgUnzip()  extends Pipe[Binary,Text] with TestResources { def args = "bgzip" :: "--decompress" :: "--stdout" :: Nil  }
 
   "Pipe" should "connect some simple tasks" in {
+    val `|` = " " + Pipes.PipeString + " "
     val pipe = Cat("foo.txt") | MakeCsv()
     pipe.args.length shouldBe 5
-    pipe.args.mkString(" ") shouldBe "cat foo.txt | sed s/ +/,/g"
+    pipe.args.mkString(" ") shouldBe "cat foo.txt " + Pipes.PipeString + " sed s/ +/,/g"
 
     val pipe2 = Cat("bar.txt") | MakeCsv() | CsvToTsv() | Column()
-    pipe2.args.mkString(" ") shouldBe """cat bar.txt | sed s/ +/,/g | tr ',' '\t' | column -t"""
+    pipe2.args.mkString(" ") shouldBe "cat bar.txt" + `|` + "sed s/ +/,/g" + `|` + """tr ',' '\t'""" + `|` + "column -t"
   }
 
   it should "handle re-use of parts of pipes" in {
+    val `|` = " " + Pipes.PipeString + " "
     val start = Cat("foo.txt") | MakeCsv()
     val pipe1 = start | CsvToTsv()
     val pipe2 = start | Column()
-    pipe1.args.mkString(" ") shouldBe """cat foo.txt | sed s/ +/,/g | tr ',' '\t'"""
-    pipe2.args.mkString(" ") shouldBe """cat foo.txt | sed s/ +/,/g | column -t"""
+    pipe1.args.mkString(" ") shouldBe "cat foo.txt" + `|` + "sed s/ +/,/g" + `|` + """tr ',' '\t'"""
+    pipe2.args.mkString(" ") shouldBe "cat foo.txt" + `|` + "sed s/ +/,/g" + `|` + "column -t"
   }
 
   it should "correctly handle resources for several FixedResources tasks" in {
@@ -109,15 +111,19 @@ class PipeTest extends UnitSpec {
   }
 
   it should "allow use of Pipe.empty anywhere in a pipeline" in {
+    val `|` = " " + Pipes.PipeString + " "
     List(true, false).foreach(col => {
       val maybeColumn = if (col) new Column() else Pipes.empty[Text]
       val pipe = Cat("foo.txt") | maybeColumn | MakeCsv()
-      pipe.args.mkString(" ") shouldBe { if (col) "cat foo.txt | column -t | sed s/ +/,/g" else "cat foo.txt | sed s/ +/,/g" }
+      pipe.args.mkString(" ") shouldBe {
+        if (col) "cat foo.txt" + `|` + "column -t" +  `|` +  "sed s/ +/,/g"
+        else     "cat foo.txt" + `|` + "sed s/ +/,/g"
+      }
     })
 
     val silly = Pipes.empty[Csv] | Pipes.empty[Csv] | Pipes.empty[Text]
     val pipe = Cat("foo.txt") | MakeCsv() | silly | Column()
-    pipe.args.mkString(" ") shouldBe """cat foo.txt | sed s/ +/,/g | column -t"""
+    pipe.args.mkString(" ") shouldBe "cat foo.txt" + `|` + "sed s/ +/,/g" + `|` + "column -t"
   }
 
   it should "compile with a subtype as input in a pipe" in {

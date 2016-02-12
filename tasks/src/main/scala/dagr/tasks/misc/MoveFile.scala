@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,33 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.tasks.picard
+package dagr.tasks.misc
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
-import dagr.core.tasksystem.SimpleInJvmTask
-import dagr.core.util.PathUtil
-
-import scala.collection.mutable.ListBuffer
+import dagr.core.tasksystem.ShellCommand
 
 /**
-  * Class to remove a BAM file and also the BAI file if it exists.  Succeeds if the files can be deleted,
-  * *or* if no files were present to be deleted.
+  * Uses the shell to move a file or directory from one path to another
   */
-class RemoveBam(val bam: Path) extends SimpleInJvmTask {
-  name = "RemoveBam." + PathUtil.basename(bam)
-
-  override def run(): Unit = {
-    val paths = ListBuffer(bam)
-    PathUtil.extensionOf(bam) match {
-      case Some(".bam") =>
-        paths += PathUtil.pathTo(bam.toString + ".bai")
-        paths += PathUtil.replaceExtension(bam, ".bai")
-      case Some(".cram") =>
-        paths += PathUtil.pathTo(bam.toString + ".crai")
-      case _ =>
-    }
-
-    paths.filter(Files.exists(_)).foreach(Files.delete)
-  }
-}
+class MoveFile(val from: Path, val to: Path) extends ShellCommand("mv", from.toString, to.toString)

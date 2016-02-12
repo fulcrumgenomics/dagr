@@ -36,8 +36,7 @@ object CollectAlignmentSummaryMetrics {
 class CollectAlignmentSummaryMetrics(in: PathToBam,
                                      prefix: Option[Path],
                                      ref: PathToFasta,
-                                     assumeSorted: Boolean = true,
-                                     programs: List[MetricsProgram.Value] = MetricsProgram.values.toList)
+                                     assumeSorted: Boolean = true)
   extends PicardMetricsTask(in=in, prefix=prefix) {
 
   override def metricsExtension: String = CollectAlignmentSummaryMetrics.metricsExtension
@@ -47,6 +46,5 @@ class CollectAlignmentSummaryMetrics(in: PathToBam,
     buffer.append("O=" + metricsFile)
     buffer.append("R=" + ref)
     buffer.append("AS=" + assumeSorted)
-    programs.foreach(program => buffer.append("PROGRAM=" + program.toString))
   }
 }

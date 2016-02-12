@@ -74,6 +74,9 @@ trait PipeOut[Out] extends Pipe[Nothing,Out]
 // Section: Objects and private utility classes to make it all work
 ///////////////////////////////////////////////////////////////////////////////
 object Pipes {
+  /** The string that is sandwiched between commands to form pipes. */
+  val PipeString = "\\\n    | "
+
   /**
     * A class that represents an empty pipe, that allows for easier construction of pipes with conditional branches.
     * Must remain private and only be instantiated by [[Pipes.empty]].
@@ -101,7 +104,7 @@ object Pipes {
 
     /** Returns a single [[Seq]] over the args of all piped tasks, with pipe operators between them! */
     override def args: Seq[Any] = {
-      tasks.foldLeft[List[Any]](Nil)((list, task) => list ++ list.headOption.map(x => "|") ++ task.args)
+      tasks.foldLeft[List[Any]](Nil)((list, task) => list ++ list.headOption.map(x => PipeString) ++ task.args)
     }
 
     /**
