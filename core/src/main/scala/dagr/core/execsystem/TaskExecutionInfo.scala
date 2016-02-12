@@ -24,7 +24,7 @@
 package dagr.core.execsystem
 
 import java.nio.file.Path
-import java.sql.Timestamp
+import java.time.Instant
 
 import dagr.DagrDef._
 import dagr.core.tasksystem.Task
@@ -45,10 +45,10 @@ class TaskExecutionInfo(var task: Task,
                         var status: TaskStatus.Value,
                         val script: Path,
                         val logFile: Path,
-                        var submissionDate: Option[Timestamp],
+                        var submissionDate: Option[Instant],
                         var resources: ResourceSet = ResourceSet(0,0),
-                        var startDate: Option[Timestamp] = None,
-                        var endDate: Option[Timestamp] = None,
+                        var startDate: Option[Instant] = None,
+                        var endDate: Option[Instant] = None,
                         var attemptIndex: Int = 1 // one-based
                          ) {
   if (attemptIndex < 1) throw new RuntimeException("attemptIndex must be greater than zero")

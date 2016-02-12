@@ -24,7 +24,9 @@
 
 package dagr.core.execsystem
 
-import java.sql.Timestamp
+import java.time.{ZoneId, Duration}
+import java.time.format.DateTimeFormatter
+import java.time.temporal.Temporal
 
 import dagr.core.tasksystem.Task
 import dagr.core.util.BiMap
@@ -35,15 +37,14 @@ import scala.collection.mutable.ListBuffer
 
 /** Provides a method to provide an execution report for a task tracker */
 trait TaskStatusReporter {
-
   this: TaskTracker =>
 
+  private val fmt = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
+
   /** Gets the time stamp as a string (without Nanoseconds), or NA if it is None */
-  private def timestampStringOrNA(timestamp: Option[Timestamp]): String = {
+  private def timestampStringOrNA(timestamp: Option[Temporal]): String = {
     timestamp match {
-      case Some(ts) =>
-        val str = ts.toString
-        str.substring(0, str.lastIndexOf('.')) // remove nanos
+      case Some(ts) => fmt.format(ts)
       case None => "NA"
     }
   }
@@ -59,13 +60,12 @@ trait TaskStatusReporter {
   /** A row  for the report.  Each row is a given task. */
   private def reportRow(taskInfo: TaskExecutionInfo): List[String] = {
     // get the total execution time, and total time since submission
-    val (executionTime: String, totalTime: String) = taskInfo.endDate match {
-      case Some(end) =>
-        val endTime        = end.getTime
-        val startTime      = taskInfo.startDate.getOrElse(end).getTime
-        val submissionTime = taskInfo.submissionDate.getOrElse(end).getTime
-        (formatElapsedTime((endTime - startTime) / 1000), formatElapsedTime((endTime - submissionTime) / 1000))
-      case None => ("NA", "NA")
+    val (executionTime: String, totalTime: String) = (taskInfo.submissionDate, taskInfo.startDate, taskInfo.endDate) match {
+      case (Some(submission), Some(start), Some(end)) =>
+        val sinceSubmission = Duration.between(submission, end)
+        val sinceStart      = Duration.between(start, end)
+        (formatElapsedTime(sinceStart.getSeconds), formatElapsedTime(sinceSubmission.getSeconds))
+      case _ => ("NA", "NA")
     }
     // The state of execution
     val graphNodeState = graphNodeStateFor(taskInfo.id) match {

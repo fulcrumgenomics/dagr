@@ -24,7 +24,7 @@
 package dagr.core.execsystem
 
 import java.nio.file.Path
-import java.sql.Timestamp
+import java.time.Instant
 
 import dagr.DagrDef._
 import dagr.core.tasksystem.{Task, UnitTask}
@@ -213,7 +213,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   */
 
   /** Compares two timestamp options.  If either option is empty, zero is returned. */
-  private def compareOptionalTimestamps(left: Option[Timestamp], right: Option[Timestamp]): Int = (left, right) match {
+  private def compareOptionalTimestamps(left: Option[Instant], right: Option[Instant]): Int = (left, right) match {
     case (Some(l), Some(r)) => l.compareTo(r)
     case _ => 0
   }
@@ -379,7 +379,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
         false
       case _ =>
         // set the submission time stamp
-        taskExecutionInfoFor(node).foreach(info => info.submissionDate = Some(new Timestamp(System.currentTimeMillis)))
+        taskExecutionInfoFor(node).foreach(info => info.submissionDate = Some(Instant.now()))
         // we will make this task dependent on the tasks it creates...
         if (tasks.contains(node.task)) throw new IllegalStateException(s"Task [${node.task.name}] contained itself in the list returned by getTasks")
         // track the new tasks. If they are already added, that's fine too.
