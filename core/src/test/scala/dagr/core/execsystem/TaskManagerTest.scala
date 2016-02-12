@@ -859,11 +859,11 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     // ends after the first
     pipelineInfo.submissionDate.get.compareTo(taskOneInfo.submissionDate.get) should be <= 0
     pipelineInfo.startDate.get.equals(taskOneInfo.startDate.get) shouldBe true
-    pipelineInfo.endDate.get.after(taskOneInfo.endDate.get) shouldBe true
+    pipelineInfo.endDate.get.isAfter(taskOneInfo.endDate.get) shouldBe true
 
     // the end date should match the second task, but the second task is started after the first
     pipelineInfo.submissionDate.get.compareTo(taskTwoInfo.submissionDate.get) should be <= 0
-    pipelineInfo.startDate.get.before(taskTwoInfo.startDate.get) shouldBe true
+    pipelineInfo.startDate.get.isBefore(taskTwoInfo.startDate.get) shouldBe true
     pipelineInfo.endDate.get.equals(taskTwoInfo.endDate.get) shouldBe true
   }
 

@@ -25,6 +25,7 @@ package dagr.core.execsystem
 
 import java.nio.file.Path
 import java.sql.Timestamp
+import java.time.Instant
 
 import dagr.DagrDef._
 import dagr.core.execsystem.TaskStatus._
@@ -48,7 +49,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
   private final class TrackingInfo(task: Task, enclosingNode: Option[GraphNode] = None) {
     val (info: TaskExecutionInfo, node: GraphNode) = {
       val id: TaskId = task._id.getOrElse(unreachable(s"Task id not found for task with name '${task.name}'"))
-      val submissionDate: Option[Timestamp] = Some(new Timestamp(System.currentTimeMillis))
+      val submissionDate: Option[Instant] = Some(Instant.now())
       val info = new TaskExecutionInfo(
         task=task,
         status=UNKNOWN,

@@ -24,7 +24,7 @@
 package dagr.core.execsystem
 
 import java.nio.file.Path
-import java.sql.Timestamp
+import java.time.Instant
 
 import dagr.DagrDef._
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
@@ -75,6 +75,7 @@ private object TaskExecutionRunner {
   }
 
   /** Simple class that runs the given task's method.
+ *
     * @param task the task to run
     * @param script the location of the task's script
     * @param logFile the location of the task's log file
@@ -144,7 +145,7 @@ private[core] class TaskExecutionRunner extends LazyLogging {
         taskInfos.put(taskInfo.id, taskInfo)
         thread.start()
         taskInfo.status = TaskStatus.STARTED
-        taskInfo.startDate = Some(new Timestamp(System.currentTimeMillis))
+        taskInfo.startDate = Some(Instant.now())
         true
       }
       catch {
@@ -165,7 +166,7 @@ private[core] class TaskExecutionRunner extends LazyLogging {
                            failedAreCompleted: Boolean = false): Unit = {
 
 
-    taskInfo.endDate = Some(new Timestamp(System.currentTimeMillis))
+    taskInfo.endDate = Some(Instant.now())
     taskInfo.status = {
       if ((0 == exitCode && onCompleteSuccessful) || failedAreCompleted) TaskStatus.SUCCEEDED
       else if (0 != exitCode) TaskStatus.FAILED_COMMAND
@@ -243,7 +244,7 @@ private[core] class TaskExecutionRunner extends LazyLogging {
             case Some(info) => info
             case None => throw new IllegalStateException(s"Could not find task info for task id '$taskId'.")
           }
-          taskInfo.endDate = Some(new Timestamp(System.currentTimeMillis))
+          taskInfo.endDate = Some(Instant.now())
           taskInfo.status = TaskStatus.FAILED_COMMAND
           !thread.isAlive // thread is still alive WTF
         case _  => false
