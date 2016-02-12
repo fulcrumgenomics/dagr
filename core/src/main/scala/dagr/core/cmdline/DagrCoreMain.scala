@@ -29,8 +29,8 @@ import java.nio.file.{Files, Path}
 import dagr.core.cmdline.parsing.DagrCommandLineParser
 import dagr.core.config.Configuration
 import dagr.core.execsystem._
-import dagr.core.tasksystem.{Pipeline, Task, ValidationException}
-import dagr.core.util.{BiMap, Io, LazyLogging, LogLevel, Logger}
+import dagr.core.tasksystem.{Pipeline, ValidationException}
+import dagr.core.util.{Io, LazyLogging, LogLevel, Logger}
 
 import scala.collection.mutable.ListBuffer
 
