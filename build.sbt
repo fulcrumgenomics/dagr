@@ -116,6 +116,7 @@ lazy val sopt = Project(id="dagr-sopt", base=file("sopt"))
       "org.scalatest"      %%  "scalatest"       %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
     )
   )
+  .disablePlugins(sbtassembly.AssemblyPlugin)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // core project
@@ -135,6 +136,7 @@ lazy val core = Project(id="dagr-core", base=file("core"))
       "org.scalatest"      %%  "scalatest"         %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
     )
   )
+  .disablePlugins(sbtassembly.AssemblyPlugin)
   .dependsOn(sopt)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,6 +158,7 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
       "com.github.broadinstitute" % "picard" % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*)
     )
   )
+  .disablePlugins(sbtassembly.AssemblyPlugin)
   .dependsOn(core)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -164,6 +167,7 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
 lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
   .settings(description := "A set of example dagr pipelines.")
   .settings(commonSettings: _*)
+  .disablePlugins(sbtassembly.AssemblyPlugin)
   .dependsOn(tasks, core)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
