@@ -68,12 +68,12 @@ trait TaskStatusReporter {
       case _ => ("NA", "NA")
     }
     // The state of execution
-    val graphNodeState = graphNodeStateFor(taskInfo.id) match {
+    val graphNodeState = graphNodeStateFor(taskInfo.taskId) match {
       case Some(state) => state.toString
       case None => "NA"
     }
     List(
-      taskInfo.id.toString(),
+      taskInfo.taskId.toString(),
       taskInfo.task.name,
       taskInfo.status.toString,
       f"${taskInfo.resources.cores.value}%.2f",
@@ -104,7 +104,7 @@ trait TaskStatusReporter {
     val taskStatusMap: scala.collection.mutable.Map[TaskStatus.Value, Int] = mutable.HashMap[TaskStatus.Value, Int]()
     TaskStatus.values.foreach(status => taskStatusMap.put(status, 0))
     // Go through every task
-    for (taskInfo <- taskInfoMap.values.toList.sortBy(taskInfo => taskInfo.id)) {
+    for (taskInfo <- taskInfoMap.values.toList.sortBy(taskInfo => taskInfo.taskId)) {
       // Make a report row
       taskStatusTable.append(reportRow(taskInfo))
       // Update the task status counts

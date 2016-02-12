@@ -44,8 +44,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val script: Path = Files.createTempFile("TaskRunnerTest", ".sh")
     val logFile: Path = Files.createTempFile("TaskRunnerTest", ".log")
     val task: UnitTask = new ShellCommand(argv:_*).withName(argv.mkString(" ")).getTasks.head
-    task._id = Some(taskId)
-    val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(task = task,
+    val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
+      task = task,
+      taskId = taskId,
       status = TaskStatus.UNKNOWN,
       submissionDate = None,
       startDate = None,
@@ -65,8 +66,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val script: Path = Files.createTempFile("TaskRunnerTest", ".sh")
     val logFile: Path = Files.createTempFile("TaskRunnerTest", ".log")
     val task: UnitTask = new TrivialInJvmTask(exitCode = exitCode).getTasks.head
-    task._id = Some(taskId)
-    val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(task = task,
+    val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
+      task = task,
+      taskId = taskId,
       status = TaskStatus.UNKNOWN,
       submissionDate = None,
       startDate = None,
@@ -82,8 +84,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val script: Path = Files.createTempFile("TaskRunnerTest", ".sh")
     val logFile: Path = Files.createTempFile("TaskRunnerTest", ".log")
     val newTask = task.getTasks.head
-    task._id = Some(taskId)
-    val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(task = newTask,
+    val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
+      task = newTask,
+      taskId = taskId,
       status = TaskStatus.UNKNOWN,
       submissionDate = None,
       startDate = None,
@@ -263,8 +266,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
   it should "get a non-zero exit code for a task that fails during getProcessBuilder by throwing an exception" in {
     val taskRunner: TaskExecutionRunner = new TaskExecutionRunner()
     val task: ProcessBuilderExceptionTask = new ProcessBuilderExceptionTask()
-    task._id = Some(1)
-    val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(task = task,
+    val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
+      task = task,
+      taskId = 1,
       status = TaskStatus.UNKNOWN,
       submissionDate = None,
       startDate = None,
@@ -285,9 +289,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val task = new UnitTask {
       override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = None
     }
-    task._id = Some(1)
     val taskInfo = new TaskExecutionInfo(
       task = task,
+      taskId = 1,
       status = TaskStatus.UNKNOWN,
       submissionDate = None,
       startDate = None,
@@ -305,9 +309,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val task = new Task {
       override def getTasks: Traversable[_ <: Task] = Nil
     }
-    task._id = Some(1)
     val taskInfo = new TaskExecutionInfo(
       task = task,
+      taskId = 1,
       status = TaskStatus.UNKNOWN,
       submissionDate = None,
       startDate = None,
@@ -327,9 +331,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
   it should "handle an InJvmTask that throws an Exception" in {
     val taskRunner: TaskExecutionRunner = new TaskExecutionRunner()
     val task = new InJvmExceptionTask()
-    task._id = Some(1)
     val taskInfo = new TaskExecutionInfo(
       task = task,
+      taskId = 1,
       status = TaskStatus.UNKNOWN,
       submissionDate = None,
       startDate = None,

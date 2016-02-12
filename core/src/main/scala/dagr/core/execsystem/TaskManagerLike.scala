@@ -24,13 +24,13 @@
 
 package dagr.core.execsystem
 
-import dagr.core.execsystem.TaskManagerLike.BaseInfoAndNode
+import dagr.core.execsystem.TaskManagerLike.BaseGraphNode
 import dagr.core.tasksystem.Task
 import dagr.core.util.BiMap
 import dagr.DagrDef._
 
-object TaskManagerLike {
-  abstract class BaseInfoAndNode(info: TaskExecutionInfo, node: BaseGraphNode)
+private[execsystem] object TaskManagerLike {
+  abstract class BaseGraphNode
 }
 
 /** A generic template for task managers */
@@ -78,7 +78,7 @@ private[execsystem] trait TaskManagerLike {
     * @param task the task.
     * @return the task identifier, None if the task is not being managed.
     */
-  def taskIdFor(task: Task): Option[TaskId] = task._id
+  def taskFor(task: Task): Option[TaskId] = task._taskInfo.map(_.taskId)
 
   /** Get the task identifiers for all tracked tasks.
     *
@@ -86,29 +86,13 @@ private[execsystem] trait TaskManagerLike {
     */
   def taskIds(): Iterable[TaskId]
 
-  /** Gets the task for the given id.  If there is no task being tracked
+  /** Gets the graph execution node for the given id.  If there is no task being tracked
     * with that id, throws a [[NoSuchElementException]].
     *
     * @param id the id to lookup.
     * @return the associated task.
     */
-  def apply(id: TaskId): Task
-
-  /** Gets the task tracking info for the given task.  If the task is not
-    *  being tracked, throws a [[NoSuchElementException]].
-    *
-    * @param task the task to lookup.
-    * @return the associated task execution info.
-    */
-  def infoFor(task: Task): BaseInfoAndNode
-
-  /** Gets the task tracking info for the given id.  If the task is not
-    *  being tracked, throws a [[NoSuchElementException]].
-    *
-    * @param id the id to lookup.
-    * @return the associated task execution info.
-    */
-  def infoFor(id: TaskId): BaseInfoAndNode
+  def apply(id: TaskId): BaseGraphNode
 
   /** Get the bi-directional map between managed tasks and their associated task execution information.
     *
