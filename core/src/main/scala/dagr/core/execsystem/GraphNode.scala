@@ -24,11 +24,10 @@
 package dagr.core.execsystem
 
 import dagr.DagrDef._
+import dagr.core.execsystem.TaskManagerLike.BaseGraphNode
 import dagr.core.tasksystem.Task
 
 import scala.collection.mutable.ListBuffer
-
-abstract class BaseGraphNode
 
 /** A node in the execution graph
   *
@@ -48,7 +47,8 @@ class GraphNode(var task: Task,
 
   _predecessors ++= predecessorNodes
 
-  def id: TaskId = task._id.getOrElse(unreachable(s"Task id not found for task with name '${task.name}'"))
+  def taskId: TaskId = taskInfo.taskId
+  def taskInfo: TaskExecutionInfo = task.taskInfo
 
   /** Remove a predecessor from the execution graph.
    *

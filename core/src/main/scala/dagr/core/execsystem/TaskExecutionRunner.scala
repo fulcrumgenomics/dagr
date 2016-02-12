@@ -176,9 +176,9 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
           case _                       => throw new RuntimeException("Could not run a unknown type of task")
         }
         val thread = new Thread(taskRunner)
-        processes.put(taskInfo.id, thread)
-        taskRunners.put(taskInfo.id, taskRunner)
-        taskInfos.put(taskInfo.id, taskInfo)
+        processes.put(taskInfo.taskId, thread)
+        taskRunners.put(taskInfo.taskId, taskRunner)
+        taskInfos.put(taskInfo.taskId, taskInfo)
         thread.start()
         taskInfo.status = TaskStatus.STARTED
         taskInfo.startDate = Some(Instant.now())

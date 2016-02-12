@@ -160,14 +160,13 @@ class TaskTest extends UnitSpec with LazyLogging {
       val taskRunner: TaskExecutionRunner = new TaskExecutionRunner
       val id: TaskId = 1
 
-      task._id = Some(id)
-
       // Run the task
       taskRunner.runTask(taskInfo = new TaskExecutionInfo(
-          task = task,
-          status = TaskStatus.UNKNOWN,
-          script = script,
-          logFile = logFile,
+          task           = task,
+          taskId             = id,
+          status         = TaskStatus.UNKNOWN,
+          script         = script,
+          logFile        = logFile,
           submissionDate = None
         )
       )

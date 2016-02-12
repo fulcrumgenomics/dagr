@@ -42,6 +42,7 @@ import dagr.core.tasksystem.Task
  * @param attemptIndex the one-based count of attempts to run this task.
  */
 class TaskExecutionInfo(var task: Task,
+                        var taskId: TaskId,
                         var status: TaskStatus.Value,
                         val script: Path,
                         val logFile: Path,
@@ -53,11 +54,11 @@ class TaskExecutionInfo(var task: Task,
                          ) {
   if (attemptIndex < 1) throw new RuntimeException("attemptIndex must be greater than zero")
 
-  def id: TaskId = task._id.getOrElse(unreachable(s"Task id not found for task with name '${task.name}'"))
+  task._taskInfo = Some(this)
 
   override def toString: String = {
     val na: String = "NA"
-    s"STATUS[$status] ID[$id] NAME[${task.name}] SUBMITTED[${submissionDate.getOrElse(na)}]" +
+    s"STATUS[$status] ID[$taskId] NAME[${task.name}] SUBMITTED[${submissionDate.getOrElse(na)}]" +
     s" START[${startDate.getOrElse(na)}] END[${endDate.getOrElse(na)}] ATTEMPT[$attemptIndex]" +
     s" SCRIPT[$script] LOGFILE[$logFile]"
   }

@@ -169,9 +169,9 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
    * @return true if we are successful, false if the original is not being tracked.
    */
   override def replaceTask(original: Task, replacement: Task): Boolean = {
-    taskIdFor(original) match {
+    taskFor(original) match {
       case Some(taskId) =>
-        val taskInfo = infoFor(original).info
+        val taskInfo = original.taskInfo
 
         if (taskInfo.status == STARTED) {
           // the task has been started, kill it
@@ -213,7 +213,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   */
 
   /** Compares two timestamp options.  If either option is empty, zero is returned. */
-  private def compareOptionalTimestamps(left: Option[Instant], right: Option[Instant]): Int = (left, right) match {
+  private def compareOptionalInstants(left: Option[Instant], right: Option[Instant]): Int = (left, right) match {
     case (Some(l), Some(r)) => l.compareTo(r)
     case _ => 0
   }
@@ -223,11 +223,11 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     // Set the start and end dates for the parent, if they exist
     node.enclosingNode.foreach { parent =>
       taskExecutionInfoFor(parent).foreach { parentTaskInfo =>
-        val taskInfo: TaskExecutionInfo = info.getOrElse(infoFor(node.task).info)
-        if (compareOptionalTimestamps(parentTaskInfo.startDate, taskInfo.startDate) >= 0) {
+        val taskInfo: TaskExecutionInfo = info.getOrElse(node.taskInfo)
+        if (compareOptionalInstants(parentTaskInfo.startDate, taskInfo.startDate) >= 0) {
           parentTaskInfo.startDate = taskInfo.startDate
         }
-        if (compareOptionalTimestamps(parentTaskInfo.endDate, taskInfo.endDate) <= 0) {
+        if (compareOptionalInstants(parentTaskInfo.endDate, taskInfo.endDate) <= 0) {
           parentTaskInfo.endDate = taskInfo.endDate
         }
       }
@@ -246,8 +246,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
    * @param taskId the task identifier for the completed task.
    */
   private def processCompletedTask(taskId: TaskId, doRetry: Boolean = true): Unit = {
-    val node: GraphNode = infoFor(taskId).node
-    val taskInfo: TaskExecutionInfo = infoFor(node.task).info
+    val node      = this(taskId)
+    val taskInfo  = node.taskInfo
     logger.info("processCompletedTask: Task [" + taskInfo.task.name + "] had TaskStatus=" + taskInfo.status.toString)
     val updateNodeToCompleted: Boolean = if (TaskStatus.isTaskFailed(taskStatus = taskInfo.status) && doRetry) {
       // Only if it has failed
@@ -285,8 +285,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     completedTasks.keys.foreach(taskId => processCompletedTask(taskId))
     logger.debug("updateCompletedTasks: found " + completedTasks.size + " completed tasks")
     for (taskId <- completedTasks.keys) {
-      val name = this(taskId).name
-      val status = infoFor(taskId).info.status
+      val name = this(taskId).task.name
+      val status = this(taskId).taskInfo.status
       logger.debug("updateCompletedTasks: task [" + name + "] completed with task status [" + status + "]")
 
     }
@@ -329,7 +329,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
       // - if this node has already been expanded and now has no predecessors, then move it to the next state.
       // - if it hasn't been expanded and now has no predecessors, it should get expanded later
       if (!node.hasPredecessor && node.state == ONLY_PREDECESSORS) {
-        val taskInfo = infoFor(node.task).info
+        val taskInfo = node.taskInfo
         node.task match {
           case task: UnitTask => node.state = NO_PREDECESSORS
           case _ =>
@@ -385,7 +385,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
         // track the new tasks. If they are already added, that's fine too.
         val taskIds: List[TaskId] = for (task <- tasks) yield addTask(task = task, enclosingNode = Some(node), ignoreExists = true)
         // make this node dependent on those tasks
-        taskIds.map(taskId => node.addPredecessors(infoFor(taskId).node))
+        taskIds.map(taskId => node.addPredecessors(this(taskId)))
         // TODO: we could check each new task to see if they are in the PREDECESSORS_AND_UNEXPANDED state
         true
     }
@@ -402,7 +402,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     node.task match {
       case task: UnitTask => node.state = NO_PREDECESSORS
       case _ =>
-        val taskInfo = infoFor(node.task).info
+        val taskInfo = node.taskInfo
         // In the case that this node is not a [[UnitTask]] we should wait until all of the tasks returned by
         // its [[getTasks]] method have completed, so set it to have only predecessors in that case.
         if (node.hasPredecessor) {
@@ -440,7 +440,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
         // Catch any exception so we can just fail this task.
         // TODO: we could fail the callbacks too, so perhaps we want to separate that case from failing get tasks?
         case e: Exception =>
-          val taskInfo: TaskExecutionInfo = infoFor(node.task).info
+          val taskInfo: TaskExecutionInfo = node.taskInfo
           completeGraphNode(node, Some(taskInfo))
           taskInfo.status = e match {
             case ex: TaskException => ex.status
@@ -461,9 +461,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   private def scheduleAndRunTasks(tasksToSchedule: Map[UnitTask, ResourceSet]): Unit = {
     // schedule them and update the node status
     for ((task, taskResourceSet) <- tasksToSchedule) {
-      val infoAndNode    = infoFor(task)
-      val taskInfo       = infoAndNode.info
-      val node           = infoAndNode.node
+      val taskInfo = task.taskInfo
+      val node     = this(taskInfo.taskId)
       taskInfo.resources = taskResourceSet // update the resource set that was used when scheduling the task
       if (taskExecutionRunner.runTask(taskInfo, simulate)) {
         node.state = RUNNING
@@ -492,7 +491,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
 
     // get the running tasks to estimate currently used resources
     val runningTasks: Map[UnitTask, ResourceSet] = Map(
-      taskExecutionRunner.runningTaskIds.toList.map(id => infoFor(id).info).map(info => (info.task.asInstanceOf[UnitTask], info.resources)) : _*)
+    taskExecutionRunner.runningTaskIds.toList.map(id => this(id).task).map(task => (task.asInstanceOf[UnitTask], task.taskInfo.resources)) : _*)
 
     // get the tasks that are eligible for execution (tasks with no dependents)
     val readyTasks: List[UnitTask] = graphNodesInStateFor(NO_PREDECESSORS).toList.map(node => node.task.asInstanceOf[UnitTask])
@@ -519,7 +518,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
       readyTasks,
       tasksToSchedule.keys,
       runningTasks.keys,
-      completedTasks.keys.map(taskId => this(taskId))
+      completedTasks.keys.map(taskId => this(taskId).task)
     )
   }
 
@@ -547,8 +546,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
 
     // terminate all running tasks
     for (node <- graphNodes.filter(node => node.state == RUNNING)) {
-      taskExecutionRunner.terminateTask(node.id)
-      processCompletedTask(taskId = node.id, doRetry = false)
+      taskExecutionRunner.terminateTask(node.taskId)
+      processCompletedTask(taskId = node.taskId, doRetry = false)
     }
 
     taskToInfoBiMapFor

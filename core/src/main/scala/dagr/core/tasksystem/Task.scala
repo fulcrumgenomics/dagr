@@ -156,7 +156,8 @@ trait Task extends Dependable {
   private[tasksystem] var contextName : Option[String] = None
 
   /** The unique id given to this task by the execution system, or None if not being tracked. */
-  private[core] var _id : Option[TaskId] = None
+  private[core] var _taskInfo : Option[TaskExecutionInfo] = None
+  private[core] def taskInfo : TaskExecutionInfo = _taskInfo.getOrElse(unreachable(s"Task id should be defined for task '$name'"))
 
   /** The name of the task. */
   var name: String = getClass.getSimpleName

@@ -159,7 +159,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     map.containsKey(task) should be(true)
 
     val taskInfo: TaskExecutionInfo = map.valueFor(task).get
-    taskInfo.id should be(0)
+    taskInfo.taskId should be(0)
     taskInfo.task should be(task)
     taskInfo.status should be(TaskStatus.SUCCEEDED)
     taskInfo.attemptIndex should be(1)
@@ -212,7 +212,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.runToCompletion()
 
     // the task identifier for 'original' should now be found
-    val originalTaskId: TaskId = taskManager.taskIdFor(original).value
+    val originalTaskId: TaskId = taskManager.taskFor(original).value
 
     // check the original task status
     val taskInfo: TaskExecutionInfo = taskManager.taskExecutionInfoFor(originalTaskId).value
@@ -243,7 +243,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       // replace
       logger.debug("*** REPLACING TASK ***")
       taskManager.replaceTask(original = original, replacement = replacement)
-      original._id shouldBe 'empty
+      original._taskInfo shouldBe 'empty
     }
     else {
       // resubmit...
@@ -369,7 +369,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     // add the task
     taskManager.addTask(task)
     TaskStatus.isTaskDone(taskManager.taskStatusFor(task).get) should be(false)
-    val taskId: TaskId = taskManager.taskIdFor(task).value
+    val taskId: TaskId = taskManager.taskFor(task).value
 
     for ((taskStatus, exitCode, onCompleteSuccessful) <- statuses) {
       // run the task once
