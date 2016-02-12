@@ -55,7 +55,7 @@ object ClpArgumentDefinitionPrinting {
     if (argumentDefinition.mutuallyExclusive.nonEmpty) {
       sb.append(mutexErrorHeader)
       sb.append(argumentDefinition.mutuallyExclusive.map { targetFieldName =>
-        argumentLookup.fieldFor(targetFieldName) match {
+        argumentLookup.forField(targetFieldName) match {
           case None =>
             throw new CommandLineException(s"Invalid argument definition in source code (see mutex). " +
               s"$targetFieldName doesn't match any known argument.")

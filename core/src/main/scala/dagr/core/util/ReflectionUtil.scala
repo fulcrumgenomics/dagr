@@ -25,6 +25,8 @@ package dagr.core.util
 
 import java.lang.reflect.Constructor
 
+import dagr.DagrDef._
+
 import scala.annotation.ClassfileAnnotation
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -168,8 +170,8 @@ object ReflectionUtil {
       val helper = new ReflectiveBuilder[A](clz)
 
       args.foreach { arg =>
-        val name  = arg.children.headOption.map(_.toString).getOrElse(throw new IllegalStateException("Annotation param without name"))
-        val argdef = helper.argumentLookup.fieldFor(name).getOrElse(throw new IllegalStateException("Args must be in lookup"))
+        val name  = arg.children.headOption.map(_.toString) getOrElse unreachable("Annotation param without name")
+        val argdef = helper.argumentLookup.forField(name)   getOrElse unreachable("Args must be in lookup")
         var value = reifyAnnotationParameter(arg.children.tail.head)
 
         if (value.getClass.isArray) {

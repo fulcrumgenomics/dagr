@@ -113,7 +113,7 @@ private[parsing] class ClpArgumentLookup(args: ClpArgument*) extends ArgumentLoo
   def names : Set[String] = byName.keySet.toSet // call to set to return an immutable copy
 
   /** Returns the ArgumentDefinition, if one exists, for the provided argument name. */
-  def argFor(argName: String) : Option[ClpArgument] = this.byName.get(argName)
+  def forArg(argName: String) : Option[ClpArgument] = this.byName.get(argName)
 }
 
 /**
