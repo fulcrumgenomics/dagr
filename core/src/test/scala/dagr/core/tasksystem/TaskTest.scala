@@ -190,22 +190,26 @@ class TaskTest extends UnitSpec with LazyLogging {
 
   /** Tests the EitherTask class */
   {
-    it should "be able to modify the flag of an EitherTask and get the correct task" in {
-      val leftTask: NoOpTask = new NoOpTask withName "leftTask"
-      val rightTask: NoOpTask = new NoOpTask withName "rightTask"
-      val eitherTask = new EitherTask(leftTask, rightTask, EitherTaskFlag.LEFT)
-      eitherTask.getTasks.head should be(leftTask)
-      eitherTask.flag = EitherTaskFlag.RIGHT
-      eitherTask.getTasks.head should be(rightTask)
+    "EitherTask" should "be return the correct ask as the choice changes over time" in {
+      val left  = new NoOpTask withName "leftTask"
+      val right = new NoOpInJvmTask("rightTask")
+
+      var choice : EitherTask.Choice = EitherTask.Left
+      val eitherTask = EitherTask(left, right, choice)
+      eitherTask.getTasks.head shouldBe left
+
+      choice = EitherTask.Right
+      eitherTask.getTasks.head shouldBe right
     }
 
-    "EitherTask" should "run the left or task depending on the flag with EitherTask" in {
-      val leftTask: NoOpTask = new NoOpTask withName "leftTask"
-      val rightTask: NoOpTask = new NoOpTask withName "rightTask"
-      new EitherTask(leftTask, rightTask, EitherTaskFlag.LEFT).getTasks.head should be(leftTask)
-      new EitherTask(leftTask, rightTask, EitherTaskFlag.RIGHT).getTasks.head should be(rightTask)
-      EitherTask(leftTask, rightTask, doLeft=true).getTasks.head should be(leftTask)
-      EitherTask(leftTask, rightTask, doLeft=false).getTasks.head should be(rightTask)
+    it should "run the left or right task depending on the flag with EitherTask" in {
+      val left  = new NoOpTask withName "leftTask"
+      val right = new NoOpInJvmTask("rightTask")
+      EitherTask(left, right, EitherTask.Left).getTasks.head should be(left)
+      EitherTask(left, right, EitherTask.Right).getTasks.head should be(right)
+
+      EitherTask.of(left, right, goLeft=true).getTasks.head should be(left)
+      EitherTask.of(left, right, goLeft=false).getTasks.head should be(right)
     }
   }
 
