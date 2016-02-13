@@ -80,60 +80,55 @@ class TaskTest extends UnitSpec with LazyLogging {
    */
   {
 
-    "Dagr" should "support a task data connector between two tasks set in getTasks" in {
+    "Dagr" should "support a linker between two tasks set in getTasks" in {
       val firstTask = new FirstTaskNeedsBuilding()
       val lazyTask = new LazyTask(sleepTime = None)
-      Callbacks.connect(lazyTask, firstTask)((l,f) => l.sleepTime = f.sleepTime)
+      firstTask ==> Linker(firstTask, lazyTask){(f,l) => l.sleepTime = f.sleepTime} ==> lazyTask
+
       // so now lazyTask depends on the number from firstTask being not None
-      firstTask.invokeCallbacks()
       firstTask.applyResources(ResourceSet.infinite)
       firstTask.sleepTime should be ('defined)
-      lazyTask.invokeCallbacks()
+      firstTask.tasksDependingOnThisTask.foreach(t => t.asInstanceOf[InJvmTask].inJvmMethod())
       lazyTask.getTasks should have size 1
     }
 
-    it should "fail if a task data connector set in getTasks is not yet available" in {
+    it should "fail if a linker creates a link in the wrong direction leading to a circular dependecy" in {
       val firstTask = new FirstTaskNeedsBuilding()
       val lazyTask = new LazyTask(sleepTime = firstTask.sleepTime)
-      Callbacks.connect(lazyTask, firstTask)((l,f) => l.sleepTime = f.sleepTime)
-      // So now lazyTask depends on the number from firstTask being not None.
-      // If we call lazyTask.getTasks, it will call firstTask.getNumber, which will fail,
-      // since fistTask.number is None.
-      lazyTask.invokeCallbacks()
-      an[RuntimeException] should be thrownBy lazyTask.applyResources(ResourceSet.infinite)
+
+      // Linker args are backwars - correct usage would be Linker(firstTask, lazyTask)
+      firstTask ==> Linker(lazyTask, firstTask) { (l,f) => l.sleepTime = f.sleepTime } ==> lazyTask
+      Task.hasCycle(firstTask) shouldBe true
     }
-  }
 
   /**
    * Example #2 a "lazy task" that doesn't have all of its required inputs until
    * a previous task on which it is dependent has onComplete called.
    */
-  {
     it should "support a task data connector between two tasks set in onComplete" in {
       val firstTask = new FirstTaskOnComplete()
       val lazyTask = new LazyTask(sleepTime = None)
-      Callbacks.connect(lazyTask, firstTask)((l,f) => l.sleepTime = f.sleepTime)
+      firstTask ==> Linker(firstTask, lazyTask){(f,l) => l.sleepTime = f.sleepTime} ==> lazyTask
+
       // so now lazyTask depends on the number from firstTask being not None
-      firstTask.invokeCallbacks()
       firstTask.getTasks should have size 1
       firstTask.sleepTime should be (None)
       firstTask.onComplete(0) should be (true)
       firstTask.sleepTime should be ('defined)
-      lazyTask.invokeCallbacks()
+      firstTask.tasksDependingOnThisTask.foreach(t => t.asInstanceOf[InJvmTask].inJvmMethod())
       lazyTask.getTasks should have size 1
     }
 
     it should "fail if a task data connector set in onComplete is not yet available" in {
       val firstTask = new FirstTaskOnComplete()
       val lazyTask = new LazyTask(sleepTime = firstTask.sleepTime)
-      Callbacks.connect(lazyTask, firstTask)((l,f) => l.sleepTime = f.sleepTime)
+      firstTask ==> Linker(firstTask, lazyTask){(f,l) => l.sleepTime = f.sleepTime} ==> lazyTask
       // So now lazyTask depends on the number from firstTask being not None.
       // If we call lazyTask.getTasks, it will call firstTask.getNumber, which will fail,
       // since fistTask.number is None.
-      firstTask.invokeCallbacks()
       firstTask.getTasks should have size 1
       firstTask.sleepTime should be (None)
-      lazyTask.invokeCallbacks()
+      firstTask.tasksDependingOnThisTask.foreach(t => t.asInstanceOf[InJvmTask].inJvmMethod())
       an[RuntimeException] should be thrownBy lazyTask.applyResources(ResourceSet.infinite)
     }
   }
@@ -369,17 +364,20 @@ class TaskTest extends UnitSpec with LazyLogging {
   {
     "SimpleInJvmTask" should "execute as expected" in {
       val b = ListBuffer[Int]()
-      val s = SimpleInJvmTask("foo", () => b += 7)
-      val s2 = SimpleInJvmTask(() => b(0) -= 7)
-      val s3 = SimpleInJvmTask(() => throw new IllegalArgumentException("Expected Exception"))
+      val s = SimpleInJvmTask("foo", b += 7)
+      val s2 = SimpleInJvmTask { b(0) -= 7 }
+      val s3 = SimpleInJvmTask { throw new IllegalArgumentException("Expected Exception") }
 
       b.length shouldBe 0
+
       s.inJvmMethod() shouldBe 0
       b.length shouldBe 1
       b.head shouldBe 7
+
       s2.inJvmMethod() shouldBe 0
       b.length shouldBe 1
       b.head shouldBe 0
+
       s3.inJvmMethod() shouldBe 1
     }
   }

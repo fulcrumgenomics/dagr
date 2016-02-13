@@ -428,9 +428,6 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     for (node <- graphNodesInStateFor(PREDECESSORS_AND_UNEXPANDED).filterNot(_.hasPredecessor)) {
       logger.debug("invokeCallbacksAndGetTasks: found node in state PREDECESSORS_AND_UNEXPANDED with no predecessors: task [" + node.task.name + "]")
       try {
-        // invoke any callbacks needed
-        try { node.task.invokeCallbacks() }
-        catch { case e: Exception => throw new TaskException(e, TaskStatus.FAILED_CALLBACKS) }
         // call get tasks
         if (invokeGetTasks(node)) hasMore = true
         // update the execution node's state and task status
@@ -438,7 +435,6 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
       }
       catch {
         // Catch any exception so we can just fail this task.
-        // TODO: we could fail the callbacks too, so perhaps we want to separate that case from failing get tasks?
         case e: Exception =>
           val taskInfo: TaskExecutionInfo = node.taskInfo
           completeGraphNode(node, Some(taskInfo))

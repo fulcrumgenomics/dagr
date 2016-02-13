@@ -28,7 +28,7 @@ import java.nio.file.{Files, Path}
 
 import _root_.picard.analysis.CollectMultipleMetrics.Program
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{Callbacks, Pipeline, ProcessTask, Task}
+import dagr.core.tasksystem.{Linker, Pipeline, ProcessTask, Task}
 import dagr.core.util.{Io, PathUtil}
 import dagr.tasks._
 import dagr.tasks.bwa.{Bwa, BwaBacktrack}
@@ -100,16 +100,15 @@ class DnaResequencingFromUnmappedBamPipeline(
       programs=List(Program.CollectQualityYieldMetrics),
       ref=ref
     )
-    val calculateProportion = new CalculateDownsamplingProportion(PathUtil.pathTo(prefix + ".quality_yield_metrics.txt"), downsampleToReads)
-    val downsampleSam       = new DownsampleSam(in=mappedBam, out=dsMappedBam, proportion=1, accuracy=Some(0.00001))
-
-    Callbacks.connect(downsampleSam, calculateProportion)((ds, cp) => ds.proportion=cp.proportion)
-    bwa ==> yieldMetrics ==> calculateProportion ==> downsampleSam
+    val calculateP = new CalculateDownsamplingProportion(PathUtil.pathTo(prefix + ".quality_yield_metrics.txt"), downsampleToReads)
+    val downsample = new DownsampleSam(in=mappedBam, out=dsMappedBam, proportion=1, accuracy=Some(0.00001))
+    val linker     = Linker(calculateP, downsample){(ds, cp) => ds.proportion = cp.proportion}
+    bwa ==> yieldMetrics ==> calculateP ==> linker ==> downsample
 
     ///////////////////////////////////////////////////////////////////////
     // Do all the downstream steps for both the Full and Downsampled BAM
     ///////////////////////////////////////////////////////////////////////
-    List((mappedBam, finalBam, prefix, "(Full)", bwa), (dsMappedBam, dsFinalBam, dsPrefix, "(DS)", downsampleSam)).foreach(
+    List((mappedBam, finalBam, prefix, "(Full)", bwa), (dsMappedBam, dsFinalBam, dsPrefix, "(DS)", downsample)).foreach(
       (tuple: (Path,Path,Path,String,Task)) => {
         val (mapped, deduped, pre, note, prevTask) = tuple
 
@@ -118,7 +117,7 @@ class DnaResequencingFromUnmappedBamPipeline(
         ///////////////////////////////////////////////////////////////////////
         val markDuplicates: MarkDuplicates = new MarkDuplicates(in = mapped, out = Some(deduped))
         prevTask ==> markDuplicates
-        (markDuplicates :: downsampleSam) ==> new DeleteBam(mapped)
+        (markDuplicates :: downsample) ==> new DeleteBam(mapped)
 
         ///////////////////////////////////////////////////////////////////////
         // Do either HS metrics or WGS metrics, but not both

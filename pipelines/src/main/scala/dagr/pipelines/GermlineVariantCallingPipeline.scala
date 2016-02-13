@@ -26,7 +26,7 @@ package dagr.pipelines
 import java.nio.file.Path
 
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{UnitTask, Callbacks, Pipeline, ShellCommand}
+import dagr.core.tasksystem.{Linker, Pipeline, ShellCommand}
 import dagr.tasks._
 import dagr.tasks.gatk.{GenotypeSingleGvcf, HaplotypeCaller}
 import dagr.tasks.misc.{DeleteVcfs, GetSampleNamesFromVcf, IndexVcfGz}
@@ -35,7 +35,6 @@ import dagr.tasks.vc.{FilterFreeBayesCalls, FreeBayesGermline}
 
 /**
   * Pipeline to call germline variants in a set of regions
-  *
   */
 @CLP(
 description =
@@ -102,7 +101,7 @@ class GermlineVariantCallingPipeline(
         val getCallSampleName   = new GetSampleNamesFromVcf(finalVcf)
         val getTruthSampleName  = new GetSampleNamesFromVcf(tVcf)
         // Run genotype concordance, but only after we have the truth and call sample names.
-        val genotypeConcordance = new GenotypeConcordance(
+        val concordance = new GenotypeConcordance(
           truthVcf    = tVcf,
           callVcf     = finalVcf,
           callSample  = "NA",
@@ -110,7 +109,7 @@ class GermlineVariantCallingPipeline(
           prefix      = out,
           intervals   = truthIntervals ++ List(intervals)
         )
-        def checkAndSetSampleName(sn: GetSampleNamesFromVcf, gc: GenotypeConcordance, isCallSample: Boolean): Unit = {
+        def checkAndSetSampleName(isCallSample: Boolean)(sn: GetSampleNamesFromVcf, gc: GenotypeConcordance): Unit = {
           sn.sampleNames match {
             case Nil => throw new IllegalStateException(s"Found no sample names in '${sn.vcf}")
             case sampleName :: Nil =>
@@ -120,13 +119,12 @@ class GermlineVariantCallingPipeline(
               throw new IllegalStateException(s"Found more than one sample names in '${sn.vcf}: " + sn.sampleNames.mkString(", "))
           }
         }
-        // Connect genotype concordance to getting the sample name
-        Stream((getCallSampleName, true), (getTruthSampleName, false)).foreach {
-          case (getSampleName, isCallSample) =>
-            Callbacks.connect(genotypeConcordance, getSampleName)((gc, sn) => checkAndSetSampleName(sn, gc, isCallSample))
-        }
+
+        vc ==> getCallSampleName  ==> Linker(getCallSampleName,  concordance)(checkAndSetSampleName(isCallSample=true))  ==> concordance
+        vc ==> getTruthSampleName ==> Linker(getTruthSampleName, concordance)(checkAndSetSampleName(isCallSample=false)) ==> concordance
+
         // Update the dependencies
-        vc ==> (getCallSampleName :: getTruthSampleName) ==> genotypeConcordance
+        vc ==> (getCallSampleName :: getTruthSampleName) ==> concordance
       case None => Unit
     }
   }

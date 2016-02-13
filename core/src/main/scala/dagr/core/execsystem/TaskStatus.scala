@@ -31,7 +31,6 @@ object TaskStatus extends Enumeration {
   val UNKNOWN, /** The task state is unknown, most likely not considered */
   STARTED, /** The task has been started */
   STOPPED, /* The task has been stopped */
-  FAILED_CALLBACKS, /* An exception was thrown during the processing of Callback objects */
   FAILED_GET_TASKS, /* The task could not get the list of tasks */
   FAILED_SCHEDULING, /* The task could not execute after scheduling */
   FAILED_COMMAND, /* The task command has failed */
