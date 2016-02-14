@@ -28,13 +28,13 @@ import dagr.core.execsystem.{Cores, Memory}
 /** Companion object for SimpleInJvmTask that provides helpful factory methods. */
 object SimpleInJvmTask {
   /** Creates a new SimpleInJvmTask that will execute the provided function when invoked. */
-  def apply(f: () => Unit) : SimpleInJvmTask = {
-    new SimpleInJvmTask { override def run(): Unit = f() }
+  def apply(f: => Unit) : SimpleInJvmTask = {
+    new SimpleInJvmTask { override def run(): Unit = f }
   }
 
   /** Creates a new SimpleInJvmTask that will execute the provided function when invoked, and gives it a name. */
-  def apply(name: String, f: () => Unit) : SimpleInJvmTask = {
-    new SimpleInJvmTask { override def run(): Unit = f() }.withName(name)
+  def apply(name: String, f: => Unit) : SimpleInJvmTask = {
+    apply(f).withName(name)
   }
 }
 
@@ -52,11 +52,9 @@ abstract class SimpleInJvmTask extends InJvmTask with FixedResources {
       run()
       0
     }
-    catch {
-      case t:Throwable => {
-        logger.exception(t, "Exception while processing in JVM task ", name)
-        1
-      }
+    catch { case t:Throwable =>
+      logger.exception(t, "Exception while processing in JVM task ", name)
+      1
     }
   }
 

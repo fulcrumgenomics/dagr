@@ -25,15 +25,15 @@ package dagr.pipelines
 
 import java.text.DecimalFormat
 
+import _root_.picard.analysis.directed.HsMetrics
 import dagr.core.cmdline.{Arg, CLP}
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.tasksystem.{Callbacks, NoOpInJvmTask, Pipeline, SimpleInJvmTask}
+import dagr.core.tasksystem.{Linker, NoOpInJvmTask, Pipeline, SimpleInJvmTask}
 import dagr.core.util.Io
+import dagr.tasks._
 import dagr.tasks.jeanluc.FilterBam
 import dagr.tasks.picard.{CollectHsMetrics, DownsampleSam, DownsamplingStrategy}
-import dagr.tasks.{DirPath, FilePath, PathToBam, PathToFasta, PathToIntervals}
 import htsjdk.samtools.metrics.MetricsFile
-import picard.analysis.directed.HsMetrics
 
 import scala.collection.JavaConversions._
 
@@ -76,8 +76,7 @@ class DownsampleAndCallSomaticVariants(
     val callers = coverage.foreach(cov => {
       val prefix = output.resolve(pad(cov))
       val call = new DsAndCallOnce(tumorBam=filteredTumor, normalBam=filteredNormal, ref=ref, intervals=intervals, outputPrefix=prefix)
-      fetchMedian ==> call
-      Callbacks.connect(call, fetchMedian) { (c,f) => c.downsamplingP = cov / f.medianCoverage.get.toDouble }
+      fetchMedian ==> Linker(fetchMedian, call)((f,c) => f.medianCoverage.foreach(m => c.downsamplingP = cov / m.toDouble)) ==> call
     })
   }
 

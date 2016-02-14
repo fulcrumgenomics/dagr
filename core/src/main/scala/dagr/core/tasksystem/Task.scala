@@ -142,9 +142,9 @@ object Task {
  *
  * Once a task is constructed, it has the following evolution:
  * 1. Any tasks on which it depends are added (see [[==>]]).
- * 2. When all tasks on which it is dependent have completed, callbacks (see [[Callbacks]]
- *    are performed and the then [[getTasks]] method is called to create a set of tasks.
- *    This task becomes dependent on any task that is returned that is not itself.
+ * 2. When all tasks on which it is dependent have completed, the [[getTasks]] method
+ *    is called to create a set of tasks. This task becomes dependent on any task that
+ *    is returned that is not itself.
  * 3. When all newly dependent tasks from #2 are complete, as well as this task, the
  *    [[onComplete]] method is called to perform any light-weight modification of this
  *    task.
@@ -166,8 +166,6 @@ trait Task extends Dependable {
   private val dependsOnTasks    = new ListBuffer[Task]()
   /* The set of tasks that depend on this task. */
   private val dependedOnByTasks = new ListBuffer[Task]()
-  /* The set of callback objects that should be run prior to invoking getTasks */
-  private val callbacks = new ListBuffer[Callback]
 
   /** Gets the sequence of tasks that this task depends on.. */
   private[core] def tasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
@@ -225,15 +223,6 @@ trait Task extends Dependable {
       false
   }
 
-  /** Adds a callback to be processed before getTasks in invoked. */
-  private[tasksystem] def addCallback(c: Callback) : this.type = {
-    this.callbacks += c
-    this
-  }
-
-  /** Adds a callback to be processed before getTasks in invoked. */
-  private[tasksystem] def +=(c: Callback) : this.type = addCallback(c)
-
   /** Sets the name of this task. */
   def withName(name: String) : this.type = { this.name = name; this }
 
@@ -249,12 +238,6 @@ trait Task extends Dependable {
    * @return the list of tasks of to run.
    */
   def getTasks: Traversable[_ <: Task]
-
-  /**
-    * Method that is invoked only by the server, right before getTasks is called and the task is
-    * queued up for execution.
-    */
-  private[core] def invokeCallbacks(): Unit = this.callbacks.foreach(_.invoke())
 
   /** Finalize anything after the task has been run.
    *
