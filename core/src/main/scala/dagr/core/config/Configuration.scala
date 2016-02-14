@@ -27,49 +27,46 @@ import java.io.File
 import java.nio.file.{Files, Path}
 import java.time.Duration
 
+import com.typesafe.config.{ConfigParseOptions, ConfigFactory, Config}
 import com.typesafe.config.ConfigException.Generic
-import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
+import dagr.commons.io.PathUtil._
+import dagr.commons.util.LazyLogging
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.util.{LazyLogging, PathUtil}
 
-import scala.collection.JavaConversions._
 import scala.collection.SortedSet
 import scala.reflect.runtime.universe.{TypeTag, typeOf}
-
+import collection.JavaConversions._
 
 /**
   * Companion object to the Configuration trait that keeps track of all configuration keys
   * that have been requested so that they can be reported later if desired.
   */
-private[core] object Configuration extends ConfigurationLike {
-  // Developer Note: [[Configuration]] is not private so that [[Configuration.Keys]] is public
-
-  // A sorted set tracking all the configuration keys that are requested
+object Configuration extends ConfigurationLike {
   private[config] val RequestedKeys = collection.mutable.TreeSet[String]()
-
-  // The global configuration instance for dagr
-  private[config] var _config: Config = ConfigFactory.load()
-
-  /** Implement the abstract method from BaseConfiguration to return the actual config instance. */
-  override private[config] def config = _config
 
   // Keys for configuration values used in dagr core
   object Keys {
     val CommandLineName = "dagr.command-line-name"
+    val ColorStatus     = "dagr.color-status"
+    val SystemPath      = "dagr.path"
     val PackageList     = "dagr.package-list"
     val ScriptDirectory = "dagr.script-directory"
     val LogDirectory    = "dagr.log-directory"
     val SystemCores     = "dagr.system-cores"
     val SystemMemory    = "dagr.system-memory"
-    val ColorStatus     = "dagr.color-status"
   }
+
+  // The global configuration instance
+  protected var _config: Config = ConfigFactory.load()
+
+  protected def config = _config
 
   /**
     * Initialize the configuration by loading configuration from the supplied path, and combining it with
     * configuration information from the system properties (higher priority), application.conf and
     * reference.conf files (lower priority).
     */
-  private[core] def initialize(path: Option[Path]): Unit = path match {
+  def initialize(path: Option[Path]): Unit = path match {
     case None    =>
       this._config = ConfigFactory.load()
     case Some(p) =>
@@ -85,18 +82,15 @@ private[core] object Configuration extends ConfigurationLike {
         .resolve()
   }
 
-  /** Allows initialization with a custom configuration. */
-  private[core] def initialize(customConfig: Config): Unit = this._config = customConfig
-
   /** Returns a sorted set of all keys that have been requested up to this point in time. */
-  private[core] def requestedKeys: SortedSet[String] = {
+  def requestedKeys: SortedSet[String] = {
     var keys = collection.immutable.TreeSet[String]()
     keys ++= RequestedKeys
     keys
   }
 
-  /** The name of this unified command line program **/
-  private[core] def commandLineName: String = configure(Keys.CommandLineName, "Dagr")
+  /** Allows initialization with a custom configuration. */
+  protected def initialize(customConfig: Config): Unit = this._config = customConfig
 }
 
 /**
@@ -105,42 +99,29 @@ private[core] object Configuration extends ConfigurationLike {
   * Configuration trait below.
   */
 private[config] trait ConfigurationLike extends LazyLogging {
-  private[config] def config : Config
+  protected def config : Config
 
-  /**
-    * Looks up a single value of a specific type in configuration. If the configuration key
-    * does not exist, an exception is thrown. If the requested type is not supported, an
-    * exception is thrown.
+  /** Converts the configuration path to the given type. If the requested type is not supported, an
+    * exception is thrown.  Override this method to support custom types.
     */
-  def configure[T : TypeTag](path: String) : T = {
-    Configuration.RequestedKeys += path
-
-    try {
-      typeOf[T] match {
-        case t if t =:= typeOf[String] => config.getString(path).asInstanceOf[T]
-        case t if t =:= typeOf[Boolean] => config.getBoolean(path).asInstanceOf[T]
-        case t if t =:= typeOf[Short] => config.getInt(path).toShort.asInstanceOf[T]
-        case t if t =:= typeOf[Int] => config.getInt(path).asInstanceOf[T]
-        case t if t =:= typeOf[Long] => config.getLong(path).asInstanceOf[T]
-        case t if t =:= typeOf[Float] => config.getDouble(path).toFloat.asInstanceOf[T]
-        case t if t =:= typeOf[Double] => config.getDouble(path).asInstanceOf[T]
-        case t if t =:= typeOf[BigInt] => BigInt(config.getString(path)).asInstanceOf[T]
-        case t if t =:= typeOf[BigDecimal] => BigDecimal(config.getString(path)).asInstanceOf[T]
-        case t if t =:= typeOf[Path] => PathUtil.pathTo(config.getString(path)).asInstanceOf[T]
-        case t if t =:= typeOf[Cores] => Cores(config.getDouble(path)).asInstanceOf[T]
-        case t if t =:= typeOf[Memory] => Memory(config.getString(path)).asInstanceOf[T]
-        case t if t =:= typeOf[Duration] => config.getDuration(path).asInstanceOf[T]
-        // TODO: replace this with better handling of List/Seq/Array
-        case t if t =:= typeOf[List[String]] => config.getStringList(path).toList.asInstanceOf[T]
-        case _ => throw new IllegalArgumentException("Don't know how to configure a " + typeOf[T])
-      }
-    }
-    catch {
-      case ex : Exception =>
-        logger.error(s"#############################################################################")
-        logger.error(s"Exception retrieving configuration key '$path': ${ex.getMessage}")
-        logger.error(s"#############################################################################")
-        throw ex
+  protected def asType[T : TypeTag](path: String) : T = {
+    typeOf[T] match {
+      case t if t =:= typeOf[String]       => config.getString(path).asInstanceOf[T]
+      case t if t =:= typeOf[Boolean]      => config.getBoolean(path).asInstanceOf[T]
+      case t if t =:= typeOf[Short]        => config.getInt(path).toShort.asInstanceOf[T]
+      case t if t =:= typeOf[Int]          => config.getInt(path).asInstanceOf[T]
+      case t if t =:= typeOf[Long]         => config.getLong(path).asInstanceOf[T]
+      case t if t =:= typeOf[Float]        => config.getDouble(path).toFloat.asInstanceOf[T]
+      case t if t =:= typeOf[Double]       => config.getDouble(path).asInstanceOf[T]
+      case t if t =:= typeOf[BigInt]       => BigInt(config.getString(path)).asInstanceOf[T]
+      case t if t =:= typeOf[BigDecimal]   => BigDecimal(config.getString(path)).asInstanceOf[T]
+      case t if t =:= typeOf[Path]         => pathTo(config.getString(path)).asInstanceOf[T]
+      case t if t =:= typeOf[Duration]     => config.getDuration(path).asInstanceOf[T]
+      // TODO: replace this with better handling of List/Seq/Array
+      case t if t =:= typeOf[List[String]] => config.getStringList(path).toList.asInstanceOf[T]
+      case t if t =:= typeOf[Cores] => Cores(config.getDouble(path)).asInstanceOf[T]
+      case t if t =:= typeOf[Memory] => Memory(config.getString(path)).asInstanceOf[T]
+      case _ => throw new IllegalArgumentException("Don't know how to configure a " + typeOf[T])
     }
   }
 
@@ -155,13 +136,36 @@ private[config] trait ConfigurationLike extends LazyLogging {
   }
 
   /**
+    * Looks up a single value of a specific type in configuration. If the configuration key
+    * does not exist, an exception is thrown. If the requested type is not supported, an
+    * exception is thrown.
+    */
+  def configure[T : TypeTag](path: String) : T = {
+    Configuration.RequestedKeys += path
+    try {
+      asType[T](path)
+    }
+    catch {
+      case ex : Exception =>
+        throw new IllegalArgumentException(s"Exception retrieving configuration key '$path': ${ex.getMessage}", ex)
+    }
+  }
+
+  /**
     * Looks up a value in the configuration, and if present returns it, otherwise returns the default
     * value provided.
     */
   def configure[T : TypeTag](path: String, defaultValue: T) : T = {
-    Configuration.RequestedKeys += path
-    if (config.hasPath(path)) configure[T](path)
-    else defaultValue
+    try {
+      Configuration.RequestedKeys += path
+      if (config.hasPath(path)) configure[T](path)
+      else defaultValue
+    }
+    catch {
+      case ex : Exception =>
+        logger.exception(ex)
+        throw ex
+    }
   }
 
   /**
@@ -201,7 +205,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
 
     optionallyConfigure[Path](binPath) match {
       case Some(exec) =>
-        PathUtil.pathTo(exec.toString, executable)
+        pathTo(exec.toString, executable)
       case None => findInPath(executable) match {
         case Some(exec) => exec
         case None => throw new Generic(s"Could not configurable executable. Config path '$binPath' is not defined and executable '$executable' is not in PATH.")
@@ -209,19 +213,29 @@ private[config] trait ConfigurationLike extends LazyLogging {
     }
   }
 
-  /** Searches the system path for the executable and return the full path. */
-  private def findInPath(executable: String) : Option[Path] = {
-    systemPath.map(p => p.resolve(executable)).find(ex => Files.exists(ex))
+  def commandLineName: String = {
+    configure(Configuration.Keys.CommandLineName, "Dagr")
   }
 
   /**
     * Grabs the config key "PATH" which, if not defined in config will default to the environment variable
     * PATH, splits it on the path separator and returns it as a Seq[String]
     */
-  private def systemPath : Seq[Path] = config.getString("dagr.path").split(File.pathSeparatorChar).view.map(PathUtil pathTo _)
+  protected def systemPath : Seq[Path] = config.getString(Configuration.Keys.SystemPath).split(File.pathSeparatorChar).view.map(pathTo(_))
+
+  /** Removes various characters from the simple class name, for scala class names. */
+  private def sanitizeSimpleClassName(className: String): String = {
+    className.replaceFirst("[$].*$", "")
+  }
+
+  /** Searches the system path for the executable and return the full path. */
+  private def findInPath(executable: String) : Option[Path] = {
+    systemPath.map(p => p.resolve(executable)).find(ex => Files.exists(ex))
+  }
 }
 
+/** The trait to be mixed in to access configuration */
 trait Configuration extends ConfigurationLike {
   /** Grabs a reference to the global configuration at creation time. */
-  override private[config] val config: Config = Configuration.config
+  protected def config : Config = Configuration.config
 }

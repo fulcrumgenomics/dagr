@@ -25,9 +25,10 @@ package dagr.core.tasksystem
 
 import java.nio.file.{Files, Path}
 
-import dagr.DagrDef._
+import dagr.core.DagrDef._
+import dagr.commons.util.LazyLogging
 import dagr.core.execsystem._
-import dagr.core.util.{LazyLogging, UnitSpec}
+import dagr.commons.util.UnitSpec
 
 import scala.collection.mutable.ListBuffer
 import scala.io.Source

@@ -24,7 +24,7 @@
 
 package dagr.core.execsystem
 
-import dagr.core.util.UnitSpec
+import dagr.commons.util.UnitSpec
 
 class ResourceTest extends UnitSpec {
 

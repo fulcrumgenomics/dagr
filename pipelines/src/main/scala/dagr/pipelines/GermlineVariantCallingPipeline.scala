@@ -25,9 +25,11 @@ package dagr.pipelines
 
 import java.nio.file.Path
 
-import dagr.core.cmdline._
+import dagr.core.cmdline.Pipelines
+import dagr.sopt._
 import dagr.core.tasksystem.{Linker, Pipeline, ShellCommand}
-import dagr.tasks._
+import dagr.tasks.DagrDef
+import DagrDef._
 import dagr.tasks.gatk.{GenotypeSingleGvcf, HaplotypeCaller}
 import dagr.tasks.misc.{DeleteVcfs, GetSampleNamesFromVcf, IndexVcfGz}
 import dagr.tasks.picard.{CollectVariantCallingMetrics, FilterVcf, GenotypeConcordance}
@@ -36,27 +38,28 @@ import dagr.tasks.vc.{FilterFreeBayesCalls, FreeBayesGermline}
 /**
   * Pipeline to call germline variants in a set of regions
   */
-@CLP(
+@clp(
 description =
   """
     |Calls germline variants in a single sample and then hard filters them.
     |For GATK, calls are made using the GATK's HaplotypeCaller and filtering with
     |Picard's FilterVcf.  For FreeBayes, calls are made using bcbio's best practices.
     |Optionally, variants are assessed with Picard's GenotypeConcordance tool.
-    |"""
+    |""",
+  group = classOf[Pipelines]
 )
-class GermlineVariantCallingPipeline(
-  @Arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val in: PathToBam,
-  @Arg(flag="o", doc="Output prefix (including directories) for output files.")     val out: Path,
-  @Arg(flag="l", doc="Path to interval list of regions to call.")                   val intervals: PathToIntervals,
-  @Arg(flag="r", doc="Path to the reference FASTA.")                                val ref: PathToFasta,
-  @Arg(flag="d", doc="Path to dbSNP VCF (for GATK and CollectVariantCallingMetrics only).")
-                                                val dbsnp: Option[PathToVcf] = None,
-  @Arg(          doc="If true, keep intermediate VCFs (GATK only).")                val keepIntermediates: Boolean = false,
-  @Arg(          doc="Use GATK (true), otherwise use FreeBayes (false).")           val useGatk: Boolean = true,
-  @Arg(          doc="The VCF with truth calls for assessing variants.")            val truthVcf: Option[PathToVcf] = None,
-  @Arg(          doc="Path to the interval list(s) of regions to assess variants.", minElements = 0)
-                                                val truthIntervals: List[PathToIntervals] = Nil
+class GermlineVariantCallingPipeline
+( @arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val in: PathToBam,
+  @arg(flag="o", doc="Output prefix (including directories) for output files.")     val out: Path,
+  @arg(flag="l", doc="Path to interval list of regions to call.")                   val intervals: PathToIntervals,
+  @arg(flag="r", doc="Path to the reference FASTA.")                                val ref: PathToFasta,
+  @arg(flag="d", doc="Path to dbSNP VCF (for GATK and CollectVariantCallingMetrics only).")
+            val dbsnp: Option[PathToVcf] = None,
+  @arg(          doc="If true, keep intermediate VCFs (GATK only).")                val keepIntermediates: Boolean = false,
+  @arg(          doc="Use GATK (true), otherwise use FreeBayes (false).")           val useGatk: Boolean = true,
+  @arg(          doc="The VCF with truth calls for assessing variants.")            val truthVcf: Option[PathToVcf] = None,
+  @arg(          doc="Path to the interval list(s) of regions to assess variants.", minElements = 0)
+            val truthIntervals: List[PathToIntervals] = Nil
 ) extends Pipeline(Some(out.toAbsolutePath.getParent)) {
 
   private val outputDir = out.toAbsolutePath.getParent

@@ -23,7 +23,8 @@
  */
 package dagr.core.tasksystem
 
-import dagr.DagrDef._
+import dagr.commons.CommonsDef
+import CommonsDef._
 import dagr.core.execsystem.TaskExecutionInfo
 
 import scala.collection.mutable

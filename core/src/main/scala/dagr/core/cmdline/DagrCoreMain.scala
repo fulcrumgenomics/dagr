@@ -26,15 +26,18 @@ package dagr.core.cmdline
 import java.io.PrintWriter
 import java.nio.file.{Files, Path}
 
-import dagr.core.cmdline.parsing.DagrCommandLineParser
+import dagr.commons.util.{LogLevel, LazyLogging, Logger}
 import dagr.core.config.Configuration
 import dagr.core.execsystem._
-import dagr.core.tasksystem.{Pipeline, ValidationException}
-import dagr.core.util.{Io, LazyLogging, LogLevel, Logger}
+import dagr.core.tasksystem.Pipeline
+import dagr.commons.io.{PathUtil, Io}
+import dagr.sopt.arg
+import dagr.sopt.cmdline.{CommandLineParser, ValidationException}
+import dagr.sopt.util.TermCode
 
 import scala.collection.mutable.ListBuffer
 
-object DagrCoreMain {
+object DagrCoreMain extends Configuration {
   /** The packages we wish to include in our command line **/
   protected def getPackageList: List[String] = {
     val config = new Configuration {}
@@ -46,12 +49,50 @@ object DagrCoreMain {
     makeItSo(args, packageList = getPackageList)
   }
 
+
+  /** Loads the various dagr scripts and puts them on the classpath. */
+  private def loadScripts(clp: DagrCoreMain): Unit = {
+    val scriptLoader = new DagrScriptManager
+    scriptLoader.loadScripts(
+      clp.scripts,
+      Files.createTempDirectory(PathUtil.pathTo(System.getProperty("java.io.tmpdir")), "dagrScripts"),
+      quiet = false
+    )
+  }
+
+
+  /**
+    * Main entry point for the class. Parses the args and executes the pipeline. */
   def makeItSo(args: Array[String], packageList: List[String] = getPackageList): Unit = {
-    val parser: DagrCommandLineParser = new DagrCommandLineParser(Configuration.commandLineName)
-    parser.parse(args, getPackageList) match {
+    // Initialize color options
+    TermCode.printColor = this.optionallyConfigure[Boolean](Configuration.Keys.ColorStatus).getOrElse(true)
+    parse(args=args, packageList=packageList, includeHidden=false) match {
       case Some((clp, pipeline)) => System.exit(clp.execute(pipeline))
       case None => System.exit(1)
     }
+  }
+
+  /** Parse the args and returns the instances of this class and a pipeline if successful.  Not in-lined so we can test it
+    * without executing the pipeline. */
+  private[core] def parse(args: Array[String], packageList: List[String] = getPackageList, includeHidden: Boolean): Option[(DagrCoreMain, Pipeline)] = {
+    val parser = new CommandLineParser[Pipeline](commandLineName=this.commandLineName) {
+      override def genericClpNameOnCommandLine: String = "pipeline"
+    }
+
+    // Load any Dagr scripts and add them to the classpath.
+    def mainBlock(dagr: DagrCoreMain): Unit = loadScripts(clp=dagr)
+
+    // the method that should be called once the dagr and pipeline instances have been successfully created
+    def clpBlock(dagr: DagrCoreMain)(pipeline: Pipeline): Unit = dagr.configure(pipeline)
+
+    parser.parseCommandAndSubCommand[DagrCoreMain](
+      args                = args,
+      packageList         = packageList,
+      omitSubClassesOf    = Seq(classOf[DagrCoreMain]),
+      includeHidden       = includeHidden,
+      afterCommandBuild           = mainBlock,
+      afterSubCommandBuild            = clpBlock
+    )
   }
 
   /** Provide an command line validation error message */
@@ -59,9 +100,9 @@ object DagrCoreMain {
     val extraMsg = msgOption map { text => s"\nmessage: $text" } getOrElse ""
     exceptionOption match {
       case Some(e) =>
-        s"${e.getClass.getCanonicalName}: ${Configuration.commandLineName} command line validation error: ${e.getMessage}$extraMsg"
+        s"${e.getClass.getCanonicalName}: ${this.commandLineName} command line validation error: ${e.getMessage}$extraMsg"
       case None =>
-        s"${Configuration.commandLineName} command line validation error$extraMsg"
+        s"${this.commandLineName} command line validation error$extraMsg"
     }
   }
 }
@@ -84,21 +125,21 @@ object DagrCoreMain {
   */
 class DagrCoreMain(
 // TODO: update args with precedence information
-  @Arg(doc = "Load in a custom configuration into Dagr.  See https://github.com/typesafehub/config for details on the file format.", common = true)
+  @arg(doc = "Load in a custom configuration into Dagr.  See https://github.com/typesafehub/config for details on the file format.", common = true)
   val config: Option[Path] = None,
-  @Arg(doc = "Overrides the default scripts directory in the configuration file.", common = true)
+  @arg(doc = "Overrides the default scripts directory in the configuration file.", common = true)
   val scriptDir: Option[Path] = None,
-  @Arg(doc = "Overrides default log directory in the configuration file.", common = true)
+  @arg(doc = "Overrides default log directory in the configuration file.", common = true)
   val logDir: Option[Path] = None,
-  @Arg(doc = "Set the logging level.", common = true, flag="l")
+  @arg(doc = "Set the logging level.", common = true, flag="l")
   val logLevel: LogLevel = LogLevel.Info,
-  @Arg(doc = "Dagr scala scripts to compile and add to the list of programs.", common = true, minElements=0)
+  @arg(doc = "Dagr scala scripts to compile and add to the list of programs.", common = true, minElements=0)
   val scripts: List[Path] = Nil,
-  @Arg(doc = "Set the number of cores available to dagr.", common = true)
+  @arg(doc = "Set the number of cores available to dagr.", common = true)
   val cores: Option[Double] = None,
-  @Arg(doc = "Set the memory available to dagr.", common = true)
+  @arg(doc = "Set the memory available to dagr.", common = true)
   val memory: Option[String] = None,
-  @Arg(doc = "Write an execution report to this file, otherwise write to the stdout", common = true)
+  @arg(doc = "Write an execution report to this file, otherwise write to the stdout", common = true)
   val report: Option[Path] = None
 ) extends LazyLogging {
 

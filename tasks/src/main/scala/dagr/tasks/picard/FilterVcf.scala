@@ -25,7 +25,8 @@ package dagr.tasks.picard
 
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.Vcf
-import dagr.tasks.PathToVcf
+import dagr.tasks.DagrDef
+import DagrDef.PathToVcf
 
 import scala.collection.mutable.ListBuffer
 

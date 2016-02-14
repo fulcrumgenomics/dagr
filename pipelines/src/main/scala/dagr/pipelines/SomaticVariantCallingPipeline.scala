@@ -23,9 +23,11 @@
  */
 package dagr.pipelines
 
-import dagr.core.cmdline._
+import dagr.core.cmdline.Pipelines
+import dagr.sopt._
 import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline, ShellCommand}
-import dagr.tasks._
+import dagr.tasks.DagrDef
+import DagrDef._
 import dagr.tasks.gatk.{Mutect1, Mutect2}
 import dagr.tasks.misc.{DeleteFiles, DeleteVcfs}
 import dagr.tasks.picard.IntervalListToBed
@@ -35,21 +37,22 @@ import dagr.tasks.vc.{FilterFreeBayesCalls, FreeBayesSomatic, Varscan2Somatic}
 /**
   * Pipeline to call Somatic Variants using both Varscan2 and Mutect2
   */
-@CLP(
+@clp(
   description =
     """
       |Calls somatic variants in a single sample [pair] and then filters them.
-    """"
+    """",
+  group = classOf[Pipelines]
 )
-class SomaticVariantCallingPipeline(
-  @Arg(flag="t", doc="The tumor BAM file.")                                       val tumorBam: PathToBam,
-  @Arg(flag="n", doc="The matched normal BAM file.")                              val normalBam: PathToBam,
-  @Arg(flag="r", doc="Path to the reference FASTA.")                              val ref: PathToFasta,
-  @Arg(flag="l", doc="Intervals to call over.")                                   val intervals: PathToIntervals,
-  @Arg(flag="o", doc="Output prefix (including directories) for output files.")   val outputPrefix: DirPath,
-  @Arg(          doc="Run MuTect2. Off by default since it is so slow.")          val includeMutect2: Boolean = false,
-  @Arg(          doc="Run FreeBayes.")                                            val includeFreeBayes: Boolean = false,
-  @Arg(          doc="If true, remove all intermediate files created.")           val removeIntermediates: Boolean = false
+class SomaticVariantCallingPipeline
+( @arg(flag="t", doc="The tumor BAM file.")                                       val tumorBam: PathToBam,
+  @arg(flag="n", doc="The matched normal BAM file.")                              val normalBam: PathToBam,
+  @arg(flag="r", doc="Path to the reference FASTA.")                              val ref: PathToFasta,
+  @arg(flag="l", doc="Intervals to call over.")                                   val intervals: PathToIntervals,
+  @arg(flag="o", doc="Output prefix (including directories) for output files.")   val outputPrefix: DirPath,
+  @arg(          doc="Run MuTect2. Off by default since it is so slow.")          val includeMutect2: Boolean = false,
+  @arg(          doc="Run FreeBayes.")                                            val includeFreeBayes: Boolean = false,
+  @arg(          doc="If true, remove all intermediate files created.")           val removeIntermediates: Boolean = false
 ) extends Pipeline(Some(outputPrefix.toAbsolutePath.getParent)) {
 
   override def build(): Unit = {

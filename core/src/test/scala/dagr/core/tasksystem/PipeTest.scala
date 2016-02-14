@@ -23,8 +23,9 @@
  */
 package dagr.core.tasksystem
 
+import dagr.commons.io.PathUtil
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.util.{PathUtil, UnitSpec}
+import dagr.commons.util.UnitSpec
 
 /**
   * Tests for the piping together of tasks
@@ -47,7 +48,7 @@ class PipeTest extends UnitSpec {
   val cores  = 0.25
   val bytes = Memory("16M").bytes
   trait TestResources extends FixedResources { requires(Cores(0.25), Memory(bytes)) }
-  case class Cat(val f: String) extends PipeOut[Text] with TestResources { def args = "cat" :: f.toString :: Nil }
+  case class Cat(f: String) extends PipeOut[Text] with TestResources { def args = "cat" :: f.toString :: Nil }
   case class MakeCsv()  extends Pipe[Text,Csv] with TestResources { def args = "sed" :: "s/ +/,/g" :: Nil }
   case class CsvToTsv() extends Pipe[Csv,Tsv] with TestResources  { def args = "tr" :: "," :: """\t""" :: Nil }
   case class Column()   extends Pipe[Text,Text] with TestResources { def args = "column" :: "-t" :: Nil }

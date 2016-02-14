@@ -5,9 +5,10 @@ import java.nio.file.{Path, Files}
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{Pipe, Pipes}
-import dagr.core.util.{Io, PathUtil}
+import dagr.commons.io.{Io, PathUtil}
 import dagr.tasks.DataTypes.{Fastq, Sam, SamOrBam}
-import dagr.tasks._
+import dagr.tasks.DagrDef
+import DagrDef._
 import dagr.tasks.picard.{FifoBuffer, MergeBamAlignment, SamToFastq}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 

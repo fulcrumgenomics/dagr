@@ -26,7 +26,7 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.Instant
 
-import dagr.DagrDef._
+import dagr.core.DagrDef._
 import dagr.core.tasksystem.Task
 
 /** The state of execution of a [[Task]].

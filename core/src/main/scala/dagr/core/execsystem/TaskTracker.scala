@@ -26,10 +26,11 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.Instant
 
-import dagr.DagrDef._
+import dagr.commons.CommonsDef._
+import dagr.commons.util.{BiMap, LazyLogging}
+import dagr.core.DagrDef._
 import dagr.core.execsystem.TaskStatus._
 import dagr.core.tasksystem.Task
-import dagr.core.util.{BiMap, LazyLogging}
 
 import scala.collection.mutable
 

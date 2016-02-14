@@ -26,9 +26,9 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.Instant
 
-import dagr.DagrDef._
+import dagr.core.DagrDef._
+import dagr.commons.util.LazyLogging
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
-import dagr.core.util.LazyLogging
 
 import scala.collection.mutable
 

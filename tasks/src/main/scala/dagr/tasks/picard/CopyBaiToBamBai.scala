@@ -24,8 +24,9 @@
 package dagr.tasks.picard
 
 import dagr.core.tasksystem.ShellCommand
-import dagr.core.util.PathUtil
-import dagr.tasks.PathToBam
+import dagr.commons.io.PathUtil
+import dagr.tasks.DagrDef
+import DagrDef.PathToBam
 
 class CopyBaiToBamBai(bam: PathToBam)
   extends ShellCommand("cp", "-v", PathUtil.replaceExtension(bam, ".bai").toString, PathUtil.replaceExtension(bam, ".bam.bai").toString) {

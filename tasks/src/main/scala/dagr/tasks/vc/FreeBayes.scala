@@ -28,9 +28,10 @@ import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem._
 import dagr.tasks.DataTypes._
+import dagr.tasks.DagrDef
 import dagr.tasks.jeanluc.GenerateRegionsFromFasta
 import dagr.tasks.vc.FreeBayes._
-import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
+import DagrDef.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer
 

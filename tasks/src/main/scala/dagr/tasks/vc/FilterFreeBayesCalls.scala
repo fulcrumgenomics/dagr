@@ -26,7 +26,8 @@ package dagr.tasks.vc
 
 import dagr.core.config.Configuration
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
-import dagr.tasks._
+import dagr.tasks.DagrDef
+import DagrDef._
 
 import scala.collection.mutable.ListBuffer
 

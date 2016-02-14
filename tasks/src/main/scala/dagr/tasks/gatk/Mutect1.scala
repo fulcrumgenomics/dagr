@@ -25,7 +25,8 @@ package dagr.tasks.gatk
 
 import java.nio.file.Path
 
-import dagr.tasks._
+import dagr.tasks.DagrDef
+import DagrDef._
 
 import scala.collection.mutable.ListBuffer
 

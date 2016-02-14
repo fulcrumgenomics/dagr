@@ -26,8 +26,9 @@ package dagr.tasks.misc
 import java.nio.file.Files
 
 import dagr.core.tasksystem.SimpleInJvmTask
-import dagr.core.util.PathUtil
-import dagr.tasks.PathToVcf
+import dagr.commons.io.PathUtil
+import dagr.tasks.DagrDef
+import DagrDef.PathToVcf
 
 /**
   * Deletes one or more VCFs and their associated index files.

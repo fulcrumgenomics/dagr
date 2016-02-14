@@ -23,8 +23,8 @@
  */
 package dagr.core.tasksystem
 
+import dagr.commons.util.LazyLogging
 import dagr.core.execsystem.TaskExecutionInfo
-import dagr.core.util.LazyLogging
 
 /** Simple task to retry a given number of times */
 trait MultipleRetryTask extends Task with LazyLogging {

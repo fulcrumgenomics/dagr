@@ -23,10 +23,12 @@
  */
 package dagr.core.cmdline
 
+import dagr.sopt.cmdline.ClpGroup
+
 /**
  * Program group/type for pipeline programs.
  */
-class Pipelines extends PipelineGroup {
-  def name: String = "Pipelines"
-  def description: String = "Various pipeline programs."
+class Pipelines extends ClpGroup {
+  val name: String = "Pipelines"
+  val description: String = "Various pipeline programs."
 }

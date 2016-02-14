@@ -25,7 +25,7 @@
 package dagr.core.execsystem
 
 import dagr.core.tasksystem.ShellCommand
-import dagr.core.util.UnitSpec
+import dagr.commons.util.UnitSpec
 
 class GraphNodeTest extends UnitSpec {
 

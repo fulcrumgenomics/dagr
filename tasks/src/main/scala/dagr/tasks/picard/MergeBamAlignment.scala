@@ -26,7 +26,8 @@ package dagr.tasks.picard
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.SamOrBam
-import dagr.tasks.{PathToBam, PathToFasta}
+import dagr.tasks.DagrDef
+import DagrDef.{PathToBam, PathToFasta}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable.ListBuffer

@@ -2,7 +2,8 @@ package dagr.tasks.misc
 
 import dagr.core.config.Configuration
 import dagr.core.tasksystem.ShellCommand
-import dagr.tasks.PathToVcf
+import dagr.tasks.DagrDef
+import DagrDef.PathToVcf
 import java.nio.file.Path
 
 /** Tabix (https://github.com/samtools/htslib) */

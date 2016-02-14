@@ -23,7 +23,8 @@
  */
 package dagr.tasks.picard
 
-import dagr.tasks.PathToBam
+import dagr.tasks.DagrDef
+import DagrDef.PathToBam
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable.ListBuffer
