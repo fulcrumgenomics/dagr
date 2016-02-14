@@ -23,34 +23,42 @@
  */
 package dagr.core.tasksystem
 
-/** Helps determine which task to perform for an [[EitherTask]] */
-object EitherTaskFlag extends Enumeration {
-  type EitherTaskFlag = Value
-  val LEFT, RIGHT = Value
-}
-
 object EitherTask {
+  sealed trait Choice
+  object Left  extends Choice
+  object Right extends Choice
 
-  /** Creates an either task given [[Boolean]] flag indicating which task to perform.
+  /**
+    * Creates an [[EitherTask]] that wraps `choice` into a function that will be evaluated lazily when the
+    * [[EitherTask]] needs to make its choice.
     *
-    * @param left the left task.
-    * @param right the right task
-    * @param doLeft true if the left task is to be executed, false otherwise.
-    * @return an [[EitherTask]] with the correct flag set.
+    * @param left   the left task.
+    * @param right  the right task.
+    * @param choice an expression that returns either Left or Right when evaluated
     */
-  def apply(left: Task, right: Task, doLeft: Boolean): EitherTask = {
-    new EitherTask(left, right, if (doLeft) EitherTaskFlag.LEFT else EitherTaskFlag.RIGHT)
-  }
+  def apply(left: Task, right: Task, choice: => Choice): EitherTask = new EitherTask(left, right, () => choice)
+
+  /**
+    * Creates an [[EitherTask]] that wraps `choice` into a function that will be lazily evaluated when the
+    * [[EitherTask]] needs to make its choice. If `goLeft` evaluates to true the `Left` task will
+    * be returned, else the `Right` task.
+    *
+    * @param left   the left task.
+    * @param right  the right task.
+    * @param goLeft an expression that returns a Boolean, with true indicating Left and false indicating Right
+    */
+  def of(left: Task, right: Task, goLeft: => Boolean): EitherTask = new EitherTask(left, right, () => if (goLeft) Left else Right)
 }
 
-/** A task that executes either the left or right task given a flag.
-  *
-  * The flag may be modified up until [[getTasks]] is called, and the correct task will be executed.
+/** A task that returns either the left or right task based on a deferred choice. The choice function is
+  * not evaluated until all dependencies have been met and the `EitherTask` needs to make a decision about
+  * which task to return from [[getTasks].
   *
   * @param left the left task.
   * @param right the right task
-  * @param flag indicates which task to perform.
+  * @param choice an expression that returns either Left or Right when invoked
   */
-class EitherTask(private val left: Task, private val right: Task, var flag: EitherTaskFlag.Value) extends Task {
-  override def getTasks: Traversable[Task] = List(if (flag == EitherTaskFlag.LEFT) left else right)
+class EitherTask private (private val left: Task, private val right: Task, private val choice: () => EitherTask.Choice) extends Task {
+  /** Decides which task to return based on `choice` at execution time. */
+  override def getTasks: Traversable[Task] = Seq(if (choice() eq EitherTask.Left) left else right)
 }
