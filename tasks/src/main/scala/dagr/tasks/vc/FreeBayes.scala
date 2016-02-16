@@ -118,7 +118,7 @@ abstract class FreeBayes(val ref: PathToFasta,
       case Some(targets) => // Split using the intervals
         val cat  = new ShellCommand("cat", targets.toAbsolutePath.toString) with Pipe[Nothing,Text]
         val grep = new ShellCommand("grep", "-v", "^@") with Pipe[Text,Text]
-        val awk  = new ShellCommand("awk", """'{printf("%s:%d-%d\n", $1, $2-1, $3);}'""") with Pipe[Text,Text]
+        val awk  = new ShellCommand("awk", """{printf("%s:%d-%d\n", $1, $2-1, $3);}""") with Pipe[Text,Text]
         cat | grep | awk
     }
 
@@ -141,7 +141,7 @@ abstract class FreeBayes(val ref: PathToFasta,
       buffer.append("--report-genotype-likelihood-max", "--allele-balance-priors-off")
     }
     bam.foreach(b => buffer.append("-b", b.toAbsolutePath))
-    buffer.append("--region {}")
+    buffer.append("--region", "{}")
     val freebayesParallel = new ShellCommand(buffer.map(_.toString):_*) with Pipe[Text,Vcf]
 
     // Make a header, sort it, uniq it (for edge regions), and output it

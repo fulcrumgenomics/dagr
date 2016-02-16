@@ -29,7 +29,7 @@ import java.nio.file.Path
 import scala.sys.process._
 
 object ProcessTask {
-  val SpecialCharacters : String = """ `"\#[]{}()!~&<>|;*?""" + '\t' + '$'
+  val SpecialCharacters : String = """ `"\#()!~&<>|;*?""" + '\t' + '$'
   private val SpecialsAndSingleQuote = SpecialCharacters + "'"
   private val Escape = """\"""
 
