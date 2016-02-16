@@ -26,7 +26,8 @@ package dagr.tasks.vc
 
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.tasksystem.{ProcessTask, VariableResources}
+import dagr.core.tasksystem._
+import dagr.tasks.DataTypes._
 import dagr.tasks.jeanluc.GenerateRegionsFromFasta
 import dagr.tasks.vc.FreeBayes._
 import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
@@ -77,6 +78,7 @@ object FreeBayes {
   *
   * Please note that if the output VCF is a bgzip'ed VCF (vcf.gz) no index will be generated.
   */
+
 abstract class FreeBayes(val ref: PathToFasta,
                          val targetIntervals: Option[PathToIntervals],
                          val bam: List[PathToBam],
@@ -90,13 +92,13 @@ abstract class FreeBayes(val ref: PathToFasta,
                          val useBestNAlleles: Option[Int],
                          val maxCoverage: Option[Int],
                          val minRepeatEntropy: Option[Int],
-                         minAlternateAlleleFraction: Option[Float] = None) extends ProcessTask with Configuration with VariableResources {
+                         minAlternateAlleleFraction: Option[Float] = None) extends Task with Configuration with VariableResources {
 
   // NB: we could re-implement the FreeBayes Parallel script as individual tasks, but keep this for now.
   protected def numThreads = (this.resources.cores.value - 1).toInt
 
   if (!somatic) {
-    minAlternateAlleleFraction.foreach { throw new IllegalArgumentException("Somatic calling but minAlternateAlleleFraction is defined") }
+    minAlternateAlleleFraction.foreach { af => throw new IllegalArgumentException("Germline calling but minAlternateAlleleFraction is defined") }
   }
 
   /** Attempts to pick the resources required to run. The required resources are:
@@ -108,27 +110,27 @@ abstract class FreeBayes(val ref: PathToFasta,
   }
 
   /** Sets the arguments for FreeBayes.  For somatic calling, there should be two bams, a tumor bam then normal bam. */
-  override def args: Seq[Any] = {
-    val buffer = ListBuffer[Any]()
-
-    /** Trivial method to make the adding of arguments to the list of arguments more readable below. */
-    def applyArgs[T](arg: String, value: Option[T]): Unit = value.foreach(buffer.append(arg, _))
-
+  override def getTasks: Traversable[_ <: Task] = {
     // Generates the regions on the fly
-    targetIntervals match {
+    val generateTargets = targetIntervals match {
       case None => // Split using the FASTA
-        new GenerateRegionsFromFasta(ref=ref, regionSize=Some(regionSize.toInt)).getTasks.foreach(task => buffer.append(task.args))
+        new GenerateRegionsFromFasta(ref=ref, regionSize=Some(regionSize.toInt)) with Pipe[Nothing,Text]
       case Some(targets) => // Split using the intervals
-        buffer.append("cat " + targets.toAbsolutePath + """ | grep -v ^@ | awk '{printf("%s:%d-%d\n", $1, $2-1, $3);}'""")
-
+        val cat  = new ShellCommand("cat", targets.toAbsolutePath.toString) with Pipe[Nothing,Text]
+        val grep = new ShellCommand("grep", "-v", "^@") with Pipe[Text,Text]
+        val awk  = new ShellCommand("awk", """'{printf("%s:%d-%d\n", $1, $2-1, $3);}'""") with Pipe[Text,Text]
+        cat | grep | awk
     }
 
-    buffer.append(PipeArg, s"parallel -k -j $numThreads")
-
+    // the args to the freebayes parallel command
+    val buffer = ListBuffer[Any]()
+    /** Trivial method to make the adding of argume
+      * nts to the list of arguments more readable below. */
+    def applyArgs[T](arg: String, value: Option[T]): Unit = value.foreach(buffer.append(arg, _))
     // Runs FreeBayes on multiple regions in parallel.
-    buffer.append(configureExecutable(FreeBayesExecutableConfigKey, "freebayes"))
-
+    buffer.append("parallel", "-k", "-j", s"$numThreads")
     // FreeBayes args
+    buffer.append(configureExecutable(FreeBayesExecutableConfigKey, "freebayes"))
     buffer.append("-f", ref)
     applyArgs("--use-best-n-alleles",     useBestNAlleles)
     applyArgs("--max-coverage",           maxCoverage)
@@ -140,16 +142,15 @@ abstract class FreeBayes(val ref: PathToFasta,
     }
     bam.foreach(b => buffer.append("-b", b.toAbsolutePath))
     buffer.append("--region {}")
+    val freebayesParallel = new ShellCommand(buffer.map(_.toString):_*) with Pipe[Text,Vcf]
 
-    // Make a header, sort it, and uniq it (for edge regions)
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcffirstheader"))
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort"), "-w", "1000")
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniq"))
+    // Make a header, sort it, uniq it (for edge regions), and output it
+    val vcffirstheader = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcffirstheader").toString)              with Pipe[Vcf,Vcf]
+    val vcfstreamsort  = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort").toString, "-w", "1000") with Pipe[Vcf,Vcf]
+    val vcfuniq        = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniq").toString)                     with Pipe[Vcf,Vcf]
+    val bgzip           = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c")   with Pipe[Vcf,Vcf] else Pipes.empty[Vcf]
 
-    // Output it
-    if (compress) buffer.append(PipeArg, configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip"), "-c")
-    buffer.append(">", vcf)
-    buffer
+    List(generateTargets | freebayesParallel | vcffirstheader | vcfstreamsort | vcfuniq | bgzip > vcf)
   }
 }
 
@@ -167,7 +168,7 @@ class FreeBayesGermline(ref: PathToFasta,
                         maxCoverage: Option[Int]      = DefaultMaxCoverage,
                         minRepeatEntropy: Option[Int] = DefaultMinRepeatEntropy
 ) extends FreeBayes(ref, targetIntervals, bam, vcf, false, compress, memory, minThreads, maxThreads,
-  regionSize, useBestNAlleles, maxCoverage, minRepeatEntropy)
+  regionSize, useBestNAlleles, maxCoverage, minRepeatEntropy, minAlternateAlleleFraction=None)
 
 /** Performs Somatic (Tumor/Normal) variant calling using FreeBayes according the the BCBIO best Practices */
 class FreeBayesSomatic(ref: PathToFasta,

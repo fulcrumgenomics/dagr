@@ -91,9 +91,9 @@ trait PipeOut[Out] extends Pipe[Void,Out]
 ///////////////////////////////////////////////////////////////////////////////
 object Pipes {
   /** The string that is sandwiched between commands to form pipes. */
-  val PipeString              = "\\\n    | "
-  val RedirectAppendString    = "\\\n    >> "
-  val RedirectOverwriteString = "\\\n    > "
+  val PipeString              = " \\\n    | "
+  val RedirectAppendString    = " \\\n    >> "
+  val RedirectOverwriteString = " \\\n    > "
 
   /**
     * A class that represents an empty pipe, that allows for easier construction of pipes with conditional branches.
@@ -145,7 +145,7 @@ object Pipes {
 
     /** Overridden to enforce that it is never called. */
     override def args: Seq[Any] = {
-      throw new NotImplementedError("args should never be called on PipeChain, only command().")
+      throw new NotImplementedError("args should never be called on PipeChain, only commandLine().")
     }
 
     /**
