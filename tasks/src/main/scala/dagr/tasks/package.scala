@@ -78,5 +78,7 @@ package object tasks {
     class Bam private() extends SamOrBam
     class Vcf private()
     class Fastq private()
+    class Text private()
+    class Binary private()
   }
 }

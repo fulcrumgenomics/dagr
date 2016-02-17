@@ -28,6 +28,25 @@ import java.nio.file.Path
 
 import scala.sys.process._
 
+object ProcessTask {
+  val SpecialCharacters : String = """ `"\#()!~&<>|;*?""" + '\t' + '$'
+  private val SpecialsAndSingleQuote = SpecialCharacters + "'"
+  private val Escape = """\"""
+
+  /** Determines if the argument has any special characters in it, and if so quotes the whole string. */
+  def quoteIfNecessary(arg: String): String = {
+    val hasSingleQuotes = arg.contains("'")
+    val hasSpecials     = arg.exists(ch => SpecialCharacters.contains(ch))
+
+    (hasSingleQuotes, hasSpecials) match {
+      case (false, false) => arg
+      case (true,  false) => arg.replace("'", """\'""") // just escape the single quotes
+      case (false, true ) => "'" + arg + "'" // just single quote the whole string
+      case (true,  true ) => arg.map(ch => if (SpecialsAndSingleQuote.contains(ch)) Escape + ch else ch).mkString("")
+    }
+  }
+}
+
 /** A task that can execute a set of commands in its own process, and does not generate any new tasks.
   */
 trait ProcessTask extends UnitTask {
@@ -40,16 +59,10 @@ trait ProcessTask extends UnitTask {
 
   /** Returns a string representation of the command to be run by this task.
     *
-    * @param setPipefail true if we are to fail if any command in a pipe fails, false if we only check the last command in a pipe or otherwise.
     * @return the command string.
     */
-  private def command(setPipefail: Boolean = true): String = {
-    if (setPipefail) {
-      "set -o pipefail > /dev/null && " + args.mkString(" ")
-    }
-    else {
-      args.mkString(" ")
-    }
+  private[core] def commandLine: String = {
+    args.map(arg => ProcessTask.quoteIfNecessary(arg.toString)).mkString(" ")
   }
 
   /** Write the command to the script and get a process to run.
@@ -59,10 +72,8 @@ trait ProcessTask extends UnitTask {
     * @param setPipefail true if we are to fail if any command in a pipe fails, false if we only check the last command in a pipe or otherwise.
     * @return a process to execute.
     */
-  private[core] def processBuilder(script: Path,
-                                   logFile: Path,
-                                   setPipefail: Boolean = true): ProcessBuilder = {
-    val argv: String = command(setPipefail = false)
+  private[core] def processBuilder(script: Path, logFile: Path, setPipefail: Boolean = true): ProcessBuilder = {
+    val argv: String = commandLine
 
     logger.debug("Executing call with argv: " + argv)
     logger.debug("Executing script: " + script)

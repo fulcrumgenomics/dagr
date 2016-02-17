@@ -23,11 +23,17 @@
  */
 package dagr.core.tasksystem
 
-import dagr.core.execsystem.ResourceSet
+import java.nio.file.Path
+
+import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import dagr.core.tasksystem.Pipes.RedirectToFile
 
 ///////////////////////////////////////////////////////////////////////////////
 // Section: General traits related to piping
 ///////////////////////////////////////////////////////////////////////////////
+
+/** Phantom type that is used to represent the situation where nothing comes out of a pipe. */
+private[tasksystem] sealed class Void
 
 /**
   * Trait for tasks that would like to be able to pipe data using stdin and stdout. Tasks
@@ -56,6 +62,16 @@ trait Pipe[In,Out] extends ProcessTask {
     Pipes.chain(this, next)
   }
 
+  /** Terminate a pipe chain by writing the output to a file. */
+  def >(path: Path): Pipe[In,Void] = {
+    Pipes.chain(this, new RedirectToFile[Out](path, append=false))
+  }
+
+  /** Terminates a pipe chain by appending the output to a file. */
+  def >>(path: Path): Pipe[In,Void] = {
+    Pipes.chain(this, new RedirectToFile[Out](path, append=true))
+  }
+
   /** Returns the first task in the pipe. */
   private[tasksystem] def left: Pipe[In,_] = this
   /** Returns the last task in the pipe. */
@@ -65,17 +81,19 @@ trait Pipe[In,Out] extends ProcessTask {
 }
 
 /** A simplified trait for sink tasks that can receive data via a pipe, but cannot pipe onwards. */
-trait PipeIn[In] extends Pipe[In,Nothing]
+trait PipeIn[In] extends Pipe[In,Void]
 
 /** A simplified trait for generate tasks that can pipe out, but cannot receive data from a pipe. */
-trait PipeOut[Out] extends Pipe[Nothing,Out]
+trait PipeOut[Out] extends Pipe[Void,Out]
 
 ///////////////////////////////////////////////////////////////////////////////
 // Section: Objects and private utility classes to make it all work
 ///////////////////////////////////////////////////////////////////////////////
 object Pipes {
   /** The string that is sandwiched between commands to form pipes. */
-  val PipeString = "\\\n    | "
+  val PipeString              = " \\\n    | "
+  val RedirectAppendString    = " \\\n    >> "
+  val RedirectOverwriteString = " \\\n    > "
 
   /**
     * A class that represents an empty pipe, that allows for easier construction of pipes with conditional branches.
@@ -84,6 +102,16 @@ object Pipes {
   private class EmptyPipe[T] extends Pipe[T,T] {
     override def args: Seq[Any] = throw new IllegalStateException("Should not reach here.")
     override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = throw new IllegalStateException("Should not reach here.")
+  }
+
+  /**
+    * A class that allows redirecting to a file at the end of a Pipe.
+    */
+  private[tasksystem] class RedirectToFile[In](val path: Path, val append: Boolean) extends PipeIn[In] with FixedResources {
+    requires(Cores(0), Memory(0))
+    override def args: Seq[Any] = throw new IllegalStateException("Should not reach here.")
+    /* Returns the appropriate redirect symbol for appending or overwriting. */
+    def redirect: String = if (append) RedirectAppendString else RedirectOverwriteString
   }
 
   /**
@@ -102,9 +130,22 @@ object Pipes {
     override private[tasksystem] def right: Pipe[_, Out] = this.last
     override private[tasksystem] def ordered: Seq[Pipe[_, _]] = this.tasks
 
-    /** Returns a single [[Seq]] over the args of all piped tasks, with pipe operators between them! */
+    /**
+      * Overridden to provide a command that pipes together each of the sub-commands in the pipe.
+      */
+    override private[core] def commandLine: String = tasks match {
+      case task :: Nil =>
+        task.commandLine
+      case firstTask :: subsequentTasks  =>
+        subsequentTasks.foldLeft(firstTask.commandLine) {
+          case (cmd, next: RedirectToFile[_]) => cmd + next.redirect + next.path.toString
+          case (cmd, next: Pipe[_,_])         => cmd + PipeString + next.commandLine
+        }
+    }
+
+    /** Overridden to enforce that it is never called. */
     override def args: Seq[Any] = {
-      tasks.foldLeft[List[Any]](Nil)((list, task) => list ++ list.headOption.map(x => PipeString) ++ task.args)
+      throw new NotImplementedError("args should never be called on PipeChain, only commandLine().")
     }
 
     /**
@@ -163,7 +204,7 @@ object Pipes {
     (left, right) match {
       case (p: EmptyPipe[_], _) => right.asInstanceOf[Pipe[In1,Out2]]
       case (_, p: EmptyPipe[_]) => left.asInstanceOf[Pipe[In1,Out2]]
-      case (_, _)               => new PipeChain(tasks=(left.ordered ++ right.ordered), first=left.left, last=right.right)
+      case (_, _)               => new PipeChain(tasks=left.ordered ++ right.ordered, first=left.left, last=right.right)
     }
   }
 }

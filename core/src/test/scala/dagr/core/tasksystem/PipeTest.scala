@@ -24,12 +24,16 @@
 package dagr.core.tasksystem
 
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.util.UnitSpec
+import dagr.core.util.{PathUtil, UnitSpec}
 
 /**
   * Tests for the piping together of tasks
   */
 class PipeTest extends UnitSpec {
+  val `|`  = Pipes.PipeString
+  val `>`  = Pipes.RedirectOverwriteString
+  val `>>` = Pipes.RedirectAppendString
+
   // Data types used in piping
   object Types {
     class Text
@@ -45,7 +49,7 @@ class PipeTest extends UnitSpec {
   trait TestResources extends FixedResources { requires(Cores(0.25), Memory(bytes)) }
   case class Cat(val f: String) extends PipeOut[Text] with TestResources { def args = "cat" :: f.toString :: Nil }
   case class MakeCsv()  extends Pipe[Text,Csv] with TestResources { def args = "sed" :: "s/ +/,/g" :: Nil }
-  case class CsvToTsv() extends Pipe[Csv,Tsv] with TestResources  { def args = "tr" :: "','" :: """'\t'""" :: Nil }
+  case class CsvToTsv() extends Pipe[Csv,Tsv] with TestResources  { def args = "tr" :: "," :: """\t""" :: Nil }
   case class Column()   extends Pipe[Text,Text] with TestResources { def args = "column" :: "-t" :: Nil }
   case class BgZip()    extends Pipe[Text,Binary] with VariableResources {
     override def pickResources(available: ResourceSet): Option[ResourceSet] = available.subset(Cores(1), Cores(8), Memory(bytes))
@@ -54,22 +58,19 @@ class PipeTest extends UnitSpec {
   case class BgUnzip()  extends Pipe[Binary,Text] with TestResources { def args = "bgzip" :: "--decompress" :: "--stdout" :: Nil  }
 
   "Pipe" should "connect some simple tasks" in {
-    val `|` = " " + Pipes.PipeString + " "
     val pipe = Cat("foo.txt") | MakeCsv()
-    pipe.args.length shouldBe 5
-    pipe.args.mkString(" ") shouldBe "cat foo.txt " + Pipes.PipeString + " sed s/ +/,/g"
+    pipe.commandLine shouldBe "cat foo.txt" + Pipes.PipeString + "sed 's/ +/,/g'"
 
     val pipe2 = Cat("bar.txt") | MakeCsv() | CsvToTsv() | Column()
-    pipe2.args.mkString(" ") shouldBe "cat bar.txt" + `|` + "sed s/ +/,/g" + `|` + """tr ',' '\t'""" + `|` + "column -t"
+    pipe2.commandLine shouldBe "cat bar.txt" + `|` + "sed 's/ +/,/g'" + `|` + """tr , '\t'""" + `|` + "column -t"
   }
 
   it should "handle re-use of parts of pipes" in {
-    val `|` = " " + Pipes.PipeString + " "
     val start = Cat("foo.txt") | MakeCsv()
     val pipe1 = start | CsvToTsv()
     val pipe2 = start | Column()
-    pipe1.args.mkString(" ") shouldBe "cat foo.txt" + `|` + "sed s/ +/,/g" + `|` + """tr ',' '\t'"""
-    pipe2.args.mkString(" ") shouldBe "cat foo.txt" + `|` + "sed s/ +/,/g" + `|` + "column -t"
+    pipe1.commandLine shouldBe "cat foo.txt" + `|` + "sed 's/ +/,/g'" + `|` + """tr , '\t'"""
+    pipe2.commandLine shouldBe "cat foo.txt" + `|` + "sed 's/ +/,/g'" + `|` + "column -t"
   }
 
   it should "correctly handle resources for several FixedResources tasks" in {
@@ -111,19 +112,28 @@ class PipeTest extends UnitSpec {
   }
 
   it should "allow use of Pipe.empty anywhere in a pipeline" in {
-    val `|` = " " + Pipes.PipeString + " "
     List(true, false).foreach(col => {
       val maybeColumn = if (col) new Column() else Pipes.empty[Text]
       val pipe = Cat("foo.txt") | maybeColumn | MakeCsv()
-      pipe.args.mkString(" ") shouldBe {
-        if (col) "cat foo.txt" + `|` + "column -t" +  `|` +  "sed s/ +/,/g"
-        else     "cat foo.txt" + `|` + "sed s/ +/,/g"
+      pipe.commandLine shouldBe {
+        if (col) "cat foo.txt" + `|` + "column -t" +  `|` +  "sed 's/ +/,/g'"
+        else     "cat foo.txt" + `|` + "sed 's/ +/,/g'"
       }
     })
 
     val silly = Pipes.empty[Csv] | Pipes.empty[Csv] | Pipes.empty[Text]
     val pipe = Cat("foo.txt") | MakeCsv() | silly | Column()
-    pipe.args.mkString(" ") shouldBe "cat foo.txt" + `|` + "sed s/ +/,/g" + `|` + "column -t"
+    pipe.commandLine shouldBe "cat foo.txt" + `|` + "sed 's/ +/,/g'" + `|` + "column -t"
+  }
+
+  it should "construct the write command line when redirecting to a file at the end of a pipe" in {
+    val cat = Cat("stuff.csv")
+    val col = Column()
+    val pipe1 = cat | col > PathUtil.pathTo("/tmp/foo.txt")
+    pipe1.commandLine shouldBe "cat stuff.csv" + `|` + "column -t" + `>` + "/tmp/foo.txt"
+
+    val pipe2 = cat | col >> PathUtil.pathTo("/tmp/append_to_me.txt")
+    pipe2.commandLine shouldBe "cat stuff.csv" + `|` + "column -t" + `>>` + "/tmp/append_to_me.txt"
   }
 
   it should "compile with a subtype as input in a pipe" in {
@@ -131,6 +141,7 @@ class PipeTest extends UnitSpec {
     val pipe2 = Cat("foo.txt") | MakeCsv() | BgZip() // subtype: Csv
     val pipe3 = Cat("foo.txt") | MakeCsv() | CsvToTsv() | BgZip() // subtype: Tsv
   }
+
 
   "EmptyPipe" should "explode if its arg or pickResources methods are ever called" in {
     an[IllegalStateException] shouldBe thrownBy {Pipes.empty[Any].args }

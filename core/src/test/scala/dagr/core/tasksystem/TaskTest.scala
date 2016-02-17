@@ -137,7 +137,7 @@ class TaskTest extends UnitSpec with LazyLogging {
    * Tests logging to a file.
    */
   {
-    class TestProcessLogging extends ShellCommand("echo Testing") {
+    class TestProcessLogging extends ShellCommand("echo", "Testing") {
       name = "tests progress logging"
     }
     class TestInJvmLogging
@@ -383,6 +383,32 @@ class TaskTest extends UnitSpec with LazyLogging {
       b.head shouldBe 0
 
       s3.inJvmMethod() shouldBe 1
+    }
+  }
+
+  {
+    case class P(xs: String*) extends ProcessTask with FixedResources {
+      override def args = xs.toSeq
+    }
+
+    "ProcessTask" should "not escape arguments that don't need it" in {
+      P("foo", "bar").commandLine shouldBe "foo bar"
+      P("-f", "--bar", "--XX:whee").commandLine shouldBe "-f --bar --XX:whee"
+      P("/foo/bar", "a=b", "c-=d").commandLine shouldBe "/foo/bar a=b c-=d"
+    }
+
+    it should "quote arguments containing spaces and other special characters in arguments" in {
+      P("foo", "oopsy daisy").commandLine shouldBe "foo 'oopsy daisy'"
+      P("rm", "*/*").commandLine shouldBe "rm '*/*'"
+      P("ok", "not ok", "ok", "not;ok", "ok", "$notok", "ok").commandLine shouldBe "ok 'not ok' ok 'not;ok' ok '$notok' ok"
+    }
+
+    it should "escape single quotes in arguments that don't otherwise need quoting" in {
+      P("foo", "my'thing", "is'", "silly'''").commandLine shouldBe """foo my\'thing is\' silly\'\'\'"""
+    }
+
+    it should "quote all special character in arguments that have single quotes" in {
+      P("it's cold outside", "what?!", "I'm a *").commandLine shouldBe """it\'s\ cold\ outside 'what?!' I\'m\ a\ \*"""
     }
   }
 }

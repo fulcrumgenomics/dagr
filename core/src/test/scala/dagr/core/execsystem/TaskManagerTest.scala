@@ -260,8 +260,8 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   }
 
   it should "replace a task that could not be scheduled due to OOM and re-run with less memory to completion" in {
-    val original = new ShellCommand("exit 0").requires(memory=Memory("2G")) withName "Too much memory"
-    val replacement = new ShellCommand("exit 0").requires(memory=Memory("1G")) withName "Just enough memory"
+    val original = new ShellCommand("exit", "0").requires(memory=Memory("2G")) withName "Too much memory"
+    val replacement = new ShellCommand("exit", "0").requires(memory=Memory("1G")) withName "Just enough memory"
     val taskManager: TaskManager = new TaskManager(taskManagerResources = new TaskManagerResources(Cores(1), Memory("1G"), Memory(0)), scriptsDirectory = None)
 
     // just in case
@@ -293,7 +293,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   */
 
   it should "return false when replacing an un-tracked task" in {
-    val task: UnitTask = new ShellCommand("exit 0") withName "Blah"
+    val task: UnitTask = new ShellCommand("exit", "0") withName "Blah"
     val taskManager: TaskManager = getDefaultTaskManager()
     taskManager.replaceTask(task, null) should be(false)
   }
@@ -324,7 +324,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   }
 
   // the onComplete method modifies the arguments for this task, and in its first call is false, otherwise true
-  private class FailOnCompleteAndClearArgsTask(name: String, originalArgs: List[String], newArgs: List[String] = List("exit 0"))
+  private class FailOnCompleteAndClearArgsTask(name: String, originalArgs: List[String], newArgs: List[String] = List("exit", "0"))
     extends ProcessTask with FixedResources {
     withName(name)
     requires(ResourceSet.empty)
@@ -347,7 +347,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     withName(name)
     private var onCompleteValue = false
     private var attemptIndex = 0
-    override def args = if (attemptIndex == 0) List("exit 1") else List("exit 0")
+    override def args = if (attemptIndex == 0) List("exit", "1") else List("exit", "0")
 
 
     override def onComplete(exitCode: Int): Boolean = {
@@ -393,13 +393,13 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   }
 
   it should "run a task that fails its onComplete method, is retried, where it modifies the onComplete method return value, and succeeds" in {
-    val task: UnitTask = new ShellCommand("exit 0") with FailOnCompleteTask withName "Dummy"
+    val task: UnitTask = new ShellCommand("exit", "0") with FailOnCompleteTask withName "Dummy"
     val taskManager: TaskManager = getDefaultTaskManager()
     runTasksMultipleTimes(taskManager = taskManager, task = task, statuses = List((TaskStatus.FAILED_ON_COMPLETE, 0, false), (TaskStatus.SUCCEEDED, 0, true)))
   }
 
   it should "run a task that fails its onComplete method, whereby it changes its args to empty, and succeeds" in {
-    val task: UnitTask = new FailOnCompleteAndClearArgsTask(name = "Dummy", originalArgs = List("exit 0"))
+    val task: UnitTask = new FailOnCompleteAndClearArgsTask(name = "Dummy", originalArgs = List("exit", "0"))
     val taskManager: TaskManager = getDefaultTaskManager()
     runTasksMultipleTimes(taskManager = taskManager, task = task, statuses = List((TaskStatus.FAILED_ON_COMPLETE, 0, false), (TaskStatus.SUCCEEDED, 0, true)))
   }

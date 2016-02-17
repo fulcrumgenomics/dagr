@@ -204,16 +204,16 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
   }
 
   it should "fail a task when its onComplete method returns false" in {
-    val (taskOne, taskOneId, taskOneInfo) = setupTask(task = new ShellCommand("exit 0")  with FailOnCompleteTask withName "Dummy One", taskId = 1)
-    val (taskTwo, taskTwoId, taskTwoInfo) = setupTask(task = new ShellCommand("exit 1") with FailOnCompleteTask withName "Dummy Two", taskId = 2)
+    val (taskOne, taskOneId, taskOneInfo) = setupTask(task = new ShellCommand("exit", "0")  with FailOnCompleteTask withName "Dummy One", taskId = 1)
+    val (taskTwo, taskTwoId, taskTwoInfo) = setupTask(task = new ShellCommand("exit", "1") with FailOnCompleteTask withName "Dummy Two", taskId = 2)
 
     runTaskAndComplete(task = taskOne, taskId = taskOneId, taskInfo = taskOneInfo, taskStatus = TaskStatus.FAILED_ON_COMPLETE, exitCode = 0, onCompleteSuccessful = false, failedAreCompleted = false)
     runTaskAndComplete(task = taskTwo, taskId = taskTwoId, taskInfo = taskTwoInfo, taskStatus = TaskStatus.FAILED_COMMAND, exitCode = 1, onCompleteSuccessful = false, failedAreCompleted = false)
   }
 
   it should "have a task that fails its onComplete method if the exit code is zero" in {
-    val (taskOne, taskOneId, taskOneInfo) = setupTask(task = new ShellCommand("exit 0") with OnCompleteIsOppositeExitCodeTask withName "Dummy One", taskId = 1)
-    val (taskTwo, taskTwoId, taskTwoInfo) = setupTask(task = new ShellCommand("exit 1") with OnCompleteIsOppositeExitCodeTask withName "Dummy Two", taskId = 2)
+    val (taskOne, taskOneId, taskOneInfo) = setupTask(task = new ShellCommand("exit", "0") with OnCompleteIsOppositeExitCodeTask withName "Dummy One", taskId = 1)
+    val (taskTwo, taskTwoId, taskTwoInfo) = setupTask(task = new ShellCommand("exit", "1") with OnCompleteIsOppositeExitCodeTask withName "Dummy Two", taskId = 2)
 
     runTaskAndComplete(task = taskOne, taskId = taskOneId, taskInfo = taskOneInfo, taskStatus = TaskStatus.FAILED_ON_COMPLETE, exitCode = 0, onCompleteSuccessful = false, failedAreCompleted = false)
     runTaskAndComplete(task = taskTwo, taskId = taskTwoId, taskInfo = taskTwoInfo, taskStatus = TaskStatus.FAILED_COMMAND, exitCode = 1, onCompleteSuccessful = true, failedAreCompleted = false)
