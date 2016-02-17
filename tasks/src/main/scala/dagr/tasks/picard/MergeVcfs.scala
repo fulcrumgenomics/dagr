@@ -21,25 +21,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.tasks.samtools
 
-import dagr.core.config.Configuration
-import dagr.core.tasksystem.ProcessTask
+package dagr.tasks.picard
+
+import dagr.commons.io.Io
+import dagr.core.tasksystem.PipeOut
+import dagr.tasks.DagrDef.PathToVcf
+import dagr.tasks.DataTypes.Vcf
 
 import scala.collection.mutable.ListBuffer
 
 /**
-  * Base class for all tasks that run samtools.
-  */
-abstract class SamtoolsTask(val command: String) extends ProcessTask with Configuration {
-  private val samtools = configureExecutable("samtools.executable", "samtools")
+ * Runs Picard's MergeVcfs to pull together multiple VCFs with identical sample lists
+ */
+class MergeVcfs(val in : Seq[PathToVcf], val out: PathToVcf = Io.StdOut) extends PicardTask with PipeOut[Vcf] {
 
-  override def args: Seq[Any] = {
-    val buffer = ListBuffer[Any]()
-    buffer.append(samtools, command)
-    addSubcommandArgs(buffer)
-    buffer
+  if (out == Io.StdOut) this.createIndex = Some(false)
+
+  override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
+    in.foreach { v => buffer += "I=" + v }
+    buffer += "O=" + out
   }
-
-  def addSubcommandArgs(buffer: ListBuffer[Any]): Unit
 }

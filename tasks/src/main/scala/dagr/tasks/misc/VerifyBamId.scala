@@ -53,7 +53,7 @@ class VerifyBamId(val vcf: PathToVcf,
   override def args: Seq[Any] = {
     val buffer = ListBuffer[Any]()
     buffer ++= verifyBamID :: "--ignoreRG" :: "--chip-none" :: "--noPhoneHome" :: "--self" :: Nil
-    buffer ++= "--vcf" :: vcf :: "--bam " :: bam :: "--out" :: out :: Nil
+    buffer ++= "--vcf" :: vcf :: "--bam" :: bam :: "--out" :: out :: Nil
     buffer ++= "--maxDepth" :: maxDepth :: "--minMapQ" :: minMapq :: "--minQ" :: minQ :: "--grid" :: grid :: Nil
     if (precise) buffer += "--precise"
     buffer.toList

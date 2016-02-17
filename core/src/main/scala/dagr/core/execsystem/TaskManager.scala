@@ -151,6 +151,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   import GraphNodeState._
   import TaskStatus._
 
+  logger.info(s"Executing with ${taskManagerResources.cores} cores and ${taskManagerResources.systemMemory.prettyString} system memory.")
   logger.info("Script files will be written to: " + actualScriptsDirectory)
   logger.info("Logs will be written to: " + actualLogsDirectory)
 

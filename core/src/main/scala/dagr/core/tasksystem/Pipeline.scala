@@ -47,8 +47,8 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None) extends Task w
   }
 
   /**
-    * Override this and build your pipeline there. Use the 'add' method
-    * to add tasks and make sure to define dependents between them.
+    * Build your pipeline here. Use `==>` to define dependencies between tasks and use
+    * `root ==> myTask` to capture tasks that have no dependencies and can start immediately.
     */
   def build(): Unit
 

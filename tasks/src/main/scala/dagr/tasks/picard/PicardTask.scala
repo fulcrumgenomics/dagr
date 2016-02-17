@@ -105,4 +105,16 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
   }
 
   protected def addPicardArgs(buffer: ListBuffer[Any]): Unit
+
+  // Utility methods to help set various properties
+
+  /** Sets the compression level to a specific value. */
+  def withCompression(i: Int) : this.type = { this.compressionLevel = Some(i); this }
+
+  /** Sets asynchronous IO on or off. */
+  def withAsyncIo(async: Boolean = true) : this.type = { this.useAsyncIo = async; this; }
+
+  /** Sets asynchronous IO on or off. */
+  def withIndexing(indexing: Boolean = true) : this.type = { this.createIndex = Some(indexing); this; }
+
 }
