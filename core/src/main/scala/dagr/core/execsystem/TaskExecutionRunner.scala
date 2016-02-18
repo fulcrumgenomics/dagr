@@ -26,9 +26,9 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.Instant
 
-import dagr.core.DagrDef._
 import dagr.commons.util.LazyLogging
-import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
+import dagr.core.DagrDef._
+import dagr.core.tasksystem.{InJvmTask, ProcessTask, UnitTask}
 
 import scala.collection.mutable
 
@@ -47,11 +47,10 @@ private[core] trait TaskExecutionRunnerApi {
   // TODO: timeout should be an Option with type http://www.scala-lang.org/api/2.11.0/scala/concurrent/duration/Duration.html
   /** Get the completed tasks.
     *
-    * @param timeout the length of time in milliseconds to wait for running threads to join
     * @param failedAreCompleted true if treat tasks that fail as completed, false otherwise
     * @return a map from task identifiers to exit code and on complete success for all completed tasks.
     */
-  def completedTasks(timeout: Int = 1000, failedAreCompleted: Boolean = false): Map[TaskId, (Int, Boolean)]
+  def completedTasks(failedAreCompleted: Boolean = false): Map[TaskId, (Int, Boolean)]
 
   /** Get the running task identifiers.
     *
@@ -66,6 +65,9 @@ private[core] trait TaskExecutionRunnerApi {
     * @return true if successful, false otherwise
     */
   def terminateTask(taskId: TaskId): Boolean
+
+  /** Join on all the running processes until they are finished or the timeout reached. */
+  def joinAll(millis: Long = 0) : Unit
 }
 
 private object TaskExecutionRunner {
@@ -215,32 +217,29 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
     }
   }
 
-  override def completedTasks(timeout: Int = 1000, failedAreCompleted: Boolean = false): Map[TaskId, (Int, Boolean)] = {
+  override def completedTasks(failedAreCompleted: Boolean = false): Map[TaskId, (Int, Boolean)] = {
     val completedTasks: mutable.Map[TaskId, (Int, Boolean)] = new mutable.HashMap[TaskId, (Int, Boolean)]()
-    for ((taskId, thread) <- processes) {
-      thread.join(timeout)
-      if (!thread.isAlive) {
-        val taskRunnable = taskRunners(taskId)
-        val exitCode: Int = taskRunnable.exitCode
-        val onCompleteSuccessful: Boolean = taskRunnable.onCompleteSuccessful match {
-          case Some(success) => success
-          case None => throw new IllegalStateException(s"Could not find exit code for task with id '$taskId'")
-        }
-        val taskInfo = taskInfos(taskId)
-        // update its end date, status, and log any exceptions
-        completeTask(
-          taskId=taskId,
-          taskInfo=taskInfo,
-          exitCode=exitCode,
-          onCompleteSuccessful=onCompleteSuccessful,
-          throwable=taskRunnable.throwable,
-          failedAreCompleted=failedAreCompleted
-        )
-        // store the relevant info in the completed tasks map
-        completedTasks.put(taskId, (exitCode, onCompleteSuccessful))
-        // we will no longer track this task
-        removeTask(taskId)
+    for ((taskId, thread) <- processes; if !thread.isAlive) {
+      val taskRunnable = taskRunners(taskId)
+      val exitCode: Int = taskRunnable.exitCode
+      val onCompleteSuccessful: Boolean = taskRunnable.onCompleteSuccessful match {
+        case Some(success) => success
+        case None => throw new IllegalStateException(s"Could not find exit code for task with id '$taskId'")
       }
+      val taskInfo = taskInfos(taskId)
+      // update its end date, status, and log any exceptions
+      completeTask(
+        taskId=taskId,
+        taskInfo=taskInfo,
+        exitCode=exitCode,
+        onCompleteSuccessful=onCompleteSuccessful,
+        throwable=taskRunnable.throwable,
+        failedAreCompleted=failedAreCompleted
+      )
+      // store the relevant info in the completed tasks map
+      completedTasks.put(taskId, (exitCode, onCompleteSuccessful))
+      // we will no longer track this task
+      removeTask(taskId)
     }
     completedTasks.toMap
   }
@@ -268,6 +267,23 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
           !thread.isAlive // thread is still alive WTF
         case _  => false
       }
+  }
+
+  /**
+   * Join on all the running processes until they are finished or the timeout reached. A timeout value of
+   * 0 means block indefinitely till the thread dies.
+   */
+  override def joinAll(millis: Long = 0): Unit = {
+    if (millis == 0) {
+      this.processes.values.foreach(_.join(millis))
+    }
+    else {
+      val joinUntil = System.currentTimeMillis() + millis
+      this.processes.values.foreach(p => {
+        val timeout= joinUntil - System.currentTimeMillis()
+        if (timeout > 0) p.join(timeout)
+      })
+    }
   }
 
   // for testing

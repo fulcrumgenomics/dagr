@@ -146,10 +146,9 @@ private[execsystem] trait TaskManagerLike {
     * This will terminate tasks that were still running before returning in the case of failure or
     * inability to schedule.
     *
-    * @param timeout           the length of time in milliseconds to wait for running tasks to complete
     * @return a bi-directional map from the set of tasks to their execution information.
     */
-  def runToCompletion(timeout: Int = 1000): BiMap[Task, TaskExecutionInfo]
+  def runToCompletion(): BiMap[Task, TaskExecutionInfo]
 
   /** Run a a single iteration of managing tasks.
     *
@@ -158,12 +157,11 @@ private[execsystem] trait TaskManagerLike {
     * 3. Get tasks for any task that has no predecessors until no more can be found.
     * 4. Schedule tasks and start running them.
     *
-    * @param timeout the length of time in milliseconds to wait for running tasks to complete
     * @return a tuple of:
     *         (1) tasks that can be scheduled.
     *         (2) tasks that were scheduled.
     *         (3) tasks that are running prior to scheduling.
     *         (4) the tasks that have completed prior to scheduling.
     */
-  def stepExecution(timeout: Int = 1000): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task])
+  def stepExecution(): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task])
 }

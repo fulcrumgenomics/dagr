@@ -163,6 +163,9 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   override protected def scriptPathFor(task: Task, taskId: TaskId): Path = pathFor(task, taskId, actualScriptsDirectory, "sh")
   override protected def logPathFor(task: Task, taskId: TaskId): Path = pathFor(task, taskId, actualLogsDirectory, "log")
 
+  /** For testing purposes only. */
+  private[core] def joinOnRunningTasks(millis: Long) = taskExecutionRunner.joinAll(millis)
+
   /** Replace the original task with the replacement task and update
    * any internal references.  This will terminate the task if it is running.
    *
@@ -282,8 +285,8 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     * @param timeout the length of time in milliseconds to wait for running tasks to complete
     * @return for each completed task, a map from a task identifier to a tuple of the exit code and the status of the `onComplete` method
     */
-  private def updateCompletedTasks(timeout: Int = 1000): Map[TaskId, (Int, Boolean)] = {
-    val completedTasks: Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks(timeout = timeout)
+  private def updateCompletedTasks(): Map[TaskId, (Int, Boolean)] = {
+    val completedTasks: Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks()
     completedTasks.keys.foreach(taskId => processCompletedTask(taskId))
     logger.debug("updateCompletedTasks: found " + completedTasks.size + " completed tasks")
     for (taskId <- completedTasks.keys) {
@@ -472,11 +475,11 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     }
   }
 
-  override def stepExecution(timeout: Int = 1000): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task]) = {
+  override def stepExecution(): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task]) = {
     logger.debug("runSchedulerOnce: starting one round of execution")
 
     // get newly completed tasks
-    val completedTasks = updateCompletedTasks(timeout = timeout)
+    val completedTasks = updateCompletedTasks()
 
     // check if we now know about the predecessors for orphan tasks.
     updateOrphans()
@@ -520,10 +523,10 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     )
   }
 
-  override def runToCompletion(timeout: Int = 1000): BiMap[Task, TaskExecutionInfo] = {
+  override def runToCompletion(): BiMap[Task, TaskExecutionInfo] = {
     var allDone = false
     while (!allDone) {
-      val (readyTasks, tasksToSchedule, runningTasks, _) = stepExecution(timeout = timeout)
+      val (readyTasks, tasksToSchedule, runningTasks, _) = stepExecution()
 
       Thread.sleep(sleepMilliseconds)
 
