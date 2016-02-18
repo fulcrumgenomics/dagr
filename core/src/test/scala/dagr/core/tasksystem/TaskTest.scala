@@ -166,6 +166,7 @@ class TaskTest extends UnitSpec with LazyLogging {
           submissionDate = None
         )
       )
+      taskRunner.joinAll(1000)
 
       // Make sure the task completed
       val completedMap: Map[TaskId, (Int, Boolean)] = taskRunner.completedTasks()

@@ -59,6 +59,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
                                runningTasksContains: List[Task],
                                completedTasksContains: List[Task],
                                failedAreCompleted: Boolean = true) = {
+    taskManager.joinOnRunningTasks(1000)
     val (readyTasks, tasksToSchedule, runningTasks, completedTasks) = taskManager.stepExecution()
     tasksToScheduleContains.foreach(task => tasksToSchedule should contain(task))
     runningTasksContains.foreach(task => runningTasks should contain(task))
@@ -185,7 +186,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     val taskManager: TaskManager = getDefaultTaskManager(sleepMilliseconds=1)
     taskManager.addTasks(longTask, failedTask)
-    taskManager.runToCompletion(timeout=1)
+    taskManager.runToCompletion()
     taskManager.taskStatusFor(failedTask).value should be(TaskStatus.FAILED_COMMAND)
     taskManager.graphNodeStateFor(failedTask).value should be(GraphNodeState.COMPLETED)
     taskManager.taskStatusFor(longTask).value should be(TaskStatus.FAILED_COMMAND)
@@ -375,6 +376,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     for ((taskStatus, exitCode, onCompleteSuccessful) <- statuses) {
       // run the task once
       runSchedulerOnce(taskManager = taskManager, tasksToScheduleContains = List[Task](task), runningTasksContains = Nil, completedTasksContains = Nil, failedAreCompleted = false)
+      taskManager.joinOnRunningTasks(2000)
 
       // we need to check the status of the task after it has completed but before it has been retried, so do this part manually.
       val taskRunner: TaskExecutionRunner = taskManager invokePrivate PrivateMethod[TaskExecutionRunner]('taskExecutionRunner)()
@@ -536,12 +538,15 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.addTask(predecessor)
     taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
     taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.RUNNING)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.RUNNING)
     taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.COMPLETED)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(successor).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(predecessor).value should be(GraphNodeState.COMPLETED)
   }
@@ -566,11 +571,14 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.graphNodeStateFor(rightA) should be ('empty)
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.ORPHAN)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(leftA).value should be(GraphNodeState.RUNNING)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(leftA).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(leftB).value should be(GraphNodeState.RUNNING)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(leftB).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(finalTask).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.ORPHAN)
@@ -578,15 +586,19 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     // now add right A
     taskManager.addTask(rightA)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(rightA).value should be(GraphNodeState.RUNNING)
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(rightA).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.RUNNING)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(finalTask).value should be(GraphNodeState.RUNNING)
     taskManager.stepExecution()
+    taskManager.joinOnRunningTasks(1000)
     taskManager.graphNodeStateFor(finalTask).value should be(GraphNodeState.COMPLETED)
   }
 
@@ -655,6 +667,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     // Run the scheduler again
     // The "predecessor" tasks should be complete, and so the successor pipeline and its "successor" tasks should be running.
+    taskManager.joinOnRunningTasks(1000)
     taskManager.stepExecution()
     taskManager.taskStatusFor(predecessorWorkflow).value should be(TaskStatus.SUCCEEDED)
     taskManager.taskStatusFor(predecessorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
@@ -671,6 +684,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     // Run the scheduler again
     // The successor pipeline and its "successor" tasks should be complete.
+    taskManager.joinOnRunningTasks(1000)
     taskManager.stepExecution()
     taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.SUCCEEDED)
     taskManager.taskStatusFor(successorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
@@ -816,7 +830,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.addTasks(tasks)
 
     // run the tasks
-    taskManager.runToCompletion(timeout = 1)
+    taskManager.runToCompletion()
 
     // make sure all tasks have been completed
     tasks.foreach { task =>
@@ -849,7 +863,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.addTasks(pipeline)
 
     // run the tasks
-    taskManager.runToCompletion(timeout = 1)
+    taskManager.runToCompletion()
 
     // get and check the info
     val pipelineInfo: TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, pipeline)
@@ -888,7 +902,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.addTasks(outerPipeline)
 
     // run the tasks
-    taskManager.runToCompletion(timeout = 1)
+    taskManager.runToCompletion()
 
     // get and check the info
     val firstTaskInfo : TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, firstTask)

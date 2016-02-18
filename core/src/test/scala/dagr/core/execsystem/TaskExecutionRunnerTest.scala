@@ -100,7 +100,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
 
   private def getCompletedTask(taskRunner: TaskExecutionRunner, task: UnitTask, taskId: TaskId, taskInfo: TaskExecutionInfo, taskStatus: TaskStatus.Value, exitCode: Int = 0, onCompleteSuccessful: Boolean = true, failedAreCompleted: Boolean = true): Unit = {
     // get the completed task
-    val completedTasks: Map[TaskId, (Int, Boolean)] = taskRunner.completedTasks(timeout = 1000, failedAreCompleted = failedAreCompleted)
+    val completedTasks: Map[TaskId, (Int, Boolean)] = taskRunner.completedTasks(failedAreCompleted = failedAreCompleted)
     completedTasks should have size 1 // only one task right?
     completedTasks should contain key taskId // should contain the task id
     completedTasks.get(taskId).value._1 should be (exitCode) // exit code is zero
@@ -120,6 +120,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     // run the task
     taskRunner.runTask(taskInfo = taskInfo)
     taskRunner.runningTaskIds should have size 1 // there should be a running task
+    taskRunner.joinAll(2000)
 
     // get the completed task
     getCompletedTask(taskRunner = taskRunner, task = task, taskId = taskId, taskInfo = taskInfo, taskStatus = taskStatus, exitCode = exitCode, onCompleteSuccessful = onCompleteSuccessful, failedAreCompleted = failedAreCompleted)
@@ -280,6 +281,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       logFile = null)
     taskRunner.runTask(taskInfo)
     taskInfo.status should be(TaskStatus.STARTED)
+    taskRunner.joinAll(1000)
     val completedTasks: Map[TaskId, (Int, Boolean)] = taskRunner.completedTasks()
     completedTasks.get(1).value._1 should be(1) // exit code
     completedTasks.get(1).value._2 should be(false) // on complete
@@ -345,6 +347,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       logFile = null
     )
     taskRunner.runTask(taskInfo=taskInfo, simulate=false) shouldBe true
+    taskRunner.joinAll(2000)
     val completedTask = taskRunner.completedTasks()
     completedTask.contains(1) shouldBe true
     completedTask.get(1).value shouldBe (1, true)
