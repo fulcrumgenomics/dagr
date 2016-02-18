@@ -48,22 +48,34 @@ class OptionParser(val argFilePrefix: Option[String] = None) extends OptionLooku
   /** Parse the given args. If an error was found, the first error is returned */
   def parse(args: String*): Try[this.type] = parse(args.toList)
 
+  /** Parse a single arg. If an error was found, the error is returned.  If no more args are found, returns a success.
+    * Otherwise recursively calls itself. */
+  private def parseRecursively(argTokenizer: ArgTokenizer, argTokenCollator: ArgTokenCollator): Try[this.type] = {
+    if (!argTokenCollator.hasNext) {
+      remainingArgs = argTokenCollator.takeRemaining
+      Success(this)
+    }
+    else {
+      argTokenCollator.next() match {
+        case Failure(failure) =>
+          remainingArgs = argTokenCollator.takeRemaining
+          Failure(failure)
+        case Success(ArgOptionAndValues(name, values)) =>
+          addOptionValues(name, values:_*) match {
+            case Failure(failure) =>
+              remainingArgs = Seq(ArgTokenizer.addBackDashes(name)) ++ values ++ argTokenCollator.takeRemaining
+              Failure(failure)
+            case _ => parseRecursively(argTokenizer=argTokenizer, argTokenCollator=argTokenCollator)
+          }
+      }
+    }
+  }
+
   /** Parse the given args. If an error was found, the first error is returned */
   def parse(args: List[String]) : Try[this.type] = {
     val argTokenizer = new ArgTokenizer(args, argFilePrefix=argFilePrefix)
     val argTokenCollator = new ArgTokenCollator(argTokenizer)
-
-    argTokenCollator.foreach {
-      case Failure(failure) => return Failure(failure)
-      case Success(ArgOptionAndValues(name, values)) =>
-        addOptionValues(name, values:_*) match {
-          case Failure(failure) => return Failure(failure)
-          case _ => Unit
-        }
-    }
-
-    remainingArgs = argTokenizer.takeRemaining
-    Success(this)
+    parseRecursively(argTokenizer=argTokenizer, argTokenCollator=argTokenCollator)
   }
 
   /** Applies the given function to the options with values.  If an error occurred in parsing, there will be no options */

@@ -116,13 +116,15 @@ object ParsingUtil {
       includeHidden = includeHidden)
   }
 
-  /** When a command does not match any known command, searches for similar commands, using the same method as GIT **/
-  private def findSimilar(target: String,
-                          options: Traversable[String],
-                          unknownSimilarityFloor: Int = 7,
-                          unknownSubstringLength: Int = 5
-                         ): Seq[String] = {
-    val distances: mutable.Map[String, Integer] = new mutable.HashMap[String, Integer]
+  /** Finds the the smallest similarity distance between the target and options, returning `Integer.MAX_VALUE` if none was
+    * found.
+    */
+  private[sopt] def findSmallestSimilarityDistance(target: String,
+                                                   options: Traversable[String],
+                                                   distances: mutable.Map[String, Integer] = new mutable.HashMap[String, Integer],
+                                                   unknownSimilarityFloor: Int = 7,
+                                                   unknownSubstringLength: Int = 5
+                               ): Int = {
     var bestDistance: Int = Integer.MAX_VALUE
     var bestN: Int = 0
     options.foreach{ name =>
@@ -144,9 +146,23 @@ object ParsingUtil {
         bestN += 1
       }
     }
-    if (0 == bestDistance && 1 < bestN && bestN == options.size) {
-      bestDistance = unknownSimilarityFloor + 1
-    }
+    if (0 == bestDistance && 1 < bestN && bestN == options.size) Integer.MAX_VALUE else bestDistance
+  }
+
+  /** When a command does not match any known command, searches for similar commands, using the same method as GIT **/
+  private def findSimilar(target: String,
+                          options: Traversable[String],
+                          unknownSimilarityFloor: Int = 7,
+                          unknownSubstringLength: Int = 5
+                         ): Seq[String] = {
+    val distances: mutable.Map[String, Integer] = new mutable.HashMap[String, Integer]
+    val bestDistance: Int = findSmallestSimilarityDistance(
+      target=target,
+      options=options,
+      distances=distances,
+      unknownSimilarityFloor=unknownSimilarityFloor,
+      unknownSubstringLength=unknownSubstringLength
+    )
     if (bestDistance < unknownSimilarityFloor) {
       options.filter(bestDistance == distances.get(_).get).toSeq
     }
