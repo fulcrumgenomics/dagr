@@ -95,14 +95,27 @@ lazy val commonSettings = Seq(
   // uncomment for full stack traces
   //testOptions in Test  += Tests.Argument("-oD"),
   fork in Test         := true,
-  test in assembly     := {},
-  logLevel in assembly := Level.Info,
   resolvers            += Resolver.jcenterRepo,
   shellPrompt          := { state => "%s| %s> ".format(GitCommand.prompt.apply(state), version.value) },
   coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*",
   updateOptions        := updateOptions.value.withCachedResolution(true),
   javaOptions in Test += "-Ddagr.color-status=false"
 ) ++ Defaults.coreDefaultSettings
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+// commons project
+////////////////////////////////////////////////////////////////////////////////////////////////
+lazy val commons = Project(id="dagr-commons", base=file("commons"))
+  .settings(commonSettings: _*)
+  .settings(description := "Scala commons for Fulcrum Genomics.")
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value,
+      //---------- Test libraries -------------------//
+      "org.scalatest"      %%  "scalatest"       %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
+    )
+  )
+  .disablePlugins(sbtassembly.AssemblyPlugin)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // sopt project
@@ -112,11 +125,14 @@ lazy val sopt = Project(id="dagr-sopt", base=file("sopt"))
   .settings(description := "Scala command line option parser.")
   .settings(
     libraryDependencies ++= Seq(
+      "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value,
+      "com.typesafe"       %   "config"            %  "1.3.0",
       //---------- Test libraries -------------------//
       "org.scalatest"      %%  "scalatest"       %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
+  .dependsOn(commons % "test->test;compile->compile")
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // core project
@@ -137,7 +153,9 @@ lazy val core = Project(id="dagr-core", base=file("core"))
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
-  .dependsOn(sopt)
+  .dependsOn(sopt % "test->test;compile->compile")
+  .dependsOn(commons % "test->test;compile->compile")
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // tasks project
@@ -160,6 +178,7 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
   .dependsOn(core)
+  .dependsOn(commons % "test->test;compile->compile")
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // pipelines project
@@ -173,12 +192,17 @@ lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // root (dagr) project
 ////////////////////////////////////////////////////////////////////////////////////////////////
+lazy val assemblySettings = Seq(
+  test in assembly     := {},
+  logLevel in assembly := Level.Info
+)
 lazy val root = Project(id="dagr", base=file("."))
   .settings(commonSettings: _*)
   .settings(unidocSettings: _*)
+  .settings(assemblySettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
-  .aggregate(sopt, core, tasks, pipelines)
-  .dependsOn(sopt, core, tasks, pipelines)
+  .aggregate(commons, sopt, core, tasks, pipelines)
+  .dependsOn(commons % "test->test;compile->compile", sopt % "test->test;compile->compile", core, tasks, pipelines)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Merge strategy for assembly

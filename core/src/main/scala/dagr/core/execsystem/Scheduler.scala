@@ -23,8 +23,8 @@
  */
 package dagr.core.execsystem
 
+import dagr.commons.util.LazyLogging
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
-import dagr.core.util.LazyLogging
 
 /** Scheduler of [[Task]] tasks */
 abstract class Scheduler extends LazyLogging {

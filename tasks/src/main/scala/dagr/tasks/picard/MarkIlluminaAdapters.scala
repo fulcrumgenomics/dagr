@@ -28,7 +28,8 @@ import java.nio.file.Path
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.SamOrBam
-import dagr.tasks.PathToBam
+import dagr.tasks.DagrDef
+import DagrDef.PathToBam
 
 import scala.collection.mutable.ListBuffer
 

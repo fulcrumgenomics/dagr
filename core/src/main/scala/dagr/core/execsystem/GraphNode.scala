@@ -23,7 +23,7 @@
  */
 package dagr.core.execsystem
 
-import dagr.DagrDef._
+import dagr.core.DagrDef._
 import dagr.core.execsystem.TaskManagerLike.BaseGraphNode
 import dagr.core.tasksystem.Task
 

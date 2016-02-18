@@ -26,7 +26,8 @@ package dagr.tasks.picard
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.{Fastq, SamOrBam}
-import dagr.tasks.{PathToBam, PathToFastq}
+import dagr.tasks.DagrDef
+import DagrDef.{PathToBam, PathToFastq}
 
 import scala.collection.mutable.ListBuffer
 

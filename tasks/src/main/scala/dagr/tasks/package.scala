@@ -28,37 +28,6 @@ package dagr
  * used throughout workflows.
  */
 package object tasks {
-  /////////////////////////////////////////////////////////////////////////////
-  // Path-like typedefs that are used to hint at what the Path should be to
-  /////////////////////////////////////////////////////////////////////////////
-
-  /** Represents a path to a BAM (or SAM or CRAM) file. */
-  type PathToBam = java.nio.file.Path
-
-  /** Represents a path to an intervals file (IntervalList or BED). */
-  type PathToIntervals = java.nio.file.Path
-
-  /** Represents a path to a FASTQ file (optionally gzipped). */
-  type PathToFastq = java.nio.file.Path
-
-  /** Represents a path to a Reference FASTA file. */
-  type PathToFasta = java.nio.file.Path
-
-  /** Represents a path to a VCF/BCF/VCF.gz. */
-  type PathToVcf = java.nio.file.Path
-
-  /** Represents a full path including directories, that is intended to be used as a prefix for generating file paths. */
-  type PathPrefix = java.nio.file.Path
-
-  /** Represents a path to directory. */
-  type DirPath = java.nio.file.Path
-
-  /** Represents a path to a file (not a directory) that doesn't have a more specific type. */
-  type FilePath = java.nio.file.Path
-
-  /** A String that represents the prefix or basename of a filename. */
-  type FilenamePrefix = String
-
   ///////////////////////////////////////////////////////////////////
   // Units of memory
   ///////////////////////////////////////////////////////////////////

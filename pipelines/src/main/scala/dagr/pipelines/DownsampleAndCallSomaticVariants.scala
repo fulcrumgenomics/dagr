@@ -26,11 +26,13 @@ package dagr.pipelines
 import java.text.DecimalFormat
 
 import _root_.picard.analysis.directed.HsMetrics
-import dagr.core.cmdline.{Arg, CLP}
+import dagr.core.cmdline.Pipelines
+import dagr.sopt._
 import dagr.core.execsystem.{Cores, Memory}
+import dagr.tasks.DagrDef
+import DagrDef._
 import dagr.core.tasksystem.{Linker, NoOpInJvmTask, Pipeline, SimpleInJvmTask}
-import dagr.core.util.Io
-import dagr.tasks._
+import dagr.commons.io.Io
 import dagr.tasks.jeanluc.FilterBam
 import dagr.tasks.picard.{CollectHsMetrics, DownsampleSam, DownsamplingStrategy}
 import htsjdk.samtools.metrics.MetricsFile
@@ -41,19 +43,20 @@ import scala.collection.JavaConversions._
   * Pipeline to downsample a Tumor to a specific median coverage level (per CollectHsMetrics)
   * and run somatic variant calling on it.
   */
-@CLP(
+@clp(
   description =
     """
       |Downsamples a Tumor BAM to various coverage levels and calls mutations in it." +
-    """
+    """,
+  group = classOf[Pipelines]
 )
-class DownsampleAndCallSomaticVariants(
-   @Arg(flag="t", doc="Tumor BAM file")                          val tumorBam:  PathToBam,
-   @Arg(flag="n", doc="Normal BAM file")                         val normalBam: PathToBam,
-   @Arg(flag="r", doc="Reference FASTA file")                    val ref: PathToFasta,
-   @Arg(flag="l", doc="Regions to call over")                    val intervals: PathToIntervals,
-   @Arg(          doc="One or more coverage levels to call at.") val coverage:  Seq[Int],
-   @Arg(flag="o", doc="Output directory")                        val output:    DirPath)
+class DownsampleAndCallSomaticVariants
+( @arg(flag="t", doc="Tumor BAM file")                          val tumorBam:  PathToBam,
+  @arg(flag="n", doc="Normal BAM file")                         val normalBam: PathToBam,
+  @arg(flag="r", doc="Reference FASTA file")                    val ref: PathToFasta,
+  @arg(flag="l", doc="Regions to call over")                    val intervals: PathToIntervals,
+  @arg(          doc="One or more coverage levels to call at.") val coverage:  Seq[Int],
+  @arg(flag="o", doc="Output directory")                        val output:    DirPath)
   extends Pipeline(Some(output)) {
 
   override def build(): Unit = {

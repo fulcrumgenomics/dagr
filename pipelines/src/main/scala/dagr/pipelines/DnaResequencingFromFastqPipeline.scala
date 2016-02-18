@@ -27,14 +27,16 @@ import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
 import dagr.core.tasksystem._
-import dagr.core.util.Io
-import dagr.tasks._
+import dagr.commons.io.Io
+import dagr.sopt.cmdline.ValidationException
+import dagr.tasks.DagrDef
+import DagrDef._
 import dagr.tasks.picard._
+import dagr.sopt._
 
 import scala.collection.mutable.ListBuffer
 
 object DnaResequencingFromFastqPipeline {
-  @inline
   final val SUMMARY =
     """
       |Dna Resequencing from Fastq Pipeline.
@@ -46,23 +48,23 @@ object DnaResequencingFromFastqPipeline {
     """
 }
 
-@CLP(
+@clp(
   description = DnaResequencingFromFastqPipeline.SUMMARY,
   group = classOf[Pipelines])
-class DnaResequencingFromFastqPipeline(
-  @Arg(doc="Input fastq file (optionally gzipped) for read 1.")    val fastq1: List[PathToFastq],
-  @Arg(doc="Input fastq file (optionally gzipped) for read 2.")    val fastq2: List[PathToFastq],
-  @Arg(doc="Path to the reference FASTA.")                         val ref: PathToFasta,
-  @Arg(flag="s", doc="The name of the sample.")                    val sample: String,
-  @Arg(flag="l", doc="The name of the library.")                   val library: String,
-  @Arg(flag="p", doc="The platform unit (@RG.PU).")                val platformUnit: List[String],
-  @Arg(doc="Use bwa aln/sampe' instead of bwa mem.")               val useBwaBacktrack: Boolean = false,
-  @Arg(doc="The number of threads to use for BWA.")                val numBwaMemThreads: Int = 3,
-  @Arg(doc="The number of reads to target when downsampling.")     val downsampleToReads: Long = Math.round(185e6 / 101),
-  @Arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
-  @Arg(doc="Path to a temporary directory.")                       val tmp: Path,
-  @Arg(flag="o", doc="The output directory to which files are written.")  val out: DirPath,
-  @Arg(doc="The basename for all output files. Uses library if omitted.") val basename: Option[FilenamePrefix]
+class DnaResequencingFromFastqPipeline
+( @arg(doc="Input fastq file (optionally gzipped) for read 1.")    val fastq1: List[PathToFastq],
+  @arg(doc="Input fastq file (optionally gzipped) for read 2.")    val fastq2: List[PathToFastq],
+  @arg(doc="Path to the reference FASTA.")                         val ref: PathToFasta,
+  @arg(flag="s", doc="The name of the sample.")                    val sample: String,
+  @arg(flag="l", doc="The name of the library.")                   val library: String,
+  @arg(flag="p", doc="The platform unit (@RG.PU).")                val platformUnit: List[String],
+  @arg(doc="Use bwa aln/sampe' instead of bwa mem.")               val useBwaBacktrack: Boolean = false,
+  @arg(doc="The number of threads to use for BWA.")                val numBwaMemThreads: Int = 3,
+  @arg(doc="The number of reads to target when downsampling.")     val downsampleToReads: Long = Math.round(185e6 / 101),
+  @arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
+  @arg(doc="Path to a temporary directory.")                       val tmp: Path,
+  @arg(flag="o", doc="The output directory to which files are written.")  val out: DirPath,
+  @arg(doc="The basename for all output files. Uses library if omitted.") val basename: Option[FilenamePrefix]
 ) extends Pipeline(outputDirectory = Some(out)) {
   name = getClass.getSimpleName
 

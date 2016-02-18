@@ -25,8 +25,9 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.util.PathUtil
-import dagr.tasks.{PathPrefix, PathToBam}
+import dagr.commons.io.PathUtil
+import dagr.tasks.DagrDef
+import DagrDef.{PathPrefix, PathToBam}
 
 object PicardOutput extends Enumeration {
   val Text = Value("txt")

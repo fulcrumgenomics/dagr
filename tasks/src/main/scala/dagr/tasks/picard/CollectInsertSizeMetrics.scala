@@ -23,7 +23,8 @@
  */
 package dagr.tasks.picard
 
-import dagr.tasks.{PathPrefix, PathToBam}
+import dagr.tasks.DagrDef
+import DagrDef.{PathPrefix, PathToBam}
 
 import scala.collection.mutable.ListBuffer
 

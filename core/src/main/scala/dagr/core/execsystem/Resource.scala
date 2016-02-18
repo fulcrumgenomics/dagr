@@ -23,8 +23,6 @@
  */
 package dagr.core.execsystem
 
-import java.util.regex.{Matcher, Pattern}
-
 import oshi.SystemInfo
 import oshi.hardware.platform.mac.MacHardwareAbstractionLayer
 

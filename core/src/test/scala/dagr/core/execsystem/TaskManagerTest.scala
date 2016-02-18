@@ -23,9 +23,10 @@
  */
 package dagr.core.execsystem
 
-import dagr.DagrDef._
+import dagr.core.DagrDef._
+import dagr.commons.util.{UnitSpec, LogLevel, LazyLogging, Logger}
 import dagr.core.tasksystem._
-import dagr.core.util._
+import dagr.commons.util._
 import org.scalatest._
 
 object TaskManagerTest {
@@ -786,7 +787,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     }
   }
 
-  it should "handle a few thousand tasks" taggedAs LongRunningTest in {
+  it should "handle a few thousand tasks" taggedAs TestTags.LongRunningTest in {
     val numTasks = 10000
     val dependencyProbability = 0.1
 

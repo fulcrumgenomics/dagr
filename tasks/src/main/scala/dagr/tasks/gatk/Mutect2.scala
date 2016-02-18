@@ -24,7 +24,8 @@
 package dagr.tasks.gatk
 
 import dagr.core.tasksystem.FixedResources
-import dagr.tasks.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
+import dagr.tasks.DagrDef
+import DagrDef.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer
 

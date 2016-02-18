@@ -26,16 +26,18 @@ package dagr.pipelines
 import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{Pipeline, ProcessTask, ShellCommand, ValidationException}
-import dagr.core.util.Io
-import dagr.tasks._
+import dagr.core.tasksystem.{Pipeline, ProcessTask, ShellCommand}
+import dagr.commons.io.Io
+import dagr.sopt.cmdline.ValidationException
+import dagr.tasks.DagrDef
+import DagrDef._
 import dagr.tasks.picard.{FastqToUnmappedSam, MergeSamFiles, DeleteBam}
+import dagr.sopt._
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable.ListBuffer
 
 object CreateUnmappedBamFromFastqPipeline {
-  @inline
   final val SUMMARY =
     """
       |Create Unmapped Bam From Fastq Pipeline.  Runs:
@@ -43,20 +45,20 @@ object CreateUnmappedBamFromFastqPipeline {
       |"""
 }
 
-@CLP(
+@clp(
   description = CreateUnmappedBamFromFastqPipeline.SUMMARY,
   group = classOf[Pipelines])
-class CreateUnmappedBamFromFastqPipeline(
-  @Arg(doc="Input fastq file (optionally gzipped) for read 1.")                   val fastq1: List[PathToFastq],
-  @Arg(doc="Input fastq file (optionally gzipped) for read 2.")                   val fastq2: List[PathToFastq],
-  @Arg(doc="Path to the reference FASTA.")                                        val ref: PathToFasta,
-  @Arg(flag="s", doc="The name of the sample.")                                   val sample: String,
-  @Arg(flag="l", doc="The name of the library.")                                  val library: String,
-  @Arg(flag="p", doc="The platform unit (@RG.PU).")                               val platformUnit: List[String],
-  @Arg(doc="Path to a temporary directory.")                                      val tmp: Path,
-  @Arg(flag="o", doc="The output directory in which to write files.")             val out: DirPath,
-  @Arg(doc="The filename prefix for output files. Library is used if omitted.")   val basename: Option[FilenamePrefix] = None,
-  @Arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None
+class CreateUnmappedBamFromFastqPipeline
+( @arg(doc="Input fastq file (optionally gzipped) for read 1.")                   val fastq1: List[PathToFastq],
+  @arg(doc="Input fastq file (optionally gzipped) for read 2.")                   val fastq2: List[PathToFastq],
+  @arg(doc="Path to the reference FASTA.")                                        val ref: PathToFasta,
+  @arg(flag="s", doc="The name of the sample.")                                   val sample: String,
+  @arg(flag="l", doc="The name of the library.")                                  val library: String,
+  @arg(flag="p", doc="The platform unit (@RG.PU).")                               val platformUnit: List[String],
+  @arg(doc="Path to a temporary directory.")                                      val tmp: Path,
+  @arg(flag="o", doc="The output directory in which to write files.")             val out: DirPath,
+  @arg(doc="The filename prefix for output files. Library is used if omitted.")   val basename: Option[FilenamePrefix] = None,
+  @arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None
 ) extends Pipeline(Some(out)) {
 
   name = "CreateUnmappedBamFromFastqPipeline"

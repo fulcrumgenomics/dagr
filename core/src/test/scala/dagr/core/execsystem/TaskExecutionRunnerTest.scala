@@ -25,9 +25,10 @@ package dagr.core.execsystem
 
 import java.nio.file.{Files, Path}
 
-import dagr.DagrDef._
+import dagr.core.DagrDef._
+import dagr.commons.util.{LogLevel, LazyLogging, Logger}
 import dagr.core.tasksystem._
-import dagr.core.util.{LogLevel, Logger, LazyLogging, UnitSpec}
+import dagr.commons.util.UnitSpec
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
 
 class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndAfterAll with LazyLogging {

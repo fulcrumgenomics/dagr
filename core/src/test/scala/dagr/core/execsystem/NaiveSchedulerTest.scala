@@ -23,8 +23,9 @@
  */
 package dagr.core.execsystem
 
+import dagr.commons.util.LazyLogging
 import dagr.core.tasksystem._
-import dagr.core.util.{LazyLogging, UnitSpec}
+import dagr.commons.util.UnitSpec
 
 import scala.collection.mutable.ListBuffer
 

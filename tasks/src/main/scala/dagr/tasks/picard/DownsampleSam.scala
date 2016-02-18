@@ -26,7 +26,8 @@ package dagr.tasks.picard
 import java.nio.file.Files
 
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.tasks.PathToBam
+import dagr.tasks.DagrDef
+import DagrDef.PathToBam
 import dagr.tasks.picard.DownsamplingStrategy.DownsamplingStrategy
 
 import scala.collection.mutable.ListBuffer

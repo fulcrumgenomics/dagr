@@ -27,10 +27,12 @@ package dagr.pipelines
 import java.nio.file.{Files, Path}
 
 import _root_.picard.analysis.CollectMultipleMetrics.Program
+import dagr.sopt._
 import dagr.core.cmdline._
 import dagr.core.tasksystem.{Linker, Pipeline, ProcessTask, Task}
-import dagr.core.util.{Io, PathUtil}
-import dagr.tasks._
+import dagr.commons.io.{Io, PathUtil}
+import dagr.tasks.DagrDef
+import DagrDef._
 import dagr.tasks.bwa.{Bwa, BwaBacktrack}
 import dagr.tasks.misc.CalculateDownsamplingProportion
 import dagr.tasks.picard._
@@ -49,18 +51,18 @@ object DnaResequencingFromUnmappedBamPipeline {
       |"""
 }
 
-@CLP(
+@clp(
   description = DnaResequencingFromUnmappedBamPipeline.SUMMARY,
   group = classOf[Pipelines])
-class DnaResequencingFromUnmappedBamPipeline(
-  @Arg(doc="Path to the unmapped BAM.")                            val unmappedBam: PathToBam,
-  @Arg(doc="Path to the reference FASTA.")                         val ref: PathToFasta,
-  @Arg(doc="Use bwa aln/sampe' instead of bwa mem.")               val useBwaBacktrack: Boolean = false,
-  @Arg(doc="The number of reads to target when downsampling.")     val downsampleToReads: Long = Math.round(185e6 / 101),
-  @Arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
-  @Arg(doc="Path to a temporary directory.")                       val tmp: Path,
-  @Arg(flag="o", doc="The output directory to write to.")          val out: DirPath,
-  @Arg(doc="The filename prefix for output files.")                val basename: FilenamePrefix
+class DnaResequencingFromUnmappedBamPipeline
+( @arg(doc="Path to the unmapped BAM.")                            val unmappedBam: PathToBam,
+  @arg(doc="Path to the reference FASTA.")                         val ref: PathToFasta,
+  @arg(doc="Use bwa aln/sampe' instead of bwa mem.")               val useBwaBacktrack: Boolean = false,
+  @arg(doc="The number of reads to target when downsampling.")     val downsampleToReads: Long = Math.round(185e6 / 101),
+  @arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
+  @arg(doc="Path to a temporary directory.")                       val tmp: Path,
+  @arg(flag="o", doc="The output directory to write to.")          val out: DirPath,
+  @arg(doc="The filename prefix for output files.")                val basename: FilenamePrefix
 ) extends Pipeline(Some(out)) {
 
   name = getClass.getSimpleName

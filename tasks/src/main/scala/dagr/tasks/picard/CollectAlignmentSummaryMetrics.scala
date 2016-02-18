@@ -25,7 +25,8 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.tasks.{PathToBam, PathToFasta}
+import dagr.tasks.DagrDef
+import DagrDef.{PathToBam, PathToFasta}
 
 import scala.collection.mutable.ListBuffer
 

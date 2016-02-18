@@ -23,7 +23,8 @@
  */
 package dagr.tasks.picard
 
-import dagr.tasks.PathToIntervals
+import dagr.tasks.DagrDef
+import DagrDef.PathToIntervals
 import picard.util.IntervalListTools.Action
 
 import scala.collection.mutable.ListBuffer

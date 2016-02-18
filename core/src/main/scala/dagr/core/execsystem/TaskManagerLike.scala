@@ -24,10 +24,10 @@
 
 package dagr.core.execsystem
 
+import dagr.core.DagrDef._
 import dagr.core.execsystem.TaskManagerLike.BaseGraphNode
 import dagr.core.tasksystem.Task
-import dagr.core.util.BiMap
-import dagr.DagrDef._
+import dagr.commons.util.BiMap
 
 private[execsystem] object TaskManagerLike {
   abstract class BaseGraphNode

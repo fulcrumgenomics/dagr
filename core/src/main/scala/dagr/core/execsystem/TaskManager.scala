@@ -26,9 +26,11 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.Instant
 
-import dagr.DagrDef._
+import dagr.core.DagrDef._
+import dagr.commons.util.LazyLogging
 import dagr.core.tasksystem.{Task, UnitTask}
-import dagr.core.util.{BiMap, Io, LazyLogging, PathUtil}
+import dagr.commons.util.BiMap
+import dagr.commons.io.{Io, PathUtil}
 
 /** The resources needed for the task manager */
 private[core] object TaskManagerResources {

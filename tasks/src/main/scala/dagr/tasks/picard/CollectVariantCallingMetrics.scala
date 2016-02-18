@@ -28,7 +28,8 @@ import java.nio.file.Path
 
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.VariableResources
-import dagr.tasks.{PathToIntervals, PathToVcf}
+import dagr.tasks.DagrDef
+import DagrDef.{PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer
 

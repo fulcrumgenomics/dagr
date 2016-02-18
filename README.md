@@ -29,7 +29,7 @@ We are currently in alpha development; please see the [Roadmap](#roadmap).
 
 There are many toolkits available for creating and executing pipelines of dependent jobs; dagr does not aim to be all things to all people but to make certain types of pipelines easier and more pleasurable to write.  It is specifically focused on:
 
-* Writing pipeline that are concise, legible and type-safe
+* Writing pipelines that are concise, legible, and type-safe
 * Easy composition of pipelines into bigger pipelines
 * Providing safe and coherent ways to dynamically change the graph during execution
 * Making the full power and expressiveness of [scala](http://www.scala-lang.org/) available to pipeline authors

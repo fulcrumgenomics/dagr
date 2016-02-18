@@ -27,7 +27,8 @@ import java.nio.file.{Path, Files}
 import java.util.stream.Collectors
 
 import dagr.core.tasksystem.SimpleInJvmTask
-import dagr.tasks.{FilePath}
+import dagr.tasks.DagrDef
+import DagrDef.FilePath
  import scala.collection.JavaConversions._
 
 /**

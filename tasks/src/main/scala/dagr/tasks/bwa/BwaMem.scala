@@ -25,9 +25,10 @@ package dagr.tasks.bwa
 
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{Pipe, ProcessTask, VariableResources}
-import dagr.core.util.Io
+import dagr.commons.io.Io
 import dagr.tasks.DataTypes.{Fastq, Sam}
-import dagr.tasks.{PathToBam, PathToFasta, PathToFastq}
+import dagr.tasks.DagrDef
+import DagrDef.{PathToBam, PathToFasta, PathToFastq}
 
 class BwaMem(fastq: PathToFastq = Io.StdIn,
              out: Option[PathToBam] = None,

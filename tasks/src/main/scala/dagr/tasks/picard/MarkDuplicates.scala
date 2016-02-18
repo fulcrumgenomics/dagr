@@ -26,8 +26,9 @@ package dagr.tasks.picard
 import java.nio.file.Path
 
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.util.Io
-import dagr.tasks.PathToBam
+import dagr.commons.io.Io
+import dagr.tasks.DagrDef
+import DagrDef.PathToBam
 
 import scala.collection.mutable.ListBuffer
 

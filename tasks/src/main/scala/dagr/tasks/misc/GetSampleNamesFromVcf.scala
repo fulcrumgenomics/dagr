@@ -25,7 +25,8 @@
 package dagr.tasks.misc
 
 import dagr.core.tasksystem.SimpleInJvmTask
-import dagr.tasks.PathToVcf
+import dagr.tasks.DagrDef
+import DagrDef.PathToVcf
 import htsjdk.samtools.util.CloserUtil
 import htsjdk.variant.vcf.{VCFFileReader, VCFHeader}
 import scala.collection.mutable

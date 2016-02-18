@@ -23,7 +23,8 @@
  */
 package dagr.tasks.gatk
 
-import dagr.tasks._
+import dagr.tasks.DagrDef
+import DagrDef._
 
 import scala.collection.mutable.ListBuffer
 

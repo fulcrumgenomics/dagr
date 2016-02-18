@@ -25,7 +25,8 @@
 package dagr.tasks.jeanluc
 
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.tasks.PathToFasta
+import dagr.tasks.DagrDef
+import DagrDef.PathToFasta
 
 import scala.collection.mutable.ListBuffer
 

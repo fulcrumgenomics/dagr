@@ -23,7 +23,8 @@
  */
 package dagr.tasks.jeanluc
 
-import dagr.tasks.{PathToBam, PathToIntervals}
+import dagr.tasks.DagrDef
+import DagrDef.{PathToBam, PathToIntervals}
 
 import scala.collection.mutable.ListBuffer
 

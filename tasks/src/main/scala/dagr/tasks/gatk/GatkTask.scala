@@ -28,7 +28,8 @@ import java.nio.file.Path
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
-import dagr.tasks.{JarTask, PathToFasta, PathToIntervals}
+import dagr.tasks.{DagrDef, JarTask}
+import DagrDef.{PathToFasta, PathToIntervals}
 
 import scala.collection.mutable.ListBuffer
 

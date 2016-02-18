@@ -23,12 +23,14 @@
  */
 package dagr.core.config
 
+import java.io.PrintWriter
 import java.nio.file.{Files, Path}
 import java.time.Duration
 
 import com.typesafe.config.{ConfigException, ConfigFactory}
+import dagr.commons.io.{Io, PathUtil}
+import dagr.commons.util.UnitSpec
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.util.{PathUtil, UnitSpec}
 
 /**
   * Tests for the Configuration trait.
@@ -47,11 +49,12 @@ class ConfigurationTest extends UnitSpec {
       |a-bigint = 999999999999999999999999999999999999999999999999999999999999999
       |a-bigdec = 999999999999999999999999999999999999999999999999999999999999999.1
       |a-path   = /foo/bar/splat.txt
+      |some-time   = 60s
+      |some-string-list = ["a", list, "of", strings]
+      |a-path   = /foo/bar/splat.txt
       |some-cores  = 2.5
       |some-memory = 2G
-      |some-time   = 60s
       |some-executable = /does/not/exist
-      |some-string-list = ["a", list, "of", strings]
       |    """.stripMargin)
 
   val conf = new Configuration { override val config = _config.resolve() }
@@ -67,10 +70,11 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[BigInt]("a-bigint") shouldBe BigInt("999999999999999999999999999999999999999999999999999999999999999")
     conf.configure[BigDecimal]("a-bigdec") shouldBe BigDecimal("999999999999999999999999999999999999999999999999999999999999999.1")
     conf.configure[Path]("a-path") shouldBe PathUtil.pathTo("/foo/bar/splat.txt")
-    conf.configure[Cores]("some-cores") shouldBe Cores(2.5)
-    conf.configure[Memory]("some-memory") shouldBe Memory("2g")
     conf.configure[Duration]("some-time") shouldBe Duration.ofSeconds(60)
     conf.configure[List[String]]("some-string-list") shouldBe List[String]("a", "list", "of", "strings")
+    conf.configure[Path]("a-path") shouldBe PathUtil.pathTo("/foo/bar/splat.txt")
+    conf.configure[Cores]("some-cores") shouldBe Cores(2.5)
+    conf.configure[Memory]("some-memory") shouldBe Memory("2g")
   }
 
   it should "support optional configuration" in {
@@ -78,8 +82,8 @@ class ConfigurationTest extends UnitSpec {
     // The following should all behave the same, but check a few just in case
     conf.optionallyConfigure[Long]("non-existent-key") shouldBe None
     conf.optionallyConfigure[Path]("non-existent-key") shouldBe None
-    conf.optionallyConfigure[Cores]("non-existent-key") shouldBe None
     conf.optionallyConfigure[Duration]("non-existent-key") shouldBe None
+    conf.optionallyConfigure[Cores]("non-existent-key") shouldBe None
   }
 
   it should "support default values" in {
@@ -88,6 +92,7 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[Boolean]("a-boolean", false) shouldBe true
     conf.configure[Long]("a-long", 999) shouldBe 1234567890
     conf.configure[Float]("a-float", 999f) shouldBe 12345.67f
+    conf.configure[Path]("a-path", PathUtil.pathTo("/path/to/nowhere")) shouldBe PathUtil.pathTo("/foo/bar/splat.txt")
     conf.configure[Path]("a-path", PathUtil.pathTo("/path/to/nowhere")) shouldBe PathUtil.pathTo("/foo/bar/splat.txt")
     conf.configure[Cores]("some-cores", Cores(50f)) shouldBe Cores(2.5)
     conf.configure[Memory]("some-memory", Memory("128G")) shouldBe Memory("2g")
@@ -98,8 +103,29 @@ class ConfigurationTest extends UnitSpec {
     conf.configure[Long]("foo.bar.splat.a-long", 999) shouldBe 999
     conf.configure[Float]("no-float", 999f) shouldBe 999f
     conf.configure[Path]("xxx", PathUtil.pathTo("/path/to/nowhere")) shouldBe PathUtil.pathTo("/path/to/nowhere")
+    conf.configure[Path]("xxx", PathUtil.pathTo("/path/to/nowhere")) shouldBe PathUtil.pathTo("/path/to/nowhere")
     conf.configure[Cores]("no-cores.here", Cores(50f)) shouldBe Cores(50.0)
     conf.configure[Memory]("i.forgot", Memory("128G")) shouldBe Memory("128g")
+  }
+
+  it should "throw an exception for unsupported types" in {
+    an[IllegalArgumentException] should be thrownBy conf.configure[Char]("a-char")
+    an[IllegalArgumentException] should be thrownBy conf.configure[Set[String]]("a-string-set")
+  }
+
+  it should "load a config from a file" in {
+    val configPath = Files.createTempFile("config", ".txt")
+    configPath.toFile.deleteOnExit()
+
+    val pw = new PrintWriter(Io.toWriter(configPath))
+    pw.println(Configuration.Keys.CommandLineName + " = command-line-name")
+    pw.println(Configuration.Keys.ColorStatus + " = false")
+    pw.close()
+
+    val conf = new Configuration {  override val config = ConfigFactory.parseFile(configPath.toFile) }
+    conf.configure[String](Configuration.Keys.CommandLineName) shouldBe "command-line-name"
+    conf.configure[Boolean](Configuration.Keys.ColorStatus) shouldBe false
+    conf.optionallyConfigure[String](Configuration.Keys.SystemPath) shouldBe 'empty
   }
 
   it should "find executables" in {
@@ -114,16 +140,11 @@ class ConfigurationTest extends UnitSpec {
     java = conf.configureExecutableFromBinDirectory("path-does-not-exist", "java")
     java.getFileName.toString shouldBe "java"
     Files.isExecutable(java) shouldBe true
-    Configuration.requestedKeys should contain ("java.exe")
+    Configuration.requestedKeys should contain("java.exe")
   }
 
   it should "thrown an exception when an executable cannot be found" in {
     an[ConfigException] should be thrownBy conf.configureExecutable("some-executable-not-found", "n/a")
     an[ConfigException] should be thrownBy conf.configureExecutableFromBinDirectory("some-bin-dir-not-found", "n/a")
-  }
-
-  it should "throw an exception for unsupported types" in {
-    an[IllegalArgumentException] should be thrownBy conf.configure[Char]("a-char")
-    an[IllegalArgumentException] should be thrownBy conf.configure[Set[String]]("a-string-set")
   }
 }

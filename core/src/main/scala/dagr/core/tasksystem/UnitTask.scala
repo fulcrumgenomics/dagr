@@ -23,8 +23,8 @@
  */
 package dagr.core.tasksystem
 
+import dagr.commons.util.LazyLogging
 import dagr.core.execsystem.{ResourceSet, Scheduler}
-import dagr.core.util.LazyLogging
 
 /** A task that should be directly executed or scheduled.
  *
