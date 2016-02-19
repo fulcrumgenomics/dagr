@@ -81,9 +81,10 @@ Tests may be run with ```sbt test```.
 
 ## Include dagr in your project
 
-We have not made an initial release, but when we do, you can include the four sub-projects that make up dagr using:
+We have not made an initial release, but when we do, you can include the five sub-projects that make up dagr using:
 
 ```
+libraryDependencies += "com.fulcrumgenomics" %%  "dagr-commons" % "0.1.0"
 libraryDependencies += "com.fulcrumgenomics" %%  "dagr-sopt" % "0.1.0"
 libraryDependencies += "com.fulcrumgenomics" %%  "dagr-core" % "0.1.0"
 libraryDependencies += "com.fulcrumgenomics" %%  "dagr-tasks" % "0.1.0"
@@ -96,7 +97,7 @@ Or you can depend on the following which will pull in the four dependencies abov
 libraryDependencies += "com.fulcrumgenomics" %% "dagr" % "0.1.0",
 ```
 
-In the meantime, clone dagr and use `sbt publishLocal`.
+In the meantime, clone dagr and use `sbt publishLocal` and append `-SNAPSHOT` to the version above.
 
 ## Roadmap
 
@@ -104,12 +105,13 @@ We are currently working on the first release of `dagr` and therefore rapidly ev
 
 ## Overview
 
-`dagr` contains four projects:
+`dagr` contains five projects:
 
-1. `dagr-sopt` for option parsing in scala.
-2. `dagr-core` for specifying, scheduling, and executing tasks with dependencies.
-3. `dagr-tasks` for common genomic analysis tasks, such as those in [Picard tools](https://github.com/broadinstitute/picard), [JeanLuc](https://github.com/fulcrumgenomics/JeanLuc), [Bwa](https://github.com/lh3/bwa), and elsewhere.
-4. `dagr-pipelines` for common genomic pipelines, such as mapping, variant calling, and quality control.
+1. `dagr-commons` for common scala utility methods and classes.
+2. `dagr-sopt` for option and command-line parsing in scala.
+3. `dagr-core` for specifying, scheduling, and executing tasks with dependencies.
+4. `dagr-tasks` for common genomic analysis tasks, such as those in [Picard tools](https://github.com/broadinstitute/picard), [JeanLuc](https://github.com/fulcrumgenomics/JeanLuc), [Bwa](https://github.com/lh3/bwa), and elsewhere.
+5. `dagr-pipelines` for common genomic pipelines, such as mapping, variant calling, and quality control.
 
 `dagr` endeavors to combine the full features of the Scala programming language with a simplifying DSL for fast and easy authoring of complicated tasks and pipelines.
 
