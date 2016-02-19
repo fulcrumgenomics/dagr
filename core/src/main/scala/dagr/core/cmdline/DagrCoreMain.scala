@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,11 +26,12 @@ package dagr.core.cmdline
 import java.io.PrintWriter
 import java.nio.file.{Files, Path}
 
-import dagr.commons.util.{LogLevel, LazyLogging, Logger}
+import dagr.commons.io.{Io, PathUtil}
+import dagr.commons.util.{LazyLogging, LogLevel, Logger}
 import dagr.core.config.Configuration
 import dagr.core.execsystem._
 import dagr.core.tasksystem.Pipeline
-import dagr.commons.io.{PathUtil, Io}
+import dagr.core.webservice.DagrServer
 import dagr.sopt.arg
 import dagr.sopt.cmdline.{CommandLineParser, ValidationException}
 import dagr.sopt.util.TermCode
@@ -49,7 +50,6 @@ object DagrCoreMain extends Configuration {
     makeItSo(args, packageList = getPackageList)
   }
 
-
   /** Loads the various dagr scripts and puts them on the classpath. */
   private def loadScripts(clp: DagrCoreMain): Unit = {
     val scriptLoader = new DagrScriptManager
@@ -59,7 +59,6 @@ object DagrCoreMain extends Configuration {
       quiet = false
     )
   }
-
 
   /**
     * Main entry point for the class. Parses the args and executes the pipeline. */
@@ -140,7 +139,9 @@ class DagrCoreMain(
   @arg(doc = "Set the memory available to dagr.", common = true)
   val memory: Option[String] = None,
   @arg(doc = "Write an execution report to this file, otherwise write to the stdout", common = true)
-  val report: Option[Path] = None
+  val report: Option[Path] = None,
+  @arg(doc = "Run the Dagr web-service. Dagr will not exit once all tasks have completed. ", common = true, flag="w")
+  val webservice: Boolean = false
 ) extends LazyLogging {
 
   // These are not optional, but are only populated during configure()
@@ -206,6 +207,13 @@ class DagrCoreMain(
     val taskMan = this.taskManager.getOrElse(throw new IllegalStateException("execute() called before configure()"))
     val report  = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
 
+    // Set up the web service
+    if (webservice) {
+      val server = new DagrServer(taskMan)
+      server.startAllServices()
+      sys addShutdownHook server.stopAllServices()
+    }
+
     taskMan.addTask(pipeline)
     taskMan.runToCompletion()
 
@@ -215,8 +223,14 @@ class DagrCoreMain(
     pw.close()
 
     // return an exit code based on the number of non-completed tasks
-    taskMan.taskToInfoBiMapFor.count { case (task, info) =>
+    val numNotCompleted = taskMan.taskToInfoBiMap.count { case (task, info) =>
       TaskStatus.isTaskNotDone(info.status, failedIsDone=false)
     }
+
+    if (webservice) {
+      while (true) Thread.sleep(500)
+    }
+
+    numNotCompleted
   }
 }

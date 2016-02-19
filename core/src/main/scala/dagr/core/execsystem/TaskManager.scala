@@ -119,7 +119,7 @@ object TaskManager extends LazyLogging {
     taskManager.addTask(task = task)
     taskManager.runToCompletion()
 
-    taskManager.taskToInfoBiMapFor
+    taskManager.taskToInfoBiMap
   }
 }
 
@@ -551,6 +551,6 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
       processCompletedTask(taskId = node.taskId, doRetry = false)
     }
 
-    taskToInfoBiMapFor
+    taskToInfoBiMap
   }
 }

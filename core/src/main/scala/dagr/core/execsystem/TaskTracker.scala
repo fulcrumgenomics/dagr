@@ -196,7 +196,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     }
   }
 
-  override def taskToInfoBiMapFor: BiMap[Task, TaskExecutionInfo] = {
+  override def taskToInfoBiMap: BiMap[Task, TaskExecutionInfo] = {
     val map: BiMap[Task, TaskExecutionInfo] = new BiMap[Task, TaskExecutionInfo]()
     for ((task, trackingInfo) <- taskAndGraphNode) {
       map.add(task, trackingInfo.taskInfo)
