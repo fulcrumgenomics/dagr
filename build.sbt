@@ -17,7 +17,7 @@ import scoverage.ScoverageSbtPlugin.ScoverageKeys._
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
-// Use sbt-release to bupm the version numbers.
+// Use sbt-release to bump the version numbers.
 //
 // see: http://blog.byjean.eu/2015/07/10/painless-release-with-sbt.html
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,6 +39,11 @@ releaseProcess := Seq[ReleaseStep](
   ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
   pushChanges
 )
+
+// Dependency settings
+val akkaV = "2.3.12"
+val sprayV = "1.3.2"
+val DowngradedSprayV = "1.3.1"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // For the aggregate (root) jar, override the name.  For the sub-projects,
@@ -148,6 +153,12 @@ lazy val core = Project(id="dagr-core", base=file("core"))
       "org.reflections"    %   "reflections"       %  "0.9.10",
       "com.typesafe"       %   "config"            %  "1.3.0",
       "javax.servlet"      %   "javax.servlet-api" %  "3.1.0",
+      "com.typesafe.akka"  %%  "akka-actor"      % akkaV,
+      "io.spray"           %%  "spray-can"       % sprayV,
+      "io.spray"           %%  "spray-routing"   % sprayV,
+      "io.spray"           %%  "spray-client"    % sprayV,
+      "io.spray"           %%  "spray-http"      % sprayV,
+      "io.spray"           %%  "spray-json"      % DowngradedSprayV,
       //---------- Test libraries -------------------//
       "org.scalatest"      %%  "scalatest"         %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
     )

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015-2016 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,22 +22,22 @@
  * THE SOFTWARE.
  */
 
-package dagr.core
+package dagr.core.webservice
 
-/**
-  * Object that is designed to be imported with `import DagrDef._` in any/all classes
-  * much like the way that scala.PreDef is imported in all files automatically.
-  *
-  * New methods, types and objects should not be added to this class lightly as they
-  * will pollute the namespace of any classes which import it.
+
+import dagr.core.execsystem.TaskExecutionInfo
+
+/** Stores the data to be returned by an end-point. Make sure that there exists a protocol and any custom JSON
+  * handling specified in [[DagrApiJsonSupport]].
   */
-object DagrDef {
-  /** The type of identifier used to uniquely identify tasks tracked by the execution system. */
-  type TaskId = BigInt
+sealed abstract class DagrResponse
 
-  /** Companion methods for TaskId */
-  object TaskId {
-    /** The apply method for TaskId */
-    def apply(value: Int): TaskId = BigInt(value)
-  }
-}
+case class DagrVersionResponse(id: String) extends DagrResponse
+
+case class DagrStatusResponse(infos: Iterable[TaskExecutionInfo]) extends DagrResponse
+
+case class DagrTaskScriptResponse(script: String) extends DagrResponse
+
+case class DagrTaskLogResponse(log: String) extends DagrResponse
+
+case class DagrTaskInfoResponse(info: TaskExecutionInfo) extends DagrResponse

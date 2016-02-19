@@ -97,7 +97,7 @@ trait TaskStatusReporter {
     * @param delimiter the delimiter between entries in a row
     */
   def logReport(loggerMethod: String => Unit, delimiter: String = "  "): Unit = {
-    val taskInfoMap: BiMap[Task, TaskExecutionInfo] = taskToInfoBiMapFor
+    val taskInfoMap: BiMap[Task, TaskExecutionInfo] = taskToInfoBiMap
 
     // Create the task status table
     val taskStatusTable: ListBuffer[List[String]] = new ListBuffer[List[String]]()

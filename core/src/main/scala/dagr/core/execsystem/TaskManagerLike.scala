@@ -34,7 +34,7 @@ private[execsystem] object TaskManagerLike {
 }
 
 /** A generic template for task managers */
-private[execsystem] trait TaskManagerLike {
+private[core] trait TaskManagerLike {
 
   /** Gets the task associated with the identifier, if any
     *
@@ -98,7 +98,7 @@ private[execsystem] trait TaskManagerLike {
     *
     * @return the task and task execution information bi-directional map.
     */
-  def taskToInfoBiMapFor: BiMap[Task, TaskExecutionInfo]
+  def taskToInfoBiMap: BiMap[Task, TaskExecutionInfo]
 
   /** Checks if we have failed tasks.
     *
