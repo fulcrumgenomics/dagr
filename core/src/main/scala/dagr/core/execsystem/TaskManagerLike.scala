@@ -148,7 +148,7 @@ private[execsystem] trait TaskManagerLike {
     *
     * @return a bi-directional map from the set of tasks to their execution information.
     */
-  def runToCompletion(): BiMap[Task, TaskExecutionInfo]
+  def runToCompletion(failFast: Boolean): BiMap[Task, TaskExecutionInfo]
 
   /** Run a a single iteration of managing tasks.
     *

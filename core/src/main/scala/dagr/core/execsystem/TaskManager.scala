@@ -105,7 +105,8 @@ object TaskManager extends LazyLogging {
           scriptsDirectory: Option[Path] = None,
           logDirectory: Option[Path] = None,
           scheduler: Option[Scheduler] = Some(defaultScheduler),
-          simulate: Boolean = false): BiMap[Task, TaskExecutionInfo] = {
+          simulate: Boolean = false,
+          failFast: Boolean = false): BiMap[Task, TaskExecutionInfo] = {
 
     val taskManager: TaskManager = new TaskManager(
       taskManagerResources = taskManagerResources.getOrElse(defaultTaskManagerResources),
@@ -117,7 +118,7 @@ object TaskManager extends LazyLogging {
     )
 
     taskManager.addTask(task = task)
-    taskManager.runToCompletion()
+    taskManager.runToCompletion(failFast=failFast)
 
     taskManager.taskToInfoBiMapFor
   }
@@ -523,7 +524,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     )
   }
 
-  override def runToCompletion(): BiMap[Task, TaskExecutionInfo] = {
+  override def runToCompletion(failFast: Boolean): BiMap[Task, TaskExecutionInfo] = {
     var allDone = false
     while (!allDone) {
       val (readyTasks, tasksToSchedule, runningTasks, _) = stepExecution()
@@ -540,7 +541,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
         })
         allDone = true
       }
-      else if (hasFailedTasks) {
+      else if (failFast && hasFailedTasks) {
         allDone = true
       }
     }
@@ -548,7 +549,6 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     // terminate all running tasks
     for (node <- graphNodes.filter(node => node.state == RUNNING)) {
       taskExecutionRunner.terminateTask(node.taskId)
-      processCompletedTask(taskId = node.taskId, doRetry = false)
     }
 
     taskToInfoBiMapFor
