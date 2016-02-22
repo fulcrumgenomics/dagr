@@ -127,6 +127,8 @@ class DagrCoreMain(
 // TODO: update args with precedence information
   @arg(doc = "Load in a custom configuration into Dagr.  See https://github.com/typesafehub/config for details on the file format.", common = true)
   val config: Option[Path] = None,
+  @arg(doc = "Stop pipelines immediately on detecting the first failed task.", common = true)
+  val failFast: Boolean = false,
   @arg(doc = "Overrides the default scripts directory in the configuration file.", common = true)
   val scriptDir: Option[Path] = None,
   @arg(doc = "Overrides default log directory in the configuration file.", common = true)
@@ -207,7 +209,7 @@ class DagrCoreMain(
     val report  = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
 
     taskMan.addTask(pipeline)
-    taskMan.runToCompletion()
+    taskMan.runToCompletion(this.failFast)
 
     // Write out the execution report
     val pw = new PrintWriter(Io.toWriter(report))

@@ -156,7 +156,8 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       sleepMilliseconds    = 10,
       taskManagerResources = Some(TaskManagerResources.infinite),
       scriptsDirectory     = None,
-      simulate             = simulate)
+      simulate             = simulate,
+      failFast             = true)
 
     map.containsKey(task) should be(true)
 
@@ -186,11 +187,10 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
     val taskManager: TaskManager = getDefaultTaskManager(sleepMilliseconds=1)
     taskManager.addTasks(longTask, failedTask)
-    taskManager.runToCompletion()
+    taskManager.runToCompletion(failFast=true)
     taskManager.taskStatusFor(failedTask).value should be(TaskStatus.FAILED_COMMAND)
     taskManager.graphNodeStateFor(failedTask).value should be(GraphNodeState.COMPLETED)
-    taskManager.taskStatusFor(longTask).value should be(TaskStatus.FAILED_COMMAND)
-    taskManager.graphNodeStateFor(longTask).value should be(GraphNodeState.COMPLETED)
+    taskManager.taskStatusFor(longTask).value should be(TaskStatus.STOPPED)
   }
 
   // ******************************************
@@ -211,7 +211,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
                     originalGraphNodeState: GraphNodeState.Value,
                     taskManager: TaskManager): Unit = {
     // run it once, make sure tasks that are failed are not marked as completed
-    taskManager.runToCompletion()
+    taskManager.runToCompletion(failFast=true)
 
     // the task identifier for 'original' should now be found
     val originalTaskId: TaskId = taskManager.taskFor(original).value
@@ -795,7 +795,8 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       TaskManager.run(
         new HungryPipeline,
         sleepMilliseconds = 1,
-        taskManagerResources = Some(TaskManagerResources(systemCores, Resource.parseSizeToBytes("8g").toLong, 0.toLong))
+        taskManagerResources = Some(TaskManagerResources(systemCores, Resource.parseSizeToBytes("8g").toLong, 0.toLong)),
+        failFast=true
       )
       maxAllocatedCores should be <= systemCores
     }
@@ -830,7 +831,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.addTasks(tasks)
 
     // run the tasks
-    taskManager.runToCompletion()
+    taskManager.runToCompletion(failFast=true)
 
     // make sure all tasks have been completed
     tasks.foreach { task =>
@@ -863,7 +864,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.addTasks(pipeline)
 
     // run the tasks
-    taskManager.runToCompletion()
+    taskManager.runToCompletion(failFast=true)
 
     // get and check the info
     val pipelineInfo: TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, pipeline)
@@ -902,7 +903,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.addTasks(outerPipeline)
 
     // run the tasks
-    taskManager.runToCompletion()
+    taskManager.runToCompletion(failFast=true)
 
     // get and check the info
     val firstTaskInfo : TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, firstTask)

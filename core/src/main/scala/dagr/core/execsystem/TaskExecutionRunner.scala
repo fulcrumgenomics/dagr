@@ -263,7 +263,7 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
             case None => throw new IllegalStateException(s"Could not find task info for task id '$taskId'.")
           }
           taskInfo.endDate = Some(Instant.now())
-          taskInfo.status = TaskStatus.FAILED_COMMAND
+          taskInfo.status = TaskStatus.STOPPED
           !thread.isAlive // thread is still alive WTF
         case _  => false
       }
