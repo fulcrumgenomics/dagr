@@ -25,6 +25,7 @@
 package dagr.sopt.cmdline
 
 import dagr.commons.reflect.ReflectionUtil
+import dagr.commons.util.StringUtil
 import dagr.sopt.clp
 import dagr.sopt.util.ParsingUtil._
 import dagr.sopt.util._
@@ -393,18 +394,9 @@ class CommandLineParser[SubCommand](val commandLineName: String)
     /////////////////////////////////////////////////////////////////////////
     mainClassParser.parseAndBuild(args=mainClassArgs) match {
       case ParseFailure(ex, remaining) => // Case (1)
-        remaining.headOption match {
-          case Some(last) if !last.startsWith("-") =>
-            val classes = findClpClasses[SubCommand](packageList, omitSubClassesOf = omitSubClassesOf, includeHidden = includeHidden).keySet
-            print(mainClassParser.usage())
-            print(subCommandListUsage(classes, commandLineName, withPreamble = false))
-            print(unknownSubCommandErrorMessage(last, classes))
-            None
-          case _ =>
-            print(mainClassParser.usage())
-            print(wrapError(ex.getMessage))
-            None
-        }
+        print(mainClassParser.usage())
+        print(wrapError(ex.getMessage))
+        None
       case ParseHelp() => // Case (2)
         val classes = findClpClasses[SubCommand](packageList, omitSubClassesOf = Seq(mainClazz), includeHidden = includeHidden).keySet
         print(mainClassParser.usage())
@@ -442,15 +434,27 @@ class CommandLineParser[SubCommand](val commandLineName: String)
                                  packageList: List[String],
                                  omitSubClassesOf: Iterable[Class[_]] = Nil,
                                  includeHidden: Boolean = false) : (Array[String], Array[String]) = {
-    val pipelines = findClpClasses[SubCommand](packageList = packageList, omitSubClassesOf = omitSubClassesOf, includeHidden=includeHidden).keys
+    if (args.isEmpty) return (args, Array[String]())
+
+    val subCommands = findClpClasses[SubCommand](packageList = packageList, omitSubClassesOf = omitSubClassesOf, includeHidden=includeHidden).keys
 
     // first check for "--"
     args.indexOf("--") match {
       case -1 =>
-        // check for clp name
-        pipelines.view.map { p => args.indexOf(p.getSimpleName) }.filter(_ != -1).reduceOption(_ min _) match {
+        // check for an exact match
+        subCommands.view.map { p => args.indexOf(p.getSimpleName) }.filter(_ != -1).reduceOption(_ min _) match {
           case Some(n) => args.splitAt(n)
-          case None => (args, Array[String]())
+          case None => // args must be non-empty
+            // try finding the most similar arg and pipeline name
+            val distances = args.toList.map { arg =>
+              if (arg.startsWith("-")) Integer.MAX_VALUE // ignore obvious options
+              else findSmallestSimilarityDistance(arg, subCommands.map(_.getSimpleName))
+            }
+            // if we found one that was similar, then split the args at that point
+            distances.zipWithIndex.min match {
+              case (distance, idx) if distance < Integer.MAX_VALUE => args.splitAt(idx)
+              case (distance, idx) => (args, Array[String]())
+            }
         }
       case idx =>
         (args.take(idx), args.drop(idx+1))

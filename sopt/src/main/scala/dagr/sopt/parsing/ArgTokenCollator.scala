@@ -26,7 +26,7 @@ package dagr.sopt.parsing
 
 import dagr.sopt.parsing.ArgTokenizer._
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 case class ArgOptionAndValues(name: String, values: Seq[String])
@@ -43,7 +43,7 @@ object ArgTokenCollator {
 
 /** Collates Tokens into name and values, such that there is no value without an associated option name. */
 class ArgTokenCollator(argTokenizer: ArgTokenizer) extends Iterator[Try[ArgOptionAndValues]] {
-  private val iterator = argTokenizer.buffered
+  private val iterator = argTokenizer
   private var nextOption: Option[Try[ArgOptionAndValues]] = None
 
   this.advance() // to initialize nextOption
@@ -51,31 +51,41 @@ class ArgTokenCollator(argTokenizer: ArgTokenizer) extends Iterator[Try[ArgOptio
   /** True if there is another value, false otherwise.  */
   def hasNext: Boolean = nextOption.isDefined
 
-    /** Gets the next token wrapped in a Try.  A failure is returned if the provided [[ArgTokenizer]] returned a failure
-      * or if we could not find an option name ([[ArgOption]] or [[ArgOptionAndValue]] before finding an
-      * option value ([[ArgValue]]).
-      */
+  /** Gets the next token wrapped in a Try.  A failure is returned if the provided [[ArgTokenizer]] returned a failure
+    * or if we could not find an option name ([[ArgOption]] or [[ArgOptionAndValue]] before finding an
+    * option value ([[ArgValue]]).  Once a failure is encountered, no more tokens are returned.
+    */
   def next: Try[ArgOptionAndValues] = {
-    val retVal = nextOption match {
+    nextOption match {
       case None => throw new NoSuchElementException("'next' was called when 'hasNext' is false")
-      case Some(value) => value
+      case Some(Failure(ex)) =>
+        this.nextOption = None
+        Failure(ex)
+      case Some(Success(value)) =>
+        this.advance()
+        Success(value)
     }
-    this.advance()
-    retVal
   }
 
   /** Tries to get the next token that has an option name, and adds any values to `values` if found. */
-  private def nextName(values: ListBuffer[String]): Try[String] = {
-    iterator.next match {
-      case Success(ArgOption(name)) => Success(name)
-      case Success(ArgOptionAndValue(name, value)) => values += value; Success(name)
-      case Success(ArgValue(value)) => Failure(new OptionNameException(s"Illegal option: '$value'"))
-      case Failure(ex) => Failure(ex)
-    }
+  private def nextName(values: mutable.ListBuffer[String]): Try[String] = iterator.head match {
+    case Success(ArgOption(name)) =>
+      iterator.next
+      Success(name)
+    case Success(ArgOptionAndValue(name, value)) =>
+      iterator.next
+      values += value; Success(name)
+    case Success(ArgValue(value)) =>
+      // do not consume the underlying iterator, so that the value is returned by argTokenizer.takeRemaining, otherwise
+      // we would have to keep track of it.  This assumes we do not move past the first failure.
+      Failure(new OptionNameException(s"Illegal option: '$value'"))
+    case Failure(ex) =>
+      iterator.next
+      Failure(ex)
   }
 
   /** Find values with the same option name, may only be ArgValue and ArgOptionAndValue. */
-  private def addValuesWithSameName(name: String, values: ListBuffer[String]): Unit = {
+  private def addValuesWithSameName(name: String, values: mutable.ListBuffer[String]): Unit = {
     // find values with the same option name, may only be ArgValue and ArgOptionAndValue
     while (iterator.hasNext && ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(iterator.head, name)) {
       iterator.next match {
@@ -92,7 +102,7 @@ class ArgTokenCollator(argTokenizer: ArgTokenizer) extends Iterator[Try[ArgOptio
       this.nextOption = None
     }
     else {
-      val values: ListBuffer[String] = new ListBuffer[String]()
+      val values: mutable.ListBuffer[String] = new mutable.ListBuffer[String]()
 
       // First try to get an a token that has an option name, next add any subsequent tokens that have just values, or
       // the same option name with values.
@@ -104,6 +114,14 @@ class ArgTokenCollator(argTokenizer: ArgTokenizer) extends Iterator[Try[ArgOptio
           this.nextOption = Some(Success(new ArgOptionAndValues(name = name, values = values)))
       }
     }
+  }
+
+  def takeRemaining: Seq[String] = {
+    val remaining: Seq[String] = this.nextOption match {
+      case Some(Success(value: ArgOptionAndValues)) => Seq(ArgTokenizer.addBackDashes(value.name)) ++ value.values
+      case _ => Nil
+    }
+    remaining ++ argTokenizer.takeRemaining
   }
 }
 

@@ -40,6 +40,8 @@ object ArgTokenizer {
   case class ArgValue(value: String) extends Token
   /** An option-name-and-value token */
   case class ArgOptionAndValue(name: String, value: String) extends Token
+
+  private[parsing] def addBackDashes(name: String): String = if (name.length == 1) s"-$name" else s"--$name"
 }
 
 /** A class to tokenize a sequence of strings prior to option parsing.  A series of tokens will
@@ -61,7 +63,7 @@ class ArgTokenizer(args: Seq[String],
   }
 
   /** Returns the next token, or a failure if one was encountered. */
-  override def next(): Try[Token] = {
+  override def next: Try[Token] = {
     // bad user
     if (!hasNext()) throw new NoSuchElementException("Called 'next' when 'hasNext' is false")
     val tryVal = nextToken match {
@@ -72,8 +74,27 @@ class ArgTokenizer(args: Seq[String],
     tryVal
   }
 
+  /** Returns the current token, or a failure if one was encountered.  Does not move to the next token. */
+  def head: Try[Token] = {
+    if (!hasNext()) throw new NoSuchElementException("Called 'next' when 'hasNext' is false")
+    nextToken match {
+      case None        => throw new NoSuchElementException("Called 'next' when 'hasNext' is false")
+      case Some(value) => value
+    }
+  }
+
   /** Returns any remaining args that were not tokenized. This is a destructive operation, so should only be called once. */
-  def takeRemaining: Seq[String] = this.stack.toSeq
+  def takeRemaining: Seq[String] = {
+    // add back the last token to the remaining tokens
+    nextToken match {
+      case Some(Success(ArgOption(name))) => this.stack.push(ArgTokenizer.addBackDashes(name))
+      case Some(Success(ArgValue(value))) => this.stack.push(value)
+      case Some(Success(ArgOptionAndValue(name, value))) => this.stack.push(ArgTokenizer.addBackDashes(name), value)
+      case _ =>
+    }
+    nextToken = None
+    this.stack.toSeq
+  }
 
   /** Sets the `nextToken` if it is not defined and we have more strings in the iterator */
   private def updateNextToken(): Unit = if (nextToken.isEmpty && this.stack.nonEmpty) nextToken = takeNextToken
@@ -82,19 +103,28 @@ class ArgTokenizer(args: Seq[String],
     * Requires that the stack have at least one item left in it; pulls the top item from the
     * stack and processes it.
     */
-  private def takeNextToken: Option[Try[Token]] = (this.stack.pop(), argFilePrefix) match {
-    case ("--", _) => None
-    case ("",   _) => Some(Failure(new OptionNameException("Empty argument given.")))
-    case (arg,  _) if arg.startsWith("--") => Some(convertDoubleDashOption(arg.substring(2)))
-    case (arg,  _) if arg.startsWith("-") => Some(convertSingleDash(arg.substring(1)))
-    case (arg, Some(pre)) if arg.startsWith(pre) =>
-      loadArgumentFile(arg.drop(pre.length)) match {
-        case Failure(failure) => Some(Failure(failure))
-        case Success(newArgs) =>
-          this.stack.pushAll(newArgs.reverseIterator)
-          if (this.stack.nonEmpty) takeNextToken else None
-      }
-    case (arg, _) => Some(Success(ArgValue(value = arg)))
+  private def takeNextToken: Option[Try[Token]] = {
+    val nextArg = this.stack.pop() // save in case we need to push it back on the stack in case of failure
+    val nextToken = (nextArg, argFilePrefix) match {
+      case ("--", _) => None
+      case ("",   _) => Some(Failure(new OptionNameException("Empty argument given.")))
+      case (arg,  _) if arg.startsWith("--") => Some(convertDoubleDashOption(arg.substring(2)))
+      case (arg,  _) if arg.startsWith("-") => Some(convertSingleDash(arg.substring(1)))
+      case (arg, Some(pre)) if arg.startsWith(pre) =>
+        loadArgumentFile(arg.drop(pre.length)) match {
+          case Failure(failure) => Some(Failure(failure))
+          case Success(newArgs) =>
+            this.stack.pushAll(newArgs.reverseIterator)
+            if (this.stack.nonEmpty) takeNextToken else None
+        }
+      case (arg, _) => Some(Success(ArgValue(value = arg)))
+    }
+    // push back the arg on the stack if there was any failure
+    nextToken match {
+      case Some(Failure(failure)) => this.stack.push(nextArg)
+      case Some(Success(_)) | None =>
+    }
+    nextToken
   }
 
   /** Loads an arguments file and returns the list of tokens it contains. */

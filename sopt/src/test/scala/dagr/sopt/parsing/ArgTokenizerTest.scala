@@ -160,16 +160,18 @@ class ArgTokenizerTest extends UnitSpec {
     }
   }
 
-  it should "throw an [[OptionNameException]] when missing characters a leading dash(es)" in {
+  it should "throw an [[OptionNameException]] when missing a character after a leading dash" in {
     val argList = List(
       List("-"),
-      List("-", "value")
+      List("-", "value"),
+      List("-", "value", "-u", "value")
     )
     argList.foreach { args =>
       val tokenizer = new ArgTokenizer(args:_*)
       val tryVal = tokenizer.next()
       tryVal shouldBe 'failure
       an[OptionNameException] should be thrownBy (throw tryVal.failed.get)
+      tokenizer.takeRemaining shouldBe args
     }
   }
 
@@ -262,7 +264,6 @@ class ArgTokenizerTest extends UnitSpec {
     tokenizer.next() shouldBe Success(ArgOptionAndValue(name="two", value="three"))
     tokenizer.next() shouldBe Success(ArgOption(name="f"))
     tokenizer.next() shouldBe an[Failure[_]]
-    tokenizer.takeRemaining shouldBe Seq("--six")
+    tokenizer.takeRemaining shouldBe Seq("@" + path, "--six")
   }
-
 }

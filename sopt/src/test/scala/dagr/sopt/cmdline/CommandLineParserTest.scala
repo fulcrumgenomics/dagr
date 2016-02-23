@@ -303,8 +303,21 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
 
   it should "print just the command usage when unknown arguments are passed to command" in {
     Stream(
-      Array[String]("--helloWorld", "CommandLineProgramTesting"),
-      Array[String]("---", "CommandLineProgramTesting")
+      Array[String]("-helloWorld", "CommandLineProgramFive"),
+      Array[String]("-", "CommandLineProgramFive"),
+      Array[String]("-CommandLineProgramFive")
+    ).foreach { args =>
+      val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting,CommandLineProgramOne](args)
+      commandOption shouldBe 'empty
+      clpOption shouldBe 'empty
+      output should include(parser.standardCommandAndSubCommandUsagePreamble(commandClazz=Some(classOf[CommandLineProgramTesting]), subCommandClazz=None))
+      output should not include parser.unknownSubCommandErrorMessage(args.head.substring(1))
+
+    }
+    Stream(
+      Array[String]("--helloWorld", "CommandLineProgramFive"),
+      Array[String]("---", "CommandLineProgramFive"),
+      Array[String]("--CommandLineProgramFive")
     ).foreach { args =>
       val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting,CommandLineProgramOne](args)
       commandOption shouldBe 'empty
@@ -316,14 +329,16 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
 
   it should "print just the command usage when an unknown clp name is passed to command" in {
     Stream(
-      Array[String]("--", "CommandLineProgramFive"),
-      Array[String]("--", "CommandLineProgramFive", "--flag")
+      Array[String]("--", "CommandLineProgramOn"),
+      Array[String]("--", "CommandLineProgramOn", "--flag"),
+      Array[String]("CommandLineProgramOn")
     ).foreach { args =>
+      println("testing args: " + args.mkString(", "))
       val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting,CommandLineProgramOne](args)
       commandOption shouldBe 'empty
       clpOption shouldBe 'empty
       output should include(parser.standardCommandAndSubCommandUsagePreamble(commandClazz=Some(classOf[CommandLineProgramTesting]), subCommandClazz=None))
-      output should include(parser.unknownSubCommandErrorMessage("CommandLineProgramFive"))
+      output should include(parser.unknownSubCommandErrorMessage("CommandLineProgramOn"))
     }
   }
 

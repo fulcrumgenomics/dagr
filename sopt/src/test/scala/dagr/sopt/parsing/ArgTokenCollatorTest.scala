@@ -104,4 +104,36 @@ class ArgTokenCollatorTest extends UnitSpec {
     ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(Success(ArgOptionAndValue("opt2", "value")), "opt") shouldBe false
     ArgTokenCollator.isArgValueOrSameNameArgOptionAndValue(Success(ArgOption("opt")), "opt") shouldBe false
   }
+
+  "ArgTokenCollator.takeRemaining" should "return remaining values include those in nextOption when a failure is encountered" in {
+    val args = Seq("-n", "value", "", "-s")
+
+    {
+      val collator = new ArgTokenCollator(new ArgTokenizer(args))
+      collator.takeRemaining shouldBe args
+    }
+    {
+      val collator = new ArgTokenCollator(new ArgTokenizer(args))
+      collator.hasNext shouldBe true
+      val nextVal = collator.next
+      nextVal shouldBe 'success
+      nextVal.get shouldBe ArgOptionAndValues(name="n", values=Seq("value"))
+      collator.takeRemaining shouldBe Seq("", "-s")
+    }
+    {
+      val collator = new ArgTokenCollator(new ArgTokenizer(args))
+      collator.hasNext shouldBe true
+      var nextVal = collator.next
+      nextVal shouldBe 'success
+      nextVal.get shouldBe ArgOptionAndValues(name="n", values=Seq("value"))
+      nextVal = collator.next
+      nextVal shouldBe 'failure
+      collator.takeRemaining shouldBe Seq("", "-s")
+    }
+    {
+      val collator = new ArgTokenCollator(new ArgTokenizer(Seq("val0")))
+      collator.hasNext shouldBe true
+      collator.takeRemaining shouldBe Seq("val0")
+    }
+  }
 }

@@ -207,4 +207,35 @@ class OptionParserTest extends UnitSpec with PrivateMethodTester {
       }
     }
   }
+
+  "OptionParser.remaining" should "return all arguments that were not parsed correctly" in {
+    {
+      val args = List("val0")
+      val parser = new OptionParser().acceptSingleValue("t").get.acceptSingleValue("s").get.acceptSingleValue("u").get
+      parser.parse(args: _*) shouldBe 'failure
+      parser.remaining should have size 1
+      parser.remaining should be(List("val0"))
+    }
+    {
+      val args = List("-s", "val1", "val2")
+      val parser = new OptionParser().acceptSingleValue("s").get
+      parser.parse(args: _*) shouldBe 'failure
+      parser.remaining should have size 3
+      parser.remaining should be(List("-s", "val1", "val2"))
+    }
+    {
+      val args = List("-t", "val0", "-s", "val1", "val2")
+      val parser = new OptionParser().acceptSingleValue("t").get.acceptSingleValue("s").get
+      parser.parse(args: _*) shouldBe 'failure
+      parser.remaining should have size 3
+      parser.remaining should be(List("-s", "val1", "val2"))
+    }
+    {
+      val args = List("-t", "val0", "-s", "val1", "val2", "-u", "val3")
+      val parser = new OptionParser().acceptSingleValue("t").get.acceptSingleValue("s").get.acceptSingleValue("u").get
+      parser.parse(args: _*) shouldBe 'failure
+      parser.remaining should have size 5
+      parser.remaining should be(List("-s", "val1", "val2", "-u", "val3"))
+    }
+  }
 }
