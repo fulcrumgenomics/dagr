@@ -283,7 +283,6 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
 
   /** Gets the set of newly completed tasks and updates their state (to either retry or complete)
     *
-    * @param timeout the length of time in milliseconds to wait for running tasks to complete
     * @return for each completed task, a map from a task identifier to a tuple of the exit code and the status of the `onComplete` method
     */
   private def updateCompletedTasks(): Map[TaskId, (Int, Boolean)] = {
@@ -294,7 +293,6 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
       val name = this(taskId).task.name
       val status = this(taskId).taskInfo.status
       logger.debug("updateCompletedTasks: task [" + name + "] completed with task status [" + status + "]")
-
     }
     completedTasks
   }
@@ -330,7 +328,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   private def updatePredecessors(): Unit = {
     var hasMore = false
     for (node <- graphNodesWithPredecessors) {
-      node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED).map(p => node.removePredecessor(p))
+      node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED && TaskStatus.isTaskDone(p.taskInfo.status, failedIsDone=false)).map(p => node.removePredecessor(p))
       logger.debug("runSchedulerOnce: examining task [" + node.task.name + "] for predecessors: " + node.hasPredecessor)
       // - if this node has already been expanded and now has no predecessors, then move it to the next state.
       // - if it hasn't been expanded and now has no predecessors, it should get expanded later

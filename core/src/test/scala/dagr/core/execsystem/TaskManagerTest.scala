@@ -193,6 +193,44 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     taskManager.taskStatusFor(longTask).value should be(TaskStatus.STOPPED)
   }
 
+  it should "not schedule and run tasks that have failed dependencies" in {
+    val List(a, b, c) = List(0,1,0).map(c => new ShellCommand("exit", c.toString))
+    a ==> b ==> c
+    val tm = getDefaultTaskManager(sleepMilliseconds=1)
+    tm.addTasks(a, b, c)
+    tm.runToCompletion(failFast=false)
+    tm.taskStatusFor(a).value shouldBe TaskStatus.SUCCEEDED
+    tm.graphNodeFor(a).value.state shouldBe GraphNodeState.COMPLETED
+    tm.taskStatusFor(b).value shouldBe TaskStatus.FAILED_COMMAND
+    tm.graphNodeFor(b).value.state shouldBe GraphNodeState.COMPLETED
+    tm.taskStatusFor(c).value shouldBe TaskStatus.UNKNOWN
+    tm.graphNodeFor(c).value.state shouldBe GraphNodeState.PREDECESSORS_AND_UNEXPANDED
+  }
+
+  it should "not schedule and run tasks that have failed dependencies and complete all when failed tasks are manually succeeded" in {
+    val List(a, b, c) = List(0,1,0).map(c => new ShellCommand("exit", c.toString))
+    a ==> b ==> c
+    val tm = getDefaultTaskManager(sleepMilliseconds=1)
+    tm.addTasks(a, b, c)
+    tm.runToCompletion(failFast=false)
+    tm.taskStatusFor(a).value shouldBe TaskStatus.SUCCEEDED
+    tm.graphNodeFor(a).value.state shouldBe GraphNodeState.COMPLETED
+    tm.taskStatusFor(b).value shouldBe TaskStatus.FAILED_COMMAND
+    tm.graphNodeFor(b).value.state shouldBe GraphNodeState.COMPLETED
+    tm.taskStatusFor(c).value shouldBe TaskStatus.UNKNOWN
+    tm.graphNodeFor(c).value.state shouldBe GraphNodeState.PREDECESSORS_AND_UNEXPANDED
+
+    // manually succeed b
+    tm.taskExecutionInfoFor(b).foreach(_.status = TaskStatus.MANUALLY_SUCCEEDED)
+    tm.runToCompletion(failFast=false)
+    tm.taskStatusFor(a).value shouldBe TaskStatus.SUCCEEDED
+    tm.graphNodeFor(a).value.state shouldBe GraphNodeState.COMPLETED
+    tm.taskStatusFor(b).value shouldBe TaskStatus.MANUALLY_SUCCEEDED
+    tm.graphNodeFor(b).value.state shouldBe GraphNodeState.COMPLETED
+    tm.taskStatusFor(c).value shouldBe TaskStatus.SUCCEEDED
+    tm.graphNodeFor(c).value.state   shouldBe GraphNodeState.COMPLETED
+  }
+
   // ******************************************
   // Task retry and replacement
   // *****************************************
