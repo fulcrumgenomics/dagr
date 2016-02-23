@@ -28,8 +28,8 @@ import java.nio.file.Path
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
-import dagr.tasks.{DagrDef, JarTask}
-import DagrDef.DirPath
+import dagr.tasks.DagrDef.PathPrefix
+import dagr.tasks.JarTask
 
 import scala.collection.mutable.ListBuffer
 
@@ -42,7 +42,7 @@ object Varscan2 {
   */
 class Varscan2Somatic(val tumorPileup: Path,
                       val normalPileup: Path,
-                      val out: DirPath,
+                      val out: PathPrefix,
                       val minimumVariantFrequency: Double = 0.01,
                       val pValue: Double = 0.2,
                       val somaticPValue: Double = 0.05,
@@ -61,7 +61,7 @@ class Varscan2Somatic(val tumorPileup: Path,
     buffer.append("--p-value", pValue.toString)
     buffer.append("--somatic-p-value", somaticPValue.toString)
     buffer.append("--strand-filter", if (strandFilter) "1" else "0")
-    buffer.append("--output-vcf", if (vcfOutput) "1" else "0")
+    if (vcfOutput) buffer.append("--output-vcf", "1")
     buffer.toList
   }
 }

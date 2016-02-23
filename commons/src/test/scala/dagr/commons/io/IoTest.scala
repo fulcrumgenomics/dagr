@@ -27,6 +27,8 @@ import java.nio.file.{Files, Path}
 
 import dagr.commons.util.UnitSpec
 
+import scala.io.Source
+
 /**
  * Tests for various methods in the Io class
  */
@@ -152,5 +154,15 @@ class IoTest extends UnitSpec {
 
   it should "return None if no parent was found" in {
     Io.findFirstExtentParent(PathUtil.pathTo("/")) shouldBe 'empty
+  }
+
+  "Io.writeLines" should "write lines to a file that can be read back." in {
+    val lines = List("hello world", "what was that?", "oh noes!!!!!", "goodbye cruel world.")
+    val path = Files.createTempFile("test", "file")
+    Io.writeLines(path, lines)
+    val roundtripped = Source.fromFile(path.toFile).getLines().toList
+    Files.delete(path)
+
+    roundtripped shouldBe lines
   }
 }

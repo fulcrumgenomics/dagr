@@ -143,4 +143,11 @@ object Io {
       case parent => findFirstExtentParent(parent)
     }
   }
+
+  /** Writes one or more lines to a file represented by a path. */
+  def writeLines(path: Path, lines: Seq[String]) = {
+    val writer = Io.toWriter(path)
+    lines.foreach(line => writer.append(line).append('\n'))
+    writer.close()
+  }
 }
