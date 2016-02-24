@@ -153,9 +153,6 @@ object Task {
  *    method will be called until the task no longer wishes to retry or succeeds.
  */
 trait Task extends Dependable {
-  // A string set by the enclosing workflow to distinguish the task
-  private[tasksystem] var contextName : Option[String] = None
-
   /** The unique id given to this task by the execution system, or None if not being tracked. */
   private[core] var _taskInfo : Option[TaskExecutionInfo] = None
   private[core] def taskInfo : TaskExecutionInfo = _taskInfo.getOrElse(unreachable(s"Task id should be defined for task '$name'"))

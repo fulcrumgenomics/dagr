@@ -65,7 +65,7 @@ class DnaResequencingFromFastqPipeline
   @arg(doc="Path to a temporary directory.")                       val tmp: Path,
   @arg(flag="o", doc="The output directory to which files are written.")  val out: DirPath,
   @arg(doc="The basename for all output files. Uses library if omitted.") val basename: Option[FilenamePrefix]
-) extends Pipeline(outputDirectory = Some(out)) {
+) extends Pipeline(outputDirectory = Some(out), suffix=Some("." + library)) {
   name = getClass.getSimpleName
 
   // Validation logic as constructor code

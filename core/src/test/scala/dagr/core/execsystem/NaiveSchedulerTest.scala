@@ -156,7 +156,7 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
     // resources.  This way, two of each should be scheduled.
     for (i <- 1 to 3) {
       readyTasks += new ShellCommand("exit 0") withName "system task" requires(Cores(1), Memory("1G"))
-      readyTasks += new NoOpInJvmTask(name = "in jvm task") requires(Cores(1), Memory("16M"))
+      readyTasks += new NoOpInJvmTask(taskName = "in jvm task") requires(Cores(1), Memory("16M"))
     }
     val systemCores: Cores = Cores(4)
     val systemMemory: Memory = Memory("4G")

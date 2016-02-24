@@ -28,7 +28,10 @@ import java.nio.file.Path
 import dagr.commons.util.LazyLogging
 
 /** Simple trait to track tasks within a pipeline */
-abstract class Pipeline(val outputDirectory: Option[Path] = None) extends Task with LazyLogging {
+abstract class Pipeline(val outputDirectory: Option[Path] = None,
+                        private var prefix: Option[String] = None,
+                        private var suffix: Option[String] = None
+                       ) extends Task with LazyLogging {
   private val tasks = new scala.collection.mutable.LinkedHashSet[Task]()
 
   /** A name exposed to sub-classes that can be treated like a Task, to add root tasks. */
@@ -59,6 +62,17 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None) extends Task w
   final override def getTasks: Traversable[_ <: Task] = {
     build()
     tasks.toList.foreach(addChildren)
+
+    // Do the necessary prefixing and suffixing of task names
+    if (prefix.isDefined || suffix.isDefined) {
+      tasks.foreach {
+        case p: Pipeline =>
+          p.prefix = if (p.prefix.isEmpty) prefix else p.prefix.map(prefix.getOrElse("") + _)
+          p.suffix = if (p.suffix.isEmpty) suffix else p.suffix.map(suffix.getOrElse("") + _)
+        case t: Task     => t.name = prefix.getOrElse("") + t.name + suffix.getOrElse("")
+      }
+    }
+
     tasks.toList
   }
 

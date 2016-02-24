@@ -661,8 +661,8 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
 
   class SimplePipeline(name: String) extends Pipeline {
     withName(name)
-    val firstTask: UnitTask = new NoOpInJvmTask(name=name+"-1")
-    val secondTask: UnitTask = new NoOpInJvmTask(name=name+"-2")
+    val firstTask: UnitTask = new NoOpInJvmTask(taskName=name+"-1")
+    val secondTask: UnitTask = new NoOpInJvmTask(taskName=name+"-2")
     root ==> (firstTask :: secondTask) // do this here so we can call getTasks repeatedly
     def build(): Unit = {}
   }
