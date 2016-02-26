@@ -83,6 +83,7 @@ val docScalacOptions = Seq("-groups", "-implicits")
 lazy val commonSettings = Seq(
   organization         := "com.fulcrumgenomics",
   organizationName     := "Fulcrum Genomics LLC",
+  organizationHomepage := Some(url("http://www.fulcrumgenomics.com")),
   homepage             := Some(url("http://github.com/fulcrumgenomics/dagr")),
   startYear            := Some(2015),
   scalaVersion         := "2.11.7",

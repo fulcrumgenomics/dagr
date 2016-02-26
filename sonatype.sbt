@@ -1,7 +1,6 @@
 sonatypeProfileName := "com.fulcrumgenomics"
 
 pomExtra in Global := {
-  <url>http://github.com/fulcrumgenomics/dagr</url>
     <licenses>
       <license>
         <name>MIT License</name>
