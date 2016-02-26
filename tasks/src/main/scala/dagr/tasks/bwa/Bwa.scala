@@ -42,6 +42,7 @@ object Bwa extends Configuration {
                      sortOrder: SortOrder = SortOrder.coordinate,
                      minThreads: Int = 1,
                      maxThreads: Int = 32,
+                     samToFastqCores: Double = 0.5,
                      bwaMemMemory: String = "8G",
                      samToFastqMem: String = "512M",
                      mergeBamAlignmentMem: String = "2G",
@@ -52,7 +53,7 @@ object Bwa extends Configuration {
     val doAlt = Files.exists(alt) && processAltMappings
     val fifoMem: Memory = Memory(fifoBufferMem)
 
-    val samToFastq = SamToFastq(in=unmappedBam, out=Io.StdOut).requires(Cores(0.5), Memory(samToFastqMem))
+    val samToFastq = SamToFastq(in=unmappedBam, out=Io.StdOut).requires(Cores(samToFastqCores), Memory(samToFastqMem))
     val fqBuffer   = new FifoBuffer[Fastq].requires(memory=fifoMem)
     val bwaMem     = new BwaMem(fastq=Io.StdIn, ref=ref, minThreads=minThreads, maxThreads=maxThreads, memory=Memory(bwaMemMemory))
     val bwaBuffer  = new FifoBuffer[Sam].requires(memory=fifoMem)
