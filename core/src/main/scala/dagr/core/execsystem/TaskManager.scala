@@ -158,7 +158,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   private[execsystem] def getTaskManagerResources: TaskManagerResources = taskManagerResources
 
   private def pathFor(task: Task, taskId: TaskId, directory: Path, ext: String): Path = {
-    val sanitizedName: String = PathUtil.sanitizeFileName(task.name)
+    val sanitizedName: String = PathUtil.sanitizeFileName(task.contextName.getOrElse(task.name))
     PathUtil.pathTo(directory.toString, s"$sanitizedName.$taskId.$ext")
   }
 

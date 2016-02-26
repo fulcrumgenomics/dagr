@@ -26,6 +26,7 @@ package dagr.core.tasksystem
 /**
  * Trivial No-Op task that runs inside the JVM and does nothing.
  */
-class NoOpInJvmTask(name: String) extends SimpleInJvmTask {
+class NoOpInJvmTask(taskName: String) extends SimpleInJvmTask {
+  this.name = taskName
   override def run(): Unit = Unit
 }
