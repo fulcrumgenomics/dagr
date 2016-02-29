@@ -50,6 +50,12 @@ object ProcessTask {
 /** A task that can execute a set of commands in its own process, and does not generate any new tasks.
   */
 trait ProcessTask extends UnitTask {
+  /** A case class that is used to indicate that an argument should not be escaped. */
+  case class Unescaped[A] private[ProcessTask] (x: A)
+
+  /** Wrap a parameter to prevent it from being escaped. */
+  protected def unescaped[A](x: A) = Unescaped[A](x)
+
   /**
     * Abstract method that must be implemented by child classes to return a list or similar traversable
     * list of command line elements (command name and arguments) that form the command line to be run.
@@ -62,7 +68,10 @@ trait ProcessTask extends UnitTask {
     * @return the command string.
     */
   private[core] def commandLine: String = {
-    args.map(arg => ProcessTask.quoteIfNecessary(arg.toString)).mkString(" ")
+    args.map( _ match {
+      case Unescaped(x) => x
+      case arg          => ProcessTask.quoteIfNecessary(arg.toString)
+    }).mkString(" ")
   }
 
   /** Write the command to the script and get a process to run.
