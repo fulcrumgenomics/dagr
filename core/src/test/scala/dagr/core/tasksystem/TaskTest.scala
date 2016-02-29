@@ -412,5 +412,13 @@ class TaskTest extends UnitSpec with LazyLogging {
     it should "quote all special character in arguments that have single quotes" in {
       P("it's cold outside", "what?!", "I'm a *").commandLine shouldBe """it\'s\ cold\ outside 'what?!' I\'m\ a\ \*"""
     }
+
+    it should "not escape arguments that have requested to avoid being escaped" in {
+       val cmd = new ProcessTask with FixedResources {
+         override def args: Seq[Any] = "echo" :: "bad" :: "developer" :: unescaped("&&") :: "exit" :: "1" :: Nil
+       }.commandLine
+
+      cmd shouldBe "echo bad developer && exit 1"
+    }
   }
 }
