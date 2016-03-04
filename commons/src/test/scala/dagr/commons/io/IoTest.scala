@@ -27,8 +27,6 @@ import java.nio.file.{Files, Path}
 
 import dagr.commons.util.UnitSpec
 
-import scala.io.Source
-
 /**
  * Tests for various methods in the Io class
  */
@@ -160,7 +158,7 @@ class IoTest extends UnitSpec {
     val lines = List("hello world", "what was that?", "oh noes!!!!!", "goodbye cruel world.")
     val path = Files.createTempFile("test", "file")
     Io.writeLines(path, lines)
-    val roundtripped = Source.fromFile(path.toFile).getLines().toList
+    val roundtripped = Io.readLines(path).toList
     Files.delete(path)
 
     roundtripped shouldBe lines
