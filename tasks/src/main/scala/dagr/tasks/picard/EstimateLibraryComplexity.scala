@@ -45,7 +45,10 @@ object EstimateLibraryComplexity {
 class EstimateLibraryComplexity(in: PathToBam,
                                 prefix: Option[Path],
                                 var minIdenticalBases: Int = 5,
-                                var numPfReads: Option[Long] = None)
+                                var numPfReads: Option[Long] = None,
+                                templateUmiTag: Option[String] = None,
+                                read1UmiTag: Option[String] = None,
+                                read2UmiTag: Option[String] = None)
   extends PicardMetricsTask(in = in, prefix = prefix) {
 
   override def metricsExtension: String = EstimateLibraryComplexity.MetricsExtension
@@ -56,5 +59,8 @@ class EstimateLibraryComplexity(in: PathToBam,
     buffer.append("MIN_IDENTICAL_BASES=" +
       EstimateLibraryComplexity.minIdenticalBasesFor(minIdenticalBases=minIdenticalBases, numPfReads=numPfReads)
     )
+    templateUmiTag.foreach(v => buffer.append("BARCODE_TAG=" + v))
+    read1UmiTag.foreach(v => buffer.append("READ_ONE_BARCODE_TAG=" + v))
+    read2UmiTag.foreach(v => buffer.append("READ_TWO_BARCODE_TAG=" + v))
   }
 }
