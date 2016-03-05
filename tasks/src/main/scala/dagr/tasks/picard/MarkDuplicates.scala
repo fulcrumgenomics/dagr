@@ -41,7 +41,10 @@ class MarkDuplicates(in: PathToBam,
                      prefix: Option[Path] = None,
                      comment: Option[String] = None,
                      opticalDuplicatesPixelDistance: Option[Int] = None,
-                     assumeSorted: Boolean = true)
+                     assumeSorted: Boolean = true,
+                     templateUmiTag: Option[String] = None,
+                     read1UmiTag: Option[String] = None,
+                     read2UmiTag: Option[String] = None)
   extends PicardMetricsTask(in = out.getOrElse(in), prefix = prefix) {
   requires(Cores(1), Memory("6G"))
 
@@ -52,5 +55,10 @@ class MarkDuplicates(in: PathToBam,
     buffer.append("O=" + out.getOrElse(Io.DevNull))
     buffer.append("M=" + metricsFile)
     buffer.append("AS=" + assumeSorted)
+    comment.foreach(v => buffer.append("COMMENT=" + v))
+    opticalDuplicatesPixelDistance.foreach(v => buffer.append("OPTICAL_DUPLICATE_PIXEL_DISTANCE=" + v))
+    templateUmiTag.foreach(v => buffer.append("BARCODE_TAG=" + v))
+    read1UmiTag.foreach(v => buffer.append("READ_ONE_BARCODE_TAG=" + v))
+    read2UmiTag.foreach(v => buffer.append("READ_TWO_BARCODE_TAG=" + v))
   }
 }
