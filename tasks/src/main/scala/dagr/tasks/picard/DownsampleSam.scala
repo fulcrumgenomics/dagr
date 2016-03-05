@@ -34,7 +34,7 @@ import scala.collection.mutable.ListBuffer
 
 object DownsamplingStrategy extends Enumeration {
   type DownsamplingStrategy = Value
-  val HighAccuracy, ConstantMemory, Chained = Value
+  val ConstantMemory, Chained, HighAccuracy = Value
 }
 
 /**
@@ -65,8 +65,8 @@ class DownsampleSam(in: PathToBam, out: PathToBam, var proportion: Double,
   {
     val memory = strat match {
       case DownsamplingStrategy.ConstantMemory => "2g"
-      case DownsamplingStrategy.HighAccuracy   => "4g"
-      case DownsamplingStrategy.Chained        => "8g"
+      case DownsamplingStrategy.Chained        => "4g"
+      case DownsamplingStrategy.HighAccuracy   => "8g"
     }
     requires(Cores(1), Memory(memory))
   }
