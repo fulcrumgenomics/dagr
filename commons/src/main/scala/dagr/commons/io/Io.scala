@@ -26,25 +26,39 @@ package dagr.commons.io
 import java.io._
 import java.nio.file.{Files, Path}
 
+import scala.collection.mutable.ListBuffer
+import scala.io.Source
+
 /**
- * IO Utility class for working with Path objects.
+* Singleton object to provide access to Io utility methods.
+*/
+object Io extends IoUtil
+
+/**
+ * Trait that can be mixed in to make an Io utility object, and can be re-used elsewhere.
  */
-object Io {
+trait IoUtil {
   val StdIn   = PathUtil.pathTo("/dev/stdin")
   val StdOut  = PathUtil.pathTo("/dev/stdout")
   val DevNull = PathUtil.pathTo("/dev/null")
-
-  /** Creates a new BufferedWriter to write to the supplied path. */
-  def toWriter(path: Path) : BufferedWriter = Files.newBufferedWriter(path)
-
-  /** Creates a new BufferedReader to read from the supplied path. */
-  def toReader(path: Path) : BufferedReader = Files.newBufferedReader(path)
 
   /** Creates a new InputStream to read from the supplied path. */
   def toInputStream(path: Path) : InputStream = new BufferedInputStream(Files.newInputStream(path))
 
   /** Creates a new BufferedReader to read from the supplied path. */
   def toOutputStream(path: Path) : OutputStream = new BufferedOutputStream(Files.newOutputStream(path))
+
+  /** Creates a new BufferedWriter to write to the supplied path. */
+  def toWriter(path: Path) : BufferedWriter = new BufferedWriter(new OutputStreamWriter(toOutputStream(path)))
+
+  /** Creates a new BufferedReader to read from the supplied path. */
+  def toReader(path: Path) : BufferedReader = new BufferedReader(new InputStreamReader(toInputStream(path)))
+
+  /** Constructs a scala Source object from the path, in a way that will correctly close the source on `close()`. */
+  def toSource(path: Path): Source = {
+    val stream = toInputStream(path)
+    Source.fromInputStream(stream).withClose(() => stream.close())
+  }
 
   /** Makes a new temporary directory. */
   def makeTempDir(name: String) : Path = Files.createTempDirectory(name)
@@ -146,8 +160,11 @@ object Io {
 
   /** Writes one or more lines to a file represented by a path. */
   def writeLines(path: Path, lines: Seq[String]) = {
-    val writer = Io.toWriter(path)
+    val writer = toWriter(path)
     lines.foreach(line => writer.append(line).append('\n'))
     writer.close()
   }
+
+  /** Reads the path provides and produces an iterator of lines of text from the file. */
+  def readLines(path: Path): Iterator[String] = toSource(path).getLines()
 }
