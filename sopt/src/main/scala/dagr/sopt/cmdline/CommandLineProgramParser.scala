@@ -47,6 +47,17 @@ object CommandLineProgramParserStrings {
     s"${requiredArgumentErrorMessage(fullName)}" +
       (if (arg.mutuallyExclusive.isEmpty) "." else s" unless any of ${arg.mutuallyExclusive} are specified.")
   }
+
+  /** Returns the implementation version string of the given class */
+  def version(clazz: Class[_], color: Boolean = true): String = {
+    val v = "Version: " + clazz.getPackage.getImplementationVersion
+    if (color) KRED(v) else v
+  }
+
+  def lineBreak(color: Boolean = true): String = {
+    val v = s"--------------------------------------------------------------------------------------\n"
+    if (color) KWHT(v) else v
+  }
 }
 
 object CommandLineProgramParser {
@@ -214,23 +225,22 @@ class CommandLineProgramParser[T](val targetClass: Class[T]) extends CommandLine
     * A typical command line program will call this to get the beginning of the usage message,
     * and then append a description of the program, like this:
     */
-  protected def standardUsagePreamble: String = s"${KRED(UsagePrefix)} ${KBLDRED(targetName)}${KRED("[arguments]")}\n\n"
+  protected def standardUsagePreamble: String = s"${KRED(UsagePrefix)} ${KBLDRED(targetName)}${KRED(" [arguments]")}"
 
   /**
     * Print a usage message for a given command line task.
-    *
-    * @param printCommon True if common args should be included in the usage message.
     */
-  def usage(printCommon: Boolean = true, withPreamble: Boolean = true, withSpecial: Boolean = true): String = {
+  def usage(printCommon: Boolean = true, withVersion: Boolean = true, withSpecial: Boolean = true): String = {
     val builder = new StringBuilder()
 
-    if (withPreamble) {
-      builder.append(s"$standardUsagePreamble")
-      findClpAnnotation(targetClass) match {
-        case Some(anno) => builder.append(KCYN(s"${formatLongDescription(anno.description())}"))
-        case None =>
-      }
-      builder.append(KRED(s"$version\n"))
+    builder.append(s"$standardUsagePreamble")
+    if (withVersion) {
+      builder.append(s"\n$version")
+    }
+    builder.append("\n" + lineBreak(color=true))
+    findClpAnnotation(targetClass) match {
+      case Some(anno) => builder.append(KCYN(s"${formatLongDescription(anno.description())}\n"))
+      case None =>
     }
 
     // filter on common and partition on optional
@@ -242,7 +252,7 @@ class CommandLineProgramParser[T](val targetClass: Class[T]) extends CommandLine
 
     if (required.nonEmpty) {
       builder.append(KRED(s"\n${KBLDRED(targetName)} ${KRED(RequiredArguments)}\n"))
-      builder.append(KWHT(s"--------------------------------------------------------------------------------------\n"))
+      builder.append(lineBreak(color=true))
       new ClpArgumentLookup(required:_*).ordered.foreach { arg =>
         ClpArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, arg, argumentLookup)
       }
@@ -250,7 +260,7 @@ class CommandLineProgramParser[T](val targetClass: Class[T]) extends CommandLine
 
     if (optional.nonEmpty) {
       builder.append(KRED(s"\n${KBLDRED(targetName)} ${KRED(OptionalArguments)}\n"))
-      builder.append(KWHT(s"--------------------------------------------------------------------------------------\n"))
+      builder.append(lineBreak(color=true))
       new ClpArgumentLookup(optional:_*).ordered.foreach { argumentDefinition =>
         ClpArgumentDefinitionPrinting.printArgumentDefinitionUsage(builder, argumentDefinition, argumentLookup)
       }
@@ -261,10 +271,10 @@ class CommandLineProgramParser[T](val targetClass: Class[T]) extends CommandLine
 
   /** add extra whitespace after newlines for pipeline descriptions*/
   private def formatLongDescription(description: String): String = {
-    val desc = description.stripMargin
+    val desc = description.stripMargin.trim()
     desc
       .dropWhile(_ == '\n')
-      .dropRight(1) + desc.lastOption.getOrElse("") + "\n"
+      .dropRight(1) + desc.lastOption.getOrElse("")
   }
 
   /** Gets the command line assuming `parseTasks` has been called */
@@ -320,6 +330,5 @@ class CommandLineProgramParser[T](val targetClass: Class[T]) extends CommandLine
     }
   }
 
-  /** Returns the implementation version string of the given class */
-  def version: String = "Version:" + targetClass.getPackage.getImplementationVersion
+  def version: String = CommandLineProgramParserStrings.version(targetClass, color=true)
 }
