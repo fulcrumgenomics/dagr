@@ -101,14 +101,15 @@ private object TaskExecutionRunner {
         }
       } catch {
         case e: InterruptedException =>
-          process.foreach(p => p.destroy())
-          exitCode = InterruptedExitCode
-          throwable = Some(e)
+          this.exitCode = InterruptedExitCode
+          this.throwable = Some(e)
         case t: Throwable =>
-          exitCode = 1
-          throwable = Some(t)
+          this.exitCode = 1
+          this.throwable = Some(t)
       }
-      onCompleteSuccessful = Some(task.onComplete(exitCode))
+
+      process.foreach(p => p.destroy())
+      this.onCompleteSuccessful = Some(task.onComplete(this.exitCode))
     }
   }
 
