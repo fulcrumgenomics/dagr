@@ -43,7 +43,9 @@ class DeleteFiles(val paths: FilePath*) extends SimpleInJvmTask {
   /** Recursive implementation that recurses if path is a directory, then deletes the path. */
   private def delete(path: Path): Unit = {
     if (Files.isDirectory(path)) {
-      val children = Files.list(path).collect(Collectors.toList())
+      val childStream = Files.list(path)
+      val children = childStream.collect(Collectors.toList())
+      childStream.close()
       children.foreach(this.delete)
     }
 
