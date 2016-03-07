@@ -48,7 +48,7 @@ private[cmdline] case class CommandLineProgramThree
 private[cmdline] case class CommandLineProgramFour
 (@arg var argument: String = "default", @arg var flag: Boolean = false) extends CommandLineProgramTesting
 
-@clp(description = "", group = classOf[TestGroup], hidden = true)
+@clp(description = "This is a description", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class CommandLineProgramReallyLongArg
 (
   @arg var argumentttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt: String

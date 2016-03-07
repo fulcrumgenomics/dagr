@@ -115,9 +115,6 @@ trait CommandLineParserStrings {
         s"${KRED(UsagePrefix)} ${KBLDRED(commandLineName)} ${KRED(s"[$genericClpNameOnCommandLine] [arguments]")}"
     }
   }
-
-  /** Returns the implementation version string of the given class */
-  protected def version(clazz: Class[_]): String = "Version:" + clazz.getPackage.getImplementationVersion
 }
 
 /** Class for parsing the command line when we also have sub-commands.
@@ -176,10 +173,6 @@ class CommandLineParser[SubCommand](val commandLineName: String)
     }
   }
 
-
-  /** Returns the implementation version string of the given class */
-  protected def version: String = version(getClass)
-
   /**
     * Prints the top-level usage of the command line, with a standard pre-amble, version, and list of sub-commands available.
     *
@@ -191,7 +184,8 @@ class CommandLineParser[SubCommand](val commandLineName: String)
 
     if (withPreamble) {
       builder.append(s"${standardSubCommandUsagePreamble()}\n")
-      builder.append(KRED(s"$version\n"))
+      builder.append(CommandLineProgramParserStrings.version(getClass, color=true) + "\n")
+      builder.append(CommandLineProgramParserStrings.lineBreak(color=true) + "\n")
     }
 
     builder.append(KBLDRED(s"$AvailableSubCommands\n"))
@@ -254,6 +248,7 @@ class CommandLineParser[SubCommand](val commandLineName: String)
     * @param args              the command line arguments to parse.
     * @param packageList       the list of packages to search for classes that extend [[SubCommand]].
     * @param omitSubClassesOf  individual classes to omit from including on the command line.
+    * @param withVersion       true to print the version in the usage messages, false otherwise.
     * @param includeHidden     true to include classes whose [[clp]] annotation's hidden values is set to false.
     * @param afterSubCommandBuild  a block of code to execute after a [[clp]] instance has been created successfully.
     * @param extraUsage        an optional string that will be printed prior to any usage message.
@@ -263,6 +258,7 @@ class CommandLineParser[SubCommand](val commandLineName: String)
   def parseSubCommand(args: Array[String],
                       packageList: List[String],
                       omitSubClassesOf: Iterable[Class[_]] = Nil,
+                      withVersion: Boolean = true,
                       includeHidden: Boolean = false,
                       afterSubCommandBuild: SubCommand => Unit = c => Unit,
                       extraUsage: Option[String] = None): Option[SubCommand] = {
@@ -280,35 +276,46 @@ class CommandLineParser[SubCommand](val commandLineName: String)
 
     val print : (String => Unit) = System.err.println
 
-    def printExtraUsage(clazz: Option[Class[_]]): Unit = {
-      extraUsage match {
-        case Some(str) => print(str)
-        case None => print(standardSubCommandUsagePreamble(clazz))
-      }
-    }
-
     // Try parsing the task name
     val classToClpAnnotation = findClpClasses[SubCommand](packageList, omitSubClassesOf = omitSubClassesOf, includeHidden = includeHidden)
     parseSubCommandName(args = args, classes = classToClpAnnotation.keySet) match {
       case Right(error) => // Case 4 (b)
-        printExtraUsage(None)
-        print(subCommandListUsage(classToClpAnnotation.keySet, commandLineName, withPreamble=false))
+        val withPreamble = extraUsage match {
+          case Some(str) => print(str); false
+          case None => true
+        }
+        print(subCommandListUsage(classToClpAnnotation.keySet, commandLineName, withPreamble=withPreamble))
         print(wrapError(error))
         None
       case Left(clazz) =>
+        def printExtraUsage(clazz: Option[Class[_]]): Unit = {
+          extraUsage match {
+            case Some(str) => print(str)
+            case None =>
+          }
+        }
         /////////////////////////////////////////////////////////////////////////
         // Parse the arguments for the Command Line Program class
         /////////////////////////////////////////////////////////////////////////
-        val clpParser = new CommandLineProgramParser(clazz)
+        // FIXME: could not get this to work as an anonymous subclass, so I just extended it.
+        class ClpParser[SubCommand](targetClass: Class[SubCommand]) extends CommandLineProgramParser[SubCommand](targetClass) {
+          override protected def standardUsagePreamble: String = {
+            extraUsage match {
+              case Some(_) => s"${KBLDRED(targetName)}"
+              case None => standardSubCommandUsagePreamble(Some(clazz))
+            }
+          }
+        }
+        val clpParser = new ClpParser(clazz)
         clpParser.parseAndBuild(args.drop(1)) match {
           case ParseFailure(ex, _) => // Case 5
             printExtraUsage(clazz=Some(clazz))
-            print(clpParser.usage(withPreamble=false))
+            print(clpParser.usage(withVersion=withVersion))
             print(wrapError(ex.getMessage))
             None
           case ParseHelp() => // Case 6
             printExtraUsage(clazz=Some(clazz))
-            print(clpParser.usage(withPreamble=false))
+            print(clpParser.usage(withVersion=withVersion))
             None
           case ParseVersion()  => // Case 7
             print(clpParser.version)
@@ -322,7 +329,7 @@ class CommandLineParser[SubCommand](val commandLineName: String)
             catch {
               case ex: ValidationException =>
                 printExtraUsage(clazz=Some(clazz))
-                print(clpParser.usage(withPreamble=false))
+                print(clpParser.usage(withVersion=withVersion))
                 ex.messages.foreach(msg => print(wrapError(msg)))
                 None
             }
@@ -366,7 +373,7 @@ class CommandLineParser[SubCommand](val commandLineName: String)
     // Parse the args for the main class
     val mainClassParser = new CommandLineProgramParser(mainClazz) {
       override protected def standardUsagePreamble: String = {
-        standardCommandAndSubCommandUsagePreamble(Some(mainClazz), None) + "\n"
+        standardCommandAndSubCommandUsagePreamble(Some(mainClazz), None)
       }
       override protected def targetName: String = thisParser.commandLineName
       override def commandLineName: String = thisParser.commandLineName
@@ -413,12 +420,13 @@ class CommandLineParser[SubCommand](val commandLineName: String)
         afterCommandBuild(mainInstance)
 
         val clpInstance = this.parseSubCommand(
-          args             = clpArgs,
-          packageList      = packageList,
-          omitSubClassesOf = Seq(mainClazz),
-          includeHidden    = includeHidden,
-          afterSubCommandBuild         = afterSubCommandBuild(mainInstance),
-          extraUsage       = Some(mainClassParser.usage())
+          args                 = clpArgs,
+          packageList          = packageList,
+          omitSubClassesOf     = Seq(mainClazz),
+          withVersion          = false,
+          includeHidden        = includeHidden,
+          afterSubCommandBuild = afterSubCommandBuild(mainInstance),
+          extraUsage           = Some(mainClassParser.usage())
         )
         clpInstance match {
           case Some(p) => Option(mainInstance, p)

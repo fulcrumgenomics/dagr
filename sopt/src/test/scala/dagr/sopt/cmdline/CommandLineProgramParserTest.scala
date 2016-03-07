@@ -575,21 +575,21 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
   }
 
   "CommandLineProgramParser.usage" should "print out no arguments when no arguments are present" in {
-    val usage = parser(classOf[NoArguments]).usage(printCommon = false, withPreamble = true, withSpecial = false)
+    val usage = parser(classOf[NoArguments]).usage(printCommon = false, withVersion = true, withSpecial = false)
     usage should not include (RequiredArguments)
     usage should not include (OptionalArguments)
     usage should include (UsagePrefix)
   }
 
   it should "print out only optional arguments when only optional arguments are present" in {
-    val usage = parser(classOf[OptionalOnlyArguments]).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(classOf[OptionalOnlyArguments]).usage(printCommon = false, withVersion = false, withSpecial = false)
     val reqIndex = usage.indexOf(RequiredArguments)
     reqIndex should be < 0
     usage should include (OptionalArguments)
   }
 
   it should "print out only required arguments when only required arguments are present and null default value" in {
-    val usage = parser(classOf[RequiredOnlyArguments]).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(classOf[RequiredOnlyArguments]).usage(printCommon = false, withVersion = false, withSpecial = false)
     val reqIndex = usage.indexOf(RequiredArguments)
     reqIndex should be > 0
     usage.indexOf(OptionalArguments, reqIndex) should be < 0
@@ -600,7 +600,7 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
     * emitted before optional ones.  Assumes both optional and required arguments are present.
     */
   def validateRequiredOptionalUsage(task: Any, printCommon: Boolean): Unit = {
-    val usage = parser(task.getClass).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(task.getClass).usage(printCommon = false, withVersion = false, withSpecial = false)
     usage should include (RequiredArguments)
     usage should include (OptionalArguments)
     usage.indexOf(RequiredArguments) should be < usage.indexOf(OptionalArguments)
@@ -614,41 +614,42 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
 
   it should "print out an explanation of mutually exclusive arguments" in {
     val task = new MutexArguments
-    val usage = parser(task.getClass).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(task.getClass).usage(printCommon = false, withVersion = false, withSpecial = false)
     usage should include (mutexErrorHeader)
   }
 
   it should "not print out default values with None, empty collections, or required argument when no defaults are given" in {
-    val usage = parser(classOf[NoDefaultValueStringsClass]).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(classOf[NoDefaultValueStringsClass]).usage(printCommon = false, withVersion = false, withSpecial = false)
     usage should not include "empty"
     usage should not include "Nil"
     usage should not include "None"
   }
 
   it should "not print out default values with None, empty collections, or required argument when empty defaults are given" in {
-    val usage = parser(classOf[EmptyDefaultValueStringsClass]).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(classOf[EmptyDefaultValueStringsClass]).usage(printCommon = false, withVersion = false, withSpecial = false)
     usage should not include "empty"
     usage should not include "Nil"
     usage should not include "None"
   }
 
   it should "print out default values with Some(x), non-empty collections, a required argument with a non-None or non-empty collection default" in {
-    val usage = parser(classOf[NonEmptyDefaultValueStringsClass]).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(classOf[NonEmptyDefaultValueStringsClass]).usage(printCommon = false, withVersion = false, withSpecial = false)
     "abcde".foreach { c =>
       usage should include (s"unique-value-$c")
     }
   }
 
   it should "put the clp description on the next line for a really long argument name" in {
-    val usage = parser(classOf[CommandLineProgramReallyLongArg]).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(classOf[CommandLineProgramReallyLongArg]).usage(printCommon = false, withVersion = false, withSpecial = false)
+    System.err.println("usage: " + usage)
     usage
       .split("\n")
-      .filter(str => str.contains("argument"))
+      .filter(str => str.contains("--argument"))
       .foreach(str => str should endWith ("tttttttttt=String"))
   }
 
   it should "pad the clp description on the same line for a short argument name" in {
-    val usage = parser(classOf[CommandLineProgramShortArg]).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(classOf[CommandLineProgramShortArg]).usage(printCommon = false, withVersion = false, withSpecial = false)
     usage
       .split("\n")
       .filter(str => str.contains("argument"))
@@ -656,18 +657,18 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
   }
 
   it should "print enum values in the  usage" in {
-    val usage = parser(classOf[GoodEnumClass]).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    val usage = parser(classOf[GoodEnumClass]).usage(printCommon = false, withVersion = false, withSpecial = false)
     GoodEnum.values.foreach(e =>
       usage should include (e.name())
     )
   }
 
   it should "throw an exception when an enum has no values" in {
-    an[ReflectionException] should be thrownBy parser(classOf[BadEnumClass]).usage(printCommon = false, withPreamble = false, withSpecial = false)
+    an[ReflectionException] should be thrownBy parser(classOf[BadEnumClass]).usage(printCommon = false, withVersion = false, withSpecial = false)
   }
 
   it should "format a long description" in {
-    val usage = parser(classOf[SomeDescription]).usage(printCommon = false, withPreamble = true, withSpecial = false)
+    val usage = parser(classOf[SomeDescription]).usage(printCommon = false, withVersion = true, withSpecial = false)
     val start = usage.indexOf("<START>")
     val end = usage.indexOf("<END>")
     start should be > 0
