@@ -333,7 +333,6 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
       Array[String]("--", "CommandLineProgramOn", "--flag"),
       Array[String]("CommandLineProgramOn")
     ).foreach { args =>
-      println("testing args: " + args.mkString(", "))
       val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting,CommandLineProgramOne](args)
       commandOption shouldBe 'empty
       clpOption shouldBe 'empty
