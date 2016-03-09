@@ -58,6 +58,18 @@ class ResourceTest extends UnitSpec {
     Resource.parseSizeToBytes("1Pb") shouldBe BigInt(1024)*BigInt(1024)*BigInt(1024)*BigInt(1024)*BigInt(1024)
   }
 
+  "Resource.parseBytesToSize" should "return the number of bytes as a string" in {
+    Resource.parseBytesToSize(209*1024) shouldBe "0.2m"
+    Resource.parseBytesToSize(301*1024) shouldBe "0.29m"
+    Resource.parseBytesToSize(511*1024) shouldBe "0.5m"
+    Resource.parseBytesToSize(512*1024) shouldBe "0.5m"
+    Resource.parseBytesToSize(1024*1024) shouldBe "1m"
+    Resource.parseBytesToSize(512*1024*1024) shouldBe "512m"
+    Resource.parseBytesToSize(1024*1024*1024) shouldBe "1024m"
+    Resource.parseBytesToSize((1024+1)*1024*1024) shouldBe "1025m"
+    Resource.parseBytesToSize((1024+512)*1024*1024) shouldBe "1536m"
+  }
+
   "Resource" should "add, subtract, and compare resources" in {
     val low = Memory(0)
     val mid = Memory(10)
