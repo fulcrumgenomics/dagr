@@ -72,22 +72,17 @@ object Resource {
   /** Get the number of bytes as a string.
     *
     * @param value        the number of bytes.
-    * @param formatSize   the size to normalize the number of bytes (ex. megabytes shouldbe 1024*1024).
+    * @param formatSize   the size to normalize the number of bytes (ex. megabytes should be 1024*1024).
     * @param formatSuffix the suffix related to the format size (ex. "k", "m", "g", "t").
     * @return the number of bytes as a string.
     */
   def parseBytesToSize(value: BigInt, formatSize: BigInt = 1024 * 1024, formatSuffix: String = "m"): String = {
-    var pow = 0
-    var size = value
-    while (formatSize * 1024 <= size) {
-      pow += 1
-      val remainder = 0 //1024 - (size % 1024)
-      size = (size + remainder) / 1024
+    if (value > formatSize) {
+      (value / formatSize).toString + formatSuffix
     }
-    val remainder = 0 //formatSize - (size % formatSize)
-    size = (size + remainder) / formatSize
-    size = size * BigInt.apply(1024).pow(pow)
-    size.toString + formatSuffix
+    else {
+      f"${BigDecimal(value) / BigDecimal(formatSize)}%.2f".reverse.dropWhile(_ == '0').dropWhile(_ == '.').reverse + formatSuffix
+    }
   }
 }
 

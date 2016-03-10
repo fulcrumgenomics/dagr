@@ -641,7 +641,6 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
 
   it should "put the clp description on the next line for a really long argument name" in {
     val usage = parser(classOf[CommandLineProgramReallyLongArg]).usage(printCommon = false, withVersion = false, withSpecial = false)
-    System.err.println("usage: " + usage)
     usage
       .split("\n")
       .filter(str => str.contains("--argument"))

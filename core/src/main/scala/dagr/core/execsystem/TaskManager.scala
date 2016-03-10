@@ -28,42 +28,37 @@ import java.time.Instant
 
 import dagr.core.DagrDef._
 import dagr.commons.util.LazyLogging
-import dagr.core.tasksystem.{Task, UnitTask}
+import dagr.core.tasksystem.{Retry, Task, UnitTask}
 import dagr.commons.util.BiMap
 import dagr.commons.io.{Io, PathUtil}
 
 /** The resources needed for the task manager */
-private[core] object TaskManagerResources {
-  /* Creates a new TaskManagerResources that is a copy of an existing one. */
-  def apply(that: TaskManagerResources): TaskManagerResources = {
-    new TaskManagerResources(cores = that.cores, systemMemory = that.systemMemory, jvmMemory = that.jvmMemory)
+private[core] object SystemResources {
+  /** Creates a new SystemResources that is a copy of an existing one. */
+  def apply(that: SystemResources): SystemResources = {
+    new SystemResources(cores = that.cores, systemMemory = that.systemMemory, jvmMemory = that.jvmMemory)
   }
 
-  /** Creates a new TaskManagerResources with the specified values. */
-  def apply(cores: Double, systemMemory: Long, jvmMemory: Long): TaskManagerResources = {
-    new TaskManagerResources(cores = Cores(cores), systemMemory = Memory(systemMemory), jvmMemory = Memory(jvmMemory))
+  /** Creates a new SystemResources with the specified values. */
+  def apply(cores: Double, systemMemory: Long, jvmMemory: Long): SystemResources = {
+    new SystemResources(cores = Cores(cores), systemMemory = Memory(systemMemory), jvmMemory = Memory(jvmMemory))
   }
 
-  /** Creates a new TaskManagerResources with the specified values. */
-  def apply(cores: Cores, systemMemory: Memory, jvmMemory: Memory): TaskManagerResources = {
-    new TaskManagerResources(cores, systemMemory, jvmMemory: Memory)
-  }
-
-  /** Creates a new TaskManagerResources with the cores provided and partitions the memory bewteen system and JVM. */
-  def apply(cores: Option[Cores] = None, totalMemory: Option[Memory] = None) : TaskManagerResources = {
+  /** Creates a new SystemResources with the cores provided and partitions the memory bewteen system and JVM. */
+  def apply(cores: Option[Cores] = None, totalMemory: Option[Memory] = None) : SystemResources = {
     val heapSize = Resource.heapSize
     val system   = totalMemory match {
       case Some(memory) => memory - heapSize
       case None         => Memory((Resource.systemMemory.bytes * TaskManagerDefaults.defaultSystemMemoryScalingFactor - heapSize.bytes).toLong)
     }
     val jvm      = Memory((heapSize.bytes * TaskManagerDefaults.defaultJvmMemoryScalingFactor).toLong)
-    new TaskManagerResources(cores.getOrElse(Resource.systemCores), system, jvm)
+    new SystemResources(cores.getOrElse(Resource.systemCores), system, jvm)
   }
 
-  val infinite: TaskManagerResources = TaskManagerResources(Double.MaxValue, Long.MaxValue, Long.MaxValue)
+  val infinite: SystemResources = SystemResources(Double.MaxValue, Long.MaxValue, Long.MaxValue)
 }
 
-private[core] class TaskManagerResources(val cores: Cores, val systemMemory: Memory, val jvmMemory: Memory)
+case class SystemResources(cores: Cores, systemMemory: Memory, jvmMemory: Memory)
 
 /** Various defaults for task manager */
 object TaskManagerDefaults extends LazyLogging {
@@ -73,8 +68,8 @@ object TaskManagerDefaults extends LazyLogging {
   /** The default scaling factor for the memory for the JVM */
   def defaultJvmMemoryScalingFactor: Double = 0.9
 
-  def defaultTaskManagerResources: TaskManagerResources = {
-    val resources = TaskManagerResources(cores=None, totalMemory=None) // Let the apply method figure it all out
+  def defaultTaskManagerResources: SystemResources = {
+    val resources = SystemResources(cores=None, totalMemory=None) // Let the apply method figure it all out
     logger.info("Defaulting System Resources to " + resources.cores.value + " cores and " + Resource.parseBytesToSize(resources.systemMemory.value) + " memory")
     logger.info("Defaulting JVM Resources to " + Resource.parseBytesToSize(resources.jvmMemory.value) + " memory")
     resources
@@ -101,7 +96,7 @@ object TaskManager extends LazyLogging {
    */
   def run(task: Task,
           sleepMilliseconds: Int = 1000,
-          taskManagerResources: Option[TaskManagerResources] = Some(defaultTaskManagerResources),
+          taskManagerResources: Option[SystemResources] = Some(defaultTaskManagerResources),
           scriptsDirectory: Option[Path] = None,
           logDirectory: Option[Path] = None,
           scheduler: Option[Scheduler] = Some(defaultScheduler),
@@ -135,7 +130,7 @@ object TaskManager extends LazyLogging {
   * @param simulate             true if we are to simulate running tasks, false otherwise
   * @param sleepMilliseconds    the time to wait in milliseconds to wait between trying to schedule tasks.
   */
-class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaults.defaultTaskManagerResources,
+class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.defaultTaskManagerResources,
                   scriptsDirectory: Option[Path]             = None,
                   logDirectory: Option[Path]                 = None,
                   scheduler: Scheduler                       = TaskManagerDefaults.defaultScheduler,
@@ -155,7 +150,7 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
   logger.info("Script files will be written to: " + actualScriptsDirectory)
   logger.info("Logs will be written to: " + actualLogsDirectory)
 
-  private[execsystem] def getTaskManagerResources: TaskManagerResources = taskManagerResources
+  private[execsystem] def getTaskManagerResources: SystemResources = taskManagerResources
 
   private def pathFor(task: Task, taskId: TaskId, directory: Path, ext: String): Path = {
     val sanitizedName: String = PathUtil.sanitizeFileName(task.name)
@@ -257,15 +252,18 @@ class TaskManager(taskManagerResources: TaskManagerResources = TaskManagerDefaul
     val taskInfo  = node.taskInfo
     logger.info("processCompletedTask: Task [" + taskInfo.task.name + "] had TaskStatus=" + taskInfo.status.toString)
     val updateNodeToCompleted: Boolean = if (TaskStatus.isTaskFailed(taskStatus = taskInfo.status) && doRetry) {
-      // Only if it has failed
-      taskInfo.task.retry(taskInfo, taskInfo.status == TaskStatus.FAILED_ON_COMPLETE) match {
-        case Some(task) =>
-          // retry it
-          logger.debug("task [" + task.name + "] is being retried")
-          node.state = NO_PREDECESSORS
-          taskInfo.attemptIndex += 1
-          false // do not update the node to completed
-        case None =>
+      val retryTask = taskInfo.task match {
+        case retry: Retry => retry.retry(this.getTaskManagerResources, taskInfo)
+        case _ => false
+      }
+      if (retryTask) {
+        // retry it
+        logger.debug("task [" + taskInfo.task.name + "] is being retried")
+        node.state = NO_PREDECESSORS
+        taskInfo.attemptIndex += 1
+        false // do not update the node to completed
+      }
+      else {
           logger.debug("task [" + taskInfo.task.name + "] is *not* being retried")
           true
       }

@@ -250,16 +250,6 @@ trait Task extends Dependable {
    * @return true if we c
    */
   def onComplete(exitCode: Int): Boolean = true
-
-  /** Retry the given task.
-    *
-    * @param taskInfo the task execution information for the task to be retried.
-    * @param failedOnComplete true the task failed while running its onComplete method, otherwise failed while running its command
-    * @return the task to be retried, None if it is not to be retried.
-    */
-  def retry(taskInfo: TaskExecutionInfo, failedOnComplete: Boolean): Option[Task] = {
-    None
-  }
 }
 
 /** Class that wraps two or more tasks to make the dependency DSL work. */

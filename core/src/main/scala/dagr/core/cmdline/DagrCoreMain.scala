@@ -191,7 +191,7 @@ class DagrCoreMain(
 
       Logger.level = this.logLevel
 
-      val resources = TaskManagerResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
+      val resources = SystemResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
       this.taskManager = Some(new TaskManager(taskManagerResources=resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
     }
     catch {

@@ -31,14 +31,15 @@ import org.scalatest._
 
 object TaskManagerTest {
 
-  trait TryThreeTimesTask extends MultipleRetryTask {
+  trait TryThreeTimesTask extends MultipleRetry {
     override def maxNumIterations: Int = 3
   }
 
-  trait SucceedOnTheThirdTry extends TryThreeTimesTask {
-    override def retry(taskInfo: TaskExecutionInfo, failedOnComplete: Boolean): Option[Task] = {
-      if (maxNumIterations <= taskInfo.attemptIndex) Some(ShellCommand("exit 0") withName "exit 0")
-      else Some(taskInfo.task)
+  class SucceedOnTheThirdTry extends TryThreeTimesTask with ProcessTask with FixedResources {
+    var args: Seq[Any] = Seq("exit", "1")
+    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
+      if (maxNumIterations <= taskInfo.attemptIndex) this.args = Seq("exit", "0")
+      true
     }
   }
 }
@@ -49,7 +50,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   override def afterAll(): Unit = Logger.level = LogLevel.Info
 
   def getDefaultTaskManager(sleepMilliseconds: Int = 10): TaskManager = new TaskManager(
-    taskManagerResources = TaskManagerResources.infinite,
+    taskManagerResources = SystemResources.infinite,
     scriptsDirectory = None,
     sleepMilliseconds = sleepMilliseconds
   )
@@ -138,12 +139,12 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     val task: UnitTask = new ShellCommand("exit 1") with TaskManagerTest.TryThreeTimesTask withName "retry three times"
     val taskManager: TaskManager = getDefaultTaskManager()
 
-    // try it three times, and it will keep failing, and not omit a task at the last attempt
-    tryTaskNTimes(taskManager = taskManager, task = task, numTimes = 3, taskIsDoneFinally = true, failedAreCompletedFinally = true)
+    // try it four times, and it will keep failing, and not omit a task at the last attempt
+    tryTaskNTimes(taskManager = taskManager, task = task, numTimes = 4, taskIsDoneFinally = true, failedAreCompletedFinally = true)
   }
 
   it should "retry a task three times and succeed on the last try" in {
-    val task: UnitTask = new ShellCommand("exit 1") with TaskManagerTest.SucceedOnTheThirdTry withName "succeed on the third try"
+    val task: UnitTask = new TaskManagerTest.SucceedOnTheThirdTry withName "succeed on the third try"
     val taskManager: TaskManager = getDefaultTaskManager()
 
     // try it three times, and it will keep failing, and not omit a task at the last attempt
@@ -154,7 +155,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     val map: BiMap[Task, TaskExecutionInfo] = TaskManager.run(
       task                 = task,
       sleepMilliseconds    = 10,
-      taskManagerResources = Some(TaskManagerResources.infinite),
+      taskManagerResources = Some(SystemResources.infinite),
       scriptsDirectory     = None,
       simulate             = simulate,
       failFast             = true)
@@ -302,7 +303,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   it should "replace a task that could not be scheduled due to OOM and re-run with less memory to completion" in {
     val original = new ShellCommand("exit", "0").requires(memory=Memory("2G")) withName "Too much memory"
     val replacement = new ShellCommand("exit", "0").requires(memory=Memory("1G")) withName "Just enough memory"
-    val taskManager: TaskManager = new TaskManager(taskManagerResources = new TaskManagerResources(Cores(1), Memory("1G"), Memory(0)), scriptsDirectory = None)
+    val taskManager: TaskManager = new TaskManager(taskManagerResources = new SystemResources(Cores(1), Memory("1G"), Memory(0)), scriptsDirectory = None)
 
     // just in case
     original.resources.memory.bytes should be(Resource.parseSizeToBytes("2G"))
@@ -313,12 +314,12 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   }
 
   // Really simple class that when retry gets called, it changes its args, but doesn't asked to be retried!
-  class RetryMutatorTask extends ProcessTask with FixedResources {
+  class RetryMutatorTask extends Retry with ProcessTask with FixedResources {
     private var fail = true
     override def args = List("exit", if (fail) "1"  else "0")
-    override def retry(taskInfo: TaskExecutionInfo, failedOnComplete: Boolean): Option[Task] = {
+    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
       fail = false
-      None
+      false
     }
   }
 
@@ -352,20 +353,20 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   // ******************************************
 
   // the onComplete method returns false until the retry method is called
-  private trait FailOnCompleteTask extends UnitTask {
+  private trait FailOnCompleteTask extends Retry with UnitTask {
     private var onCompleteValue = false
 
     override def onComplete(exitCode: Int): Boolean = onCompleteValue
 
-    override def retry(taskInfo: TaskExecutionInfo, failedOnComplete: Boolean): Option[Task] = {
+    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
       onCompleteValue = true
-      Some(this)
+      true
     }
   }
 
   // the onComplete method modifies the arguments for this task, and in its first call is false, otherwise true
   private class FailOnCompleteAndClearArgsTask(name: String, originalArgs: List[String], newArgs: List[String] = List("exit", "0"))
-    extends ProcessTask with FixedResources {
+    extends Retry with ProcessTask with FixedResources {
     withName(name)
     requires(ResourceSet.empty)
     private var onCompleteValue = false
@@ -377,13 +378,13 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       previousOnCompleteValue
     }
 
-    override def retry(taskInfo: TaskExecutionInfo, failedOnComplete: Boolean): Option[Task] = Some(this)
+    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = true
   }
 
   // The first time this task is run, it has exit code 1 and fails onComplete.
   // The second time this task is run, it has exit code 0 and fails onComplete
   // The third time and subsequent time this task is run, it has exit code 0 and succeed onComplete.
-  private class MultiFailTask(name: String) extends ProcessTask with FixedResources {
+  private class MultiFailTask(name: String) extends Retry with ProcessTask with FixedResources {
     withName(name)
     private var onCompleteValue = false
     private var attemptIndex = 0
@@ -399,9 +400,9 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       previousOnCompleteValue
     }
 
-    override def retry(taskInfo: TaskExecutionInfo, failedOnComplete: Boolean): Option[Task] = {
+    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
       attemptIndex = taskInfo.attemptIndex
-      Some(this)
+      true
     }
   }
 
@@ -467,24 +468,24 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
     override def inJvmMethod(): Int = exitCode
   }
 
-  private class SimpleRetryInJvmTask extends InJvmTask with FixedResources {
+  private class SimpleRetryInJvmTask extends InJvmTask with Retry with FixedResources {
     private var exitCode = 1
 
     override def inJvmMethod(): Int = exitCode
 
-    override def retry(taskInfo: TaskExecutionInfo, failedOnComplete: Boolean): Option[Task] = {
+    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
       exitCode = 0
-      Some(this)
+      true
     }
   }
 
-  private class SimpleRetryOnCompleteInJvmTask extends InJvmTask with FixedResources {
+  private class SimpleRetryOnCompleteInJvmTask extends InJvmTask with Retry with FixedResources {
     private var exitCode = 1
 
     override def inJvmMethod(): Int = exitCode
 
-    override def retry(taskInfo: TaskExecutionInfo, failedOnComplete: Boolean): Option[Task] = {
-      Some(this)
+    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
+      true
     }
 
     override def onComplete(exitCode: Int): Boolean = {
@@ -496,7 +497,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
   // The first time this task is run, it has exit code 1 and fails onComplete.
   // The second time this task is run, it has exit code 0 and fails onComplete
   // The third time and subsequent time this task is run, it has exit code 0 and succeed onComplete.
-  private class MultiFailInJvmTask(name: String) extends InJvmTask with FixedResources {
+  private class MultiFailInJvmTask(name: String) extends InJvmTask with Retry with FixedResources {
     private var onCompleteValue = false
     private var attemptIndex = 0
     private var exitCode = 1
@@ -516,9 +517,9 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       previousOnCompleteValue
     }
 
-    override def retry(taskInfo: TaskExecutionInfo, failedOnComplete: Boolean): Option[Task] = {
+    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
       attemptIndex = taskInfo.attemptIndex
-      Some(this)
+      true
     }
   }
 
@@ -833,7 +834,7 @@ class TaskManagerTest extends UnitSpec with PrivateMethodTester with OptionValue
       TaskManager.run(
         new HungryPipeline,
         sleepMilliseconds = 1,
-        taskManagerResources = Some(TaskManagerResources(systemCores, Resource.parseSizeToBytes("8g").toLong, 0.toLong)),
+        taskManagerResources = Some(SystemResources(systemCores, Resource.parseSizeToBytes("8g").toLong, 0.toLong)),
         failFast=true
       )
       maxAllocatedCores should be <= systemCores
