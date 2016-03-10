@@ -57,7 +57,7 @@ object Bwa extends Configuration {
     val fqBuffer   = new FifoBuffer[Fastq].requires(memory=fifoMem)
     val bwaMem     = new BwaMem(fastq=Io.StdIn, ref=ref, minThreads=minThreads, maxThreads=maxThreads, memory=Memory(bwaMemMemory))
     val bwaBuffer  = new FifoBuffer[Sam].requires(memory=fifoMem)
-    val altPipe    =  if (doAlt) new BwaK8AltProcessor(altFile=alt) | new FifoBuffer[Sam].requires(memory=fifoMem) else Pipes.empty[Sam]
+    val altPipe    = if (doAlt) new BwaK8AltProcessor(altFile=alt) | new FifoBuffer[Sam].requires(memory=fifoMem) else Pipes.empty[Sam]
     val mergeBam   = new MergeBamAlignment(unmapped=unmappedBam, mapped=Io.StdIn, out=mappedBam, ref=ref, sortOrder=sortOrder)
     mergeBam.requires(memory=Memory(mergeBamAlignmentMem))
 
