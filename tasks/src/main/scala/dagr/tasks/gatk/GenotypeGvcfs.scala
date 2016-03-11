@@ -28,19 +28,31 @@ import DagrDef._
 
 import scala.collection.mutable.ListBuffer
 
-/**
-  * Genotypes a single GVCF.
-  */
-class GenotypeSingleGvcf(ref: PathToFasta,
-                         intervals: PathToIntervals,
-                         val gvcf: PathToVcf,
-                         val vcf: PathToVcf,
-                         val dbSnpVcf: Option[PathToVcf] = None)
-  extends GatkTask("GenotypeGVCFs", ref, intervals=Some(intervals)) {
+
+object GenotypeGvcfs {
+  /** Constructs a GenotypeGvcfs for genotyping multiple samples concurrently. */
+  def apply(ref: PathToFasta, intervals: PathToIntervals, gvcfs: Seq[PathToVcf], vcf: PathToVcf, dbSnpVcf: Option[PathToVcf]) : GenotypeGvcfs = {
+    new GenotypeGvcfs(ref, Some(intervals), gvcfs, vcf, dbSnpVcf)
+  }
+
+  /** Constructs a GenotypeGvcfs for genotyping a single sample. */
+  def apply(ref: PathToFasta, intervals: PathToIntervals, gvcf: PathToVcf, vcf: PathToVcf, dbSnpVcf: Option[PathToVcf]) : GenotypeGvcfs = {
+    new GenotypeGvcfs(ref, Some(intervals), Seq(gvcf), vcf, dbSnpVcf)
+  }
+}
+
+
+/** Genotypes one or more GVCFs concurrently. */
+class GenotypeGvcfs private (ref: PathToFasta,
+                             intervals: Option[PathToIntervals],
+                             val gvcfs: Seq[PathToVcf],
+                             val vcf: PathToVcf,
+                             val dbSnpVcf: Option[PathToVcf] = None)
+  extends GatkTask("GenotypeGVCFs", ref, intervals=intervals) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     dbSnpVcf.foreach(v => buffer.append("--dbsnp", v.toAbsolutePath.toString))
-    buffer.append("-V", gvcf.toAbsolutePath.toString)
+    gvcfs.foreach(gvcf => buffer.append("-V", gvcf.toAbsolutePath.toString))
     buffer.append("-o", vcf.toAbsolutePath.toString)
   }
 }
