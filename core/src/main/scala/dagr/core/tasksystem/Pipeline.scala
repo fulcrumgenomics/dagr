@@ -25,6 +25,7 @@ package dagr.core.tasksystem
 
 import java.nio.file.Path
 
+import dagr.commons.io.Io
 import dagr.commons.util.LazyLogging
 
 /** Simple trait to track tasks within a pipeline */
@@ -33,6 +34,7 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
                         private var suffix: Option[String] = None
                        ) extends Task with LazyLogging {
   private val tasks = new scala.collection.mutable.LinkedHashSet[Task]()
+  this.outputDirectory.foreach(Io.mkdirs(_))
 
   /** A name exposed to sub-classes that can be treated like a Task, to add root tasks. */
   val root = new Dependable {

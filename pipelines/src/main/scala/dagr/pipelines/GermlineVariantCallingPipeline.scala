@@ -30,7 +30,7 @@ import dagr.sopt._
 import dagr.core.tasksystem.{Linker, Pipeline, ShellCommand}
 import dagr.tasks.DagrDef
 import DagrDef._
-import dagr.tasks.gatk.{GenotypeSingleGvcf, HaplotypeCaller}
+import dagr.tasks.gatk.{GenotypeGvcfs, HaplotypeCaller}
 import dagr.tasks.misc.{DeleteVcfs, GetSampleNamesFromVcf, IndexVcfGz}
 import dagr.tasks.picard.{CollectVariantCallingMetrics, FilterVcf, GenotypeConcordance}
 import dagr.tasks.vc.{FilterFreeBayesCalls, FreeBayesGermline}
@@ -79,7 +79,7 @@ class GermlineVariantCallingPipeline
         case true =>
           val gvcf = outputDir.resolve(prefix + ".gvcf.vcf.gz")
           val hc   = new HaplotypeCaller(ref=ref, intervals=intervals, bam=in, vcf=gvcf)
-          val gt   = new GenotypeSingleGvcf(ref=ref, intervals=intervals, gvcf=gvcf, vcf=unfilteredVcf, dbSnpVcf=dbsnp)
+          val gt   = GenotypeGvcfs(ref=ref, intervals=intervals, gvcf=gvcf, vcf=unfilteredVcf, dbSnpVcf=dbsnp)
           val fvcf = new FilterVcf(in=unfilteredVcf, out=finalVcf)
           mkdir ==> hc ==> gt ==> (fvcf :: new DeleteVcfs(gvcf))
         case false =>
