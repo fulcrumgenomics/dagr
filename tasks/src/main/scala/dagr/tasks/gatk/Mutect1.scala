@@ -34,7 +34,7 @@ import scala.collection.mutable.ListBuffer
   * Runs Mutect 1 from the separate Mutect/CGA tools distribution
   */
 class Mutect1(val tumorBam: PathToBam,
-              val normalBam: PathToBam,
+              val normalBam: Option[PathToBam] = None,
               ref: PathToFasta,
               intervals: PathToIntervals,
               val dbsnpVcf: Option[PathToVcf] = None,
@@ -53,7 +53,7 @@ class Mutect1(val tumorBam: PathToBam,
     buffer.append("-vcf", vcfOutput)
     dbsnpVcf.foreach(vcf => buffer.append("--dbsnp", vcf))
     buffer.append("--input_file:tumor",  tumorBam)
-    buffer.append("--input_file:normal", normalBam)
+    normalBam.foreach(buffer.append("--input_file:normal", _))
     buffer.append("--tumor_sample_name", tumorSampleName)
     buffer.append("--normal_sample_name", normalSampleName)
     buffer.append("--fraction_contamination", fractionContamination)
