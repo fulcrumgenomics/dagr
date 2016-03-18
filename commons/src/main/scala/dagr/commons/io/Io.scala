@@ -42,17 +42,20 @@ trait IoUtil {
   val StdOut  = PathUtil.pathTo("/dev/stdout")
   val DevNull = PathUtil.pathTo("/dev/null")
 
+  /** How large a buffer should be used when buffering operations. */
+  def bufferSize: Int = 32 * 1024
+
   /** Creates a new InputStream to read from the supplied path. */
-  def toInputStream(path: Path) : InputStream = new BufferedInputStream(Files.newInputStream(path))
+  def toInputStream(path: Path) : InputStream = new BufferedInputStream(Files.newInputStream(path), bufferSize)
 
   /** Creates a new BufferedReader to read from the supplied path. */
-  def toOutputStream(path: Path) : OutputStream = new BufferedOutputStream(Files.newOutputStream(path))
+  def toOutputStream(path: Path) : OutputStream = new BufferedOutputStream(Files.newOutputStream(path), bufferSize)
 
   /** Creates a new BufferedWriter to write to the supplied path. */
-  def toWriter(path: Path) : BufferedWriter = new BufferedWriter(new OutputStreamWriter(toOutputStream(path)))
+  def toWriter(path: Path) : BufferedWriter = new BufferedWriter(new OutputStreamWriter(toOutputStream(path)), bufferSize)
 
   /** Creates a new BufferedReader to read from the supplied path. */
-  def toReader(path: Path) : BufferedReader = new BufferedReader(new InputStreamReader(toInputStream(path)))
+  def toReader(path: Path) : BufferedReader = new BufferedReader(new InputStreamReader(toInputStream(path)), bufferSize)
 
   /** Constructs a scala Source object from the path, in a way that will correctly close the source on `close()`. */
   def toSource(path: Path): Source = {
