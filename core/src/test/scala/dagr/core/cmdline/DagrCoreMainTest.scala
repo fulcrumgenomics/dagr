@@ -60,6 +60,20 @@ class DagrCoreMainTest extends UnitSpec with CaptureSystemStreams with BeforeAnd
     Logger.level = LogLevel.Info
   }
 
+  it should "run a pipeline end-to-end in interactive mode" in {
+    val clp = new DagrCoreMain(logLevel=LogLevel.Fatal, report=Some(Io.DevNull), interactive=true)
+    val pipeline = new NoOpPipeline()
+
+    clp.configure(pipeline)
+    val stdout = captureStdout(() => {
+      clp.execute(pipeline) shouldBe 0
+    })
+    stdout should include("1 Done")
+
+    // NB: need to set the log level back
+    Logger.level = LogLevel.Info
+  }
+
   private def nameOf(clazz: Class[_]): String = clazz.getSimpleName
 
   private def testParse(args: Array[String]): (Option[DagrCoreMain], Option[Pipeline], String, String) = {

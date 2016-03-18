@@ -136,7 +136,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
                   scheduler: Scheduler                       = TaskManagerDefaults.defaultScheduler,
                   simulate: Boolean                          = false,
                   sleepMilliseconds: Int                     = 1000
-) extends TaskManagerLike with TaskTracker with TaskStatusReporter with LazyLogging {
+) extends TaskManagerLike with TaskTracker with FinalStatusReporter with LazyLogging {
 
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
   private val actualLogsDirectory    = logDirectory getOrElse Io.makeTempDir("logs")
@@ -150,7 +150,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   logger.info("Script files will be written to: " + actualScriptsDirectory)
   logger.info("Logs will be written to: " + actualLogsDirectory)
 
-  private[execsystem] def getTaskManagerResources: SystemResources = taskManagerResources
+  private[core] def getTaskManagerResources: SystemResources = taskManagerResources
 
   private def pathFor(task: Task, taskId: TaskId, directory: Path, ext: String): Path = {
     val sanitizedName: String = PathUtil.sanitizeFileName(task.name)
@@ -473,6 +473,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     }
   }
 
+  protected[core] def runningTasksMap: Map[UnitTask, ResourceSet] = Map(taskExecutionRunner.runningTaskIds.toList.map(id => this(id).task).map(task => (task.asInstanceOf[UnitTask], task.taskInfo.resources)) : _*)
+
+  protected[core] def readyTasksList: List[UnitTask] = graphNodesInStateFor(NO_PREDECESSORS).toList.map(node => node.task.asInstanceOf[UnitTask])
+
   override def stepExecution(): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task]) = {
     logger.debug("runSchedulerOnce: starting one round of execution")
 
@@ -489,8 +493,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     invokeCallbacksAndGetTasks()
 
     // get the running tasks to estimate currently used resources
-    val runningTasks: Map[UnitTask, ResourceSet] = Map(
-    taskExecutionRunner.runningTaskIds.toList.map(id => this(id).task).map(task => (task.asInstanceOf[UnitTask], task.taskInfo.resources)) : _*)
+    val runningTasks: Map[UnitTask, ResourceSet] = runningTasksMap
 
     // get the tasks that are eligible for execution (tasks with no dependents)
     val readyTasks: List[UnitTask] = graphNodesInStateFor(NO_PREDECESSORS).toList.map(node => node.task.asInstanceOf[UnitTask])

@@ -24,8 +24,9 @@
 package dagr.core.execsystem
 
 import java.nio.file.Path
-import java.time.Instant
+import java.time.{Duration, Instant}
 
+import dagr.commons.util.TimeUtil._
 import dagr.core.DagrDef._
 import dagr.core.tasksystem.Task
 
@@ -61,5 +62,23 @@ class TaskExecutionInfo(var task: Task,
     s"STATUS[$status] ID[$taskId] NAME[${task.name}] SUBMITTED[${submissionDate.getOrElse(na)}]" +
     s" START[${startDate.getOrElse(na)}] END[${endDate.getOrElse(na)}] ATTEMPT[$attemptIndex]" +
     s" SCRIPT[$script] LOGFILE[$logFile]"
+  }
+
+  /** Gets the total execution time and total time since submission, in seconds, or None if the task has not started and ended.  Formats
+    * the durations or return NA otherwise. */
+  def durationSinceStartAndFormat: (String, String) = {
+    durationSinceStart match {
+      case Some((sinceStart, sinceSubmission)) => (formatElapsedTime(sinceStart), formatElapsedTime(sinceSubmission))
+      case _ => ("NA", "NA")
+    }
+  }
+
+  /** Gets the total execution time and total time since submission, in seconds, or None if the task has not started and ended. */
+  private def durationSinceStart: Option[(Long, Long)] = (this.submissionDate, this.startDate, this.endDate) match {
+    case (Some(submission), Some(start), Some(end)) =>
+      val sinceSubmission = Duration.between(submission, end)
+      val sinceStart      = Duration.between(start, end)
+      Some(sinceStart.getSeconds, sinceSubmission.getSeconds)
+    case _ => None
   }
 }
