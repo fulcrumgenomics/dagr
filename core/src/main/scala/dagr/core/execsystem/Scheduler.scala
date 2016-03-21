@@ -66,7 +66,6 @@ abstract class Scheduler extends LazyLogging {
     val remainingSystemMemory: Memory = Memory(
       systemMemory.value - runningTasks.filterKeys(_.isInstanceOf[ProcessTask]).values.map(_.memory.value).sum
     )
-    runningTasks.filterKeys(_.isInstanceOf[InJvmTask])
     val remainingJvmMemory: Memory = Memory(
       jvmMemory.value - runningTasks.filterKeys(_.isInstanceOf[InJvmTask]).values.map(_.memory.value).sum
     )

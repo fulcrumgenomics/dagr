@@ -24,32 +24,17 @@
 
 package dagr.core.execsystem
 
-import java.time.{ZoneId, Duration}
-import java.time.format.DateTimeFormatter
-import java.time.temporal.Temporal
-
-import dagr.core.tasksystem.Task
 import dagr.commons.util.BiMap
 import dagr.commons.util.StringUtil._
 import dagr.commons.util.TimeUtil._
-
+import dagr.core.tasksystem.Task
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /** Provides a method to provide an execution report for a task tracker */
-trait TaskStatusReporter {
+trait FinalStatusReporter {
   this: TaskTracker =>
-
-  private val fmt = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
-
-  /** Gets the time stamp as a string (without Nanoseconds), or NA if it is None */
-  private def timestampStringOrNA(timestamp: Option[Temporal]): String = {
-    timestamp match {
-      case Some(ts) => fmt.format(ts)
-      case None => "NA"
-    }
-  }
 
   /** The header for the report */
   private def reportHeader: List[String] = List(
@@ -62,18 +47,9 @@ trait TaskStatusReporter {
   /** A row  for the report.  Each row is a given task. */
   private def reportRow(taskInfo: TaskExecutionInfo): List[String] = {
     // get the total execution time, and total time since submission
-    val (executionTime: String, totalTime: String) = (taskInfo.submissionDate, taskInfo.startDate, taskInfo.endDate) match {
-      case (Some(submission), Some(start), Some(end)) =>
-        val sinceSubmission = Duration.between(submission, end)
-        val sinceStart      = Duration.between(start, end)
-        (formatElapsedTime(sinceStart.getSeconds), formatElapsedTime(sinceSubmission.getSeconds))
-      case _ => ("NA", "NA")
-    }
+    val (executionTime: String, totalTime: String) = taskInfo.durationSinceStartAndFormat
     // The state of execution
-    val graphNodeState = graphNodeStateFor(taskInfo.taskId) match {
-      case Some(state) => state.toString
-      case None => "NA"
-    }
+    val graphNodeState = graphNodeStateFor(taskInfo.taskId).map(_.toString).getOrElse("NA")
     List(
       taskInfo.taskId.toString(),
       taskInfo.task.name,

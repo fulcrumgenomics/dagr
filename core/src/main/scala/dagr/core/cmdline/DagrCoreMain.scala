@@ -23,7 +23,7 @@
  */
 package dagr.core.cmdline
 
-import java.io.PrintWriter
+import java.io.{PrintStream, ByteArrayOutputStream, PrintWriter}
 import java.nio.file.{Files, Path}
 
 import dagr.commons.util.{LogLevel, LazyLogging, Logger}
@@ -59,7 +59,6 @@ object DagrCoreMain extends Configuration {
       quiet = false
     )
   }
-
 
   /**
     * Main entry point for the class. Parses the args and executes the pipeline. */
@@ -142,7 +141,9 @@ class DagrCoreMain(
   @arg(doc = "Set the memory available to dagr.", common = true)
   val memory: Option[String] = None,
   @arg(doc = "Write an execution report to this file, otherwise write to the stdout", common = true)
-  val report: Option[Path] = None
+  val report: Option[Path] = None,
+  @arg(doc = "Provide an top-like interface for tasks with the give delay in seconds. This suppress info logging.")
+  var interactive: Boolean = false
 ) extends LazyLogging {
 
   // These are not optional, but are only populated during configure()
@@ -168,10 +169,6 @@ class DagrCoreMain(
     try {
       val config = new Configuration { }
 
-      // System and JVM resources
-      val systemCores  = config.optionallyConfigure[Double](Configuration.Keys.SystemCores) orElse this.cores
-      val systemMemory = config.optionallyConfigure[String](Configuration.Keys.SystemMemory) orElse this.memory
-
       // scripts & logs directories
       val scriptsDirectory = pick(this.scriptDir, pipeline.outputDirectory.map(_.resolve("scripts")),
         config.optionallyConfigure(Configuration.Keys.ScriptDirectory))
@@ -185,11 +182,11 @@ class DagrCoreMain(
         if (errors.nonEmpty) throw new ValidationException(errors.toList)
       }
 
+      Logger.level = this.logLevel
+
       // report file
       this.reportPath = pick(report, pipeline.outputDirectory.map(_.resolve("execution_report.txt")), Option(Io.StdOut)).map(_.toAbsolutePath)
       this.reportPath.foreach(p => Io.assertCanWriteFile(p, parentMustExist=false))
-
-      Logger.level = this.logLevel
 
       val resources = SystemResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
       this.taskManager = Some(new TaskManager(taskManagerResources=resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
@@ -208,13 +205,31 @@ class DagrCoreMain(
     val taskMan = this.taskManager.getOrElse(throw new IllegalStateException("execute() called before configure()"))
     val report  = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
 
+    val interactiveReporter: Option[TopLikeStatusReporter] = interactive match {
+      case true if !Terminal.supportsAnsi =>
+        logger.warning("ANSI codes are not supported in your terminal.  Interactive mode will not be used.")
+        interactive = false
+        None
+      case true =>
+        val loggerOutputStream = new ByteArrayOutputStream()
+        val loggerPrintStream = new PrintStream(loggerOutputStream)
+        Logger.out = loggerPrintStream
+        Some(new TopLikeStatusReporter(taskMan, Some(loggerOutputStream), print = (s: String) => System.out.print(s)))
+      case false => None
+    }
+    interactiveReporter.foreach(_.start())
+
     taskMan.addTask(pipeline)
     taskMan.runToCompletion(this.failFast)
 
     // Write out the execution report
-    val pw = new PrintWriter(Io.toWriter(report))
-    taskMan.logReport({str: String => pw.write(str + "\n")})
-    pw.close()
+    if (!interactive || Io.StdOut != report) {
+      val pw = new PrintWriter(Io.toWriter(report))
+      taskMan.logReport({ str: String => pw.write(str + "\n") })
+      pw.close()
+    }
+
+    interactiveReporter.foreach(_.shutdown())
 
     // return an exit code based on the number of non-completed tasks
     taskMan.taskToInfoBiMapFor.count { case (task, info) =>

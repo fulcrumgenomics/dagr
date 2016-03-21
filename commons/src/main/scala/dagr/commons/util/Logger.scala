@@ -30,7 +30,7 @@ import java.util.Date
 /** Companion object for the Logger class that holds the system-wide log level, and a PrintWriter to write to. */
 object Logger {
   var level = LogLevel.Info
-  protected var out: PrintStream = System.out
+  var out: PrintStream = System.out
 
   /** Removes various characters from the simple class name, for scala class names. */
   private[util] def sanitizeSimpleClassName(className: String): String = {

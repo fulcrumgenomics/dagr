@@ -25,6 +25,9 @@
 package dagr.commons.util
 
 import java.text.{DecimalFormat, NumberFormat}
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.Temporal
 
 object TimeUtil {
   /**
@@ -37,5 +40,13 @@ object TimeUtil {
     val m: Long = allMinutes % 60
     val h: Long = allMinutes / 60
     List(h, m, s).map(timeFmt.format).mkString(":")
+  }
+
+  /** Gets the time stamp as a string (without Nanoseconds), or NA if it is None */
+  def timestampStringOrNA(timestamp: Option[Temporal], fmt: DateTimeFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())): String = {
+    timestamp match {
+      case Some(ts) => fmt.format(ts)
+      case None => "NA"
+    }
   }
 }
