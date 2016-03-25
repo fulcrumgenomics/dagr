@@ -30,7 +30,6 @@ import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.JarTask
 
-import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -38,17 +37,6 @@ import htsjdk.samtools.ValidationStringency
 
 object PicardTask {
   val PicardJarConfigPath = "picard.jar"
-
-  /** Looks up the first super class that is does not have "\$anon\$" in its name. */
-  @tailrec
-  private final def findCommandName(clazzOption: Option[Class[_]]): String = {
-    clazzOption match {
-      case None => throw new RuntimeException("Could not determine the name of the PicardTask class")
-      case Some(clazz) =>
-        if (!clazz.getName.contains("$anon$")) clazz.getSimpleName
-        else findCommandName(Option(clazz.getSuperclass)) // the call to itself must be the last statement for tailrec to have a chance
-    }
-  }
 }
 
 /** Simple class to run any Picard command.  Specific Picard command classes
@@ -76,15 +64,15 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
   extends ProcessTask with JarTask with FixedResources with Configuration {
   requires(Cores(1), Memory("4G"))
 
-  /** Looks up the first super class that is does not have "\$anon\$" in its name. */
-  def commandName: String = PicardTask.findCommandName(Option(getClass))
+  /** Looks up the first super class that does not have "\$anon\$" in its name. */
+  lazy val commandName: String = JarTask.findCommandName(getClass, Some("PicardTask"))
 
   name = commandName
 
   /** The path to the JAR to be executed. */
   def jarPath: Path = configure[Path](PicardTask.PicardJarConfigPath)
 
-  override def args: Seq[Any] = {
+  override final def args: Seq[Any] = {
     val buffer = ListBuffer[Any]()
 
     // JVM arguments / properties
