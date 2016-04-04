@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,26 @@ import java.nio.file.Path
 
 import dagr.core.execsystem.Memory
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
+
+object JarTask {
+  /** Looks up the first super class that does not have "\$anon\$" in its name. */
+  final def findCommandName(clazz: Class[_], errClassName: Option[String] = None): String = {
+    findCommandNameHelper(Option(clazz), errClassName)
+  }
+
+  /** Looks up the first super class that does not have "\$anon\$" in its name. */
+  @tailrec
+  private final def findCommandNameHelper(clazzOption: Option[Class[_]], errClassName: Option[String] = None): String = {
+    clazzOption match {
+      case None => throw new RuntimeException(s"Could not determine the name of the ${errClassName.getOrElse("task")} class")
+      case Some(clazz) =>
+        if (!clazz.getName.contains("$anon$")) clazz.getSimpleName
+        else findCommandNameHelper(Option(clazz.getSuperclass)) // the call to itself must be the last statement for tailrec to have a chance
+    }
+  }
+}
 
 trait JarTask {
 
