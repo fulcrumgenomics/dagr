@@ -37,13 +37,13 @@ object CollectHsMetrics {
   def baitSetName(baitSetIntervals: Path): String = PathUtil.basename(baitSetIntervals.toString, trimExt=true)
 }
 
-class CollectHsMetrics(in: PathToBam,
-                       prefix: Option[Path] = None,
+class CollectHsMetrics(override val in: PathToBam,
+                       override val prefix: Option[Path] = None,
                        ref: PathToFasta,
                        targets: PathToIntervals,
                        baits: Option[PathToIntervals] = None,
                        baitSetName: Option[String] = None)
-  extends PicardMetricsTask(in=in, prefix=prefix) {
+  extends PicardTask with PicardMetricsTask {
 
   override def metricsExtension: String = CollectHsMetrics.MetricsExtension
 

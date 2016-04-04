@@ -37,12 +37,12 @@ object MarkIlluminaAdapters {
   val MetricsExtension = ".adapter_metrics"
 }
 
-class MarkIlluminaAdapters(in: PathToBam,
+class MarkIlluminaAdapters(override val in: PathToBam,
                            out: PathToBam,
-                           prefix: Option[Path],
+                           override val prefix: Option[Path],
                            fivePrimeAdapter: Option[String] = None,
                            threePrimeAdapter: Option[String] = None)
-  extends PicardMetricsTask(in = out, prefix = prefix) with Pipe[SamOrBam,SamOrBam] {
+  extends PicardTask with PicardMetricsTask with Pipe[SamOrBam,SamOrBam] {
   requires(Cores(1), Memory("1G"))
 
   override def metricsExtension: String = MarkIlluminaAdapters.MetricsExtension

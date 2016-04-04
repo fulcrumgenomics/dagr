@@ -31,13 +31,13 @@ import picard.analysis.CollectMultipleMetrics.Program
 
 import scala.collection.mutable.ListBuffer
 
-class CollectMultipleMetrics(in: PathToBam,
-                             prefix: Option[Path] = None,
+class CollectMultipleMetrics(override val in: PathToBam,
+                             override val prefix: Option[Path] = None,
                              ref: PathToFasta,
                              assumeSorted: Boolean = true,
                              programs: Seq[Program] = Program.values().toSeq,
                              fileExtension: Option[String] = Some("." + PicardOutput.Text.toString))
-  extends PicardMetricsTask(in = in, prefix = prefix) {
+  extends PicardTask with PicardMetricsTask {
 
   // Since we do not actually want any extensions, the tool will do that itself
   override def metricsExtension: String = ""

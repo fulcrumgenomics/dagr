@@ -36,10 +36,10 @@ object CollectGcBiasMetrics {
   val DetailMetricsExtension:  String = ".gc_bias.detail_metrics"
 }
 
-class CollectGcBiasMetrics(in: PathToBam,
-                           prefix: Option[Path],
+class CollectGcBiasMetrics(override val in: PathToBam,
+                           override val prefix: Option[Path],
                            ref: PathToFasta)
-  extends PicardMetricsTask(in = in, prefix = prefix) {
+  extends PicardTask with PicardMetricsTask {
 
   override def metricsExtension: String = ""
 
