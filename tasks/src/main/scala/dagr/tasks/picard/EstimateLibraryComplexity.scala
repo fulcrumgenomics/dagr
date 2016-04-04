@@ -42,14 +42,14 @@ object EstimateLibraryComplexity {
   val MetricsExtension = ".els_duplicate_metrics"
 }
 
-class EstimateLibraryComplexity(in: PathToBam,
-                                prefix: Option[Path],
+class EstimateLibraryComplexity(override val in: PathToBam,
+                                override val prefix: Option[Path],
                                 var minIdenticalBases: Int = 5,
                                 var numPfReads: Option[Long] = None,
                                 templateUmiTag: Option[String] = None,
                                 read1UmiTag: Option[String] = None,
                                 read2UmiTag: Option[String] = None)
-  extends PicardMetricsTask(in = in, prefix = prefix) {
+  extends PicardTask with PicardMetricsTask {
 
   override def metricsExtension: String = EstimateLibraryComplexity.MetricsExtension
 

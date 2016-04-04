@@ -39,11 +39,11 @@ object CollectTargetedPcrMetrics {
   def metricsExtension: String = ".targeted_pcr_metrics"
 }
 
-class CollectTargetedPcrMetrics(in: PathToBam,
-                                prefix: Option[Path],
+class CollectTargetedPcrMetrics(override val in: PathToBam,
+                                override val prefix: Option[Path],
                                 ref: PathToFasta,
                                 targets: PathToIntervals)
-  extends PicardMetricsTask(in = in, prefix = prefix) {
+  extends PicardTask with PicardMetricsTask{
 
   override def metricsExtension: String = CollectTargetedPcrMetrics.metricsExtension
 

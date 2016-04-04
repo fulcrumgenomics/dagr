@@ -34,11 +34,11 @@ object CollectAlignmentSummaryMetrics {
    def metricsExtension: String = ".alignment_summary_metrics"
 }
 
-class CollectAlignmentSummaryMetrics(in: PathToBam,
-                                     prefix: Option[Path],
+class CollectAlignmentSummaryMetrics(override val in: PathToBam,
+                                     override val prefix: Option[Path],
                                      ref: PathToFasta,
                                      assumeSorted: Boolean = true)
-  extends PicardMetricsTask(in=in, prefix=prefix) {
+  extends PicardTask with PicardMetricsTask {
 
   override def metricsExtension: String = CollectAlignmentSummaryMetrics.metricsExtension
 

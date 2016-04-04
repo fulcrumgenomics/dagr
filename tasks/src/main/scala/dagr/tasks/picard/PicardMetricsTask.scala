@@ -35,7 +35,14 @@ object PicardOutput extends Enumeration {
 }
 
 /** Simple trait that requires knowing where a metrics file is for a Picard metric generating tool. */
-abstract class PicardMetricsTask(private val in: PathToBam, private val prefix: Option[Path] = None) extends PicardTask {
+trait PicardMetricsTask {
+
+  /** The path to the input BAM */
+  def in: PathToBam
+
+  /** The optional path to the prefix of the metrics file */
+  def prefix: Option[Path] = None
+
   /** Method that should be used to fetch the file prefix, instead of accessing `prefix` directly. */
   def pathPrefix :PathPrefix = prefix getOrElse PathUtil.removeExtension(in)
 

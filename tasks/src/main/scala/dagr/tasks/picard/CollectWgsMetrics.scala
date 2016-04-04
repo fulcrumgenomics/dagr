@@ -34,10 +34,10 @@ object CollectWgsMetrics {
   val MetricsExtension: String = ".wgs_metrics"
 }
 
-class CollectWgsMetrics(in: PathToBam,
-                        prefix: Option[Path],
+class CollectWgsMetrics(override val in: PathToBam,
+                        override val prefix: Option[Path],
                         ref: PathToFasta)
-  extends PicardMetricsTask(in = in, prefix = prefix) {
+  extends PicardTask with PicardMetricsTask {
 
   override def metricsExtension: String = CollectWgsMetrics.MetricsExtension
 

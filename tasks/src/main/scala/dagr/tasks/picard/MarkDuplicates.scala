@@ -36,16 +36,16 @@ object MarkDuplicates {
   val MetricsExtension = ".duplicate_metrics"
 }
 
-class MarkDuplicates(in: PathToBam,
+class MarkDuplicates(override val in: PathToBam,
                      out: Option[PathToBam] = None,
-                     prefix: Option[Path] = None,
+                     override val prefix: Option[Path] = None,
                      comment: Option[String] = None,
                      opticalDuplicatesPixelDistance: Option[Int] = None,
                      assumeSorted: Boolean = true,
                      templateUmiTag: Option[String] = None,
                      read1UmiTag: Option[String] = None,
                      read2UmiTag: Option[String] = None)
-  extends PicardMetricsTask(in = out.getOrElse(in), prefix = prefix) {
+  extends PicardTask with PicardMetricsTask {
   requires(Cores(1), Memory("6G"))
 
   override def metricsExtension: String = MarkDuplicates.MetricsExtension

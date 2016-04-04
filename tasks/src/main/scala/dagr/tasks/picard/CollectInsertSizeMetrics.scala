@@ -32,11 +32,11 @@ object CollectInsertSizeMetrics {
   def metricsExtension: String = ".insert_size_metrics"
 }
 
-class CollectInsertSizeMetrics(in: PathToBam,
-                               prefix: Option[PathPrefix],
+class CollectInsertSizeMetrics(override val in: PathToBam,
+                               override val prefix: Option[PathPrefix],
                                val minimumPercent: Option[Double] = None,
                                val width: Option[Int] = None)
-  extends PicardMetricsTask(in=in, prefix=prefix) {
+  extends PicardTask with PicardMetricsTask {
   override def metricsExtension: String = CollectInsertSizeMetrics.metricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
