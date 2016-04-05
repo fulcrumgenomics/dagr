@@ -97,7 +97,7 @@ private[sopt] class ClpArgumentLookup(args: ClpArgument*) extends ArgumentLookup
     // First iterate over the names and ensure that none are taken yet
     arg.names.foreach { name =>
       byName.get(name) foreach { n =>
-        throw new CommandLineParserInternalException(s"$name has already been used.  Conflicting arguments are: '${arg.name}' and '$n'")
+        throw new CommandLineParserInternalException(s"$name has already been used.  Conflicting arguments are: '${arg.name}' and '${n.name}'")
       }
       byName(name) = arg
     }
