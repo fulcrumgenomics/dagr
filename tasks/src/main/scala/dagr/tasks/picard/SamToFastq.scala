@@ -23,11 +23,11 @@
  */
 package dagr.tasks.picard
 
+import dagr.commons.CommonsDef.unreachable
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
+import dagr.tasks.DagrDef.{PathToBam, PathToFastq}
 import dagr.tasks.DataTypes.{Fastq, SamOrBam}
-import dagr.tasks.DagrDef
-import DagrDef.{PathToBam, PathToFastq}
 
 import scala.collection.mutable.ListBuffer
 
@@ -46,9 +46,11 @@ class SamToFastq(in: PathToBam,
                  fastq2: Option[PathToFastq] = None,
                  interleave : Boolean = true,
                  clippingAttribute: Option[String] = None,
-                 clippingAction: Option[String] = None) extends PicardTask with Pipe[SamOrBam,Fastq] {
+                 clippingAction: Option[String] = None,
+                 clippingMinReadLength: Int = 25) extends PicardTask with Pipe[SamOrBam,Fastq] {
 
   requires(Cores(1), Memory("512M"))
+  assert(clippingAttribute.isDefined == clippingAction.isDefined, "Must define both clipping attr and action, or neither.")
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("INPUT=" + in)
@@ -56,7 +58,14 @@ class SamToFastq(in: PathToBam,
     fastq2.foreach(p => buffer.append("F2=" + p))
     buffer.append("INTERLEAVE=" + interleave)
     buffer.append("INCLUDE_NON_PF_READS=true")
-    clippingAttribute.foreach(c => buffer.append("CLIPPING_ATTRIBUTE=" + c))
-    clippingAction.foreach(c => buffer.append("CLIPPING_ACTION=" + c))
+
+    (clippingAttribute, clippingAction) match {
+      case (None, None) => /* do nothing */
+      case (Some(attr), Some(action)) =>
+        buffer.append("CLIPPING_ATTRIBUTE=" + attr)
+        buffer.append("CLIPPING_ACTION=" + action)
+        buffer.append("CLIPPING_MIN_LENGTH=" + clippingMinReadLength)
+      case _ => unreachable("Clipping attribute and action must be both defined or undefined.")
+    }
   }
 }
