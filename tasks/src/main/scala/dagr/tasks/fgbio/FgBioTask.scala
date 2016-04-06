@@ -27,6 +27,7 @@ package dagr.tasks.fgbio
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
+import dagr.core.execsystem.{Memory, Cores}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.JarTask
 
@@ -40,6 +41,7 @@ object FgBioTask {
   * Base Task for any task in the FgBio jar.
   */
 abstract class FgBioTask extends ProcessTask with JarTask with FixedResources with Configuration {
+  requires(Cores(1), Memory("4G"))
 
   /** Looks up the first super class that does not have "\$anon\$" in its name. */
   lazy val commandName: String = JarTask.findCommandName(getClass, Some("FgBioTask"))
