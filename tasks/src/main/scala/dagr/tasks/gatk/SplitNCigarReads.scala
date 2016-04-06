@@ -32,8 +32,8 @@ import scala.collection.mutable.ListBuffer
   * Runs the GATK walker that splits reads at N operators in cigars so that RNA-seq
   * BAMs can be fed into the HaplotypeCaller
   */
-class SplitNCigarReads(val in: PathToBam, val out: PathToBam, ref:PathToFasta)
-  extends GatkTask(walker="SplitNCigarReads", ref=ref) {
+class SplitNCigarReads(val in: PathToBam, val out: PathToBam, ref:PathToFasta, bamCompression: Option[Int] = None)
+  extends GatkTask(walker="SplitNCigarReads", ref=ref, bamCompression=bamCompression) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-I", in)

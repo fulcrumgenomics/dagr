@@ -41,7 +41,10 @@ object GatkTask {
 /**
   * Abstract base class for tasks that involve running the GATK.
   */
-abstract class GatkTask(val walker:String, val ref:PathToFasta, val intervals:Option[PathToIntervals] = None)
+abstract class GatkTask(val walker: String,
+                        val ref: PathToFasta,
+                        val intervals: Option[PathToIntervals] = None,
+                        val bamCompression: Option[Int] = None)
   extends ProcessTask with JarTask with FixedResources with Configuration {
   requires(Cores(1), Memory("4g"))
 
@@ -51,6 +54,7 @@ abstract class GatkTask(val walker:String, val ref:PathToFasta, val intervals:Op
     buffer.append("-T", this.walker)
     buffer.append("-R", this.ref.toAbsolutePath.toString)
     intervals.foreach(il => buffer.append("-L", il.toAbsolutePath.toString))
+    bamCompression.foreach(c => buffer.append("--bam_compression", c))
     addWalkerArgs(buffer)
     buffer
   }

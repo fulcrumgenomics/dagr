@@ -34,40 +34,53 @@ import dagr.tasks.misc.DeleteFiles
 
 import scala.collection.mutable.ListBuffer
 
+object IndelRealignment {
+  // Apply method here since we can't have two constructors in IndelRealignment that take default parameters.
+  def apply(bams: Map[PathToBam, PathToBam],
+            ref: PathToFasta,
+            known: Seq[PathToVcf] = Nil,
+            intervals: Option[PathToIntervals] = None,
+            bamCompression: Option[Int] = None) = {
+    new IndelRealignment(bams=bams, ref=ref, known=known, intervals=intervals, bamCompression=bamCompression)
+  }
+}
+
 @clp(
-  description="Run GATK indel cleaning on one or more BAMs together. Output BAMs are created in the output directory " +
-              "with name = basename(in) + .cleaned. + suffix(in).",
-  hidden=true
+  description = "Run GATK indel cleaning on one or more BAMs together. Output BAMs are created in the output directory " +
+    "with name = basename(in) + .cleaned. + suffix(in).",
+  hidden = true
 )
-class IndelRealignment(val bams: Map[PathToBam,PathToBam],
+class IndelRealignment(val bams: Map[PathToBam, PathToBam],
                        ref: PathToFasta,
                        val known: Seq[PathToVcf],
-                       intervals: Option[PathToIntervals]
+                       intervals: Option[PathToIntervals],
+                       bamCompression: Option[Int]
                       ) extends Pipeline {
 
   /** CLP constructor for testing and manual use, since there's no easy way to provide a map on the CLI. */
-  def this( @arg(flag="i", doc="One or more input BAM files.")       in : Seq[PathToBam],
-            @arg(flag="o", doc="Output directory.")                  out: DirPath,
-            @arg(flag="r", doc="Path to the reference fasta.")       ref: PathToFasta,
-            @arg(flag="k", doc="Zero or more VCFs of known indels.") known: Seq[PathToVcf] = Nil,
-            @arg(flag="l", doc="Optional regions to run over")       intervals: Option[PathToIntervals] = None) = {
-    this(Map[PathToBam,PathToBam] ( in map {b => b -> out.resolve(PathUtil.basename(b) + ".cleaned" + PathUtil.extensionOf(b).getOrElse(""))}:_*),
-         ref=ref,
-         known=known,
-         intervals=intervals)
+  def this(@arg(flag = "i", doc = "One or more input BAM files.") in: Seq[PathToBam],
+           @arg(flag = "o", doc = "Output directory.") out: DirPath,
+           @arg(flag = "r", doc = "Path to the reference fasta.") ref: PathToFasta,
+           @arg(flag = "k", doc = "Zero or more VCFs of known indels.") known: Seq[PathToVcf] = Nil,
+           @arg(flag = "l", doc = "Optional regions to run over") intervals: Option[PathToIntervals] = None) = {
+    this(bams           = in.map(b => b -> out.resolve(PathUtil.basename(b) + ".cleaned" + PathUtil.extensionOf(b).getOrElse(""))).toMap,
+         ref            = ref,
+         known          = known,
+         intervals      = intervals,
+         bamCompression = None)
     Files.createDirectories(out)
   }
 
   /** Constructs a mini pipeline that runs RealignerTargetCreator and IndelRealigner on multiple samples together. */
   override def build(): Unit = {
-    val ioMap: FilePath        = Files.createTempFile("indel_cleaning.", ".map")
+    val ioMap: FilePath = Files.createTempFile("indel_cleaning.", ".map")
     val indelCleaningIntervals = Files.createTempFile("indel_cleaning.", ".intervals")
-    val targetCreator = new RealignerTargetCreator(in=bams.keys.toSeq, out=indelCleaningIntervals, known=known, ref=ref, intervals=intervals)
+    val targetCreator = new RealignerTargetCreator(in = bams.keys.toSeq, out = indelCleaningIntervals, known = known, ref = ref, intervals = intervals)
     val makeIoMap = SimpleInJvmTask("MakeIndelRealignerMap", {
       val lines = bams.map(pair => pair._1.getFileName.toString + "\t" + pair._2.toString).toSeq
       Io.writeLines(ioMap, lines)
     })
-    val indelRealigner = new IndelRealigner(in=bams.keys.toSeq, inOutMap=ioMap, ref=ref, known=known, targetIntervals=indelCleaningIntervals)
+    val indelRealigner = new IndelRealigner(in = bams.keys.toSeq, inOutMap = ioMap, ref = ref, known = known, targetIntervals = indelCleaningIntervals, bamCompression = bamCompression)
     val cleanup = new DeleteFiles(ioMap, indelCleaningIntervals).withName("DeleteIndelTmpFiles")
 
     root ==> (targetCreator :: makeIoMap) ==> indelRealigner ==> cleanup
@@ -75,12 +88,12 @@ class IndelRealignment(val bams: Map[PathToBam,PathToBam],
 }
 
 /** Runs the realigner target creator step of the process. */
-class RealignerTargetCreator(val in : Seq[PathToBam],
+class RealignerTargetCreator(val in: Seq[PathToBam],
                              val out: FilePath,
                              val known: Seq[PathToVcf],
                              ref: PathToFasta,
                              intervals: Option[PathToIntervals])
-  extends GatkTask(walker="RealignerTargetCreator", ref=ref, intervals=intervals) {
+  extends GatkTask(walker = "RealignerTargetCreator", ref = ref, intervals = intervals) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     in.foreach(bam => buffer.append("-I", bam))
@@ -90,12 +103,13 @@ class RealignerTargetCreator(val in : Seq[PathToBam],
 }
 
 /** Runs the BAM transforming IndelRealigner step. */
-class IndelRealigner(val in : Seq[PathToBam],
+class IndelRealigner(val in: Seq[PathToBam],
                      val inOutMap: FilePath,
                      ref: PathToFasta,
                      val known: Seq[PathToVcf],
-                     val targetIntervals: FilePath)
-  extends GatkTask(walker="IndelRealigner", ref=ref) {
+                     val targetIntervals: FilePath,
+                     bamCompression: Option[Int] = None)
+  extends GatkTask(walker = "IndelRealigner", ref = ref, bamCompression = bamCompression) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     in.foreach(bam => buffer.append("-I", bam))
