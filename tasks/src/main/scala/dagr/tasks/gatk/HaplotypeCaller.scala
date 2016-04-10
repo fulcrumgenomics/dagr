@@ -32,14 +32,14 @@ import scala.collection.mutable.ListBuffer
   * Runs the GATK haplotype caller i GVCF mode on a single sample.
   */
 class HaplotypeCaller(ref: PathToFasta,
-                      intervals: PathToIntervals,
+                      intervals: Option[PathToIntervals],
                       val bam: PathToBam,
                       val vcf: PathToVcf,
                       val maxAlternateAlleles: Int = 3,
                       val contaminationFraction: Double = 0.0,
                       val rnaMode: Boolean = false
                       )
- extends GatkTask("HaplotypeCaller", ref, intervals=Some(intervals)) {
+ extends GatkTask("HaplotypeCaller", ref, intervals=intervals) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("--minPruning", "3")

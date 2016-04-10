@@ -31,13 +31,13 @@ import scala.collection.mutable.ListBuffer
 
 object GenotypeGvcfs {
   /** Constructs a GenotypeGvcfs for genotyping multiple samples concurrently. */
-  def apply(ref: PathToFasta, intervals: PathToIntervals, gvcfs: Seq[PathToVcf], vcf: PathToVcf, dbSnpVcf: Option[PathToVcf]) : GenotypeGvcfs = {
-    new GenotypeGvcfs(ref, Some(intervals), gvcfs, vcf, dbSnpVcf)
+  def apply(ref: PathToFasta, intervals: Option[PathToIntervals], gvcfs: Seq[PathToVcf], vcf: PathToVcf, dbSnpVcf: Option[PathToVcf]) : GenotypeGvcfs = {
+    new GenotypeGvcfs(ref, intervals, gvcfs, vcf, dbSnpVcf)
   }
 
   /** Constructs a GenotypeGvcfs for genotyping a single sample. */
-  def apply(ref: PathToFasta, intervals: PathToIntervals, gvcf: PathToVcf, vcf: PathToVcf, dbSnpVcf: Option[PathToVcf]) : GenotypeGvcfs = {
-    new GenotypeGvcfs(ref, Some(intervals), Seq(gvcf), vcf, dbSnpVcf)
+  def apply(ref: PathToFasta, intervals: Option[PathToIntervals], gvcf: PathToVcf, vcf: PathToVcf, dbSnpVcf: Option[PathToVcf]) : GenotypeGvcfs = {
+    new GenotypeGvcfs(ref, intervals, Seq(gvcf), vcf, dbSnpVcf)
   }
 }
 
