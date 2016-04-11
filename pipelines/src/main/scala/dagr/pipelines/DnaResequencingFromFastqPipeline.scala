@@ -98,7 +98,6 @@ class DnaResequencingFromFastqPipeline
     val prepareUnmappedBam = new CreateUnmappedBamFromFastqPipeline(
       fastq1=fastq1,
       fastq2=fastq2,
-      ref=ref,
       sample=sample,
       library=library,
       platformUnit=platformUnit,
