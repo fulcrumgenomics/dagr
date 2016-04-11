@@ -28,6 +28,7 @@ import java.nio.file.Path
 import dagr.core.cmdline.Pipelines
 import dagr.sopt._
 import dagr.core.tasksystem.{Linker, Pipeline, ShellCommand}
+import dagr.sopt.cmdline.ValidationException
 import dagr.tasks.DagrDef
 import DagrDef._
 import dagr.tasks.gatk.{GenotypeGvcfs, HaplotypeCaller}
@@ -51,7 +52,7 @@ description =
 class GermlineVariantCallingPipeline
 ( @arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val in: PathToBam,
   @arg(flag="o", doc="Output prefix (including directories) for output files.")     val out: Path,
-  @arg(flag="l", doc="Path to interval list of regions to call.")                   val intervals: PathToIntervals,
+  @arg(flag="l", doc="Path to interval list of regions to call.")                   val intervals: Option[PathToIntervals] = None,
   @arg(flag="r", doc="Path to the reference FASTA.")                                val ref: PathToFasta,
   @arg(flag="d", doc="Path to dbSNP VCF (for GATK and CollectVariantCallingMetrics only).")
             val dbsnp: Option[PathToVcf] = None,
@@ -67,7 +68,7 @@ class GermlineVariantCallingPipeline
   private val unfilteredVcf = outputDir.resolve(prefix + ".unfiltered.vcf.gz")
   private val finalVcf = outputDir.resolve(prefix + ".vcf.gz")
 
-   override def build(): Unit = {
+  override def build(): Unit = {
 
     // Ensure the output directory exists
     val mkdir = ShellCommand("mkdir", "-p", outputDir.toAbsolutePath)
@@ -83,7 +84,7 @@ class GermlineVariantCallingPipeline
           val fvcf = new FilterVcf(in=unfilteredVcf, out=finalVcf)
           mkdir ==> hc ==> gt ==> (fvcf :: new DeleteVcfs(gvcf))
         case false =>
-          val fb   =  new FreeBayesGermline(ref=ref, targetIntervals=Some(intervals), bam=List(in), vcf=unfilteredVcf)
+          val fb   =  new FreeBayesGermline(ref=ref, targetIntervals=intervals, bam=List(in), vcf=unfilteredVcf)
           val fvcf = new FilterFreeBayesCalls(in=unfilteredVcf, out=finalVcf, ref=ref)
           mkdir ==> fb ==> fvcf
       }
@@ -93,7 +94,7 @@ class GermlineVariantCallingPipeline
 
     // Run variant calling metrics
     dbsnp match {
-      case Some(db) => vc ==> new CollectVariantCallingMetrics(vcf=finalVcf, prefix=out, dbsnp=db, intervals=Some(intervals))
+      case Some(db) => vc ==> new CollectVariantCallingMetrics(vcf=finalVcf, prefix=out, dbsnp=db, intervals=intervals)
       case _ => Unit
     }
 
@@ -104,13 +105,14 @@ class GermlineVariantCallingPipeline
         val getCallSampleName   = new GetSampleNamesFromVcf(finalVcf)
         val getTruthSampleName  = new GetSampleNamesFromVcf(tVcf)
         // Run genotype concordance, but only after we have the truth and call sample names.
+        val concordanceIntervals = truthIntervals ++ intervals.map(List(_)).getOrElse(Nil)
         val concordance = new GenotypeConcordance(
           truthVcf    = tVcf,
           callVcf     = finalVcf,
           callSample  = "NA",
           truthSample = "NA",
           prefix      = out,
-          intervals   = truthIntervals ++ List(intervals)
+          intervals   = concordanceIntervals
         )
         def checkAndSetSampleName(isCallSample: Boolean)(sn: GetSampleNamesFromVcf, gc: GenotypeConcordance): Unit = {
           sn.sampleNames match {
