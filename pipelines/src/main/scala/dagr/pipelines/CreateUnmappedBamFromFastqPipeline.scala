@@ -51,7 +51,6 @@ object CreateUnmappedBamFromFastqPipeline {
 class CreateUnmappedBamFromFastqPipeline
 ( @arg(doc="Input fastq file (optionally gzipped) for read 1.")                   val fastq1: List[PathToFastq],
   @arg(doc="Input fastq file (optionally gzipped) for read 2.")                   val fastq2: List[PathToFastq],
-  @arg(doc="Path to the reference FASTA.")                                        val ref: PathToFasta,
   @arg(flag="s", doc="The name of the sample.")                                   val sample: String,
   @arg(flag="l", doc="The name of the library.")                                  val library: String,
   @arg(flag="p", doc="The platform unit (@RG.PU).")                               val platformUnit: List[String],
