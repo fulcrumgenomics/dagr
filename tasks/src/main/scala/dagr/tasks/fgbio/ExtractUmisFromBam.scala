@@ -24,41 +24,28 @@
 
 package dagr.tasks.fgbio
 
-import java.nio.file.Path
-
-import dagr.core.config.Configuration
-import dagr.core.execsystem.{Memory, Cores}
-import dagr.core.tasksystem.{FixedResources, ProcessTask}
-import dagr.tasks.JarTask
+import dagr.commons.CommonsDef._
 
 import scala.collection.mutable.ListBuffer
 
-object FgBioTask {
-  val FgBioJarConfigPath = "fgbio.jar"
-}
+class ExtractUmisFromBam(val in: PathToBam,
+                         val out: PathToBam,
+                         val readStructures: Seq[String],
+                         val umiTags: Seq[String],
+                         val annotateNames: Boolean = true
+                        ) extends FgBioTask {
 
-/**
-  * Base Task for any task in the FgBio jar.
-  */
-abstract class FgBioTask extends ProcessTask with JarTask with FixedResources with Configuration {
-  requires(Cores(1), Memory("4G"))
-
-  /** Looks up the first super class that does not have "\$anon\$" in its name. */
-  lazy val commandName: String = JarTask.findCommandName(getClass, Some("FgBioTask"))
-
-  name = commandName
-
-  override final def args: Seq[Any] = {
-    val buffer = ListBuffer[Any]()
-    buffer.appendAll(jarArgs(this.fgBioJar, jvmMemory=this.resources.memory))
-    buffer += commandName
-    addFgBioArgs(buffer)
-    buffer
+  protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
+    buffer.append("-i", in)
+    buffer.append("-o", out)
+    if (readStructures.nonEmpty) {
+      buffer.append("-r")
+      buffer.append(readStructures: _*)
+    }
+    if (umiTags.nonEmpty) {
+      buffer.append("-b")
+      buffer.append(umiTags: _*)
+    }
+    buffer.append("-a", annotateNames)
   }
-
-  /** Can be overridden to use a specific FgBio jar. */
-  protected def fgBioJar: Path = configure[Path](FgBioTask.FgBioJarConfigPath)
-
-  /** Implement this to add the tool-specific arguments */
-  protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit
 }
