@@ -70,10 +70,6 @@ class GermlineVariantCallingPipeline
 
   override def build(): Unit = {
 
-    // Ensure the output directory exists
-    val mkdir = ShellCommand("mkdir", "-p", outputDir.toAbsolutePath)
-    root ==> mkdir
-
     // Run the variant caller
     val vc = {
       val filterVcf = useGatk match {
@@ -82,11 +78,11 @@ class GermlineVariantCallingPipeline
           val hc   = new HaplotypeCaller(ref=ref, intervals=intervals, bam=in, vcf=gvcf)
           val gt   = GenotypeGvcfs(ref=ref, intervals=intervals, gvcf=gvcf, vcf=unfilteredVcf, dbSnpVcf=dbsnp)
           val fvcf = new FilterVcf(in=unfilteredVcf, out=finalVcf)
-          mkdir ==> hc ==> gt ==> (fvcf :: new DeleteVcfs(gvcf))
+          root ==> hc ==> gt ==> (fvcf :: new DeleteVcfs(gvcf))
         case false =>
-          val fb   =  new FreeBayesGermline(ref=ref, targetIntervals=intervals, bam=List(in), vcf=unfilteredVcf)
+          val fb   = new FreeBayesGermline(ref=ref, targetIntervals=intervals, bam=List(in), vcf=unfilteredVcf)
           val fvcf = new FilterFreeBayesCalls(in=unfilteredVcf, out=finalVcf, ref=ref)
-          mkdir ==> fb ==> fvcf
+          root ==> fb ==> fvcf
       }
       if (!keepIntermediates) filterVcf ==> new DeleteVcfs(unfilteredVcf)
       filterVcf ==> new IndexVcfGz(vcf=finalVcf)
