@@ -151,7 +151,7 @@ abstract class FreeBayes(val ref: PathToFasta,
     val vcfuniq        = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniq").toString)                     with Pipe[Vcf,Vcf]
     val bgzip           = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c")   with Pipe[Vcf,Vcf] else Pipes.empty[Vcf]
 
-    List(generateTargets | freebayesParallel | vcffirstheader | vcfstreamsort | vcfuniq | bgzip > vcf)
+    List((generateTargets | freebayesParallel | vcffirstheader | vcfstreamsort | vcfuniq | bgzip > vcf) withName this.name)
   }
 }
 
