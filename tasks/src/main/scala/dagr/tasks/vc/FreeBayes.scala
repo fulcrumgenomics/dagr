@@ -24,6 +24,7 @@
 
 package dagr.tasks.vc
 
+import dagr.commons.io.Io
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem._
@@ -54,8 +55,6 @@ object FreeBayes {
 
   /** Somatic Defaults */
   val DefaultMinAlternateAlleleFraction = Some(0.1.toFloat)
-
-  protected val PipeArg = "\\\n  |"
 }
 
 /**
@@ -150,7 +149,7 @@ abstract class FreeBayes(val ref: PathToFasta,
     val vcffirstheader = new ShellCommand(configureExecutableFromBinDirectory(VcfLibScriptsConfigKey, "vcffirstheader").toString)          with Pipe[Vcf,Vcf]
     val vcfstreamsort  = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort").toString, "-w", "1000") with Pipe[Vcf,Vcf]
     val vcfuniq        = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniq").toString)                     with Pipe[Vcf,Vcf]
-    val bgzip           = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c")   with Pipe[Vcf,Vcf] else Pipes.empty[Vcf]
+    val bgzip          = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c")    with Pipe[Vcf,Vcf] else Pipes.empty[Vcf]
 
     List((generateTargets | freebayesParallel | vcffirstheader | vcfstreamsort | vcfuniq | bgzip > vcf) withName this.name)
   }

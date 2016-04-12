@@ -25,6 +25,7 @@ package dagr.pipelines
 
 import java.nio.file.Path
 
+import dagr.commons.io.PathUtil
 import dagr.core.cmdline.Pipelines
 import dagr.sopt._
 import dagr.core.tasksystem.{Linker, Pipeline, ShellCommand}
@@ -33,7 +34,7 @@ import dagr.tasks.DagrDef
 import DagrDef._
 import dagr.tasks.gatk.{GenotypeGvcfs, HaplotypeCaller}
 import dagr.tasks.misc.{DeleteVcfs, GetSampleNamesFromVcf, IndexVcfGz}
-import dagr.tasks.picard.{CollectVariantCallingMetrics, FilterVcf, GenotypeConcordance}
+import dagr.tasks.picard.{CollectVariantCallingMetrics, FilterVcf, GenotypeConcordance, UpdateVcfSequenceDictionary}
 import dagr.tasks.vc.{FilterFreeBayesCalls, FreeBayesGermline}
 
 /**
@@ -80,9 +81,13 @@ class GermlineVariantCallingPipeline
           val fvcf = new FilterVcf(in=unfilteredVcf, out=finalVcf)
           root ==> hc ==> gt ==> (fvcf :: new DeleteVcfs(gvcf))
         case false =>
-          val fb   = new FreeBayesGermline(ref=ref, targetIntervals=intervals, bam=List(in), vcf=unfilteredVcf)
+          val dict = PathUtil.replaceExtension(ref, ".dict")
+          val tVcf = outputDir.resolve(prefix + ".unfiltered.noheader.vcf.gz")
+          val fb   = new FreeBayesGermline(ref=ref, targetIntervals=intervals, bam=List(in), vcf=tVcf)
+          val ugh  = new UpdateVcfSequenceDictionary(in=tVcf, out=unfilteredVcf, dict=dict) // Ugh!
           val fvcf = new FilterFreeBayesCalls(in=unfilteredVcf, out=finalVcf, ref=ref)
-          root ==> fb ==> fvcf
+          val del  = new DeleteVcfs(tVcf)
+          root ==> fb ==> ugh ==> (del :: fvcf)
       }
       if (!keepIntermediates) filterVcf ==> new DeleteVcfs(unfilteredVcf)
       filterVcf ==> new IndexVcfGz(vcf=finalVcf)

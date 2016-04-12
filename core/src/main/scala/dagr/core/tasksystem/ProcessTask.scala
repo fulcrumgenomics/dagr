@@ -57,12 +57,15 @@ trait ProcessTask extends UnitTask {
     */
   def args: Seq[Any]
 
+  protected var quoteIfNecessary: Boolean = true
+
   /** Returns a string representation of the command to be run by this task.
     *
     * @return the command string.
     */
   private[core] def commandLine: String = {
-    args.map(arg => ProcessTask.quoteIfNecessary(arg.toString)).mkString(" ")
+    if (quoteIfNecessary) args.map(arg => ProcessTask.quoteIfNecessary(arg.toString)).mkString(" ")
+    else args.mkString(" ")
   }
 
   /** Write the command to the script and get a process to run.

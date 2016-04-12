@@ -36,6 +36,7 @@ import scala.collection.mutable.ListBuffer
 
 /** Gets the sample names from a VCF */
 class GetSampleNamesFromVcf(val vcf: PathToVcf) extends SimpleInJvmTask {
+  name = "GetSampleNamesFromVcf"
   private val _sampleNames: mutable.ListBuffer[String] = new ListBuffer[String]()
   def sampleNames: List[String] = this._sampleNames.toList
 
