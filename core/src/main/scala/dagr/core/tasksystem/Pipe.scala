@@ -80,6 +80,13 @@ trait Pipe[In,Out] extends ProcessTask {
   private[tasksystem] def ordered: Seq[Pipe[_,_]] = Seq[Pipe[_,_]](this)
 }
 
+/** A trait for pipe tasks that consumes no cores and no memory */
+trait PipeWithNoResources[In,Out] extends Pipe[In,Out] with FixedResources {
+  val memory: Memory = Memory.none
+  val cores: Cores = Cores(0.0)
+  this.requires(cores, memory)
+}
+
 /** A simplified trait for sink tasks that can receive data via a pipe, but cannot pipe onwards. */
 trait PipeIn[In] extends Pipe[In,Void]
 
