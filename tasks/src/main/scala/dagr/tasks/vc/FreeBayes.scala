@@ -152,7 +152,7 @@ abstract class FreeBayes(val ref: PathToFasta,
     // Generates the regions on the fly
     val generateTargets = targetIntervals match {
       case None => // Split using the FASTA
-        new GenerateRegionsFromFasta(ref=ref, regionSize=Some(regionSize.toInt)) with PipeWithNoResources[Nothing,Text]
+        new GenerateRegionsFromFasta(ref=ref, regionSize=Some(regionSize.toInt)) with PipeOut[Text]
       case Some(targets) => // Split using the intervals
         val cat  = new ShellCommand("cat", targets.toAbsolutePath.toString) with PipeWithNoResources[Nothing,Text]
         val grep = new ShellCommand("grep", "-v", "^@") with Pipe[Text,Text]
