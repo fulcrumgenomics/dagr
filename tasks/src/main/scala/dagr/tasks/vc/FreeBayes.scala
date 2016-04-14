@@ -57,6 +57,56 @@ object FreeBayes {
   val DefaultMinAlternateAlleleFraction = Some(0.1.toFloat)
 }
 
+/** Task to run freepayes using GNP parallel. This assumes regions are being piped into this task via a pipe chain. */
+class FreeBayesParallel(val ref: PathToFasta,
+                        val bam: List[PathToBam],
+                        val somatic: Boolean,
+                        val memory: Memory,
+                        val minThreads: Int,
+                        val maxThreads: Int,
+                        val useBestNAlleles: Option[Int],
+                        val maxCoverage: Option[Int],
+                        val minRepeatEntropy: Option[Int],
+                        val minAlternateAlleleFraction: Option[Float] = None)
+  extends ProcessTask with Configuration with VariableResources with Pipe[Text,Vcf] {
+
+  override def args: Seq[Any] = {
+    val buffer = ListBuffer[Any]()
+
+    /** Trivial method to make the adding of arguments to the list of arguments more readable below. */
+    def applyArgs[T](arg: String, value: Option[T]): Unit = value.foreach(buffer.append(arg, _))
+    // Runs FreeBayes on multiple regions in parallel.
+    buffer.append("parallel", "-k", "-j", s"$numThreads")
+    // FreeBayes args
+    buffer.append(configureExecutable(FreeBayesExecutableConfigKey, "freebayes"))
+    buffer.append("-f", ref)
+    applyArgs("--use-best-n-alleles",     useBestNAlleles)
+    applyArgs("--max-coverage",           maxCoverage)
+    applyArgs("--min-repeat-entropy",     minRepeatEntropy)
+    applyArgs("--min-alternate-fraction", minAlternateAlleleFraction)
+    if (somatic) {
+      buffer.append("--pooled-discrete", "--pooled-continuous", "--genotype-qualities")
+      buffer.append("--report-genotype-likelihood-max", "--allele-balance-priors-off")
+    }
+    bam.foreach(b => buffer.append("-b", b.toAbsolutePath))
+    buffer.append("--region", "{}")
+
+    buffer.toSeq
+  }
+
+
+  /** Attempts to pick the resources required to run. The required resources are:
+    * 1) Cores  = the cores for freebayes plus one additional core to account for the other scripts
+    * 2) Memory = a fixed amount.
+    */
+  override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = {
+    availableResources.subset(minCores = Cores(minThreads+1), maxCores = Cores(maxThreads+1), memory = memory)
+  }
+
+  // NB: we could re-implement the FreeBayes Parallel script as individual tasks, but keep this for now.
+  protected def numThreads = (this.resources.cores.value - 1).toInt
+}
+
 /**
   * Task for running FreeBayes, based on:
   *   https://github.com/chapmanb/bcbio-nextgen/blob/master/bcbio/variation/freebayes.py
@@ -93,21 +143,10 @@ abstract class FreeBayes(val ref: PathToFasta,
                          val useBestNAlleles: Option[Int],
                          val maxCoverage: Option[Int],
                          val minRepeatEntropy: Option[Int],
-                         minAlternateAlleleFraction: Option[Float] = None) extends Task with Configuration with VariableResources {
-
-  // NB: we could re-implement the FreeBayes Parallel script as individual tasks, but keep this for now.
-  protected def numThreads = (this.resources.cores.value - 1).toInt
+                         minAlternateAlleleFraction: Option[Float] = None) extends Task with Configuration {
 
   if (!somatic) {
     minAlternateAlleleFraction.foreach { af => throw new IllegalArgumentException("Germline calling but minAlternateAlleleFraction is defined") }
-  }
-
-  /** Attempts to pick the resources required to run. The required resources are:
-    * 1) Cores  = the cores for freebayes plus one additional core to account for the other scripts
-    * 2) Memory = a fixed amount.
-    */
-  override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = {
-    availableResources.subset(minCores = Cores(minThreads + 1), maxCores = Cores(maxThreads + 1), memory = memory)
   }
 
   /** Sets the arguments for FreeBayes.  For somatic calling, there should be two bams, a tumor bam then normal bam. */
@@ -123,27 +162,18 @@ abstract class FreeBayes(val ref: PathToFasta,
         cat | grep | awk
     }
 
-    // the args to the freebayes parallel command
-    val buffer = ListBuffer[Any]()
-    /** Trivial method to make the adding of argume
-      * nts to the list of arguments more readable below. */
-    def applyArgs[T](arg: String, value: Option[T]): Unit = value.foreach(buffer.append(arg, _))
-    // Runs FreeBayes on multiple regions in parallel.
-    buffer.append("parallel", "-k", "-j", s"$numThreads")
-    // FreeBayes args
-    buffer.append(configureExecutable(FreeBayesExecutableConfigKey, "freebayes"))
-    buffer.append("-f", ref)
-    applyArgs("--use-best-n-alleles",     useBestNAlleles)
-    applyArgs("--max-coverage",           maxCoverage)
-    applyArgs("--min-repeat-entropy",     minRepeatEntropy)
-    applyArgs("--min-alternate-fraction", minAlternateAlleleFraction)
-    if (somatic) {
-      buffer.append("--pooled-discrete", "--pooled-continuous", "--genotype-qualities")
-      buffer.append("--report-genotype-likelihood-max", "--allele-balance-priors-off")
-    }
-    bam.foreach(b => buffer.append("-b", b.toAbsolutePath))
-    buffer.append("--region", "{}")
-    val freebayesParallel = new ShellCommand(buffer.map(_.toString):_*) with Pipe[Text,Vcf]
+    val freebayesParallel = new FreeBayesParallel(
+      ref=ref,
+      bam=bam,
+      somatic=somatic,
+      memory=memory,
+      minThreads=minThreads,
+      maxThreads=maxThreads,
+      useBestNAlleles=useBestNAlleles,
+      maxCoverage=maxCoverage,
+      minRepeatEntropy=minRepeatEntropy,
+      minAlternateAlleleFraction=minAlternateAlleleFraction
+    )
 
     // Make a header, sort it, uniq it (for edge regions), and output it
     val vcffirstheader = new ShellCommand(configureExecutableFromBinDirectory(VcfLibScriptsConfigKey, "vcffirstheader").toString)          with PipeWithNoResources[Vcf,Vcf]
