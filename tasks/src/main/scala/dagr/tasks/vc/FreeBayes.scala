@@ -24,15 +24,13 @@
 
 package dagr.tasks.vc
 
-import dagr.commons.io.Io
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem._
+import dagr.tasks.DagrDef.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 import dagr.tasks.DataTypes._
-import dagr.tasks.DagrDef
 import dagr.tasks.jeanluc.GenerateRegionsFromFasta
 import dagr.tasks.vc.FreeBayes._
-import DagrDef.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer
 
@@ -181,7 +179,9 @@ abstract class FreeBayes(val ref: PathToFasta,
     val vcfuniq        = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniq").toString)                     with PipeWithNoResources[Vcf,Vcf]
     val bgzip          = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c")    with PipeWithNoResources[Vcf,Vcf] else Pipes.empty[Vcf]
 
-    List((generateTargets | freebayesParallel | vcffirstheader | vcfstreamsort | vcfuniq | bgzip > vcf) withName (this.name + "PipeChain"))
+    val pipeChain = generateTargets | freebayesParallel | vcffirstheader | vcfstreamsort | vcfuniq | bgzip > vcf
+
+    List(pipeChain withName (this.name + "PipeChain"))
   }
 }
 

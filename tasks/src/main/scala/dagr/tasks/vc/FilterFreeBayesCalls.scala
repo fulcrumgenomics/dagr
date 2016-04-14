@@ -120,6 +120,8 @@ class FilterFreeBayesCalls(val in: PathToVcf,
     // compress the output (or not)
     val compressOutput = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c") with PipeWithNoResources[Vcf,Vcf] else Pipes.empty[Vcf]
 
-    List(decompressVcf | filterLowQualityCalls | fixAmbiguousIupacReferenceCalls | removeAlts | removeMissingAlts | splitMnpVariants | updateAcAndNs |sortVcf | leftAlign | removeDuplicateAlleles | compressOutput > out)
+    val pipeChain = decompressVcf | filterLowQualityCalls | fixAmbiguousIupacReferenceCalls | removeAlts | removeMissingAlts | splitMnpVariants | updateAcAndNs |sortVcf | leftAlign | removeDuplicateAlleles | compressOutput > out
+
+    List(pipeChain withName (this.name + "PipeChain"))
   }
 }
