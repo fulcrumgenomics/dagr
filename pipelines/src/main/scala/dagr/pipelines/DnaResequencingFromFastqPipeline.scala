@@ -33,6 +33,7 @@ import dagr.tasks.DagrDef
 import DagrDef._
 import dagr.tasks.picard._
 import dagr.sopt._
+import htsjdk.samtools.util.FastqQualityFormat
 
 import scala.collection.mutable.ListBuffer
 
@@ -64,7 +65,12 @@ class DnaResequencingFromFastqPipeline
   @arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
   @arg(doc="Path to a temporary directory.")                       val tmp: Path,
   @arg(flag="o", doc="The output directory to which files are written.")  val out: DirPath,
-  @arg(doc="The basename for all output files. Uses library if omitted.") val basename: Option[FilenamePrefix]
+  @arg(doc="The basename for all output files. Uses library if omitted.") val basename: Option[FilenamePrefix],
+  @arg(doc="A value describing how the quality values are encoded in the input FASTQ file. " +
+    "Either Solexa (phred scaling + 66), Illumina (phred scaling + 64) or Standard " +
+    "(phred scaling 33).  If this value is not specified, the quality format will be " +
+    "detected automatically.")
+                                                                   val qualityFormat: Option[FastqQualityFormat] = None
 ) extends Pipeline(outputDirectory = Some(out), suffix=Some("." + library)) {
   name = getClass.getSimpleName
 
@@ -104,7 +110,8 @@ class DnaResequencingFromFastqPipeline
       tmp=tmp,
       out=out,
       unmappedBam=Some(unmappedBam),
-      basename=Some(base)
+      basename=Some(base),
+      qualityFormat=qualityFormat
     )
 
     ///////////////////////////////////////////////////////////////////////

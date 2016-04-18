@@ -30,6 +30,7 @@ import dagr.commons.io.Io
 import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFastq}
+import htsjdk.samtools.util.FastqQualityFormat
 
 object FastqToUnmappedSam {
   /**
@@ -46,8 +47,8 @@ object FastqToUnmappedSam {
     * @param prefix the prefix (including directories) to use to write metrics and ancillary files
     * @return a Pipe from Nothing (since the inputs are read from file) to SamOrBam
     */
-  def apply(fq1: PathToFastq, fq2: PathToFastq, bam: PathToBam, sm: String, lb: String, pu: String, rgId: Option[String] = None, prefix: Option[Path]): Pipe[Nothing,SamOrBam] = {
-    val fastqToSam = new FastqToSam(fastq1=fq1, fastq2=Some(fq2), out=Io.StdOut, sample=sm, library=Some(lb), readGroupName=rgId, platformUnit=Some(pu)).withCompression(0)
+  def apply(fq1: PathToFastq, fq2: PathToFastq, bam: PathToBam, sm: String, lb: String, pu: String, rgId: Option[String] = None, prefix: Option[Path], qualityFormat: Option[FastqQualityFormat] = None): Pipe[Nothing,SamOrBam] = {
+    val fastqToSam = new FastqToSam(fastq1=fq1, fastq2=Some(fq2), out=Io.StdOut, sample=sm, library=Some(lb), readGroupName=rgId, platformUnit=Some(pu), qualityFormat = qualityFormat).withCompression(0)
     val buffer = new FifoBuffer[SamOrBam]
     val markAdapters = new MarkIlluminaAdapters(in=Io.StdIn, out=bam, prefix=prefix)
     (fastqToSam | buffer | markAdapters).withName("FastqToAdapaterMarkedSam").asInstanceOf[Pipe[Nothing,SamOrBam]]

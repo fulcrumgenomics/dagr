@@ -34,6 +34,7 @@ import DagrDef._
 import dagr.tasks.picard.{FastqToUnmappedSam, MergeSamFiles, DeleteBam}
 import dagr.sopt._
 import htsjdk.samtools.SAMFileHeader.SortOrder
+import htsjdk.samtools.util.FastqQualityFormat
 
 import scala.collection.mutable.ListBuffer
 
@@ -57,7 +58,12 @@ class CreateUnmappedBamFromFastqPipeline
   @arg(doc="Path to a temporary directory.")                                      val tmp: Path,
   @arg(flag="o", doc="The output directory in which to write files.")             val out: DirPath,
   @arg(doc="The filename prefix for output files. Library is used if omitted.")   val basename: Option[FilenamePrefix] = None,
-  @arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None
+  @arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None,
+  @arg(doc="A value describing how the quality values are encoded in the input FASTQ file. " +
+    "Either Solexa (phred scaling + 66), Illumina (phred scaling + 64) or Standard " +
+    "(phred scaling 33).  If this value is not specified, the quality format will be " +
+    "detected automatically.")
+                                                                                  val qualityFormat: Option[FastqQualityFormat] = None
 ) extends Pipeline(Some(out)) {
 
   name = "CreateUnmappedBamFromFastqPipeline"
@@ -90,7 +96,7 @@ class CreateUnmappedBamFromFastqPipeline
       val bam = Files.createTempFile(tmp, "unmapped.", ".bam")
       unmappedBams += bam
 
-      val fastqToSam = FastqToUnmappedSam(fq1=fq1, fq2=fq2, bam=bam, sm=sample, lb=library, pu=pu, prefix=Some(out.resolve(prefix)))
+      val fastqToSam = FastqToUnmappedSam(fq1=fq1, fq2=fq2, bam=bam, sm=sample, lb=library, pu=pu, prefix=Some(out.resolve(prefix)), qualityFormat=qualityFormat)
       fastqToBams += fastqToSam
       root ==> fastqToSam
     })
