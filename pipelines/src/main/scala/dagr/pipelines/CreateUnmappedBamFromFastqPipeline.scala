@@ -59,10 +59,12 @@ class CreateUnmappedBamFromFastqPipeline
   @arg(flag="o", doc="The output directory in which to write files.")             val out: DirPath,
   @arg(doc="The filename prefix for output files. Library is used if omitted.")   val basename: Option[FilenamePrefix] = None,
   @arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None,
-  @arg(doc="A value describing how the quality values are encoded in the input FASTQ file. " +
-    "Either Solexa (phred scaling + 66), Illumina (phred scaling + 64) or Standard " +
-    "(phred scaling 33).  If this value is not specified, the quality format will be " +
-    "detected automatically.")
+  @arg(doc="""
+             |A value describing how the quality values are encoded in the input FASTQ file.
+             |Either Solexa (phred scaling + 66), Illumina (phred scaling + 64) or Standard " +
+             |(phred scaling 33).  If this value is not specified, the quality format will be " +
+             |detected automatically."
+            """)
                                                                                   val qualityFormat: Option[FastqQualityFormat] = None
 ) extends Pipeline(Some(out)) {
 
