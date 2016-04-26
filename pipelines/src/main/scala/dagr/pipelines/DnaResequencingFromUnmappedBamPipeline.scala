@@ -117,7 +117,7 @@ class DnaResequencingFromUnmappedBamPipeline
         ///////////////////////////////////////////////////////////////////////
         // Mark Duplicates and then cleanup the mapped bam
         ///////////////////////////////////////////////////////////////////////
-        val markDuplicates: MarkDuplicates = new MarkDuplicates(in = mapped, out = Some(deduped))
+        val markDuplicates: MarkDuplicates = new MarkDuplicates(inputs = Seq(mapped), out = Some(deduped))
         prevTask ==> markDuplicates
         (markDuplicates :: downsample) ==> new DeleteBam(mapped)
 

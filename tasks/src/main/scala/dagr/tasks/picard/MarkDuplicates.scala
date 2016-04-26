@@ -26,9 +26,9 @@ package dagr.tasks.picard
 import java.nio.file.Path
 
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.commons.io.Io
+import dagr.commons.io.{PathUtil, Io}
 import dagr.tasks.DagrDef
-import DagrDef.PathToBam
+import dagr.tasks.DagrDef.{PathPrefix, PathToBam}
 
 import scala.collection.mutable.ListBuffer
 
@@ -36,7 +36,10 @@ object MarkDuplicates {
   val MetricsExtension = ".duplicate_metrics"
 }
 
-class MarkDuplicates(override val in: PathToBam,
+/**
+  * Note: if no prefix is given, the metrics file will be named based on the first BAM in `inputs`.
+  */
+class MarkDuplicates(inputs: Seq[PathToBam],
                      out: Option[PathToBam] = None,
                      override val prefix: Option[Path] = None,
                      comment: Option[String] = None,
@@ -48,10 +51,12 @@ class MarkDuplicates(override val in: PathToBam,
   extends PicardTask with PicardMetricsTask {
   requires(Cores(1), Memory("6G"))
 
+  override def in: PathToBam = inputs.head
+
   override def metricsExtension: String = MarkDuplicates.MetricsExtension
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("I=" + in)
+    inputs.foreach(bam => buffer.append("I=" + bam))
     buffer.append("O=" + out.getOrElse(Io.DevNull))
     buffer.append("M=" + metricsFile)
     buffer.append("AS=" + assumeSorted)
