@@ -104,7 +104,7 @@ class DnaResequencingFromUnmappedBamPipeline
     )
     val calculateP = new CalculateDownsamplingProportion(PathUtil.pathTo(prefix + ".quality_yield_metrics.txt"), downsampleToReads)
     val downsample = new DownsampleSam(in=mappedBam, out=dsMappedBam, proportion=1, accuracy=Some(0.00001))
-    val linker     = Linker(calculateP, downsample){(ds, cp) => ds.proportion = cp.proportion}
+    val linker     = Linker(calculateP, downsample){(cp, ds) => ds.proportion = cp.proportion}
     bwa ==> yieldMetrics ==> calculateP ==> linker ==> downsample
 
     ///////////////////////////////////////////////////////////////////////
