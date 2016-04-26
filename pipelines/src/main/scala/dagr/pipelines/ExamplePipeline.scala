@@ -55,7 +55,7 @@ class ExamplePipeline
 
     val bwa   = new BwaMem(fastq=fastq, ref=ref)
     val sort  = new SortSam(in=Io.StdIn, out=tmpBam, sortOrder=SortOrder.coordinate)
-    val mark  = new MarkDuplicates(in=tmpBam, out=Some(bam), prefix=metricsPrefix)
+    val mark  = new MarkDuplicates(inputs=Seq(tmpBam), out=Some(bam), prefix=metricsPrefix)
     val rmtmp = new DeleteBam(tmpBam)
 
     root ==> (bwa | sort) ==> mark ==> rmtmp
