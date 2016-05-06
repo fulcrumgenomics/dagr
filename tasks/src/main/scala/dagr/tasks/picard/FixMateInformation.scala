@@ -27,13 +27,15 @@ package dagr.tasks.picard
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DagrDef._
 import dagr.tasks.DataTypes.SamOrBam
+import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable.ListBuffer
 
-class FixMateInformation(val in: PathToBam, val out: PathToBam) extends PicardTask with Pipe[SamOrBam,SamOrBam] {
+class FixMateInformation(val in: PathToBam, val out: PathToBam, val sortOrder: Option[SortOrder] = None) extends PicardTask with Pipe[SamOrBam,SamOrBam] {
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer += "I=" + in
     buffer += "O=" + out
+    sortOrder.foreach { so => buffer += "SO=" + so }
   }
 }
 
