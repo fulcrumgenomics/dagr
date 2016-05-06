@@ -30,9 +30,10 @@ import dagr.tasks.DataTypes.SamOrBam
 
 import scala.collection.mutable.ListBuffer
 
-class SetNmAndUqTags(val in: PathToBam, val out: PathToBam) extends PicardTask with Pipe[SamOrBam,SamOrBam] {
+class SetNmAndUqTags(val in: PathToBam, val out: PathToBam, ref: PathToFasta) extends PicardTask with Pipe[SamOrBam,SamOrBam] {
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer += "I=" + in
     buffer += "O=" + out
+    buffer += "R=" + ref
   }
 }
