@@ -29,22 +29,23 @@ import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFasta}
 import htsjdk.samtools.SAMFileHeader.SortOrder
+import htsjdk.samtools.SamPairUtil.PairOrientation
 
 import scala.collection.mutable.ListBuffer
 
-class MergeBamAlignment( unmapped: PathToBam,
-                         mapped: PathToBam,
-                         out: PathToBam,
-                         ref: PathToFasta,
-                         programGroupId: Option[String] = None,
-                         programGroupVersion: Option[String] = None,
-                         programGroupCommand: Option[String] = None,
-                         programGroupName: Option[String] = None,
-                         attributesToRetain: List[String] = List[String]("X0", "ZS", "ZI", "ZM", "ZC", "ZN"),
-                         orientation: String = "FR",
-                         maxGaps: Int = -1,
-                         sortOrder: SortOrder = SortOrder.coordinate,
-                         useAlignerProperPairFlags: Boolean = false
+class MergeBamAlignment(unmapped: PathToBam,
+                        mapped: PathToBam,
+                        out: PathToBam,
+                        ref: PathToFasta,
+                        programGroupId: Option[String] = None,
+                        programGroupVersion: Option[String] = None,
+                        programGroupCommand: Option[String] = None,
+                        programGroupName: Option[String] = None,
+                        attributesToRetain: List[String] = List[String]("X0", "ZS", "ZI", "ZM", "ZC", "ZN"),
+                        orientation: PairOrientation = PairOrientation.FR,
+                        maxGaps: Int = -1,
+                        sortOrder: SortOrder = SortOrder.coordinate,
+                        useAlignerProperPairFlags: Boolean = false
                          )
   extends PicardTask with Pipe[SamOrBam,SamOrBam] {
   requires(Cores(1), Memory("4g"))
@@ -60,7 +61,7 @@ class MergeBamAlignment( unmapped: PathToBam,
     programGroupCommand.foreach(cmd => buffer.append("PG_COMMAND=\'" + cmd + "\'"))
     programGroupName.foreach(name => buffer.append("PG_NAME=" + name))
     attributesToRetain.foreach(attr => buffer.append("ATTRIBUTES_TO_RETAIN=" + attr))
-    buffer.append("ORIENTATIONS=" + orientation)
+    buffer.append("ORIENTATIONS=" + orientation.name())
     buffer.append("MAX_GAPS=" + maxGaps)
     buffer.append("SO=" + sortOrder.name())
     buffer.append("ALIGNER_PROPER_PAIR_FLAGS=" + useAlignerProperPairFlags)
