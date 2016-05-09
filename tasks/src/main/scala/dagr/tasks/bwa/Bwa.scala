@@ -11,6 +11,7 @@ import dagr.tasks.DagrDef
 import DagrDef._
 import dagr.tasks.picard.{FifoBuffer, MergeBamAlignment, SamToFastq}
 import htsjdk.samtools.SAMFileHeader.SortOrder
+import htsjdk.samtools.SamPairUtil.PairOrientation
 
 /**
   * Constants and defaults that are used across types of bwa invocation
@@ -47,7 +48,8 @@ object Bwa extends Configuration {
                      samToFastqMem: String = "512M",
                      mergeBamAlignmentMem: String = "2G",
                      fifoBufferMem: String = "512M",
-                     processAltMappings : Boolean = true
+                     processAltMappings: Boolean = true,
+                     orientation: PairOrientation = PairOrientation.FR
                     ): Pipe[SamOrBam,SamOrBam] = {
     val alt = PathUtil.pathTo(ref + ".alt")
     val doAlt = Files.exists(alt) && processAltMappings
@@ -58,7 +60,7 @@ object Bwa extends Configuration {
     val bwaMem     = new BwaMem(fastq=Io.StdIn, ref=ref, minThreads=minThreads, maxThreads=maxThreads, memory=Memory(bwaMemMemory))
     val bwaBuffer  = new FifoBuffer[Sam].requires(memory=fifoMem)
     val altPipe    = if (doAlt) new BwaK8AltProcessor(altFile=alt) | new FifoBuffer[Sam].requires(memory=fifoMem) else Pipes.empty[Sam]
-    val mergeBam   = new MergeBamAlignment(unmapped=unmappedBam, mapped=Io.StdIn, out=mappedBam, ref=ref, sortOrder=sortOrder)
+    val mergeBam   = new MergeBamAlignment(unmapped=unmappedBam, mapped=Io.StdIn, out=mappedBam, ref=ref, sortOrder=sortOrder, orientation=orientation)
     mergeBam.requires(memory=Memory(mergeBamAlignmentMem))
 
     (samToFastq | fqBuffer | bwaMem | bwaBuffer | altPipe | mergeBam).withName("BwaMemThroughMergeBam")
