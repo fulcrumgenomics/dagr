@@ -40,6 +40,7 @@ object FreeBayes {
   /** FreeBayes configuration */
   val FreeBayesExecutableConfigKey = "freebayes.executable"
   val VcfLibBinConfigKey           = "vcflib.bin"
+  val VcfLibScriptsConfigKey       = "vcflib.scripts"
   val BgzipBinConfigKey            = "bgzip.bin"
 
   /** FreeBayes defaults */
@@ -146,7 +147,7 @@ abstract class FreeBayes(val ref: PathToFasta,
     val freebayesParallel = new ShellCommand(buffer.map(_.toString):_*) with Pipe[Text,Vcf]
 
     // Make a header, sort it, uniq it (for edge regions), and output it
-    val vcffirstheader = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcffirstheader").toString)              with Pipe[Vcf,Vcf]
+    val vcffirstheader = new ShellCommand(configureExecutableFromBinDirectory(VcfLibScriptsConfigKey, "vcffirstheader").toString)          with Pipe[Vcf,Vcf]
     val vcfstreamsort  = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort").toString, "-w", "1000") with Pipe[Vcf,Vcf]
     val vcfuniq        = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniq").toString)                     with Pipe[Vcf,Vcf]
     val bgzip           = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c")   with Pipe[Vcf,Vcf] else Pipes.empty[Vcf]
