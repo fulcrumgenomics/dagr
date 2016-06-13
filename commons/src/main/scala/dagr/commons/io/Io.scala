@@ -170,4 +170,7 @@ trait IoUtil {
 
   /** Reads the path provides and produces an iterator of lines of text from the file. */
   def readLines(path: Path): Iterator[String] = toSource(path).getLines()
+
+  /** Creates an object that will asynchronously read character data from a stream and pipe it into a sink function. */
+  def pipeStream(stream: InputStream, sink: String => Unit) : AsyncStreamSink = new AsyncStreamSink(stream, sink)
 }
