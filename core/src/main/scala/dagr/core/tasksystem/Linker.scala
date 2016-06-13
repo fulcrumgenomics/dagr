@@ -35,13 +35,13 @@ object Linker {
     * method, passing it the `parent` and `child`, after the `parent` has successfully
     * executed and before the `child` is executed.
     *
-    * @param parent a task that produces some information on which the child depends
-    * @param child  a task which needs to receive some information from the parent task
-    * @param link   a method that will receive be invoked with a reference to both tasks
-    *               at the appropriate time during pipeline execution
+    * @param from  a task that produces some information on which the child depends
+    * @param to    a task which needs to receive some information from the parent task
+    * @param link  a method that will receive be invoked with a reference to both tasks
+    *              at the appropriate time during pipeline execution
     * @tparam From the type of the parent task (usually inferred)
-    * @tparam To  the type of the child task (usually inferred)
-    * @return a task that links the parent and child and will invoke the `link` method
+    * @tparam To   the type of the child task (usually inferred)
+    * @return      a task that links the parent and child and will invoke the `link` method
     */
   def apply[From <: Task, To <: Task](from: From, to: To)
                                      (link: (From, To) => Unit): UnitTask = {
