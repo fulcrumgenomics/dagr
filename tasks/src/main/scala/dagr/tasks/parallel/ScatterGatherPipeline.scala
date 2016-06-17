@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) $year Fulcrum Genomics
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,8 +20,8 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- *
  */
+
 
 package dagr.tasks.parallel
 
@@ -118,9 +118,9 @@ object ScatterGatherPipeline {
   * scatter gather framework.  It also implements a simple single gather step to gather all the outputs of
   * the scatter steps.
   *
-  * @tparam Domain        the input type to the scatter gather.
+  * @tparam Domain    the input type to the scatter gather.
   * @tparam SubDomain the input type to each scatter.
-  * @tparam Output       the output type of hte scatter gather.
+  * @tparam Output    the output type of hte scatter gather.
   */
 trait ScatterGatherPipeline[Domain, SubDomain, Output]
   extends ScatterGatherFramework[Domain, SubDomain, Output] {

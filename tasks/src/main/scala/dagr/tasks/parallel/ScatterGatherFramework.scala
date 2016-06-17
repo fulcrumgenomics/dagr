@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) $year Fulcrum Genomics
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,7 +20,6 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- *
  */
 
 package dagr.tasks.parallel
@@ -47,23 +46,23 @@ import dagr.core.tasksystem.{Pipeline, Task}
   *
   * Be sure to mix-in the appropriate trait in the task returned by each method.
   *
-  * @tparam Domain        the input type to the scatter gather.
+  * @tparam Domain    the input type to the scatter gather.
   * @tparam SubDomain the input type to each scatter.
-  * @tparam Output       the output type of the scatter gather.
+  * @tparam Output    the output type of the scatter gather.
   **/
 trait ScatterGatherFramework[Domain, SubDomain, Output] extends Pipeline with GatherTask[Output] {
 
   /** The input to the scatter gather */
-  def domain: Domain
+  protected def domain: Domain
 
   /** Generates a task to split the input into multiple inputs for the scatter tasks. */
-  def splitDomainTask(domain: Domain): SplitInputTask[Domain, SubDomain]
+  protected def splitDomainTask(domain: Domain): SplitInputTask[Domain, SubDomain]
 
   /** Generates a scatter task from an input meant for a scatter task. */
-  def scatterTask(subDomain: SubDomain): ScatterTask[SubDomain, Output]
+  protected def scatterTask(subDomain: SubDomain): ScatterTask[SubDomain, Output]
 
   /** Generates a gather task that gathers an ordered set of outputs */
-  def gatherTask(outputs: Iterable[Output]): GatherTask[Output]
+  protected def gatherTask(outputs: Iterable[Output]): GatherTask[Output]
 
   /** Generates the scatter tasks.  No dependencies should be set between scatter tasks and either the split input or
     * gather tasks in this method. */
