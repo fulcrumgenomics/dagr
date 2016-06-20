@@ -35,7 +35,15 @@ class CollectMultipleMetrics(override val in: PathToBam,
                              override val prefix: Option[Path] = None,
                              ref: PathToFasta,
                              assumeSorted: Boolean = true,
-                             programs: Seq[Program] = Program.values().toSeq,
+                             programs: Seq[Program] = Seq(
+                               Program.CollectAlignmentSummaryMetrics,
+                               Program.CollectBaseDistributionByCycle,
+                               Program.CollectInsertSizeMetrics,
+                               Program.CollectQualityYieldMetrics,
+                               Program.CollectSequencingArtifactMetrics,
+                               Program.MeanQualityByCycle,
+                               Program.QualityScoreDistribution
+                             ),
                              fileExtension: Option[String] = Some("." + PicardOutput.Text.toString))
   extends PicardTask with PicardMetricsTask {
 
