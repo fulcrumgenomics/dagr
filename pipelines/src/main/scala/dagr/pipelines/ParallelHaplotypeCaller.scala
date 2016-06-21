@@ -46,7 +46,8 @@ object ParallelHaplotypeCaller {
                                 filterVcf: Boolean = true,
                                 dbsnp: Option[PathToVcf] = None,
                                 tmpDirectory: Option[Path] = None,
-                                intervals: PathToIntervals) extends ScatterPathTask {
+                                intervals: PathToIntervals,
+                                useNativePairHmm: Boolean) extends ScatterPathTask {
     var _output: Option[Path] = None
     def output: Path = _output.get
 
@@ -57,7 +58,7 @@ object ParallelHaplotypeCaller {
 
     def getTasks: Traversable[_ <: Task] = {
       val Seq(gvcf: PathToVcf, finalVcf: PathToVcf) = Seq("gvcf.", "finalVcf.").map (makeTempFile)
-      val hc    = new HaplotypeCaller(ref=ref, intervals=Some(intervals), bam=bam, vcf=gvcf)
+      val hc    = new HaplotypeCaller(ref=ref, intervals=Some(intervals), bam=bam, vcf=gvcf, useNativePairHmm=useNativePairHmm)
       val gtGen = (vcf: PathToVcf) => GenotypeGvcfs(ref=ref, intervals=Some(intervals), gvcf=gvcf, vcf=vcf, dbSnpVcf=dbsnp)
       _output = Some(finalVcf)
       if (filterVcf) {
@@ -99,13 +100,14 @@ class ParallelHaplotypeCaller
   @arg(flag="d", doc="Path to dbSNP VCF (for GenotypeGvcfs).")                      val dbsnp: Option[PathToVcf] = None,
   @arg(flag="f", doc="Filter variants using Picard FilterVcf.")                     val filterVcf: Boolean = false,
   @arg(flag="s", doc="The size of the region to call for each parallel task.")      val regionSize: Int = 25000000,
-  @arg(flag="t", doc="Temporary directory in which to store intermediate results.") val tmpDirectory: Option[Path]
+  @arg(flag="t", doc="Temporary directory in which to store intermediate results.") val tmpDirectory: Option[Path],
+  @arg(flag="H", doc="Use the native code for GATK (Unix only)")                    val useNativePairHmm: Boolean = false
 )
 extends PathBasedScatterGatherPipeline(
   input                       = ref,
   output                      = vcf,
   splitInputPathTaskGenerator = (tmpDir: Option[Path]) => (ref: Path)             => new SplitIntervalsForCallingRegions(ref=ref, intervals=intervals, output=tmpDir, regionSize=regionSize),
-  scatterTaskGenerator        = (tmpDir: Option[Path]) => (intv: PathToIntervals) => new VariantCallTask(ref=ref, bam=bam, filterVcf=filterVcf, dbsnp=dbsnp, tmpDirectory=tmpDir, intervals=intv),
+  scatterTaskGenerator        = (tmpDir: Option[Path]) => (intv: PathToIntervals) => new VariantCallTask(ref=ref, bam=bam, filterVcf=filterVcf, dbsnp=dbsnp, tmpDirectory=tmpDir, intervals=intv, useNativePairHmm=useNativePairHmm),
   gatherTaskGenerator         = (in: Seq[PathToVcf], out: PathToVcf)              => new GatherVcfs(in=in, out=out) with GatherPathTask,
   tmpDirectory                = tmpDirectory
 )
