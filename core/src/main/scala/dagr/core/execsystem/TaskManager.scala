@@ -28,7 +28,7 @@ import java.time.Instant
 
 import dagr.core.DagrDef._
 import dagr.commons.util.LazyLogging
-import dagr.core.tasksystem.{Retry, Task, UnitTask}
+import dagr.core.tasksystem._
 import dagr.commons.util.BiMap
 import dagr.commons.io.{Io, PathUtil}
 
@@ -537,7 +537,13 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       if (!allDone && runningTasks.isEmpty && tasksToSchedule.isEmpty) {
         logger.error("No running tasks and no tasks scheduled but had " + readyTasks.size + " tasks ready to be scheduled")
         readyTasks.foreach(readyTask => {
-          logger.error(readyTask.toString + " tasks status: " + taskStatusFor(readyTask) + " graph state: " + graphNodeStateFor(readyTask))
+          val resources = readyTask match {
+            case t: FixedResources    => "Fixed Resources: " + t.resources
+            case t: VariableResources => "Variable Resources: " + t.resources
+            case t: Schedulable       => "Schedulable Resources: " + t.pickResources(new ResourceSet(Cores(Integer.MAX_VALUE), Memory.infinite)).getOrElse("Unknown Resources")
+            case t                    => "Unknown Resources"
+          }
+          logger.error(readyTask.toString + " tasks status: " + taskStatusFor(readyTask) + " graph state: " + graphNodeStateFor(readyTask) + " resources: " + resources)
         })
         allDone = true
       }

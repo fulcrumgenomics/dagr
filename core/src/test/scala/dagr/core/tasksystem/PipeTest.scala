@@ -23,7 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.commons.io.PathUtil
+import dagr.commons.io.{Io, PathUtil}
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.commons.util.UnitSpec
 
@@ -31,9 +31,11 @@ import dagr.commons.util.UnitSpec
   * Tests for the piping together of tasks
   */
 class PipeTest extends UnitSpec {
-  val `|`  = Pipes.PipeString
-  val `>`  = Pipes.RedirectOverwriteString
+  val `|`   = Pipes.PipeString
+  val `>`   = Pipes.RedirectOverwriteString
   val `>>` = Pipes.RedirectAppendString
+  val `2>`  = Pipes.RedirectErrorOverwriteString
+  val `2>>` = Pipes.RedirectErrorAppendString
 
   // Data types used in piping
   object Types {
@@ -137,12 +139,26 @@ class PipeTest extends UnitSpec {
     pipe2.commandLine shouldBe "cat stuff.csv" + `|` + "column -t" + `>>` + "/tmp/append_to_me.txt"
   }
 
+  it should "construct the write command line when redirecting stderr anywhere in pipe" in {
+    val cat = Cat("stuff.csv")
+    val col = Column()
+    val csv = MakeCsv()
+
+    val pipe1 = cat.discardError() | col | csv > PathUtil.pathTo("/tmp/foo.txt")
+    pipe1.commandLine shouldBe "cat stuff.csv" + `2>` + "/dev/null" + `|` + "column -t" + `|` + "sed 's/ +/,/g'" + `>` + "/tmp/foo.txt"
+
+    val pipe2 = cat.>>!(Io.DevNull) | col | csv >> PathUtil.pathTo("/tmp/append_to_me.txt")
+    pipe2.commandLine shouldBe "cat stuff.csv" + `2>>` + "/dev/null" + `|` + "column -t" + `|` + "sed 's/ +/,/g'" + `>>` + "/tmp/append_to_me.txt"
+
+    val pipe3 = cat | col.>!(PathUtil.pathTo("/tmp/stderr.txt")) | csv >> PathUtil.pathTo("/tmp/append_to_me.txt")
+    pipe3.commandLine shouldBe "cat stuff.csv" + `|` + "column -t" + `2>` + "/tmp/stderr.txt" + `|` + "sed 's/ +/,/g'" + `>>` + "/tmp/append_to_me.txt"
+  }
+
   it should "compile with a subtype as input in a pipe" in {
     val pipe1 = Cat("foo.txt") | BgZip() // exact type: Text
     val pipe2 = Cat("foo.txt") | MakeCsv() | BgZip() // subtype: Csv
     val pipe3 = Cat("foo.txt") | MakeCsv() | CsvToTsv() | BgZip() // subtype: Tsv
   }
-
 
   "EmptyPipe" should "explode if its arg or pickResources methods are ever called" in {
     an[IllegalStateException] shouldBe thrownBy {Pipes.empty[Any].args }

@@ -32,10 +32,10 @@ object ResourceSet {
 }
 
 /** Holds information about a set of resources */
-case class ResourceSet(cores: Cores = Cores(0), memory: Memory = Memory(0)) {
+case class ResourceSet(cores: Cores = Cores.none, memory: Memory = Memory.none) {
   def isEmpty: Boolean = cores.value == 0 && memory.value == 0
 
-  override def toString: String = s"memory=${memory.value}, cores=${cores.value}"
+  override def toString: String = s"memory=$memory, cores=${cores.value}"
 
   /** Returns true if `subset` is a subset of this resource set and false otherwise. */
   private def subsettable(subset: ResourceSet) = subset.cores <= this.cores && subset.memory <= this.memory

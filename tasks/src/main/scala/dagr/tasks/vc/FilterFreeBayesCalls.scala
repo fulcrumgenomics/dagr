@@ -25,11 +25,11 @@
 package dagr.tasks.vc
 
 import dagr.core.config.Configuration
-import dagr.core.tasksystem.{FixedResources, ProcessTask}
-import dagr.tasks.DagrDef
-import DagrDef._
-
-import scala.collection.mutable.ListBuffer
+import dagr.core.execsystem.ResourceSet
+import dagr.core.tasksystem.Pipes.PipeWithNoResources
+import dagr.core.tasksystem._
+import dagr.tasks.DagrDef._
+import dagr.tasks.DataTypes._
 
 object FilterFreeBayesCalls {
 
@@ -37,8 +37,6 @@ object FilterFreeBayesCalls {
   val VtBinConfigKey       = "vt.bin"
   val BcfToolsBinConfigKey = "bcftools.bin"
   val BgzipBinConfigKey    = "bgzip.bin"
-
-  protected val PipeArg = "\\\n  |"
 }
 
 /** Applies various filters and ensures proper VCF formatting for variants produced by FreeBayes.
@@ -73,59 +71,57 @@ class FilterFreeBayesCalls(val in: PathToVcf,
                            val somatic: Boolean = false,
                            val minQual: Int = 5
                           )
-  extends ProcessTask with Configuration with FixedResources {
+  extends Task with Configuration with FixedResources {
   import FilterFreeBayesCalls._
 
   requires(1.0, "2G")
 
-  override def args: Seq[Any] = {
-    val buffer = ListBuffer[Any]()
+  override def applyResources(resources: ResourceSet): Unit = Unit
 
-    // De-compress the input VCF
-    buffer.append(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip"), "-c", "-d", in)
-
-    // Remove low quality calls
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcffilter"), "-f", s"'QUAL > $minQual'", "-s")
-
+  override def getTasks: Traversable[_ <: Task] = {
     // Apply filters specific to somatic calling
     if (somatic) {
       // source: https://github.com/chapmanb/bcbio-nextgen/blob/60a0f3c4f8ec658f8c34d6bc77b23a90f47b45d6/bcbio/variation/freebayes.py#L250
-      // TODO
       logger.warning("bcbio filtering, for example, adding REJECTS or SOMATIC flags, has not been implemented.  Contact your nearest developer.")
     }
 
+    // De-compress the input VCF
+    val decompressVcf = new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c", "-d", in.toAbsolutePath.toString) with PipeWithNoResources[Nothing, Vcf]
+
+    // Remove low quality calls
+    val filterLowQualityCalls = new ShellCommand(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "filter", "-i", """'ALT="<*>" || QUAL > 5'""") with PipeWithNoResources[Vcf, Vcf] discardError()
+
     // fix ambiguous (IUPAC) reference base calls
-    // source: https://github.com/chapmanb/bcbio-nextgen/blob/e4d520b23a4868b8d92f83a3bc0ac11894cd2dbc/bcbio/variation/vcfutils.py#L86
-    buffer.append(PipeArg, """awk -F$'\t' -v OFS='\t' '{if ($0 !~ /^#/) gsub(/[KMRYSWBVHDX]/, "N", $4) } { print }'""")
+    val fixAmbiguousIupacReferenceCalls = new ShellCommand("awk", """-F\t""",  "-v", """OFS=\t""",  """{if ($0 !~ /^#/) gsub(/[KMRYSWBVHDX]/, "N", $4) } { print }""") with PipeWithNoResources[Vcf, Vcf]
 
     // remove alternate alleles that are not called in any sample
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools"), "view", "-a", "-", "2> /dev/null")
+    val removeAlts = new ShellCommand(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "view", "-a", "-") with PipeWithNoResources[Vcf, Vcf] discardError()
 
     // remove calls with missing alternative alleles
     // source: https://github.com/chapmanb/bcbio-nextgen/blob/60a0f3c4f8ec658f8c34d6bc77b23a90f47b45d6/bcbio/variation/freebayes.py#L237
-    buffer.append(PipeArg, """awk -F$'\t' -v OFS='\t' '{if ($0 ~ /^#/ || $4 != ".") { print } }'""")
-
+    val removeMissingAlts = new ShellCommand("awk", """-F\t""", "-v", """OFS=\t""", """{if ($0 ~ /^#/ || $4 != ".") { print } }""") with PipeWithNoResources[Vcf, Vcf]
 
     // split MNP variants into multiple records
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfallelicprimitives"), "--keep-geno")
+    val splitMnpVariants = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfallelicprimitives").toString, "-t", "DECOMPOSED", "--keep-geno") with PipeWithNoResources[Vcf, Vcf]
 
     // update AC and NS
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcffixup"), "-")
+    val updateAcAndNs = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcffixup").toString) with PipeWithNoResources[Vcf, Vcf]
 
     // sort records using a fixed length window
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort"))
+    val sortVcf = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort").toString) with PipeWithNoResources[Vcf, Vcf]
 
     // standardizes the representation of variants using parsimony and left-alignment relative to the reference genome
     // See: http://genome.sph.umich.edu/wiki/Variant_Normalization
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VtBinConfigKey,     "vt"), "normalize", "-n", "-r", ref, "-q", "-", "2> /dev/null")
+    val leftAlign = new ShellCommand(configureExecutableFromBinDirectory(VtBinConfigKey, "vt").toString, "normalize", "-n", "-r", ref.toAbsolutePath.toString, "-q", "-") with PipeWithNoResources[Vcf, Vcf] discardError()
 
     // remove both duplicate and reference alternate alleles
-    buffer.append(PipeArg, configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniqalleles"))
+    val removeDuplicateAlleles = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniqalleles").toString) with PipeWithNoResources[Vcf, Vcf]
 
-    // Output it
-    if (compress) buffer.append(PipeArg, configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip"), "-c")
-    buffer.append(">", out)
+    // compress the output (or not)
+    val compressOutput = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c") with PipeWithNoResources[Vcf,Vcf] else Pipes.empty[Vcf]
 
-    buffer
+    val pipeChain = decompressVcf | filterLowQualityCalls | fixAmbiguousIupacReferenceCalls | removeAlts | removeMissingAlts | splitMnpVariants | updateAcAndNs |sortVcf | leftAlign | removeDuplicateAlleles | compressOutput > out
+
+    List(pipeChain withName (this.name + "PipeChain"))
   }
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,23 +21,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.core.tasksystem
 
-import dagr.core.execsystem.{Cores, Memory}
+package dagr.tasks.picard
 
-/** Companion object to provide a couple of helper constructors for ShellCommand. */
-object ShellCommand {
-  /** Constructs a Shell Command using varargs. */
-  def apply(args: Any*) : ShellCommand = new ShellCommand(args.map(_.toString):_*)
+import dagr.core.tasksystem.Pipe
+import dagr.tasks.DagrDef._
+import dagr.tasks.DataTypes.Vcf
 
-}
+import scala.collection.mutable.ListBuffer
 
-/**
-  * Executes a command, with a set of arguments, in a shell.
-  */
-class ShellCommand(val commands: String*) extends ProcessTask with FixedResources {
-  requires(Cores(1), Memory("32M"))
-  if (commands.isEmpty) throw new IllegalArgumentException("No commands to ShellCommand")
-
-  override def args: Seq[Any] = commands
+class UpdateVcfSequenceDictionary(val in: PathToVcf, val out: PathToVcf, val dict: FilePath) extends PicardTask with Pipe[Vcf,Vcf] {
+  override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
+    buffer += "I=" + in
+    buffer += "O=" + out
+    buffer += "SD=" + dict
+  }
 }

@@ -71,7 +71,7 @@ class ResourceTest extends UnitSpec {
   }
 
   "Resource" should "add, subtract, and compare resources" in {
-    val low = Memory(0)
+    val low = Memory.none
     val mid = Memory(10)
     val high = Memory(20)
 
@@ -117,7 +117,7 @@ class ResourceTest extends UnitSpec {
 
   it should "always give back the numeric value via toString for easy arg usage" in {
     Cores(7).toString shouldBe "7.0"
-    Cores(0).toString shouldBe "0.0"
+    Cores.none.toString shouldBe "0.0"
     Cores(5000).toString shouldBe "5000.0"
     Memory(1024).toString shouldBe "1024"
     Memory("1G").toString shouldBe (1024*1024*1024).toString
