@@ -29,14 +29,53 @@ package dagr.core.tasksystem
   */
 trait Dependable {
   /** Creates a dependency on this dependable, for the provided Task. */
-  def ==> (other: Task) : other.type
+  final def ==> (other: Dependable) : Dependable = {
+    addDependent(other)
+    new DependencyChain(this, other)
+  }
 
-  /** Creates a dependency on this dependable for all the Tasks in the provided MultiTask. */
-  def ==> (others: MultiTask) : MultiTask
+  /** Must be implemented to handle the addition of a dependent. */
+  def addDependent(dependent: Dependable) : Unit
 
   /** Breaks the dependency link between this dependable and the provided Task. */
-  def !=> (other: Task) : other.type
+  def !=> (other: Dependable) : Unit
 
-  /** Breaks the dependency link between this dependable and the provided Tasks. */
-  def !=> (others: MultiTask) : MultiTask
+  /** Returns an object that can be used to manage dependencies that apply to this and the other Dependable. */
+  def :: (other: Dependable) : Dependable = new DependencyGroup(this, other)
+
+  /** Abstract method that must be implemented to return all Tasks associated with this Dependable. */
+  private[tasksystem] def toTasks: Traversable[Task]
+}
+
+/**
+  * Represents a link from one Dependable to another, which can have dependencies wired
+  * up to it, and will vector the dependencies to the appropriate sub-dependencies.
+  */
+class DependencyChain(from: Dependable, to: Dependable) extends Dependable {
+  override def addDependent(dependent: Dependable): Unit = to ==> dependent
+
+  /** Breaks the dependency link between this dependable and the provided Task. */
+  override def !=>(other: Dependable): Unit = to !=> other
+
+  /** Returns all the tasks associated with both the from and to Dependencies. */
+  override private[tasksystem] def toTasks: Traversable[Task] = from.toTasks ++ to.toTasks
+}
+
+/**
+ * Represents a group of Dependable objects such that depedency operations on a
+ * DependencyGroup are transmitted to all contained Dependables.
+ */
+private class DependencyGroup(val a: Dependable, val b: Dependable) extends Dependable {
+  override def addDependent(dependent: Dependable): Unit = foreach(_ ==> dependent)
+
+  override private[tasksystem] def toTasks: Traversable[Task] = a.toTasks ++ b.toTasks
+
+  /** Breaks the dependency link between this dependable and the provided Task. */
+  override def !=>(other: Dependable): Unit = foreach(_ !=> other)
+
+  /** Applies a method to each member of the DependencyGroup. */
+  def foreach(f: Dependable => Unit): Unit = {
+    f(a)
+    f(b)
+  }
 }

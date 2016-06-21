@@ -224,58 +224,61 @@ class TaskTest extends UnitSpec with LazyLogging {
       a ==> (b :: c :: d) ==> e ==> (f :: g)
 
       a.tasksDependedOn.isEmpty shouldBe true
-      a.tasksDependingOnThisTask.toArray shouldBe Array(b, c, d)
+      a.tasksDependingOnThisTask should contain theSameElementsAs Traversable(b, c, d)
 
-      b.tasksDependedOn.toArray shouldBe Array(a)
-      b.tasksDependingOnThisTask.toArray shouldBe Array(e)
+      b.tasksDependedOn should contain theSameElementsAs Traversable(a)
+      b.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e)
 
-      c.tasksDependedOn.toArray shouldBe Array(a)
-      c.tasksDependingOnThisTask.toArray shouldBe Array(e)
+      c.tasksDependedOn should contain theSameElementsAs Traversable(a)
+      c.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e)
 
-      d.tasksDependedOn.toArray shouldBe Array(a)
-      d.tasksDependingOnThisTask.toArray shouldBe Array(e)
+      d.tasksDependedOn should contain theSameElementsAs Traversable(a)
+      d.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e)
 
-      e.tasksDependedOn.toArray shouldBe Array(b, c, d)
-      e.tasksDependingOnThisTask.toArray shouldBe Array(f, g)
+      e.tasksDependedOn should contain theSameElementsAs Traversable(b, c, d)
+      e.tasksDependingOnThisTask should contain theSameElementsAs Traversable(f, g)
 
-      f.tasksDependedOn.toArray shouldBe Array(e)
+      f.tasksDependedOn should contain theSameElementsAs Traversable(e)
       f.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      g.tasksDependedOn.toArray shouldBe Array(e)
+      g.tasksDependedOn should contain theSameElementsAs Traversable(e)
       g.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      a !=> (b :: c :: d) !=> e !=> (f :: g)
+      a !=> (b :: c :: d)
+      (b :: c :: d) !=> e
+      e !=> (f :: g)
 
       List(a, b, c, d, e, f, g).foreach(t => t.tasksDependedOn.isEmpty shouldBe true)
       List(a, b, c, d, e, f, g).foreach(t => t.tasksDependingOnThisTask.isEmpty shouldBe true)
     }
 
-    it should "dependencies should bind & tighter than ==> and -=>" in {
+    it should "bind :: grouping operations tighter than ==> and !=> dependency operations" in {
       val (a, b, c, d, e, f, g) = (new Noop("A"), new Noop("B"), new Noop("C"), new Noop("D"), new Noop("E"), new Noop("F"), new Noop("G"))
       a :: b ==> c :: d ==> e :: f :: g
 
       a.tasksDependedOn.isEmpty shouldBe true
-      a.tasksDependingOnThisTask.toArray shouldBe Array(c, d)
+      a.tasksDependingOnThisTask should contain theSameElementsAs Traversable(c, d)
 
       b.tasksDependedOn.isEmpty shouldBe true
-      b.tasksDependingOnThisTask.toArray shouldBe Array(c, d)
+      b.tasksDependingOnThisTask should contain theSameElementsAs Traversable(c, d)
 
-      c.tasksDependedOn.toArray shouldBe Array(a, b)
-      c.tasksDependingOnThisTask.toArray shouldBe Array(e, f, g)
+      c.tasksDependedOn should contain theSameElementsAs Traversable(a, b)
+      c.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e, f, g)
 
-      d.tasksDependedOn.toArray shouldBe Array(a, b)
-      d.tasksDependingOnThisTask.toArray shouldBe Array(e, f, g)
+      d.tasksDependedOn should contain theSameElementsAs Traversable(a, b)
+      d.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e, f, g)
 
-      e.tasksDependedOn.toArray shouldBe Array(c, d)
+      e.tasksDependedOn should contain theSameElementsAs Traversable(c, d)
       e.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      f.tasksDependedOn.toArray shouldBe Array(c, d)
+      f.tasksDependedOn should contain theSameElementsAs Traversable(c, d)
       f.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      g.tasksDependedOn.toArray shouldBe Array(c, d)
+      g.tasksDependedOn should contain theSameElementsAs Traversable(c, d)
       g.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      a :: b !=> c :: d !=> e :: f :: g
+      a :: b !=> c :: d
+      c :: d !=> e :: f :: g
 
       List(a, b, c, d, e, f, g).foreach(t => t.tasksDependedOn.isEmpty shouldBe true)
       List(a, b, c, d, e, f, g).foreach(t => t.tasksDependingOnThisTask.isEmpty shouldBe true)
