@@ -26,6 +26,7 @@ package dagr.tasks.vc
 
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import dagr.core.tasksystem.Pipes.PipeWithNoResources
 import dagr.core.tasksystem._
 import dagr.tasks.DagrDef.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 import dagr.tasks.DataTypes._

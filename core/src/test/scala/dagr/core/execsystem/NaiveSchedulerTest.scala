@@ -48,7 +48,7 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
 
   it should "accept a simple task with no resources when the system has no resources" in {
     val task: UnitTask = new NoOpTask withName "simple" requires ResourceSet.empty
-    scheduler.schedule(List(task), Cores(0), Memory(0), Memory(0)) should contain key task
+    scheduler.schedule(List(task), Cores.none, Memory.none, Memory.none) should contain key task
   }
 
   it should "reject a task for too much memory" in {
@@ -97,7 +97,7 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
   it should "accept two simple tasks with no resources with no system resources" in {
     val taskOne: UnitTask = new NoOpTask withName "simple" requires ResourceSet.empty
     val taskTwo: UnitTask = new NoOpTask withName "simple" requires ResourceSet.empty
-    val tasks: Map[UnitTask, ResourceSet] = scheduler.schedule(List(taskOne, taskTwo), Cores(0), Memory(0), Memory(0))
+    val tasks: Map[UnitTask, ResourceSet] = scheduler.schedule(List(taskOne, taskTwo), Cores.none, Memory.none, Memory.none)
     tasks should contain key taskOne
     tasks should contain key taskTwo
     tasks should have size 2
@@ -115,7 +115,7 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
   it should "accept only tasks with no resources set when there are no system resources" in {
     val taskOne: UnitTask = new NoOpTask withName "taskOne" requires(Cores(1), Memory("1G"))
     val taskTwo: UnitTask = new NoOpTask withName "taskTwo" requires ResourceSet.empty
-    val tasks: Map[UnitTask, ResourceSet] = scheduler.schedule(List(taskOne, taskTwo), Cores(0), Memory(0), Memory(0))
+    val tasks: Map[UnitTask, ResourceSet] = scheduler.schedule(List(taskOne, taskTwo), Cores.none, Memory.none, Memory.none)
     tasks should have size 1
     tasks should contain key taskTwo
   }
@@ -134,17 +134,17 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
     }
 
     // Should schedule with 32M
-    var scheduledTasksAndResources = scheduler.schedule(readyTasks = List(task), Cores(2), Memory(0), Memory("32M"))
+    var scheduledTasksAndResources = scheduler.schedule(readyTasks = List(task), Cores(2), Memory.none, Memory("32M"))
     scheduledTasksAndResources should contain key task
     scheduledTasksAndResources should contain value ResourceSet(Cores(1), Memory("32M"))
 
     // Should schedule with 16M
-    scheduledTasksAndResources = scheduler.schedule(readyTasks = List(task), Cores(2), Memory(0), Memory("16M"))
+    scheduledTasksAndResources = scheduler.schedule(readyTasks = List(task), Cores(2), Memory.none, Memory("16M"))
     scheduledTasksAndResources should contain key task
     scheduledTasksAndResources should contain value ResourceSet(Cores(1), Memory("16M"))
 
     // Should not schedule
-    scheduledTasksAndResources = scheduler.schedule(readyTasks = List(task), Cores(2), Memory(0), Memory("8M"))
+    scheduledTasksAndResources = scheduler.schedule(readyTasks = List(task), Cores(2), Memory.none, Memory("8M"))
     scheduledTasksAndResources should not contain key(task)
     scheduledTasksAndResources should have size 0
   }
@@ -173,7 +173,7 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
     val scheduler = new NaiveScheduler()
     val systemCores: Cores = Cores(4)
     val systemMemory: Memory = Memory("4G")
-    val jvmMemory: Memory = Memory(0)
+    val jvmMemory: Memory = Memory.none
 
     // A task that would like 1-8 cores each
     class HungryTask extends ProcessTask {

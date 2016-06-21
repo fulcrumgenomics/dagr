@@ -25,8 +25,9 @@ package dagr.core.tasksystem
 
 import java.nio.file.Path
 
+import dagr.commons.io.Io
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.tasksystem.Pipes.RedirectToFile
+import dagr.core.tasksystem.Pipes.{RedirectErrorToFile, RedirectToFile}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Section: General traits related to piping
@@ -72,19 +73,25 @@ trait Pipe[In,Out] extends ProcessTask {
     Pipes.chain(this, new RedirectToFile[Out](path, append=true))
   }
 
+  /** Writes the standard error stream to the given path. */
+  def >!(path:Path): Pipe[In,Out] = {
+    Pipes.chain(this, new RedirectErrorToFile[Out, Out](path, append=false))
+  }
+
+  /** Appends the standard error stream to the given path. */
+  def >>!(path:Path): Pipe[In,Out] = {
+    Pipes.chain(this, new RedirectErrorToFile[Out, Out](path, append = true))
+  }
+
+  /** Discards the standard error stream. */
+  def discardError(): Pipe[In,Out] = >!(Io.DevNull)
+
   /** Returns the first task in the pipe. */
   private[tasksystem] def left: Pipe[In,_] = this
   /** Returns the last task in the pipe. */
   private[tasksystem] def right: Pipe[_,Out] = this
   /** Returns the ordered set of Pipes/tasks in the chain from first to last inclusive. */
   private[tasksystem] def ordered: Seq[Pipe[_,_]] = Seq[Pipe[_,_]](this)
-}
-
-/** A trait for pipe tasks that consumes no cores and no memory */
-trait PipeWithNoResources[In,Out] extends Pipe[In,Out] with FixedResources {
-  val memory: Memory = Memory.none
-  val cores: Cores = Cores(0.0)
-  this.requires(cores, memory)
 }
 
 /** A simplified trait for sink tasks that can receive data via a pipe, but cannot pipe onwards. */
@@ -98,9 +105,18 @@ trait PipeOut[Out] extends Pipe[Void,Out]
 ///////////////////////////////////////////////////////////////////////////////
 object Pipes {
   /** The string that is sandwiched between commands to form pipes. */
-  val PipeString              = " \\\n    | "
-  val RedirectAppendString    = " \\\n    >> "
-  val RedirectOverwriteString = " \\\n    > "
+  val PipeString                   = " \\\n    | "
+  val RedirectAppendString         = " \\\n    >> "
+  val RedirectOverwriteString      = " \\\n    > "
+  val RedirectErrorAppendString    = " \\\n    2>> "
+  val RedirectErrorOverwriteString = " \\\n    2> "
+
+  /** A trait for pipe tasks that consumes no cores and no memory */
+  trait PipeWithNoResources[In,Out] extends Pipe[In,Out] with FixedResources {
+    val memory: Memory = Memory.none
+    val cores: Cores = Cores.none
+    this.requires(cores, memory)
+  }
 
   /**
     * A class that represents an empty pipe, that allows for easier construction of pipes with conditional branches.
@@ -115,12 +131,21 @@ object Pipes {
     * A class that allows redirecting to a file at the end of a Pipe.
     */
   private[tasksystem] class RedirectToFile[In](val path: Path, val append: Boolean) extends PipeIn[In] with FixedResources {
-    requires(Cores(0), Memory(0))
+    requires(Cores.none, Memory.none)
     override def args: Seq[Any] = throw new IllegalStateException("Should not reach here.")
     /* Returns the appropriate redirect symbol for appending or overwriting. */
     def redirect: String = if (append) RedirectAppendString else RedirectOverwriteString
   }
 
+  /**
+    * A class that allows redirecting the error stream to a file at the end of any pipe.
+    */
+  private[tasksystem] class RedirectErrorToFile[In,Out](val path: Path, val append: Boolean) extends Pipe[In,Out] with FixedResources {
+    requires(Cores.none, Memory.none)
+    override def args: Seq[Any] = throw new IllegalStateException("Should not reach here.")
+    /* Returns the appropriate redirect symbol for appending or overwriting. */
+    def redirect: String = if (append) RedirectErrorAppendString else RedirectErrorOverwriteString
+  }
   /**
     * An immutable class representing a chain of tasks that can be piped together. Currently only supports chains
     * with up to a maximum of one non-[[FixedResources]] task, in order to keep the resource management code simple.
@@ -146,6 +171,7 @@ object Pipes {
       case firstTask :: subsequentTasks  =>
         subsequentTasks.foldLeft(firstTask.commandLine) {
           case (cmd, next: RedirectToFile[_]) => cmd + next.redirect + next.path.toString
+          case (cmd, next: RedirectErrorToFile[_,_]) => cmd + next.redirect + next.path.toString
           case (cmd, next: Pipe[_,_])         => cmd + PipeString + next.commandLine
         }
     }

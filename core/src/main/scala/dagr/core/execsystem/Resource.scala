@@ -160,4 +160,6 @@ case class Cores(override val value: Double) extends Resource[Double, Cores](val
 /** Companion object for Core adding an additional apply() method. */
 object Cores {
   def apply(cores: Cores): Cores = new Cores(cores.value)
+  val none = Cores(0.0)
+  val infinite = Cores(Double.MaxValue) // Not really infinite, but close to it.
 }

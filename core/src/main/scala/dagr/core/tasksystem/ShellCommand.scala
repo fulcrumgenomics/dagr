@@ -36,19 +36,8 @@ object ShellCommand {
   * Executes a command, with a set of arguments, in a shell.
   */
 class ShellCommand(val commands: String*) extends ProcessTask with FixedResources {
-
   requires(Cores(1), Memory("32M"))
   if (commands.isEmpty) throw new IllegalArgumentException("No commands to ShellCommand")
 
   override def args: Seq[Any] = commands
-
-}
-
-/**
-  * Executes a command, with a set of arguments, in a shell.  Arguments with special characters
-  * or otherwise will be modified (quoted, escaped, etc.).  This may be dangerous depending on
-  * the commands given.  In general, use `ShellCommand` if you are not 100% sure.
-  */
-class ShellCommandAsIs(commands: String*) extends ShellCommand(commands:_*) {
-  this.quoteIfNecessary = false
 }
