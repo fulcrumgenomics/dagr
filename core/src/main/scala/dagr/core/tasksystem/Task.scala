@@ -171,38 +171,17 @@ trait Task extends Dependable {
   /** Gets the sequence of tasks that depend on this task. */
   private[core] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
 
-  /** Sets up a dependency between two tasks.  The task on the left side of the arrow (i.e. this)
-    * is set to be a predecessor/dependency of that task on the right hand side of the arrow (i.e. other).
-    *
-    * @return the "other" task so that chains of calls like a ==> b ==> c work correctly
-    */
-  override def ==>(other: Task) : other.type = {
-    other.dependsOnTasks += this
-    this.dependedOnByTasks += other
-    other
-  }
-
-  override def ==>(other: MultiTask) : other.type = {
-    other.tasks.foreach(this ==> _)
-    other
-  }
+  /** Must be implemented to handle the addition of a dependent. */
+  override def addDependent(dependent: Dependable): Unit = dependent.toTasks.foreach(t => {
+      t.dependsOnTasks += this
+      this.dependedOnByTasks += t
+    })
 
   /** Removes this as a dependency for other */
-  def !=>(other: Task): other.type = {
-    other.removeDependency(this)
-    other
-  }
+  override def !=>(other: Dependable): Unit = other.toTasks.foreach(_.removeDependency(this))
 
-  /** Removes this as a dependency for other */
-  def !=>(other: MultiTask): other.type = {
-    other.tasks.foreach(this !=> _)
-    other
-  }
-
-  /** Combines this task with another task into a MultiTask. */
-  def :: (other: Task) : MultiTask = {
-    new MultiTask(other, this)
-  }
+  /** Implementation of method from Dependable, to return the task as the set of Tasks represented. */
+  override private[tasksystem] def toTasks: Traversable[Task] = Some(this)
 
   /**
    * Removes a dependency by removing the supplied task from the list of dependencies for this task
@@ -250,39 +229,4 @@ trait Task extends Dependable {
    * @return true if we c
    */
   def onComplete(exitCode: Int): Boolean = true
-}
-
-/** Class that wraps two or more tasks to make the dependency DSL work. */
-protected class MultiTask(t1: Task, t2: Task) extends Dependable {
-  private val _tasks = ListBuffer(t1, t2)
-
-  /** Allows Task access to the list of tasks within a MultiTask to manage dependencies. */
-  private[core] def tasks : List[Task] = _tasks.toList
-
-  /** Causes all the tasks in this MultiTask to be added as dependencies of "other". */
-  override def ==> (other: Task) : other.type = {
-    tasks.foreach(_ ==> other)
-    other
-  }
-
-  /** Causes all the tasks in this MultiTask to be added as dependencies of all tasks in the "others" MultiTask. */
-  override def ==> (others: MultiTask) : MultiTask = {
-    _tasks.foreach(t => others._tasks.foreach(o => {t ==> o}))
-    others
-  }
-
-  /** Causes all the tasks in this MultiTask to be removed as dependencies of "other". */
-  override def !=>(other: Task) : other.type = {
-    tasks.foreach(_ !=> other)
-    other
-  }
-
-  /** Causes all the tasks in this MultiTask to be removed as dependencies of all tasks in the "others" MultiTask. */
-  override def !=>(others: MultiTask) : MultiTask = {
-    _tasks.foreach(t => others._tasks.foreach(o => {t !=> o}))
-    others
-  }
-
-  /** Adds (prepends) another task to this MultiTask. */
-  def :: (other: Task) : MultiTask = { other +=: _tasks ; this }
 }

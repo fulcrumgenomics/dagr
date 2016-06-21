@@ -34,21 +34,18 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
                         private var suffix: Option[String] = None
                        ) extends Task with LazyLogging {
   private val tasks = new scala.collection.mutable.LinkedHashSet[Task]()
-  this.outputDirectory.foreach(Io.mkdirs(_))
+  this.outputDirectory.foreach(Io.mkdirs)
 
   /** A name exposed to sub-classes that can be treated like a Task, to add root tasks. */
   val root = new Dependable {
-    /** Causes the task to be added to the set of tasks for this Pipeline. */
-    override def ==> (other: Task) : other.type = { addTask(other) }
-
-    /** Causes all the task in the MultiTask to be added to the set of tasks for this Pipeline. */
-    override def ==> (others: MultiTask) : MultiTask = { others.tasks.foreach(addTask(_)); others }
+    /** Must be implemented to handle the addition of a dependent. */
+    override def addDependent(dependent: Dependable): Unit = dependent.toTasks.foreach(tasks.add)
 
     /** Breaks the dependency link between this dependable and the provided Task. */
-    override def !=>(other: Task): other.type = { tasks.remove(other); other }
+    override def !=> (other: Dependable): Unit = other.toTasks.foreach(tasks.remove)
 
-    /** Breaks the dependency link between this dependable and the provided Tasks. */
-    override def !=>(others: MultiTask): MultiTask = {others.tasks.foreach(tasks.remove) ; others}
+    /** Returns none as the symbolic `root` should never appear on the right hand side of a `==>`. */
+    override private[tasksystem] def toTasks: Traversable[Task] = None
   }
 
   /**
@@ -86,13 +83,4 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
 
   /** True if we this pipeline is tracking this direct ancestor task, false otherwise. */
   def contains(task: Task): Boolean = tasks.contains(task)
-
-  /** Add one or more tasks to this pipeline. */
-  def addTasks(task: Task*): Unit =  tasks ++= task
-
-  /** Adds a single task, and returns the added task. */
-  def addTask(task: Task): task.type = {
-    tasks += task
-    task
-  }
 }
