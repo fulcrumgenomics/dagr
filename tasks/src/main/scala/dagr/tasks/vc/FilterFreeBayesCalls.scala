@@ -86,39 +86,39 @@ class FilterFreeBayesCalls(val in: PathToVcf,
     }
 
     // De-compress the input VCF
-    val decompressVcf = new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c", "-d", in.toAbsolutePath.toString) with Pipe[Nothing, Vcf]
+    val decompressVcf = new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c", "-d", in.toAbsolutePath.toString) with PipeWithNoResources[Nothing, Vcf]
 
     // Remove low quality calls
-    val filterLowQualityCalls = new ShellCommandAsIs(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "filter", "-i", """'ALT="<*>" || QUAL > 5'""", "2>", "/dev/null") with Pipe[Vcf, Vcf]
+    val filterLowQualityCalls = new ShellCommandAsIs(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "filter", "-i", """'ALT="<*>" || QUAL > 5'""", "2>", "/dev/null") with PipeWithNoResources[Vcf, Vcf]
 
     // fix ambiguous (IUPAC) reference base calls
-    val fixAmbiguousIupacReferenceCalls = new ShellCommandAsIs("""awk -F$'\t' -v OFS='\t' '{if ($0 !~ /^#/) gsub(/[KMRYSWBVHDX]/, "N", $4) } { print }'""") with Pipe[Vcf, Vcf]
+    val fixAmbiguousIupacReferenceCalls = new ShellCommandAsIs("""awk -F$'\t' -v OFS='\t' '{if ($0 !~ /^#/) gsub(/[KMRYSWBVHDX]/, "N", $4) } { print }'""") with PipeWithNoResources[Vcf, Vcf]
 
     // remove alternate alleles that are not called in any sample
-    val removeAlts = new ShellCommandAsIs(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "view", "-a", "-", "2>", "/dev/null") with Pipe[Vcf, Vcf]
+    val removeAlts = new ShellCommandAsIs(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "view", "-a", "-", "2>", "/dev/null") with PipeWithNoResources[Vcf, Vcf]
 
     // remove calls with missing alternative alleles
     // source: https://github.com/chapmanb/bcbio-nextgen/blob/60a0f3c4f8ec658f8c34d6bc77b23a90f47b45d6/bcbio/variation/freebayes.py#L237
-    val removeMissingAlts = new ShellCommandAsIs("""awk -F$'\t' -v OFS='\t' '{if ($0 ~ /^#/ || $4 != ".") { print } }'""") with Pipe[Vcf, Vcf]
+    val removeMissingAlts = new ShellCommandAsIs("""awk -F$'\t' -v OFS='\t' '{if ($0 ~ /^#/ || $4 != ".") { print } }'""") with PipeWithNoResources[Vcf, Vcf]
 
     // split MNP variants into multiple records
-    val splitMnpVariants = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfallelicprimitives").toString, "-t", "DECOMPOSED", "--keep-geno") with Pipe[Vcf, Vcf]
+    val splitMnpVariants = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfallelicprimitives").toString, "-t", "DECOMPOSED", "--keep-geno") with PipeWithNoResources[Vcf, Vcf]
 
     // update AC and NS
-    val updateAcAndNs = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcffixup").toString) with Pipe[Vcf, Vcf]
+    val updateAcAndNs = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcffixup").toString) with PipeWithNoResources[Vcf, Vcf]
 
     // sort records using a fixed length window
-    val sortVcf = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort").toString) with Pipe[Vcf, Vcf]
+    val sortVcf = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort").toString) with PipeWithNoResources[Vcf, Vcf]
 
     // standardizes the representation of variants using parsimony and left-alignment relative to the reference genome
     // See: http://genome.sph.umich.edu/wiki/Variant_Normalization
-    val leftAlign = new ShellCommandAsIs(configureExecutableFromBinDirectory(VtBinConfigKey, "vt").toString, "normalize", "-n", "-r", ref.toAbsolutePath.toString, "-q", "-", "2> /dev/null") with Pipe[Vcf, Vcf]
+    val leftAlign = new ShellCommandAsIs(configureExecutableFromBinDirectory(VtBinConfigKey, "vt").toString, "normalize", "-n", "-r", ref.toAbsolutePath.toString, "-q", "-", "2> /dev/null") with PipeWithNoResources[Vcf, Vcf]
 
     // remove both duplicate and reference alternate alleles
-    val removeDuplicateAlleles = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniqalleles").toString) with Pipe[Vcf, Vcf]
+    val removeDuplicateAlleles = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniqalleles").toString) with PipeWithNoResources[Vcf, Vcf]
 
     // compress the output (or not)
-    val compressOutput = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c") with Pipe[Vcf,Vcf] else Pipes.empty[Vcf]
+    val compressOutput = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c") with PipeWithNoResources[Vcf,Vcf] else Pipes.empty[Vcf]
 
     List(decompressVcf | filterLowQualityCalls | fixAmbiguousIupacReferenceCalls | removeAlts | removeMissingAlts | splitMnpVariants | updateAcAndNs |sortVcf | leftAlign | removeDuplicateAlleles | compressOutput > out)
   }

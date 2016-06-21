@@ -115,11 +115,11 @@ abstract class FreeBayes(val ref: PathToFasta,
     // Generates the regions on the fly
     val generateTargets = targetIntervals match {
       case None => // Split using the FASTA
-        new GenerateRegionsFromFasta(ref=ref, regionSize=Some(regionSize.toInt)) with Pipe[Nothing,Text]
+        new GenerateRegionsFromFasta(ref=ref, regionSize=Some(regionSize.toInt)) with PipeWithNoResources[Nothing,Text]
       case Some(targets) => // Split using the intervals
-        val cat  = new ShellCommand("cat", targets.toAbsolutePath.toString) with Pipe[Nothing,Text]
+        val cat  = new ShellCommand("cat", targets.toAbsolutePath.toString) with PipeWithNoResources[Nothing,Text]
         val grep = new ShellCommand("grep", "-v", "^@") with Pipe[Text,Text]
-        val awk  = new ShellCommand("awk", """{printf("%s:%d-%d\n", $1, $2-1, $3);}""") with Pipe[Text,Text]
+        val awk  = new ShellCommand("awk", """{printf("%s:%d-%d\n", $1, $2-1, $3);}""") with PipeWithNoResources[Text,Text]
         cat | grep | awk
     }
 
@@ -146,12 +146,12 @@ abstract class FreeBayes(val ref: PathToFasta,
     val freebayesParallel = new ShellCommand(buffer.map(_.toString):_*) with Pipe[Text,Vcf]
 
     // Make a header, sort it, uniq it (for edge regions), and output it
-    val vcffirstheader = new ShellCommand(configureExecutableFromBinDirectory(VcfLibScriptsConfigKey, "vcffirstheader").toString)          with Pipe[Vcf,Vcf]
-    val vcfstreamsort  = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort").toString, "-w", "1000") with Pipe[Vcf,Vcf]
-    val vcfuniq        = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniq").toString)                     with Pipe[Vcf,Vcf]
-    val bgzip          = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c")    with Pipe[Vcf,Vcf] else Pipes.empty[Vcf]
+    val vcffirstheader = new ShellCommand(configureExecutableFromBinDirectory(VcfLibScriptsConfigKey, "vcffirstheader").toString)          with PipeWithNoResources[Vcf,Vcf]
+    val vcfstreamsort  = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfstreamsort").toString, "-w", "1000") with PipeWithNoResources[Vcf,Vcf]
+    val vcfuniq        = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniq").toString)                     with PipeWithNoResources[Vcf,Vcf]
+    val bgzip          = if (compress) new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c")    with PipeWithNoResources[Vcf,Vcf] else Pipes.empty[Vcf]
 
-    List((generateTargets | freebayesParallel | vcffirstheader | vcfstreamsort | vcfuniq | bgzip > vcf) withName this.name)
+    List((generateTargets | freebayesParallel | vcffirstheader | vcfstreamsort | vcfuniq | bgzip > vcf) withName (this.name + "PipeChain"))
   }
 }
 
