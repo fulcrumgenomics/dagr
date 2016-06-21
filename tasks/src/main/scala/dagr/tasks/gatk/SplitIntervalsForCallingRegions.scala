@@ -28,10 +28,11 @@ import java.nio.file.Files
 
 import dagr.core.tasksystem.SimpleInJvmTask
 import dagr.tasks.DagrDef.{DirPath, PathToFasta, PathToIntervals}
-import dagr.tasks.parallel.PathBasedScatterGatherPipeline.SplitInputPathTask
+import dagr.tasks.parallel.SplitInputTask
 import htsjdk.samtools.SAMFileHeader
 import htsjdk.samtools.reference.IndexedFastaSequenceFile
 import htsjdk.samtools.util.{CloserUtil, Interval, IntervalList}
+import java.nio.file.Path
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
@@ -46,33 +47,31 @@ import scala.collection.mutable.ListBuffer
 class SplitIntervalsForCallingRegions(ref: PathToFasta,
                                       intervals: Option[PathToIntervals],
                                       output: Option[DirPath],
-                                      regionSize: Int = 25000000,
+                                      maxBasesPerScatter: Int = 25000000,
                                       prefix: String = "split_interval",
                                       suffix: String = ".interval_list"
-                                     ) extends SimpleInJvmTask with SplitInputPathTask {
+                                     ) extends SimpleInJvmTask with SplitInputTask[PathToFasta, PathToIntervals] {
   requires(1, "2g")
   withName("SplitIntervalsForCallingRegions")
 
-  /** Stores the output interval lists, but will only be non-empty after this task has been run. */
-  val outputs = new ListBuffer[PathToIntervals]()
-
-  private def writeIntervals(intvs: Seq[Interval], idx: Int, header: SAMFileHeader): Unit = {
+  private def writeIntervals(theIntervals: Seq[Interval], idx: Int, header: SAMFileHeader): Path = {
     val pre = s"$prefix.$idx"
     val out = output match {
       case Some(tmpDir) => Files.createTempFile(tmpDir, pre, suffix)
       case None => Files.createTempFile(pre, suffix)
     }
     val intervalList = new IntervalList(header)
-    intervalList.addall(intvs)
+    intervalList.addall(theIntervals)
     intervalList.write(out.toFile)
-    this.outputs.append(out)
+    out
   }
 
   def run(): Unit = {
+    val outputs = new ListBuffer[PathToIntervals]()
     val header = new SAMFileHeader()
     val seqIntervals = intervals match {
-      case Some(intvs) =>
-        val intervalList = IntervalList.fromFile(intvs.toFile)
+      case Some(theIntervals) =>
+        val intervalList = IntervalList.fromFile(theIntervals.toFile)
         header.setSequenceDictionary(intervalList.getHeader.getSequenceDictionary)
         intervalList.getIntervals.toSeq
       case None =>
@@ -89,7 +88,7 @@ class SplitIntervalsForCallingRegions(ref: PathToFasta,
     if (seqIntervals.isEmpty) throw new IllegalStateException("No sequence intervals to process")
 
     // break them up based on the region size
-    val brokenUpIntervals = IntervalList.breakIntervalsAtBandMultiples(seqIntervals, regionSize)
+    val brokenUpIntervals = IntervalList.breakIntervalsAtBandMultiples(seqIntervals, maxBasesPerScatter)
     if (brokenUpIntervals.isEmpty) throw new IllegalStateException("No broken up intervals to process")
 
     // group them bases on region size
@@ -97,8 +96,8 @@ class SplitIntervalsForCallingRegions(ref: PathToFasta,
     var size = 0
     var idx = 0
     for (interval <- brokenUpIntervals) {
-      if (regionSize <= size && intervalBuffer.nonEmpty) {
-        writeIntervals(intvs=intervalBuffer.toSeq, idx=idx, header=header)
+      if (maxBasesPerScatter <= size && intervalBuffer.nonEmpty) {
+        outputs.append(writeIntervals(theIntervals=intervalBuffer.toSeq, idx=idx, header=header))
         size = 0
         idx += 1
         intervalBuffer.clear()
@@ -106,6 +105,7 @@ class SplitIntervalsForCallingRegions(ref: PathToFasta,
       intervalBuffer.append(interval)
       size += interval.length()
     }
-    if (intervalBuffer.nonEmpty) writeIntervals(intvs=intervalBuffer.toSeq, idx=idx, header=header)
+    if (intervalBuffer.nonEmpty) outputs.append(writeIntervals(theIntervals=intervalBuffer.toSeq, idx=idx, header=header))
+    _subDomains = Some(this.output.toSeq)
   }
 }

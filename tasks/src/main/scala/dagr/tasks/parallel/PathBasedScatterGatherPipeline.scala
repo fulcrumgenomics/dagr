@@ -27,48 +27,20 @@ package dagr.tasks.parallel
 
 import java.nio.file.Path
 
-import dagr.core.tasksystem.{Linker, Task}
+import dagr.core.tasksystem.{Linker, Task, Pipeline}
 import dagr.tasks.misc.DeleteFiles
 
 object PathBasedScatterGatherPipeline {
 
-  /** All tasks that split inputs should extend this trait and implement the method to specify the outputs.  The latter
-    * method will only be called once this task has completed successfully.
-    */
-  trait SplitInputPathTask extends Task {
-    def outputs: Iterable[Path]
-  }
-
-  /** All tasks that process intermediates should extend this trait and implement the method to specify the output.
-    * The latter method will only be called once this task has completed successfully.
-    */
-  trait ScatterPathTask extends Task {
-    def output: Path
-  }
-
-  /** All tasks that gather multiple outputs into a single output should implement this task. */
-  trait GatherPathTask extends Task
-
-  /** A wrapper for the split input task. */
-  private class SplitInputPathAdapterTask(input: Path,
-                                          splitInputPathTaskGenerator: Path => SplitInputPathTask
-                                         ) extends SplitInputTask[Path, Path] {
-    def getTasks: Traversable[_ <: Task] = {
-      val splitInputTask = splitInputPathTaskGenerator(input)
-      val linker = Linker(from=splitInputTask, to=this)((from, to) => to._subDomains = Some(from.outputs))
-      splitInputTask ==> linker
-      List(splitInputTask, linker)
-    }
-  }
-
   /** A wrapper for the scatter task. */
   private class ScatterPathAdapterTask(input: Path,
-                                       scatterTaskGenerator: Path => ScatterPathTask,
+                                       scatterTaskGenerator: Path => ScatterTask[Path, Path],
                                        deleteIntermediates: Boolean = true
                                        ) extends ScatterTask[Path, Path] {
     def getTasks: Traversable[_ <: Task] = {
       val scatterTask = scatterTaskGenerator(input)
-      val linker = Linker(from=scatterTask, to=this)((from, to) => to._gatheredOutput = Some(from.output))
+      // NB: this links to itself, so we can't have this class extend `Pipeline`.
+      val linker = Linker(from=scatterTask, to=this)((from, to) => { to._gatheredOutput = Some(from.gatheredOutput) })
       scatterTask ==> linker
       if (deleteIntermediates) {
         val deleteIntermediatesTask = new DeleteFiles(input)
@@ -82,22 +54,19 @@ object PathBasedScatterGatherPipeline {
   /** A wrapper for the gather task. */
   private class GatherPathAdapterTask(inputs: Seq[Path],
                                       output: Path,
-                                      gatherTaskGenerator: (Seq[Path], Path) => GatherPathTask,
-                                      deleteIntermediates: Boolean = true) extends GatherTask[Path] {
+                                      gatherTaskGenerator: (Seq[Path], Path) => GatherTask[Path],
+                                      deleteIntermediates: Boolean = true) extends Pipeline with GatherTask[Path] {
     def gatheredOutput: Path = output
-    def getTasks: Traversable[_ <: Task] = {
+    def build(): Unit = {
       val gatherTask = gatherTaskGenerator(inputs, output)
+      root ==> gatherTask
       if (deleteIntermediates) {
         val deleteIntermediatesTask = new DeleteFiles(inputs:_*)
         gatherTask ==> deleteIntermediatesTask
-        List(gatherTask, deleteIntermediatesTask)
       }
-      else List(gatherTask)
     }
   }
 }
-
-import dagr.tasks.parallel.PathBasedScatterGatherPipeline._
 
 /** A Scatter Gather Pipeline that operates on paths.  The input, intermediates, and output are all Paths.
   *
@@ -107,21 +76,17 @@ import dagr.tasks.parallel.PathBasedScatterGatherPipeline._
   */
 class PathBasedScatterGatherPipeline
 (
-  input: Path,
+  val domain: Path,
   output: Path,
-  splitInputPathTaskGenerator: Option[Path] => Path => SplitInputPathTask,
-  scatterTaskGenerator: Option[Path] => Path => ScatterPathTask,
-  gatherTaskGenerator: (Seq[Path], Path) => GatherPathTask,
+  splitInputPathTaskGenerator: Option[Path] => Path => SplitInputTask[Path, Path],
+  scatterTaskGenerator: Option[Path] => Path => ScatterTask[Path, Path],
+  gatherTaskGenerator: (Seq[Path], Path) => GatherTask[Path],
   deleteIntermediates: Boolean = true,
   tmpDirectory: Option[Path]
 ) extends ScatterGatherPipeline[Path, Path, Path] {
   import PathBasedScatterGatherPipeline._
 
-  protected def domain: Path = input
-
-  protected def splitDomainTask(input: Path): SplitInputTask[Path, Path] = {
-    new SplitInputPathAdapterTask(input=input, splitInputPathTaskGenerator=splitInputPathTaskGenerator(tmpDirectory))
-  }
+  protected def splitDomainTask(input: Path): SplitInputTask[Path, Path] = splitInputPathTaskGenerator(tmpDirectory)(input)
 
   protected def scatterTask(intermediate: Path): ScatterTask[Path, Path] = {
     new ScatterPathAdapterTask(input=intermediate, scatterTaskGenerator=scatterTaskGenerator(tmpDirectory), deleteIntermediates=deleteIntermediates)

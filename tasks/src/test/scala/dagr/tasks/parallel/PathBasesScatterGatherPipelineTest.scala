@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-
 package dagr.tasks.parallel
 import dagr.commons.io.Io
 
@@ -31,7 +30,6 @@ import java.nio.file.{Path, Files}
 import dagr.commons.util.{LogLevel, Logger, UnitSpec}
 import dagr.core.execsystem.{SystemResources, TaskManager}
 import dagr.core.tasksystem.SimpleInJvmTask
-import dagr.tasks.parallel.PathBasedScatterGatherPipeline.{GatherPathTask, ScatterPathTask, SplitInputPathTask}
 import org.scalatest.BeforeAndAfterAll
 
 class PathBasesScatterGatherPipelineTest extends UnitSpec with BeforeAndAfterAll {
@@ -41,37 +39,34 @@ class PathBasesScatterGatherPipelineTest extends UnitSpec with BeforeAndAfterAll
 
   def getDefaultTaskManager: TaskManager = new TaskManager(taskManagerResources = SystemResources.infinite, scriptsDirectory = None, sleepMilliseconds=1)
 
-  private class SplitByLineTask(input: Path, tmpDirectory: Path) extends SimpleInJvmTask with SplitInputPathTask {
-    private var _outputs: Iterable[Path] = Seq.empty
-    def outputs: Iterable[Path] = _outputs
+  private class SplitByLineTask(input: Path, tmpDirectory: Path) extends SimpleInJvmTask with SplitInputTask[Path, Path] {
     def run(): Unit = {
       val lines = Io.readLines(input)
-      _outputs = lines.map { line =>
+      _subDomains = Some(lines.map { line =>
         val splitInputPath = Files.createTempFile(tmpDirectory, "split.input", ".txt")
         Io.writeLines(splitInputPath, Seq(line))
         splitInputPath
-      }.toSeq
+      }.toSeq)
     }
   }
 
-  private class CountWordsTask(input: Path, tmpDirectory: Path) extends SimpleInJvmTask with ScatterPathTask {
-    private var _output: Option[Path] = None
-    def output: Path = _output.getOrElse(throw new IllegalStateException("Called output before it was defined."))
+  private class CountWordsTask(input: Path, tmpDirectory: Path) extends SimpleInJvmTask with ScatterTask[Path, Path] {
     def run(): Unit = {
       val output = Files.createTempFile(tmpDirectory, "split.output", ".txt")
       val lines = Io.readLines(input).map {
         line => line.split(" ").length + " " + line
       }
       Io.writeLines(output, lines.toSeq)
-      _output = Some(output)
+      _gatheredOutput = Some(output)
     }
   }
 
-  private class GatherByLineTask(inputs: Seq[Path], output: Path) extends SimpleInJvmTask with GatherPathTask {
+  private class GatherByLineTask(inputs: Seq[Path], output: Path) extends SimpleInJvmTask with GatherTask[Path] {
     def run(): Unit = {
       val lines = inputs.flatten { in => Io.readLines(in) }
       Io.writeLines(output, lines.toSeq)
     }
+    def gatheredOutput: Path = output
   }
 
   "PathBasedScatterGatherPipeline" should "run a simple path-based scatter-gather" in {
@@ -85,11 +80,11 @@ class PathBasesScatterGatherPipelineTest extends UnitSpec with BeforeAndAfterAll
     Io.writeLines(input, Seq(str, str, str, str, str))
 
     val pipeline = new PathBasedScatterGatherPipeline(
-      input                       = input,
+      domain                      = input,
       output                      = output,
       splitInputPathTaskGenerator = (tmpDirectory: Option[Path]) => (input: Path) => new SplitByLineTask(input=input, tmpDirectory=tmpDirectory.get),
       scatterTaskGenerator        = (tmpDirectory: Option[Path]) => (input: Path) => new CountWordsTask(input=input, tmpDirectory=tmpDirectory.get),
-      gatherTaskGenerator         = (inputs: Seq[Path], output: Path)     => new GatherByLineTask(inputs=inputs, output=output),
+      gatherTaskGenerator         = (inputs: Seq[Path], output: Path)             => new GatherByLineTask(inputs=inputs, output=output),
       tmpDirectory                = Some(tmpDirectory)
     )
 
