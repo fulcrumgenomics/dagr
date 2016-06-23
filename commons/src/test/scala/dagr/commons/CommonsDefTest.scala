@@ -24,13 +24,15 @@
 
 package dagr.commons
 
+import java.io.{Closeable, IOException}
+
 import dagr.commons.CommonsDef._
 import dagr.commons.util.UnitSpec
 
 import scala.collection.mutable.ListBuffer
 
 /**
-  * Tests for DagrDef
+  * Tests for CommonsDef
   */
 class CommonsDefTest extends UnitSpec {
   "CommonsDef.unreachable" should "always throw an exception" in {
@@ -49,5 +51,18 @@ class CommonsDefTest extends UnitSpec {
     doIt() shouldBe 1
     doIt() shouldBe 2
     xs shouldBe List("foo", "foo", "foo")
+  }
+
+  "CommonsDef.SafelyCloseable" should "eat all exceptions" in {
+    class C extends Closeable {
+      var closed = false
+      override def close(): Unit = { closed = true; throw new IOException("screw you!") }
+    }
+
+    an[IOException] should be thrownBy new C().close()
+    val c = new C
+    c.closed shouldBe false
+    c.safelyClose()
+    c.closed shouldBe true
   }
 }
