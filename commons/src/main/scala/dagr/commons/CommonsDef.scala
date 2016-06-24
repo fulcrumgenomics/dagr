@@ -31,7 +31,7 @@ package dagr.commons
   * New methods, types and objects should not be added to this class lightly as they
   * will pollute the namespace of any classes which import it.
   */
-object CommonsDef {
+class CommonsDef {
   /** An exception that implies that code is unreachable. */
   private class UnreachableException(message: String) extends IllegalStateException(message)
 
@@ -59,6 +59,17 @@ object CommonsDef {
     val retval : A = it
     block
     retval
+  }
+
+  /**
+   * Implicit class that wraps a closeable and provides a safelyClose method
+   * that will not throw any exception.
+   */
+  implicit class SafelyClosable(private val c: AutoCloseable) {
+    def safelyClose() : Unit = {
+      try { c.close() }
+      catch { case ex: Exception => Unit }
+    }
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -92,3 +103,6 @@ object CommonsDef {
   /** A String that represents the prefix or basename of a filename. */
   type FilenamePrefix = String
 }
+
+/** A singleton object providing access to all the functinoality of CommonsDef. */
+object CommonsDef extends CommonsDef
