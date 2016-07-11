@@ -1,0 +1,15 @@
+coverage:
+  ignore:
+  - dagr/tasks/.*
+  - dagr/pipelines/.*
+  - .*dagr/core/cmdline/Pipelines.scala.*
+  - .*dagr/core/cmdline/CommandLineException.scala.*
+  - .*dagr/core/execsystem/TaskExecutionInfo.scala.*
+  - .*dagr/core/tasksystem/ValidationException.scala.*
+  status:
+    patch:
+      default:
+        target: '80'
+    project:
+      default:
+        target: auto
