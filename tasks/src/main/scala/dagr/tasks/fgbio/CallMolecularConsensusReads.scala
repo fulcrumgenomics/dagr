@@ -36,12 +36,13 @@ import scala.collection.mutable.ListBuffer
  */
 class CallMolecularConsensusReads(val in: PathToBam,
                                   val out: PathToBam,
-                                  val rejects: PathToBam,
+                                  val rejects: Option[PathToBam] = None,
                                   val tag: Option[String] = None,
                                   val readNamePrefix: Option[String] = None,
                                   val readGroupId: Option[String] = None,
                                   val errorRatePreUmi: Option[Int] = None,
                                   val errorRatePostUmi: Option[Int] = None,
+                                  val minInputBaseQuality: Option[Int] = None,
                                   val maxBaseQuality: Option[Int] = None,
                                   val baseQualityShift: Option[Int] = None,
                                   val minConsensusBaseQuality: Option[Int] = None,
@@ -53,12 +54,13 @@ class CallMolecularConsensusReads(val in: PathToBam,
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
     buffer.append("-o", out)
-    buffer.append("-r", rejects)
+    rejects.foreach                      (x => buffer.append("-r", x))
     tag.foreach                          (x => buffer.append("-t", x))
     readNamePrefix.foreach               (x => buffer.append("-p", x))
     readGroupId.foreach                  (x => buffer.append("-R", x))
     errorRatePreUmi.foreach              (x => buffer.append("-1", x))
     errorRatePostUmi.foreach             (x => buffer.append("-2", x))
+    minInputBaseQuality.foreach          (x => buffer.append("-m", x))
     maxBaseQuality.foreach               (x => buffer.append("-q", x))
     baseQualityShift.foreach             (x => buffer.append("-s", x))
     minConsensusBaseQuality.foreach      (x => buffer.append("-N", x))
