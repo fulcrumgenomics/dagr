@@ -33,7 +33,7 @@ import dagr.commons.util.BiMap
 import dagr.commons.io.{Io, PathUtil}
 
 /** The resources needed for the task manager */
-private[core] object SystemResources {
+object SystemResources {
   /** Creates a new SystemResources that is a copy of an existing one. */
   def apply(that: SystemResources): SystemResources = {
     new SystemResources(cores = that.cores, systemMemory = that.systemMemory, jvmMemory = that.jvmMemory)
