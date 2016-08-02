@@ -281,7 +281,7 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
     else {
       val joinUntil = System.currentTimeMillis() + millis
       this.processes.values.foreach(p => {
-        val timeout= joinUntil - System.currentTimeMillis()
+        val timeout = joinUntil - System.currentTimeMillis()
         if (timeout > 0) p.join(timeout)
       })
     }

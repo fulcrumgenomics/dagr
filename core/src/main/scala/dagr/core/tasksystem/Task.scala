@@ -166,10 +166,10 @@ trait Task extends Dependable {
   private val dependedOnByTasks = new ListBuffer[Task]()
 
   /** Gets the sequence of tasks that this task depends on.. */
-  private[core] def tasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
+  protected[core] def tasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
 
   /** Gets the sequence of tasks that depend on this task. */
-  private[core] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
+  protected[core] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
 
   /** Must be implemented to handle the addition of a dependent. */
   override def addDependent(dependent: Dependable): Unit = dependent.toTasks.foreach(t => {

@@ -173,8 +173,10 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "com.github.samtools"       % "htsjdk" % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*),
-      "com.github.broadinstitute" % "picard" % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*)
+      "com.github.samtools"       % "htsjdk"     % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*),
+      "com.github.broadinstitute" % "picard"     % "2.1.0" excludeAll(htsjdkAndPicardExcludes: _*),
+      //---------- Test libraries -------------------//
+      "org.scalatest"             %% "scalatest" %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)

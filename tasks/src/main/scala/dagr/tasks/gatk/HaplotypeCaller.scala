@@ -37,7 +37,8 @@ class HaplotypeCaller(ref: PathToFasta,
                       val vcf: PathToVcf,
                       val maxAlternateAlleles: Int = 3,
                       val contaminationFraction: Double = 0.0,
-                      val rnaMode: Boolean = false
+                      val rnaMode: Boolean = false,
+                      val useNativePairHmm: Boolean = false
                       )
  extends GatkTask("HaplotypeCaller", ref, intervals=intervals) {
 
@@ -58,5 +59,7 @@ class HaplotypeCaller(ref: PathToFasta,
       buffer.append("-stand_call_conf", 20)
       buffer.append("-stand_emit_conf", 20)
     }
+
+    if (useNativePairHmm) buffer.append("-pairHMM", "VECTOR_LOGLESS_CACHING")
   }
 }
