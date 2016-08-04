@@ -33,7 +33,7 @@ import scala.collection.mutable.ListBuffer
 
 object CollectTargetedPcrMetrics {
   def perTargetMetricsPath(metricsFile: Path): Path = {
-    PathUtil.pathTo(metricsFile.toString + ".per_target")
+    PathUtil.replaceExtension(metricsFile, ".per_target" + PicardOutput.Text)
   }
 
   def metricsExtension: String = ".targeted_pcr_metrics"
