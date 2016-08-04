@@ -81,8 +81,6 @@ class DnaResequencingFromUnmappedBamPipeline
     val dsPrefix    = PathUtil.pathTo(prefix + ".ds")
     val dsFinalBam  = PathUtil.pathTo(dsPrefix + ".bam")
 
-    val fastqToBams = ListBuffer[ProcessTask]()
-
     ///////////////////////////////////////////////////////////////////////
     // Run BWA mem, then do some downsampling
     ///////////////////////////////////////////////////////////////////////
