@@ -26,7 +26,7 @@ package dagr.tasks.fgbio
 
 import dagr.commons.CommonsDef._
 import dagr.core.tasksystem.Pipe
-import dagr.tasks.DataTypes.Sam
+import dagr.tasks.DataTypes.SamOrBam
 
 import scala.collection.mutable.ListBuffer
 
@@ -35,7 +35,7 @@ class ExtractUmisFromBam(val in: PathToBam,
                          val readStructures: Seq[String],
                          val umiTags: Seq[String],
                          val annotateNames: Boolean = true
-                        ) extends FgBioTask with Pipe[Sam,Sam] {
+                        ) extends FgBioTask with Pipe[SamOrBam,SamOrBam] {
 
   protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
