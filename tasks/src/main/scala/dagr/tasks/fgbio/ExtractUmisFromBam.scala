@@ -34,7 +34,8 @@ class ExtractUmisFromBam(val in: PathToBam,
                          val out: PathToBam,
                          val readStructures: Seq[String],
                          val umiTags: Seq[String],
-                         val annotateNames: Boolean = true
+                         val annotateNames: Boolean = true,
+                         val clippingAttribute: Option[String] = None
                         ) extends FgBioTask with Pipe[SamOrBam,SamOrBam] {
 
   protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
@@ -49,5 +50,6 @@ class ExtractUmisFromBam(val in: PathToBam,
       buffer.append(umiTags: _*)
     }
     buffer.append("-a", annotateNames)
+    clippingAttribute.foreach { tag => buffer.append("-c", tag) }
   }
 }
