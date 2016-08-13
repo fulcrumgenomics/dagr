@@ -41,7 +41,8 @@ import scala.collection.mutable.ListBuffer
   *
   * If no intervals are given, it will create one or more interval list files per reference sequence.
   *
-  * Each input interval will be broken up into non-overlapping regions of at most `regionSize` size.
+  * Each input interval will be broken up into non-overlapping regions of at most `maxBasesPerScatter` size.  Each
+  * output interval list will cover at most `maxBasesPerScatter` non-overlapping bases.
   */
 class SplitIntervalsForCallingRegions(ref: PathToFasta,
                                       intervals: Option[PathToIntervals],
@@ -94,13 +95,15 @@ class SplitIntervalsForCallingRegions(ref: PathToFasta,
     val brokenUpIntervals = IntervalList.breakIntervalsAtBandMultiples(seqIntervals, maxBasesPerScatter)
     if (brokenUpIntervals.isEmpty) throw new IllegalStateException("No broken up intervals to process")
 
-    // group them bases on region size
+    // group the intervals such that the total # of bases covered is not greater than `maxBasesPerScatter`.  This can
+    // occur if the input intervals are much smaller than `maxBasesPerScatter`.
     val intervalBuffer = ListBuffer[Interval]()
     var size = 0
     var idx = 0
     for (interval <- brokenUpIntervals) {
-      if (maxBasesPerScatter <= size && intervalBuffer.nonEmpty) {
-        outputs.append(writeIntervals(theIntervals=intervalBuffer.toSeq, idx=idx, header=header))
+      // check if adding one more interval will cause us to be too large.  If so output the interval list and clear it.
+      if (maxBasesPerScatter < size + interval.length() && intervalBuffer.nonEmpty) {
+        outputs.append(writeIntervals(theIntervals=intervalBuffer, idx=idx, header=header))
         size = 0
         idx += 1
         intervalBuffer.clear()
@@ -108,7 +111,7 @@ class SplitIntervalsForCallingRegions(ref: PathToFasta,
       intervalBuffer.append(interval)
       size += interval.length()
     }
-    if (intervalBuffer.nonEmpty) outputs.append(writeIntervals(theIntervals=intervalBuffer.toSeq, idx=idx, header=header))
-    this.intervalLists = Some(outputs.toSeq)
+    if (intervalBuffer.nonEmpty) outputs.append(writeIntervals(theIntervals=intervalBuffer, idx=idx, header=header))
+    this.intervalLists = Some(outputs)
   }
 }
