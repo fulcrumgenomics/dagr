@@ -39,8 +39,8 @@ object MarkDuplicates {
 /**
   * Note: if no prefix is given, the metrics file will be named based on the first BAM in `inputs`.
   */
-class MarkDuplicates(inputs: Seq[PathToBam],
-                     out: Option[PathToBam] = None,
+class MarkDuplicates(val inputs: Seq[PathToBam],
+                     val out: Option[PathToBam] = None,
                      override val prefix: Option[Path] = None,
                      comment: Option[String] = None,
                      opticalDuplicatesPixelDistance: Option[Int] = None,
