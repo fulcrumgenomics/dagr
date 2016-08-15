@@ -26,7 +26,7 @@ package dagr.tasks.picard
 import java.nio.file.Path
 
 import dagr.tasks.DagrDef
-import DagrDef.{PathToBam, PathToFasta}
+import DagrDef.{PathToBam, PathToFasta, PathToIntervals}
 
 import scala.collection.mutable.ListBuffer
 
@@ -36,7 +36,8 @@ object CollectWgsMetrics {
 
 class CollectWgsMetrics(override val in: PathToBam,
                         override val prefix: Option[Path],
-                        ref: PathToFasta)
+                        ref: PathToFasta,
+                        intervals: Option[PathToIntervals] = None)
   extends PicardTask with PicardMetricsTask {
 
   override def metricsExtension: String = CollectWgsMetrics.MetricsExtension
@@ -45,5 +46,6 @@ class CollectWgsMetrics(override val in: PathToBam,
     buffer.append("I=" + in)
     buffer.append("O=" + metricsFile)
     buffer.append("R=" + ref)
+    intervals.map("INTERVALS=" + _)
   }
 }
