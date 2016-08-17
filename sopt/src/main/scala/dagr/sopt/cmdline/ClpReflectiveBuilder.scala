@@ -121,15 +121,15 @@ private[sopt] class ClpArgumentLookup(args: ClpArgument*) extends ArgumentLookup
   * must have default values as there is no other way for them to get values.
   */
 private[sopt] class ClpArgument(declaringClass: Class[_],
-                                   index: Int,
-                                   name: String,
-                                   defaultValue: Option[Any],
-                                   argumentType: Class[_],
-                                   unitType: Class[_],
-                                   constructableType: Class[_],
-                                   typeName : String,
-                                   val annotation: Option[arg]
-                                  ) extends Argument(declaringClass, index, name, defaultValue, argumentType, unitType, constructableType, typeName) {
+                                index: Int,
+                                name: String,
+                                defaultValue: Option[Any],
+                                argumentType: Class[_],
+                                unitType: Class[_],
+                                constructableType: Class[_],
+                                typeName : String,
+                                val annotation: Option[arg]
+                               ) extends Argument(declaringClass, index, name, defaultValue, argumentType, unitType, constructableType, typeName) {
 
   def hidden: Boolean = annotation.isEmpty
 
