@@ -30,17 +30,29 @@ import dagr.tasks.DataTypes.{Fastq, Sam}
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFasta, PathToFastq}
 
+import scala.collection.mutable.ListBuffer
+
 class BwaMem(fastq: PathToFastq = Io.StdIn,
              out: Option[PathToBam] = None,
              ref: PathToFasta,
              minThreads: Int = 1,
              maxThreads: Int = 32,
-             memory: Memory = Memory("8G")) extends ProcessTask with VariableResources with Pipe[Fastq,Sam] {
+             memory: Memory = Memory("8G"),
+             smartPairing: Boolean = true) extends ProcessTask with VariableResources with Pipe[Fastq,Sam] {
   name = "BwaMem"
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
     resources.subset(minCores=Cores(minThreads), maxCores=Cores(maxThreads), memory=memory)
   }
 
-  override def args: Seq[Any] = Bwa.findBwa :: "mem" :: "-p" :: "-t" :: resources.cores.toInt :: ref :: fastq :: out.map(f => "> " + f).toList
+  override def args: Seq[Any] = {
+    val buffer = new ListBuffer[Any]()
+    buffer.append(Bwa.findBwa)
+    buffer.append("mem")
+    if (smartPairing) buffer.append("-p")
+    buffer.append("-t",  resources.cores.toInt)
+    buffer.append(ref, fastq)
+    out.foreach { f => buffer.append("> " + f) }
+    buffer.toList
+  }
 }
