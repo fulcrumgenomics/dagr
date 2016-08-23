@@ -171,8 +171,10 @@ class CommandLineProgramParser[T](val targetClass: Class[T]) extends CommandLine
           }
         }
         catch {
-          case ValidationException(xs) => ParseFailure(ex=new CommandLineException(xs.mkString("\n")), remaining=Nil)
-          case e: Exception => ParseFailure(ex=new CommandLineException(s"${e.getClass.getSimpleName}: ${e.getMessage}"), remaining=Nil)
+          // NB: match here so we use the correct apply method.
+          case e: ValidationException  => ParseFailure(ex=CommandLineException(e), remaining=Nil)
+          case e: CommandLineException => ParseFailure(ex=CommandLineException(e), remaining=Nil)
+          case e: Exception            => ParseFailure(ex=CommandLineException(e), remaining=Nil)
         }
       case ParseVersion() | ParseHelp() => throw new IllegalStateException("BUG: ParseVersion or ParseHelp was not expected")
     }
@@ -314,7 +316,7 @@ class CommandLineProgramParser[T](val targetClass: Class[T]) extends CommandLine
             .mkString(", ")
         )
         if (argumentDefinition.isSetByUser && mutextArgumentNames.nonEmpty) {
-          throw new UserException(s"Argument '$fullName' cannot be used in conjunction with argument(s) ${mutextArgumentNames.toString}")
+          throw new UserException(s"Argument '$fullName' cannot be used in conjunction with argument(s): ${mutextArgumentNames.toString}")
         }
 
         if (argumentDefinition.isCollection && !argumentDefinition.optional) {

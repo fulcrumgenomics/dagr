@@ -349,7 +349,7 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
       commandOption shouldBe 'empty
       clpOption shouldBe 'empty
       output should include(parser.standardCommandAndSubCommandUsagePreamble(commandClazz=Some(classOf[CommandLineProgramValidionError]), subCommandClazz=None))
-      output should not include classOf[ValidationException].getSimpleName
+      output should include(classOf[ValidationException].getSimpleName)
       output should include("WTF")
     }
   }

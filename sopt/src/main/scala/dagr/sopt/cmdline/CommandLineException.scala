@@ -24,6 +24,19 @@
 
 package dagr.sopt.cmdline
 
+object CommandLineException {
+  /** Prepends the exception name to the message. */
+  private def formatMessage(msg: String, e: Option[Exception]): String = {
+    e.map(x => s"Exception: ${x.getClass.getSimpleName}\n").getOrElse("") + "Error: " + msg
+  }
+  /** Creates a new CommandLineException with the message formatted for the command line. */
+  def apply(e: CommandLineException): CommandLineException = new CommandLineException(formatMessage(e.getMessage, Some(e)), None)
+  /** Creates a new CommandLineException with the message formatted for the command line. */
+  def apply(e: ValidationException): CommandLineException = new CommandLineException(formatMessage(e.messages.mkString("\n"), Some(e)), None)
+  /** Creates a new CommandLineException with the message formatted for the command line. */
+  def apply(e: Exception): CommandLineException = new CommandLineException(formatMessage(e.getMessage, Some(e)), None)
+}
+
 /** Base class for all exceptions thrown by the command line parsing */
 class CommandLineException(msg: String, e: Option[Exception] = None) extends RuntimeException(msg, e.orNull) {
   def this(msg: String, e: Exception) = this(msg, Some(e))
