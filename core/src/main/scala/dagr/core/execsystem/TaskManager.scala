@@ -139,9 +139,9 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 ) extends TaskManagerLike with TaskTracker with FinalStatusReporter with LazyLogging {
 
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
-  private val actualLogsDirectory    = logDirectory getOrElse Io.makeTempDir("logs")
+  protected val actualLogsDirectory  = logDirectory getOrElse Io.makeTempDir("logs")
 
-  private val taskExecutionRunner: TaskExecutionRunnerApi = new TaskExecutionRunner()
+  protected val taskExecutionRunner: TaskExecutionRunnerApi = new TaskExecutionRunner()
 
   import GraphNodeState._
   import TaskStatus._
@@ -160,6 +160,13 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   override protected def scriptPathFor(task: Task, taskId: TaskId): Path = pathFor(task, taskId, actualScriptsDirectory, "sh")
   override protected def logPathFor(task: Task, taskId: TaskId): Path = pathFor(task, taskId, actualLogsDirectory, "log")
 
+  /** Attempts to terminate a task's underlying process.
+    *
+    * @param taskId the identifier of the task to terminate
+    * @return true if successful, false otherwise
+    */
+  protected def terminateTask(taskId: TaskId): Boolean = taskExecutionRunner.terminateTask(taskId=taskId)
+
   /** For testing purposes only. */
   private[core] def joinOnRunningTasks(millis: Long) = taskExecutionRunner.joinAll(millis)
 
@@ -177,7 +184,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
         if (taskInfo.status == STARTED) {
           // the task has been started, kill it
-          taskExecutionRunner.terminateTask(taskId)
+          terminateTask(taskId)
           processCompletedTask(taskId = taskId, doRetry = false)
         }
 
@@ -197,7 +204,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         val node        = infoAndNode.node
 
         // check if the task is running and if so, kill it
-        if (taskInfo.status == STARTED) taskRunner.terminateTask(taskId)
+        if (taskInfo.status == STARTED) terminateTask(taskId)
 
         // update all complete tasks, as this task may have already completed, or was just terminated
         updateCompletedTasks()
@@ -473,7 +480,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     }
   }
 
-  protected[core] def runningTasksMap: Map[UnitTask, ResourceSet] = Map(taskExecutionRunner.runningTaskIds.toList.map(id => this(id).task).map(task => (task.asInstanceOf[UnitTask], task.taskInfo.resources)) : _*)
+  /** Returns a map of running tasks and the resource set they were scheduled with. */
+  def runningTasksMap: Map[UnitTask, ResourceSet] = Map(taskExecutionRunner.runningTaskIds.toList.map(id => this(id).task).map(task => (task.asInstanceOf[UnitTask], task.taskInfo.resources)) : _*)
 
   protected[core] def readyTasksList: List[UnitTask] = graphNodesInStateFor(NO_PREDECESSORS).toList.map(node => node.task.asInstanceOf[UnitTask])
 
@@ -554,7 +562,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
     // terminate all running tasks
     for (node <- graphNodes.filter(node => node.state == RUNNING)) {
-      taskExecutionRunner.terminateTask(node.taskId)
+      terminateTask(node.taskId)
     }
 
     taskToInfoBiMapFor
