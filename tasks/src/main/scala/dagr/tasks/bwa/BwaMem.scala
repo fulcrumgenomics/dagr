@@ -35,10 +35,18 @@ import scala.collection.mutable.ListBuffer
 class BwaMem(fastq: PathToFastq = Io.StdIn,
              out: Option[PathToBam] = None,
              ref: PathToFasta,
+             minSeedLength: Option[Int] = None,
+             matchScore: Option[Int] = None,
+             mismatchPenalty: Option[Int] = None,
+             gapOpenPenalties: Option[(Int,Int)] = None,
+             gapExtensionPenalties: Option[(Int,Int)] = None,
+             clippingPenalties: Option[(Int,Int)] = None,
+             minScore: Option[Int] = None,
+             smartPairing: Boolean = true,
              minThreads: Int = 1,
              maxThreads: Int = 32,
-             memory: Memory = Memory("8G"),
-             smartPairing: Boolean = true) extends ProcessTask with VariableResources with Pipe[Fastq,Sam] {
+             memory: Memory = Memory("8G")
+             ) extends ProcessTask with VariableResources with Pipe[Fastq,Sam] {
   name = "BwaMem"
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
@@ -46,13 +54,18 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
   }
 
   override def args: Seq[Any] = {
-    val buffer = new ListBuffer[Any]()
-    buffer.append(Bwa.findBwa)
-    buffer.append("mem")
+    val buffer = ListBuffer[Any](Bwa.findBwa, "mem", "-t", resources.cores.toInt)
+
     if (smartPairing) buffer.append("-p")
-    buffer.append("-t",  resources.cores.toInt)
-    buffer.append(ref, fastq)
-    out.foreach { f => buffer.append("> " + f) }
+    minSeedLength.foreach(l => buffer.append("-k", l))
+    matchScore.foreach(s => buffer.append("-A", s))
+    mismatchPenalty.foreach(p => buffer.append("-B", p))
+    gapOpenPenalties.foreach { case (del, ins) => buffer.append("-O", s"$del,$ins") }
+    gapExtensionPenalties.foreach { case (del, ins) => buffer.append("-E", s"$del,$ins") }
+    gapExtensionPenalties.foreach { case (five, three) => buffer.append("-L", s"$five,$three") }
+    minScore.foreach(s => buffer.append("-T", s))
+
+    buffer.append(ref, fastq, out.map(f => "> " + f))
     buffer.toList
   }
 }
