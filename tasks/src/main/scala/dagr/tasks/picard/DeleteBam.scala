@@ -34,18 +34,20 @@ import scala.collection.mutable.ListBuffer
   * Class to remove a BAM file and also the BAI file if it exists.  Succeeds if the files can be deleted,
   * *or* if no files were present to be deleted.
   */
-class DeleteBam(val bam: Path) extends SimpleInJvmTask {
-  name = "DeleteBam." + PathUtil.basename(bam)
+class DeleteBam(val bam: Path*) extends SimpleInJvmTask {
+  name = if (bam.length == 1) "DeleteBam." + PathUtil.basename(bam.head) else s"Delete${bam.length}Bams"
 
   override def run(): Unit = {
-    val paths = ListBuffer(bam)
-    PathUtil.extensionOf(bam) match {
-      case Some(".bam") =>
-        paths += PathUtil.pathTo(bam.toString + ".bai")
-        paths += PathUtil.replaceExtension(bam, ".bai")
-      case Some(".cram") =>
-        paths += PathUtil.pathTo(bam.toString + ".crai")
-      case _ =>
+    val paths = ListBuffer[Path](bam:_*)
+    bam.foreach { b =>
+      PathUtil.extensionOf(b) match {
+        case Some(".bam") =>
+          paths += PathUtil.pathTo(bam.toString + ".bai")
+          paths += PathUtil.replaceExtension(b, ".bai")
+        case Some(".cram") =>
+          paths += PathUtil.pathTo(bam.toString + ".crai")
+        case _ =>
+      }
     }
 
     paths.filter(Files.exists(_)).foreach(Files.delete)
