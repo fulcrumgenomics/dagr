@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2015-2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -141,7 +141,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
   protected val actualLogsDirectory  = logDirectory getOrElse Io.makeTempDir("logs")
 
-  protected val taskExecutionRunner: TaskExecutionRunnerApi = new TaskExecutionRunner()
+  private val taskExecutionRunner: TaskExecutionRunnerApi = new TaskExecutionRunner()
 
   import GraphNodeState._
   import TaskStatus._
@@ -168,7 +168,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   protected def terminateTask(taskId: TaskId): Boolean = taskExecutionRunner.terminateTask(taskId=taskId)
 
   /** For testing purposes only. */
-  private[core] def joinOnRunningTasks(millis: Long) = taskExecutionRunner.joinAll(millis)
+  protected def joinOnRunningTasks(millis: Long) = taskExecutionRunner.joinAll(millis)
+
+  /** For testing purposes only. */
+  private[execsystem] def completedTasks(failedAreCompleted: Boolean): Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks(failedAreCompleted=failedAreCompleted)
 
   /** Replace the original task with the replacement task and update
    * any internal references.  This will terminate the task if it is running.
@@ -254,7 +257,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
    *
    * @param taskId the task identifier for the completed task.
    */
-  private def processCompletedTask(taskId: TaskId, doRetry: Boolean = true): Unit = {
+  private[execsystem] def processCompletedTask(taskId: TaskId, doRetry: Boolean = true): Unit = {
     val node      = this(taskId)
     val taskInfo  = node.taskInfo
     logger.info("processCompletedTask: Task [" + taskInfo.task.name + "] had TaskStatus=" + taskInfo.status.toString)
