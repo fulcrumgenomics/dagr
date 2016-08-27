@@ -467,6 +467,21 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
     }
   }
 
+  it should "return a valid clp when the class has no arguments" in {
+    Stream(
+      Array[String]("--", nameOf(classOf[CommandLineProgramNoArgs])),
+      Array[String](nameOf(classOf[CommandLineProgramNoArgs]))
+    ).foreach { args =>
+      val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting,CommandLineProgramNoArgs](args)
+      commandOption shouldBe 'defined
+      commandOption.get.getClass shouldBe classOf[CommandLineProgramTesting]
+      clpOption shouldBe 'defined
+      clpOption.get.getClass shouldBe classOf[CommandLineProgramNoArgs]
+      output shouldBe 'empty
+      output shouldBe 'empty
+    }
+  }
+
   "CommandLineParser.clpListUsage" should "throw a BadAnnotationException when a class without the @arg is given" in {
     val parser = new CommandLineParser[Seq[String]]("command-line-name")
     val classes =  Set[Class[_ <: Seq[String]]](classOf[Seq[String]], classOf[List[String]])
