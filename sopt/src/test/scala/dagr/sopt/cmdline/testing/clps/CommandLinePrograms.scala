@@ -61,3 +61,6 @@ private[cmdline] case class CommandLineProgramShortArg
 @clp(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class CommandLineProgramWithMutex
 (@arg(mutex = Array("another")) var argument: String, @arg(mutex = Array("argument")) var another: String) extends CommandLineProgramTesting // argument should be required
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private[cmdline] class CommandLineProgramNoArgs extends CommandLineProgramTesting
