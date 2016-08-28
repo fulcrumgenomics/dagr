@@ -34,7 +34,6 @@ import org.scalatest.{BeforeAndAfterAll, Inside, OptionValues}
 
 import scala.collection.Map
 import scala.collection.immutable.HashMap
-import scala.util.Success
 
 ////////////////////////////////////////////////////////////////////////////////
 // Holds the classes we need for testing.  These cannot be inner classes.
@@ -312,6 +311,66 @@ private case class BadEnumClass
 )
 private case class SomeDescription (@arg var a: Int = 2)
 
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class MultiCharacterShortName
+(
+  @arg(flag="atm") var automatedTellerMachine: String = "Bank"
+)
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class UseNameInAnnotation
+(
+  @arg(name="atm") var automatedTellerMachine: String = "Bank"
+)
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class UseVariableName
+(
+  @arg var automatedTellerMachine: String = "Bank"
+)
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class OneCharNameInAnnotation
+(
+  @arg(name="a") var automatedTellerMachine: String = "Bank"
+)
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class OneCharVariableName
+(
+  @arg var a: String = "Bank"
+)
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class FlagIsLongAndAnnotationNameIsShort
+(
+  @arg(flag="long", name="a") var a: String = "Bank"
+)
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class FlagIsLongAndVariableNameIsShort
+(
+  @arg(flag="long") var a: String = "Bank"
+)
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class FlagAndAnnotationNameAreA
+(
+  @arg(flag="a", name="a") var a: String = "Bank"
+)
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class FlagAndVariableNameAreA
+(
+  @arg(flag="a") var a: String = "Bank"
+)
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class AnnotationNameIsCamelCase
+(
+  @arg(name="camelCase") var a: String = "Bank"
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // End of Testing CLP classes
 ////////////////////////////////////////////////////////////////////////////////
@@ -576,8 +635,8 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
 
   "CommandLineProgramParser.usage" should "print out no arguments when no arguments are present" in {
     val usage = parser(classOf[NoArguments]).usage(printCommon = false, withVersion = true, withSpecial = false)
-    usage should not include (RequiredArguments)
-    usage should not include (OptionalArguments)
+    usage should not include RequiredArguments
+    usage should not include OptionalArguments
     usage should include (UsagePrefix)
   }
 
@@ -672,7 +731,56 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
     val end = usage.indexOf("<END>")
     start should be > 0
     end should be > 0
-    usage.substring(start, end).split("\n").size shouldBe 4
+    usage.substring(start, end).split("\n").length shouldBe 4
+  }
+
+  it should "format a multi-character flag" in {
+    val usage = parser(classOf[MultiCharacterShortName]).usage(printCommon = false, withVersion = true, withSpecial = false)
+    usage should include ("--atm=String, --automated-teller-machine=String")
+  }
+
+  it should "format using the 'name' in the annotation for the long name when specified" in {
+    val usage = parser(classOf[UseNameInAnnotation]).usage(printCommon = false, withVersion = true, withSpecial = false)
+    usage should include ("--atm=String")
+    usage should not include "--automated-teller-machine"
+  }
+
+  it should "format using the variable name for the long name when 'name' is not specified" in {
+    val usage = parser(classOf[UseVariableName]).usage(printCommon = false, withVersion = true, withSpecial = false)
+    usage should include ("--automated-teller-machine=String")
+  }
+
+  it should "format using the single-character 'name' in the annotation for the long name when 'name' is specified" in {
+    val usage = parser(classOf[OneCharNameInAnnotation]).usage(printCommon = false, withVersion = true, withSpecial = false)
+    usage should include ("-a String")
+  }
+
+  it should "format using the single-character variable name for the long name when 'name' is not specified" in {
+    val usage = parser(classOf[OneCharVariableName]).usage(printCommon = false, withVersion = true, withSpecial = false)
+    usage should include ("-a String")
+  }
+
+  it should "throw an exception when the length of 'flag' is greater than the length of 'name'" in {
+    an[Exception] should be thrownBy parser(classOf[FlagIsLongAndAnnotationNameIsShort]).usage(printCommon = false, withVersion = true, withSpecial = false)
+  }
+
+  it should "format short arguments before long arguments, when the length of 'flag' is longer than 'name' is derived from the field's name" in {
+    val usage = parser(classOf[FlagIsLongAndVariableNameIsShort]).usage(printCommon = false, withVersion = true, withSpecial = false)
+    usage should include ("-a String, --long=String")
+  }
+
+  it should "throw an exception when the values for 'flag' and 'name' are the same" in {
+    an[Exception] should be thrownBy parser(classOf[FlagAndAnnotationNameAreA]).usage(printCommon = false, withVersion = true, withSpecial = false)
+  }
+
+  it should "allow camel casing in the 'name' field" in {
+    val usage = parser(classOf[AnnotationNameIsCamelCase]).usage(printCommon = false, withVersion = true, withSpecial = false)
+    usage should include ("--camelCase=String")
+  }
+
+  it should "allow the flag to be specified as the same as 'name' when 'name' is derived from the field's name " in {
+    val usage = parser(classOf[FlagAndVariableNameAreA]).usage(printCommon = false, withVersion = true, withSpecial = false)
+    usage should include ("-a String")
   }
 
   "CommandLineProgramParser.parseAndBuild" should "parse multiple positional arguments" in {
@@ -1015,8 +1123,15 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
     }
   }
 
+  it should "parse a flag (short name) that is more than one character long" in {
+    val args = Array[String]("--atm", "Vault")
+    val p = parser(classOf[MultiCharacterShortName])
+    inside (p.parseAndBuild(args=args)) { case ParseSuccess() => }
+    val task = p.instance.get
+    task.automatedTellerMachine shouldBe "Vault"
+  }
+
   "CommandLineProgramParser.getCommandLine" should "should return the command line string" in {
-    val task = new GeneralTestingProgram
     val args = Array[String](
       "--string-set", "Foo", "Bar",
       "--int-set", "1", "2",

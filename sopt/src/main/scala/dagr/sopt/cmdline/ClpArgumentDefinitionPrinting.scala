@@ -24,11 +24,12 @@
 
 package dagr.sopt.cmdline
 
+import dagr.commons.CommonsDef.unreachable
 import dagr.commons.reflect.ReflectionUtil
-import dagr.sopt.util._
 import dagr.commons.util.StringUtil
+import dagr.sopt.util._
 
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 
 // TODO: incorporate strings from other classes?
 object ClpArgumentDefinitionPrinting {
@@ -98,14 +99,29 @@ object ClpArgumentDefinitionPrinting {
   private val ArgumentColumnWidth: Int = 30
   private val DescriptionColumnWidth: Int = 90
 
+  /** Formats a short or long name, depending on the length of the name. */
+  private def formatName(name: String, theType: String): String = {
+    if (name.length == 1) {
+      val nameType = if (theType == "Boolean") "[true|false]" else theType
+      "-" + name + " " + nameType
+    }
+    else {
+      val nameType = if (theType == "Boolean") "[=true|false]" else "=" + theType
+      "--" + name + nameType
+    }
+  }
+
   /** Prints the usage for a given argument given its various elements */
   private def printArgumentUsage(stringBuilder: StringBuilder, name: String, shortName: String, theType: String, argumentDescription: String): Unit = {
     // Desired output: "-f Foo, --foo=Foo" and for Booleans, "-f [true|false] --foo=[true|false]"
-    val (shortType, longType) = if (theType == "Boolean") ("[true|false]","[=true|false]") else (theType, "=" + theType)
-    val label = new StringBuilder()
-    if (shortName.nonEmpty) label.append("-" + shortName + " " + shortType + ", ")
-    label.append("--" + name + longType)
-    stringBuilder.append(KGRN(label.toString()))
+    val shortLabel = if (shortName.isEmpty) "" else formatName(shortName, theType)
+    val label = if (name == "") shortLabel else {
+      if (name.isEmpty) unreachable("name was empty")
+      val longLabel = formatName(name, theType)
+      if (shortName.length > name.length) throw new IllegalArgumentException(s"Short name '$shortName' is longer than name '$name'")
+      if (shortLabel.isEmpty) longLabel else shortLabel + ", " + longLabel
+    }
+    stringBuilder.append(KGRN(label))
 
     // If the label is short enough, just pad out the column, otherwise wrap to the next line for the description
     val numSpaces: Int =  if (label.length > ArgumentColumnWidth) {

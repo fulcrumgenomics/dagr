@@ -45,15 +45,20 @@ public @interface ArgAnnotation {
      * prefixed on the command-line with a double dash (--).  If not specified
      * then default is used, which is to translate the field name into a GNU style
      * option name by breaking words on camel case, joining words back together with
-     * hyphens, and converting to lower case (e.g. myThing => my-thing).
+     * hyphens, and converting to lower case (e.g. myThing => my-thing).  The
+     * resulting value should be different than {@link #flag()}.
      * @return Selected full name, or "" to use the default.
      */
     String name() default "";
 
     /**
-     * Specified short name of the command.  Short names should be prefixed
-     * with a single dash.  ArgAnnotation values can directly abut single-char
-     * short names or be separated from them by a space.
+     * Specified short name of the command.  Single value short names should be
+     * prefixed on the command-line with a single dash.  Multi-character short-names
+     * will be treated like {@link #name()}. ArgAnnotation values can directly abut
+     * single-char short names or be separated from them by a space.  The short name
+     * should always have length less than or equal to {@link #name()} if the latter
+     * is not empty and is not derived from the field name.  Regardless, they should
+     * not have the same value.
      * @return Selected short name, or "" for none.
      */
     String flag() default "";

@@ -121,15 +121,15 @@ private[sopt] class ClpArgumentLookup(args: ClpArgument*) extends ArgumentLookup
   * must have default values as there is no other way for them to get values.
   */
 private[sopt] class ClpArgument(declaringClass: Class[_],
-                                   index: Int,
-                                   name: String,
-                                   defaultValue: Option[Any],
-                                   argumentType: Class[_],
-                                   unitType: Class[_],
-                                   constructableType: Class[_],
-                                   typeName : String,
-                                   val annotation: Option[arg]
-                                  ) extends Argument(declaringClass, index, name, defaultValue, argumentType, unitType, constructableType, typeName) {
+                                index: Int,
+                                name: String,
+                                defaultValue: Option[Any],
+                                argumentType: Class[_],
+                                unitType: Class[_],
+                                constructableType: Class[_],
+                                typeName : String,
+                                val annotation: Option[arg]
+                               ) extends Argument(declaringClass, index, name, defaultValue, argumentType, unitType, constructableType, typeName) {
 
   def hidden: Boolean = annotation.isEmpty
 
@@ -147,8 +147,22 @@ private[sopt] class ClpArgument(declaringClass: Class[_],
 
   lazy val isSpecial: Boolean   = annotation.exists(_.special())
   lazy val isSensitive: Boolean = annotation.exists(_.sensitive())
-  lazy val longName: String     = if (annotation.isDefined && annotation.get.name.nonEmpty) annotation.get.name else StringUtil.camelToGnu(name)
-  lazy val shortName: String    = annotation.map(_.flag()).getOrElse("")
+  /** longName should never be empty.  See [ArgAnnotation] for rules around 'flag', 'name', and the field name */
+  lazy val (shortName, longName) = {
+    val flagName = annotation.map(_.flag()).getOrElse("")
+    if (annotation.isDefined && annotation.get.name.nonEmpty) {
+      if (flagName.length > annotation.get.name.length) {
+        throw new IllegalStateException("The @arg flag (short name) should be shorter than the @arg name (long name)")
+      }
+      (flagName, annotation.get.name)
+    } else {
+      // It is ok that the length of the long name when derived from the field name is shorter than shortName since
+      // we will just swap the two.
+      val derivedName = StringUtil.camelToGnu(name)
+      if (derivedName == flagName) ("", flagName)
+      else if (flagName.length < derivedName.length) (flagName, derivedName) else (derivedName, flagName)
+    }
+  }
   lazy val doc: String          = annotation.map(_.doc()).getOrElse("")
   lazy val isCommon: Boolean    = annotation.exists(_.common())
   lazy val minElements: Int     = if (isCollection) {
