@@ -28,12 +28,13 @@ package dagr.tasks.vc
 import java.nio.file.Path
 
 import dagr.commons.CommonsDef.yieldAndThen
-import dagr.commons.io.Io
+import dagr.commons.io.{Io, PathUtil}
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem._
 import dagr.tasks.DagrDef.{FilePath, PathToBam, PathToFasta, PathToVcf}
 import dagr.tasks.DataTypes.Vcf
+import dagr.tasks.picard.SortVcf
 import htsjdk.samtools.SamReaderFactory
 
 import scala.collection.mutable.ListBuffer
@@ -124,6 +125,7 @@ class VarDictJavaEndToEnd(tumorBam: PathToBam,
 
   def build(): Unit = {
     val tn = tumorName.getOrElse(VarDictJava.extractSampleName(bam=tumorBam))
+    val dict = PathUtil.replaceExtension(ref, ".dict")
 
     val biasScript = BinDir.resolve("teststrandbias.R")
     val vcfScript  = BinDir.resolve("var2vcf_valid.pl")
@@ -143,10 +145,11 @@ class VarDictJavaEndToEnd(tumorBam: PathToBam,
     val bias               = new ShellCommand(biasScript.toString) with Pipe[Any,Any]
     val toVcf              = new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with Pipe[Any,Vcf]
     val removeRefEqAltRows = new ShellCommand("awk", "{if ($1 ~ /^#/) print; else if ($4 != $5) print}") with Pipe[Vcf,Vcf]
+    val sortVcf            = new SortVcf(dict=Some(dict))
 
     bias.requires(Cores(0), Memory("32m"))
     toVcf.requires(Cores(0), Memory("32m"))
 
-    root ==> (vardict | bias | toVcf | removeRefEqAltRows > out).withName(this.getClass.getSimpleName)
+    root ==> (vardict | bias | toVcf | removeRefEqAltRows | sortVcf > out).withName(this.getClass.getSimpleName)
   }
 }
