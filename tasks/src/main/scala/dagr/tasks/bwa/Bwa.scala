@@ -48,7 +48,7 @@ object Bwa extends Configuration {
                      samToFastqMem: String = "512M",
                      mergeBamAlignmentMem: String = "2G",
                      fifoBufferMem: String = "512M",
-                     processAltMappings: Boolean = true,
+                     processAltMappings: Boolean = false,
                      orientation: PairOrientation = PairOrientation.FR
                     ): Pipe[SamOrBam,SamOrBam] = {
     val alt = PathUtil.pathTo(ref + ".alt")
