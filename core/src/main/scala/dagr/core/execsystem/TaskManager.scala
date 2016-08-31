@@ -44,7 +44,7 @@ object SystemResources {
     new SystemResources(cores = Cores(cores), systemMemory = Memory(systemMemory), jvmMemory = Memory(jvmMemory))
   }
 
-  /** Creates a new SystemResources with the cores provided and partitions the memory bewteen system and JVM. */
+  /** Creates a new SystemResources with the cores provided and partitions the memory between system and JVM. */
   def apply(cores: Option[Cores] = None, totalMemory: Option[Memory] = None) : SystemResources = {
     val heapSize = Resource.heapSize
     val system   = totalMemory match {
