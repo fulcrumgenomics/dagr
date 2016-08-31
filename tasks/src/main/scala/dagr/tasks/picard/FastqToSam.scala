@@ -27,6 +27,7 @@ import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.{Fastq, SamOrBam}
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFastq}
+import dagr.core.execsystem.{Cores, Memory}
 import htsjdk.samtools.util.FastqQualityFormat
 
 import scala.collection.mutable.ListBuffer
@@ -42,7 +43,8 @@ class FastqToSam(fastq1: PathToFastq,
                  stripUnpairedMateNumber: Boolean = true,
                  useSequentialFastqs: Boolean = false,
                  qualityFormat: Option[FastqQualityFormat] = None)
-  extends PicardTask with Pipe[Fastq,SamOrBam]{
+  extends PicardTask with Pipe[Fastq,SamOrBam] {
+  requires(Cores(1), Memory("2G"))
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     // add custom args
