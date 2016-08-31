@@ -25,6 +25,7 @@
 package dagr.tasks.fgbio
 
 import dagr.commons.CommonsDef._
+import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.SamOrBam
 
@@ -37,6 +38,7 @@ class ExtractUmisFromBam(val in: PathToBam,
                          val annotateNames: Boolean = true,
                          val clippingAttribute: Option[String] = None
                         ) extends FgBioTask with Pipe[SamOrBam,SamOrBam] {
+  requires(Cores(1), Memory("1G"))
 
   protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
