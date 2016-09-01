@@ -30,7 +30,6 @@ import dagr.commons.util.StringUtil
 
 import scala.util.{Success, Failure}
 
-// TODO: incorporate strings from other classes?
 object ClpArgumentDefinitionPrinting {
 
   /** Strings for printing enum options */
@@ -45,6 +44,7 @@ object ClpArgumentDefinitionPrinting {
       argumentDefinition.longName,
       argumentDefinition.shortName,
       argumentDefinition.typeDescription,
+      makeCollectionArity(argumentDefinition),
       makeArgumentDescription(argumentDefinition, argumentLookup))
   }
 
@@ -74,6 +74,17 @@ object ClpArgumentDefinitionPrinting {
     sb.toString
   }
 
+  private def makeCollectionArity(argumentDefinition: ClpArgument): Option[String] = {
+    if (!argumentDefinition.isCollection) return None
+
+    val desciption = (argumentDefinition.minElements, argumentDefinition.maxElements) match {
+      case (0, Integer.MAX_VALUE) => "*"
+      case (1, Integer.MAX_VALUE) => "+"
+      case (m, n)                 => s"{$m, $n}"
+    }
+    Some(desciption)
+  }
+
   /**
     * Intelligently decides whether or not to print a default value. Values are not printed if
     *  a) There is no default
@@ -81,7 +92,7 @@ object ClpArgumentDefinitionPrinting {
     *  c) There is a default, but it's an empty list
     *  d) There is a default, but it's an empty set
     */
-  private def makeDefaultValueString(value : Option[_]) : String = {
+  private[cmdline] def makeDefaultValueString(value : Option[_]) : String = {
     val v = value match {
       case None          => ""
       case Some(None)    => ""
@@ -99,12 +110,14 @@ object ClpArgumentDefinitionPrinting {
   private val DescriptionColumnWidth: Int = 90
 
   /** Prints the usage for a given argument given its various elements */
-  private def printArgumentUsage(stringBuilder: StringBuilder, name: String, shortName: String, theType: String, argumentDescription: String): Unit = {
+  private[cmdline] def printArgumentUsage(stringBuilder: StringBuilder, name: String, shortName: String, theType: String,
+                                          collectionArityString: Option[String], argumentDescription: String): Unit = {
     // Desired output: "-f Foo, --foo=Foo" and for Booleans, "-f [true|false] --foo=[true|false]"
+    val collectionDesc = collectionArityString.getOrElse("")
     val (shortType, longType) = if (theType == "Boolean") ("[true|false]","[=true|false]") else (theType, "=" + theType)
     val label = new StringBuilder()
-    if (shortName.nonEmpty) label.append("-" + shortName + " " + shortType + ", ")
-    label.append("--" + name + longType)
+    if (shortName.nonEmpty) label.append("-" + shortName + " " + shortType + collectionDesc + ", ")
+    label.append("--" + name + longType + collectionDesc)
     stringBuilder.append(KGRN(label.toString()))
 
     // If the label is short enough, just pad out the column, otherwise wrap to the next line for the description
@@ -125,14 +138,6 @@ object ClpArgumentDefinitionPrinting {
     }
     stringBuilder.append(KCYN(wrappedDescriptionBuilder.toString()))
   }
-
-  /**
-    *     enumConstants.map(_.name).mkString(EnumOptionDocPrefix, ", ", EnumOptionDocSuffix)
-
-  // Also used for Boolean Options
-  private[reflect] val EnumOptionDocPrefix: String = "Options: "
-  private[reflect] val EnumOptionDocSuffix: String = "."
-    */
 
   /**
     * Returns the help string with details about valid options for the given argument class.
