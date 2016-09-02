@@ -416,7 +416,7 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
     val argumentDefinition: ClpArgument = lookup.forArg("an-option").get
     argumentDefinition.value.get.asInstanceOf[Option[_]] shouldBe 'empty
     argumentDefinition.argumentType shouldBe classOf[Option[_]]
-    argumentDefinition.hasValue shouldBe true
+    argumentDefinition.hasValue shouldBe false
   }
 
   it should "create a class with a default Some-Option[Int] parameter" in {

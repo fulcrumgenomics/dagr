@@ -244,10 +244,13 @@ class Argument(val declaringClass: Class[_],
   /** Gets the descriptive name of the Type of the field that should be used in printed output. */
   def typeDescription: String = typeName
 
+  private def isOption: Boolean = classOf[Option[_]].isAssignableFrom(argumentType)
+
   /** true if the field has been set, either by a default value or by the user */
   def hasValue: Boolean = _value match {
     case None                    => false
     case Some(c) if isCollection => !ReflectionUtil.isEmptyCollection(c)
+    case Some(c) if isOption     => c.asInstanceOf[Option[_]].nonEmpty
     case _                       => true
   }
 }
