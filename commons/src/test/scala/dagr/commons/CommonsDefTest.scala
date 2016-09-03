@@ -53,7 +53,7 @@ class CommonsDefTest extends UnitSpec {
     xs shouldBe List("foo", "foo", "foo")
   }
 
-  "CommonsDef.SafelyCloseable" should "eat all exceptions" in {
+  "CommonsDef.safelyCloseable" should "eat all exceptions" in {
     class C extends Closeable {
       var closed = false
       override def close(): Unit = { closed = true; throw new IOException("screw you!") }
@@ -64,5 +64,65 @@ class CommonsDefTest extends UnitSpec {
     c.closed shouldBe false
     c.safelyClose()
     c.closed shouldBe true
+  }
+
+  private class CleanlyClass {
+    var cleanedUp = false
+    def doWork(): Boolean = true
+    def cleanUp(): Unit = cleanedUp = true
+  }
+
+  private class DoWorkExceptionClass {
+    var cleanedUp = false
+    def doWork(): Boolean = throw new IllegalArgumentException("doWork!")
+    def cleanUp(): Unit = cleanedUp = true
+  }
+
+  private class CleanUpExceptionClass {
+    var cleanedUp = false
+    def doWork(): Boolean = true
+    def cleanUp(): Unit = throw new IllegalArgumentException("cleanUp!")
+  }
+
+  private class DoWorkAndCleanUpExceptionClass {
+    var cleanedUp = false
+    def doWork(): Boolean = throw new IllegalArgumentException("doWork!")
+    def cleanUp(): Unit = throw new IllegalArgumentException("cleanUp!")
+  }
+
+  "CommonsDef.tryWith" should "catch all exceptions and close the resource" in {
+    // work and cleanup successful
+    {
+      val resource = new CleanlyClass
+      val result   = tryWith(resource)(_.cleanUp()) { r => r.doWork() }
+      resource.cleanedUp shouldBe true
+      result.isSuccess shouldBe true
+      result.get shouldBe true
+    }
+
+    // work failure and cleanup successful
+    {
+      val resource = new DoWorkExceptionClass
+      val result   = tryWith(resource)(_.cleanUp()) { r => r.doWork() }
+      resource.cleanedUp shouldBe true
+      result.isFailure shouldBe true
+    }
+
+    // work successful and cleanup failure
+    {
+      val resource = new CleanUpExceptionClass
+      val result   = tryWith(resource)(_.cleanUp()) { r => r.doWork() }
+      resource.cleanedUp shouldBe false
+      result.isSuccess shouldBe true
+      result.get shouldBe true
+    }
+
+    // work and cleanup failure
+    {
+      val resource = new DoWorkAndCleanUpExceptionClass
+      val result   = tryWith(resource)(_.cleanUp()) { r => r.doWork() }
+      resource.cleanedUp shouldBe false
+      result.isFailure shouldBe true
+    }
   }
 }
