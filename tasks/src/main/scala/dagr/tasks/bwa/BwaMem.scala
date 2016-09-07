@@ -60,9 +60,9 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
     minSeedLength.foreach(l => buffer.append("-k", l))
     matchScore.foreach(s => buffer.append("-A", s))
     mismatchPenalty.foreach(p => buffer.append("-B", p))
-    gapOpenPenalties.foreach { case (del, ins) => buffer.append("-O", s"$del,$ins") }
+    gapOpenPenalties.foreach      { case (del, ins) => buffer.append("-O", s"$del,$ins") }
     gapExtensionPenalties.foreach { case (del, ins) => buffer.append("-E", s"$del,$ins") }
-    gapExtensionPenalties.foreach { case (five, three) => buffer.append("-L", s"$five,$three") }
+    clippingPenalties.foreach { case (five, three) => buffer.append("-L", s"$five,$three") }
     minScore.foreach(s => buffer.append("-T", s))
 
     buffer.append(ref, fastq, out.map(f => "> " + f))
