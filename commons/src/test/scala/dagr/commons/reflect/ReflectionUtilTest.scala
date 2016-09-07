@@ -38,7 +38,8 @@ object ReflectionUtilTest {
   case class IntNoDefault(var v: Int)
   case class TwoParamNoDefault(var v: Int = 2, var w: Int)
   case class IntDefault(var v: Int = 2)
-  case class DefaultWithOption(var w: Option[Int] = None)
+  case class NoneDefaultWithOption(var w: Option[Int] = None)
+  case class SomeDefaultWithOption(var o: Option[String] = Some("default"))
   case class NoParams()
   case class StringDefault(var s: String = "null")
   case class ComplexDefault(var v: StringDefault = new StringDefault())
@@ -181,37 +182,30 @@ class ReflectionUtilTest extends UnitSpec {
   }
 
   "ReflectionUtil.constructFromString" should "construct an Int from a string for an Int field" in {
-    //canBeMadeFromString("v", classOf[Int], classOf[WithInt]) shouldBe true
     ReflectionUtil.constructFromString(classOf[Int], classOf[Int], "1").get shouldBe 1
   }
 
   it should "construct an String from a string for a String field" in {
-    //canBeMadeFromString("s", classOf[String], classOf[WithString]) shouldBe true
     ReflectionUtil.constructFromString(classOf[String], classOf[String], "str").get shouldBe "str"
   }
 
   it should "construct an Option[_] from a string for an Option[_] field" in {
-    //canBeMadeFromString("v", classOf[Option[_]], classOf[WithOption]) shouldBe true
     ReflectionUtil.constructFromString(classOf[Option[_]], classOf[String], "1").get shouldBe Some("1")
   }
 
   it should "construct an Option[Int] from a string for an Option[Int] field" in {
-    //canBeMadeFromString("v", classOf[Option[Int]], classOf[WithIntOption]) shouldBe true
     ReflectionUtil.constructFromString(classOf[Option[Int]], classOf[Int], "1").get shouldBe Some(1)
   }
 
   it should "construct an Any from a string for a List[_] field" in {
-    //canBeMadeFromString("list", classOf[List[_]], classOf[WithList]) shouldBe true
     ReflectionUtil.constructFromString(classOf[List[_]], classOf[String], "1", "2").get shouldBe List("1", "2")
   }
 
   it should "construct an Int from a string for a List[Int] field" in {
-    //canBeMadeFromString("list", classOf[List[Int]], classOf[WithIntList]) shouldBe true
     ReflectionUtil.constructFromString(classOf[List[Int]], classOf[Int], "1", "2").get shouldBe List(1, 2)
   }
 
   it should "construct an Any from a string for a java.util.Collection[_] field" in {
-    //canBeMadeFromString("list", classOf[java.util.Collection[_]], classOf[WithJavaCollection]) shouldBe true
     val collection: java.util.Collection[_] = ReflectionUtil.constructFromString(classOf[java.util.Collection[_]], classOf[String], "1", "2").get.asInstanceOf[java.util.Collection[_]]
     collection should have size 2
     collection should contain ("1")
@@ -219,7 +213,6 @@ class ReflectionUtilTest extends UnitSpec {
   }
 
   it should "construct an Any from a string for a java.util.Set[_] field" in {
-    //canBeMadeFromString("list", classOf[java.util.Set[_]], classOf[WithJavaCollection]) shouldBe true
     val collection: java.util.Collection[_] = ReflectionUtil.constructFromString(classOf[java.util.Set[_]], classOf[String], "1", "2").get.asInstanceOf[java.util.Collection[_]]
     collection should have size 2
     collection should contain ("1")
@@ -228,45 +221,53 @@ class ReflectionUtilTest extends UnitSpec {
 
   it should "construct an Path from a string for a PathToBam field" in {
     type PathToSomething = java.nio.file.Path
-    //canBeMadeFromString("path", classOf[PathToBam], classOf[WithPathToBam]) shouldBe true
     ReflectionUtil.constructFromString(classOf[PathToSomething], classOf[PathToSomething], PathUtil.pathTo("b", "c").toString).get shouldBe PathUtil.pathTo("b", "c")
   }
 
   it should "construct an String from a string for a String field in a child class" in {
-    //canBeMadeFromString("t", classOf[String], classOf[WithStringChild]) shouldBe true
     ReflectionUtil.constructFromString(classOf[String], classOf[String], "str").get shouldBe "str"
   }
 
   it should "construct an Enum value from a string for a Enum field" in {
-    //canBeMadeFromString("verbosity", classOf[LogLevel], classOf[WithEnum]) shouldBe true
     ReflectionUtil.constructFromString(classOf[LogLevel], classOf[LogLevel], "Debug").get shouldBe LogLevel.Debug
   }
 
   it should "not construct an Option[Option[String]] from a string" in {
     class OptionOptionString(var v: Option[Option[String]])
-    //canBeMadeFromString("v", classOf[Option[Option[String]]], classOf[OptionOptionString]) shouldBe false
     an[Exception] should be thrownBy ReflectionUtil.constructFromString( classOf[Option[Option[String]]], classOf[Option[String]], "str").get
   }
 
   it should "not construct an Map[String,String] from a string" in {
     class MapString(var v: Map[String, String])
-    //canBeMadeFromString("v", classOf[Map[String, String], classOf[OptionOptionString]) shouldBe false
     an[Exception] should be thrownBy ReflectionUtil.constructFromString(classOf[Map[String, String]], classOf[String], "str").get
   }
 
   it should "construct a Set and value from a string for a Set[_] field" in {
-    //canBeMadeFromString("set", classOf[Set[_]], classOf[SetClass]) shouldBe true
     ReflectionUtil.constructFromString(classOf[Set[_]], classOf[String], "value").get shouldBe Set("value")
   }
 
   it should "construct a Seq and value from a string for a Seq[_] field" in {
-    //canBeMadeFromString("seq", classOf[Set[_]], classOf[SeqClass]) shouldBe true
     ReflectionUtil.constructFromString(classOf[Seq[_]], classOf[String], "value").get shouldBe Seq("value")
   }
 
   it should "not treat the argument value 'null' as anything special" in {
-    //canBeMadeFromString("seq", classOf[Set[_]], classOf[SeqClass]) shouldBe true
     ReflectionUtil.constructFromString(classOf[Seq[_]], classOf[String], "prefix", "null", "suffix").get shouldBe Seq("prefix", "null", "suffix")
+  }
+
+  it should "treat the None token as special for options" in {
+    ReflectionUtil.constructFromString(classOf[Option[Int]], classOf[Int], ReflectionUtil.SpecialEmptyOrNoneToken).get shouldBe None
+    ReflectionUtil.constructFromString(classOf[Option[String]], classOf[String], ReflectionUtil.SpecialEmptyOrNoneToken).get shouldBe None
+
+  }
+
+  it should "treat the Empty token as special for collections" in {
+    ReflectionUtil.constructFromString(classOf[Seq[_]], classOf[String], ReflectionUtil.SpecialEmptyOrNoneToken).get shouldBe List.empty[String]
+    ReflectionUtil.constructFromString(classOf[Seq[_]], classOf[Int], ReflectionUtil.SpecialEmptyOrNoneToken).get shouldBe List.empty[Int]
+  }
+
+  it should "should not ignore values prior to the Empty token for collections" in {
+    ReflectionUtil.constructFromString(classOf[Seq[_]], classOf[String], "A", "B", ReflectionUtil.SpecialEmptyOrNoneToken).get shouldBe List("A", "B", ReflectionUtil.SpecialEmptyOrNoneToken)
+    ReflectionUtil.constructFromString(classOf[Seq[_]], classOf[String], "A", "B", ReflectionUtil.SpecialEmptyOrNoneToken, "C").get shouldBe List("A", "B", ReflectionUtil.SpecialEmptyOrNoneToken, "C")
   }
 
   class NoStringCtor(v: Int)

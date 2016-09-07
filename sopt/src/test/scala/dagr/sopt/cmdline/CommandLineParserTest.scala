@@ -438,7 +438,7 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
 
   it should "return a valid clp with and without using the clp name separator \"--\" and valid arguments" in {
     Stream(
-      //Array[String]("--", getName(classOf[PipelineThree]), "--argument", "value"),
+      Array[String]("--", nameOf(classOf[CommandLineProgramThree]), "--argument", "value"),
       Array[String](nameOf(classOf[CommandLineProgramThree]), "--argument", "value")
     ).foreach { args =>
       val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting,CommandLineProgramThree](args)
@@ -451,7 +451,7 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
     }
   }
 
-  it should "return a valid clp without using the clp name separator \"--\" and no arguments with a clp that requires no arguments" in {
+  it should "return a valid clp with and ithout using the clp name separator \"--\" and no arguments with a clp that requires no arguments" in {
     Stream(
       Array[String]("--", nameOf(classOf[CommandLineProgramFour])),
       Array[String](nameOf(classOf[CommandLineProgramFour]))
@@ -482,6 +482,45 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
     }
   }
 
+  it should "return a valid clp that has an option with a default value" in {
+    val args = Array[String](nameOf(classOf[CommandLineProgramWithOptionSomeDefault]))
+    val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting,CommandLineProgramWithOptionSomeDefault](args)
+    commandOption shouldBe 'defined
+    commandOption.get.getClass shouldBe classOf[CommandLineProgramTesting]
+    clpOption shouldBe 'defined
+    clpOption.get.getClass shouldBe classOf[CommandLineProgramWithOptionSomeDefault]
+    clpOption.get.argument shouldBe 'defined
+    clpOption.get.argument.get shouldBe "default"
+    output shouldBe 'empty
+    output shouldBe 'empty
+  }
+
+  it should "return a valid clp when an option with a default value is set to none" in {
+    val args = Array[String](nameOf(classOf[CommandLineProgramWithOptionSomeDefault]), "--argument", ReflectionUtil.SpecialEmptyOrNoneToken)
+    val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting,CommandLineProgramWithOptionSomeDefault](args)
+    commandOption shouldBe 'defined
+    commandOption.get.getClass shouldBe classOf[CommandLineProgramTesting]
+    clpOption shouldBe 'defined
+    clpOption.get.getClass shouldBe classOf[CommandLineProgramWithOptionSomeDefault]
+    clpOption.get.argument shouldBe 'empty
+    output shouldBe 'empty
+    output shouldBe 'empty
+  }
+
+  it should "return a valid clp when an collection with a default value is set to empty" in {
+    Seq(ReflectionUtil.SpecialEmptyOrNoneToken.toUpperCase, ReflectionUtil.SpecialEmptyOrNoneToken.toLowerCase()).foreach { token =>
+      val args = Array[String](nameOf(classOf[CommandLineProgramWithSeqDefault]), "--argument", token)
+      val (_, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting, CommandLineProgramWithSeqDefault](args)
+      commandOption shouldBe 'defined
+      commandOption.get.getClass shouldBe classOf[CommandLineProgramTesting]
+      clpOption shouldBe 'defined
+      clpOption.get.getClass shouldBe classOf[CommandLineProgramWithSeqDefault]
+      clpOption.get.argument shouldBe 'empty
+      output shouldBe 'empty
+      output shouldBe 'empty
+    }
+  }
+  
   "CommandLineParser.clpListUsage" should "throw a BadAnnotationException when a class without the @arg is given" in {
     val parser = new CommandLineParser[Seq[String]]("command-line-name")
     val classes =  Set[Class[_ <: Seq[String]]](classOf[Seq[String]], classOf[List[String]])

@@ -49,6 +49,8 @@ object ReflectionUtil {
   /** A runtime mirror for when it's necessary. */
   private val mirror: ru.Mirror = scala.reflect.runtime.currentMirror
 
+  val SpecialEmptyOrNoneToken = ":none:"
+
   /**
     * Creates a new instance of various java collections.  Will inspect the type given to see
     * if there is a no-arg constructor and will use that if possible.  If there is no constructor
@@ -290,7 +292,12 @@ object ReflectionUtil {
     */
   private[reflect] def typedValueFromString(resultType: Class[_], unitType: Class[_], value: String*): Try[Any] = Try {
     if (ReflectionUtil.isCollectionClass(resultType)) {
-      val typedValues = value.map(v => buildUnitFromString(unitType, v).get).asInstanceOf[Seq[java.lang.Object]]
+      val typedValues = if (value.length == 1 && value.head.toLowerCase == SpecialEmptyOrNoneToken) {
+        Seq.empty
+      }
+      else {
+        value.map(v => buildUnitFromString(unitType, v).get).asInstanceOf[Seq[java.lang.Object]]
+      }
 
       // Condition for the collection type
       if (ReflectionUtil.isJavaCollectionClass(resultType)) {
@@ -313,6 +320,9 @@ object ReflectionUtil {
     }
     else if (value.size != 1) {
       throw new ReflectionException(s"Expecting a single argument to convert to ${resultType.getSimpleName} but got ${value.size}")
+    }
+    else if (resultType == classOf[Option[_]] && value.head.toLowerCase == SpecialEmptyOrNoneToken) {
+      None
     }
     else {
       buildUnitOrOptionFromString(resultType, unitType, value.head).get

@@ -271,4 +271,3 @@ private[sopt] class ClpArgument(declaringClass: Class[_],
       throw new IllegalStateException("toCommandLineString not allowed on unset argument.")
   }
 }
-
