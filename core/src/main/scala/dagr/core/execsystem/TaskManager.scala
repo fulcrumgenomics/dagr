@@ -546,16 +546,19 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       allDone = graphNodesInStatesFor(List(ORPHAN, GraphNodeState.COMPLETED)).size == graphNodes.size
 
       if (!allDone && runningTasks.isEmpty && tasksToSchedule.isEmpty) {
-        logger.error("No running tasks and no tasks scheduled but had " + readyTasks.size + " tasks ready to be scheduled")
-        readyTasks.foreach(readyTask => {
-          val resources = readyTask match {
-            case t: FixedResources    => "Fixed Resources: " + t.resources
-            case t: VariableResources => "Variable Resources: " + t.resources
-            case t: Schedulable       => "Schedulable Resources: " + t.pickResources(new ResourceSet(Cores(Integer.MAX_VALUE), Memory.infinite)).getOrElse("Unknown Resources")
-            case t                    => "Unknown Resources"
+        logger.error(s"There are ${readyTasks.size} tasks ready to be scheduled but not enough system resources available.")
+        readyTasks.foreach { readyTask =>
+          val (resourcesType: String, resources: Option[ResourceSet]) = readyTask match {
+            case t: FixedResources    => ("FixedResources", Some(t.resources))
+            case t: VariableResources => ("VariableResources", Some(t.resources))
+            case t: Schedulable       => ("Schedulable", t.pickResources(new ResourceSet(Cores(Integer.MAX_VALUE), Memory.infinite)))
+            case t                    => ("Unknown Type", None)
           }
-          logger.error(readyTask.toString + " tasks status: " + taskStatusFor(readyTask) + " graph state: " + graphNodeStateFor(readyTask) + " resources: " + resources)
-        })
+          val cores  = resources.map(_.cores.toString).getOrElse("?")
+          val memory = resources.map(_.memory.prettyString).getOrElse("?")
+          logger.error(s"Task with name '${readyTask.name}' requires $cores cores and $memory memory (task schedulable type: $resourcesType)")
+        }
+        logger.error(s"There is ${taskManagerResources.cores} cores and ${taskManagerResources.systemMemory.prettyString} system memory available.")
         allDone = true
       }
       else if (failFast && hasFailedTasks) {
