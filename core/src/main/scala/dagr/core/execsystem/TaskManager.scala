@@ -48,6 +48,7 @@ object SystemResources {
   def apply(cores: Option[Cores] = None, totalMemory: Option[Memory] = None) : SystemResources = {
     val heapSize = Resource.heapSize
     val system   = totalMemory match {
+      case Some(memory) if heapSize >= memory => throw new IllegalArgumentException(s"Heap size ${heapSize.prettyString} (-Xmx) must less than the total memory of ${memory.prettyString}.")
       case Some(memory) => memory - heapSize
       case None         => Memory((Resource.systemMemory.bytes * TaskManagerDefaults.defaultSystemMemoryScalingFactor - heapSize.bytes).toLong)
     }
