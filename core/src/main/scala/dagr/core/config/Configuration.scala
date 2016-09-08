@@ -198,14 +198,18 @@ private[config] trait ConfigurationLike extends LazyLogging {
     *
     * @param binPath the configuration path to look up, representing the directory containing the executable
     * @param executable the default name of the executable
+    * @param subDir optionally a sub-directory within the bin-directory containing the executable.
     * @return An absolute path to the executable to use
     */
-  def configureExecutableFromBinDirectory(binPath: String, executable: String) : Path = {
+  def configureExecutableFromBinDirectory(binPath: String, executable: String, subDir: Option[Path] = None) : Path = {
     Configuration.RequestedKeys += binPath
 
     optionallyConfigure[Path](binPath) match {
       case Some(exec) =>
-        pathTo(exec.toString, executable)
+        subDir match {
+          case Some(dir) => pathTo(exec.toString, dir.toString, executable)
+          case None      => pathTo(exec.toString, executable)
+        }
       case None => findInPath(executable) match {
         case Some(exec) => exec
         case None => throw new Generic(s"Could not configurable executable. Config path '$binPath' is not defined and executable '$executable' is not in PATH.")

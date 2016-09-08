@@ -24,7 +24,7 @@
 package dagr.core.config
 
 import java.io.PrintWriter
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.time.Duration
 
 import com.typesafe.config.{ConfigException, ConfigFactory}
@@ -131,6 +131,7 @@ class ConfigurationTest extends UnitSpec {
   it should "find executables" in {
     conf.configureExecutable("some-executable", "n/a") shouldBe PathUtil.pathTo("/does/not/exist")
     conf.configureExecutableFromBinDirectory("some-executable", "exec") shouldBe PathUtil.pathTo("/does/not/exist/exec")
+    conf.configureExecutableFromBinDirectory("some-executable", "exec", Some(Paths.get("some", "subdir"))) shouldBe PathUtil.pathTo("/does/not/exist/some/subdir/exec")
 
     var java = conf.configureExecutable("java.exe", "java")
     java.getFileName.toString shouldBe "java"
