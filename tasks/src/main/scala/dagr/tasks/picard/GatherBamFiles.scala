@@ -29,8 +29,8 @@ import dagr.tasks.DagrDef._
 
 import scala.collection.mutable.ListBuffer
 
-class GatherBamFiles(val in: Seq[PathToBam], val out: PathToBam)
-  extends PicardTask(createIndex = Some(true)) {
+class GatherBamFiles(val in: Seq[PathToBam], val out: PathToBam, createIndex: Option[Boolean] = Some(true))
+  extends PicardTask(createIndex=createIndex) {
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     in.foreach(p => buffer.append("INPUT=" + p))
     buffer.append("OUTPUT=" + out)
