@@ -144,7 +144,7 @@ private object TaskExecutionRunner {
   }
 }
 
-/** Tracks and run a set of [[Task]]s. */
+/** Tracks and run a set of [[dagr.core.tasksystem.Task]]s. */
 private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with LazyLogging {
   import TaskExecutionRunner._
   private val processes: mutable.Map[TaskId, Thread] = new mutable.HashMap[TaskId, Thread]()
@@ -204,11 +204,14 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
                            failedAreCompleted: Boolean = false): Unit = {
 
 
-    taskInfo.endDate = Some(Instant.now())
-    taskInfo.status = {
-      if ((0 == exitCode && onCompleteSuccessful) || failedAreCompleted) TaskStatus.SUCCEEDED
-      else if (0 != exitCode) TaskStatus.FAILED_COMMAND
-      else TaskStatus.FAILED_ON_COMPLETE // implied !onCompleteSuccessful
+    // In case it has previously been stopped
+    if (TaskStatus.isTaskNotDone(taskInfo.status, failedIsDone=failedAreCompleted)) {
+      taskInfo.endDate = Some(Instant.now())
+      taskInfo.status = {
+        if ((0 == exitCode && onCompleteSuccessful) || failedAreCompleted) TaskStatus.SUCCEEDED
+        else if (0 != exitCode) TaskStatus.FAILED_COMMAND
+        else TaskStatus.FAILED_ON_COMPLETE // implied !onCompleteSuccessful
+      }
     }
     throwable.foreach { thr =>
         logger.error(
@@ -230,12 +233,12 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
       val taskInfo = taskInfos(taskId)
       // update its end date, status, and log any exceptions
       completeTask(
-        taskId=taskId,
-        taskInfo=taskInfo,
-        exitCode=exitCode,
-        onCompleteSuccessful=onCompleteSuccessful,
-        throwable=taskRunnable.throwable,
-        failedAreCompleted=failedAreCompleted
+        taskId               = taskId,
+        taskInfo             = taskInfo,
+        exitCode             = exitCode,
+        onCompleteSuccessful = onCompleteSuccessful,
+        throwable            = taskRunnable.throwable,
+        failedAreCompleted   = failedAreCompleted
       )
       // store the relevant info in the completed tasks map
       completedTasks.put(taskId, (exitCode, onCompleteSuccessful))
@@ -253,18 +256,15 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
   override def terminateTask(taskId: TaskId): Boolean = {
       processes.get(taskId) match {
         case Some(thread) =>
+          val taskInfo = taskInfos(taskId)
           thread.join(1) // just give it 0.001 of second
           if (thread.isAlive) {
             // if it is alive, interrupt it
             thread.interrupt()
             thread.join(100) // just give it 0.1 of second
-          }
-          val taskInfo = taskInfos.get(taskId) match {
-            case Some(info) => info
-            case None => throw new IllegalStateException(s"Could not find task info for task id '$taskId'.")
+            taskInfo.status = TaskStatus.STOPPED
           }
           taskInfo.endDate = Some(Instant.now())
-          taskInfo.status = TaskStatus.STOPPED
           !thread.isAlive // thread is still alive WTF
         case _  => false
       }
