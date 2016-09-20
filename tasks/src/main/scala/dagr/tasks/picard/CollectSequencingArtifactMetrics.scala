@@ -37,7 +37,7 @@ class CollectSequencingArtifactMetrics(val in: PathToBam,
                                        val minMq: Option[Int] = None,
                                        val includeUnpaired: Option[Boolean] = None,
                                        val contextSize: Option[Int] = None,
-                                       val extension: Option[String] = Some(".txt'")
+                                       val extension: Option[String] = Some(".txt")
                                       ) extends PicardTask with PicardMetricsTask {
 
   // No single extension since multiple outputs
