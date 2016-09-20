@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,31 +21,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.tasks.picard
 
-import java.nio.file.Path
+package dagr.tasks.misc
 
-import dagr.tasks.DagrDef
-import DagrDef.{PathToBam, PathToFasta}
+import dagr.commons.io.Io
+import dagr.core.tasksystem.{FixedResources, InJvmTask}
+import dagr.tasks.DagrDef.DirPath
 
-import scala.collection.mutable.ListBuffer
+/**
+ *  Creates a directory along with any non-existent parents. Returns 0 if the directory exists
+ *  after running (including if it already existed), 1 otherwise.
+ */
+class MakeDirectory(val dir: DirPath) extends InJvmTask with FixedResources {
+  requires(cores=0, memory="16k")
 
-object CollectAlignmentSummaryMetrics {
-   def metricsExtension: String = ".alignment_summary_metrics"
-}
-
-class CollectAlignmentSummaryMetrics(override val in: PathToBam,
-                                     override val prefix: Option[Path] = None,
-                                     ref: PathToFasta,
-                                     assumeSorted: Boolean = true)
-  extends PicardTask with PicardMetricsTask {
-
-  override def metricsExtension: String = CollectAlignmentSummaryMetrics.metricsExtension
-
-  override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("I=" + in)
-    buffer.append("O=" + metricsFile)
-    buffer.append("R=" + ref)
-    buffer.append("AS=" + assumeSorted)
-  }
+  override def inJvmMethod(): Int = if (Io.mkdirs(dir)) 0 else 1
 }

@@ -34,6 +34,7 @@ import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem._
 import dagr.tasks.DagrDef.{FilePath, PathToBam, PathToFasta, PathToVcf}
 import dagr.tasks.DataTypes.Vcf
+import dagr.tasks.misc.DeleteFiles
 import dagr.tasks.picard.SortVcf
 import htsjdk.samtools.SamReaderFactory
 
@@ -50,13 +51,13 @@ object VarDictJava extends Configuration {
   val RootDirConfigKey = "vardictjava.dir"
 
   /** Path to the VarDictJava directory. */
-  lazy val RootDir = configure[Path](RootDirConfigKey)
+  val RootDir = configure[Path](RootDirConfigKey)
 
   /** Path to the VarDictJava install directory with the VarDictJava startup script. */
-  lazy val VarDictJava = RootDir.resolve("build/install/VarDict/bin/VarDict")
+  val VarDictJava = RootDir.resolve("build/install/VarDict/bin/VarDict")
 
   /** Path to the VarDictJava bin directory with a multitude of perl scripts. */
-  lazy val BinDir = RootDir.resolve("VarDict")
+  val BinDir = RootDir.resolve("VarDict")
 
   /** Pulls a sample name out of a BAM file. */
   private[vc] def extractSampleName(bam: PathToBam) : String = {
@@ -85,10 +86,8 @@ private class VarDictJava(tumorBam: PathToBam,
   }
 
   override def args: Seq[Any] = {
-    val vdScript = VarDictJava.VarDictJava
     val buffer   = new ListBuffer[Any]()
-
-    buffer.appendAll(List(vdScript, "-G", ref, "-N", tumorName, "-b", tumorBam))
+    buffer.appendAll(List(VarDictJava.VarDictJava, "-G", ref, "-N", tumorName, "-b", tumorBam))
     buffer.append("-z", "1") // Set to 1 since we are using a BED as input
     buffer.append("-c", "1") // The column for the chromosome
     buffer.append("-S", "2") // The column for the region start
@@ -113,7 +112,7 @@ private class VarDictJava(tumorBam: PathToBam,
 class VarDictJavaEndToEnd(tumorBam: PathToBam,
                           bed: FilePath,
                           ref: PathToFasta,
-                          out: PathToVcf = Io.StdOut,
+                          out: PathToVcf,
                           tumorName: Option[String] = None,
                           minimumAf: Double = 0.01,
                           includeNonPf: Boolean = false,
@@ -123,12 +122,14 @@ class VarDictJavaEndToEnd(tumorBam: PathToBam,
                           maxThreads: Int = 32) extends Pipeline {
   import VarDictJava.BinDir
 
+  // Put these here so that they'll error at construction if missing
+  private val biasScript = BinDir.resolve("teststrandbias.R")
+  private val vcfScript  = BinDir.resolve("var2vcf_valid.pl")
+
   def build(): Unit = {
     val tn = tumorName.getOrElse(VarDictJava.extractSampleName(bam=tumorBam))
     val dict = PathUtil.replaceExtension(ref, ".dict")
-
-    val biasScript = BinDir.resolve("teststrandbias.R")
-    val vcfScript  = BinDir.resolve("var2vcf_valid.pl")
+    val tmpVcf = Io.makeTempFile("vardict.", ".vcf", dir= if (out == Io.StdOut) None else Some(out.getParent))
 
     val vardict = new VarDictJava(
       tumorBam          = tumorBam,
@@ -145,11 +146,11 @@ class VarDictJavaEndToEnd(tumorBam: PathToBam,
     val bias               = new ShellCommand(biasScript.toString) with Pipe[Any,Any]
     val toVcf              = new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with Pipe[Any,Vcf]
     val removeRefEqAltRows = new ShellCommand("awk", "{if ($1 ~ /^#/) print; else if ($4 != $5) print}") with Pipe[Vcf,Vcf]
-    val sortVcf            = new SortVcf(dict=Some(dict))
+    val sortVcf            = new SortVcf(in=tmpVcf, out=out, dict=Some(dict))
 
     bias.requires(Cores(0), Memory("32m"))
     toVcf.requires(Cores(0), Memory("32m"))
 
-    root ==> (vardict | bias | toVcf | removeRefEqAltRows | sortVcf > out).withName(this.getClass.getSimpleName)
+    root ==> (vardict | bias | toVcf | removeRefEqAltRows > tmpVcf).withName("VarDictJava") ==> sortVcf ==> new DeleteFiles(tmpVcf)
   }
 }

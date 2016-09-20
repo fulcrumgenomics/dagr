@@ -26,7 +26,6 @@ package dagr.commons.io
 import java.io._
 import java.nio.file.{Files, Path}
 
-import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
 /**
@@ -65,6 +64,12 @@ trait IoUtil {
 
   /** Makes a new temporary directory. */
   def makeTempDir(name: String) : Path = Files.createTempDirectory(name)
+
+  /** Makes a new temporary file. */
+  def makeTempFile(prefix: String, suffix: String, dir: Option[Path] = None) : Path = dir match {
+    case Some(path) => Files.createTempFile(path, prefix, suffix)
+    case None       => Files.createTempFile(prefix, suffix)
+  }
 
   /** Asserts that the Path represents a file that can be opened and read. */
   def assertReadable(paths : TraversableOnce[_ <: Path]) : Unit = paths.foreach(assertReadable)
