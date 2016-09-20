@@ -46,7 +46,7 @@ object TaskStatus extends Enumeration {
     * @return true if the task is done, false otherwise
     */
   def isTaskDone(taskStatus: TaskStatus, failedIsDone: Boolean = true): Boolean = {
-    (isTaskFailed(taskStatus) && failedIsDone) || SUCCEEDED == taskStatus || MANUALLY_SUCCEEDED == taskStatus
+    (isTaskFailed(taskStatus) && failedIsDone) || SUCCEEDED == taskStatus || MANUALLY_SUCCEEDED == taskStatus || STOPPED == taskStatus
   }
 
   /** Checks if a task with a given status is not done.

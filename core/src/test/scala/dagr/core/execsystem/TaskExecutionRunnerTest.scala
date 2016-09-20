@@ -40,7 +40,24 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
   * Simple Tasks, both in Process and in Jvm
   *********************************************/
 
-  private def setupTaskList(argv: List[String], taskId: TaskId = 1): (UnitTask, TaskId, TaskExecutionInfo) = {
+  private def setupTaskListWithTask(task: UnitTask, taskId: TaskId = 1): (TaskId, TaskExecutionInfo) = {
+    // setup
+    val script: Path = Files.createTempFile("TaskRunnerTest", ".sh")
+    val logFile: Path = Files.createTempFile("TaskRunnerTest", ".log")
+    val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
+      task = task,
+      taskId = taskId,
+      status = TaskStatus.UNKNOWN,
+      submissionDate = None,
+      startDate = None,
+      endDate = None,
+      attemptIndex = 1,
+      script = script,
+      logFile = logFile)
+    (taskId, taskInfo)
+  }
+
+  private def setupTaskList(argv: List[String], taskId: TaskId = 1, aTask: Option[Task] = None): (UnitTask, TaskId, TaskExecutionInfo) = {
     // setup
     val script: Path = Files.createTempFile("TaskRunnerTest", ".sh")
     val logFile: Path = Files.createTempFile("TaskRunnerTest", ".log")
@@ -170,7 +187,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     }
   }
 
-  it should "terminate a sleeping thread" in {
+  it should "terminate a sleeping thread and the task should be stopped" in {
     val (task, taskId, taskInfo) = setupTaskList(List[String]("sleep", "1000"), 1)
     val taskRunner: TaskExecutionRunner = new TaskExecutionRunner()
 
@@ -186,8 +203,37 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       task                 = task,
       taskId               = taskId,
       taskInfo             = taskInfo,
-      taskStatus           = TaskStatus.FAILED_COMMAND,
+      taskStatus           = TaskStatus.STOPPED,
       exitCode             = TaskExecutionRunner.InterruptedExitCode,
+      onCompleteSuccessful = true,
+      failedAreCompleted   = false
+    )
+  }
+
+  it should "terminate a completed thread and the task should be successful" in {
+    var hasRun = false
+    val task = new SimpleInJvmTask() { def run(): Unit = { hasRun = true } }
+    val (taskId, taskInfo) = setupTaskListWithTask(task=task,  1)
+    val taskRunner: TaskExecutionRunner = new TaskExecutionRunner()
+
+    taskRunner.runTask(taskInfo = taskInfo)
+    taskRunner.runningTaskIds should have size (1) // there should be a running task
+
+    while (!hasRun) {
+      Thread.sleep(10)
+    }
+
+    // terminate it
+    taskRunner.terminateTask(taskId = taskId) should be (true)
+
+    // get the completed tasks
+    getCompletedTask(
+      taskRunner           = taskRunner,
+      task                 = task,
+      taskId               = taskId,
+      taskInfo             = taskInfo,
+      taskStatus           = TaskStatus.SUCCEEDED,
+      exitCode             = 0,
       onCompleteSuccessful = true,
       failedAreCompleted   = false
     )
@@ -244,7 +290,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       task                 = task,
       taskId               = taskId,
       taskInfo             = taskInfo,
-      taskStatus           = TaskStatus.FAILED_COMMAND,
+      taskStatus           = TaskStatus.STOPPED,
       exitCode             = TaskExecutionRunner.InterruptedExitCode,
       onCompleteSuccessful = true,
       failedAreCompleted   = false
