@@ -64,3 +64,11 @@ private[cmdline] case class CommandLineProgramWithMutex
 
 @clp(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] class CommandLineProgramNoArgs extends CommandLineProgramTesting
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private[cmdline] case class CommandLineProgramWithOptionSomeDefault
+(@arg var argument: Option[String] = Some("default")) extends CommandLineProgramTesting
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private[cmdline] case class CommandLineProgramWithSeqDefault
+(@arg var argument: Seq[String] = Seq("default")) extends CommandLineProgramTesting

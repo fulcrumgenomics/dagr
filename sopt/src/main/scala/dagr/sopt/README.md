@@ -82,3 +82,8 @@ or multiple values one after each other:
 - A single value option must have a value after its option name.
 - A multiple value option must have one or more values after its option name.
 
+## Special Types
+
+Arguments of type `Option` can be cleared using the special `:None:` (case-sensitive) token.
+Collection arguments can be cleared using the special `:None:` (case-sensitive) token, with all values after used.  
+The latter may be useful if the argument has a default value, and we wish to override (not just append).
