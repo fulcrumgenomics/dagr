@@ -149,6 +149,7 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.isCollection should be(false)
     argument.value.get should be(aPath.asInstanceOf[Any])
     argument.value.get.asInstanceOf[Option[PathToNowhere]] should be(aPath)
+    argument.hasValue shouldBe true
     argument.typeDescription shouldBe "PathToNowhere"
     // try with.value = 
     argument.value = aNewPath
@@ -160,6 +161,29 @@ class ClpArgumentTest extends UnitSpec with OptionValues {
     argument.value.get shouldBe aPath.asInstanceOf[Any]
     argument.value.get.asInstanceOf[Option[PathToNowhere]] should be (aPath)
     argument.value.get.asInstanceOf[Option[PathToNowhere]].value should be (aPath.get)
+  }
+
+  it should "store a Option[PathToNowhere] with a default value of None" in {
+    val aPath: Option[Option[PathToNowhere]] = None
+    val aNewPath = Option(PathUtil.pathTo("b", "path"))
+    val argument = makeClpArgument(classOf[PathToNowhereOptionClass], aPath)
+    argument.isFlag should be(false)
+    argument.isCollection should be(false)
+    argument.value.get should be(aPath.asInstanceOf[Any])
+    argument.value.get.asInstanceOf[Option[PathToNowhere]] should be(aPath)
+    argument.hasValue shouldBe false
+    argument.typeDescription shouldBe "PathToNowhere"
+    // try with.value =
+    argument.value = aNewPath
+    argument.value.get shouldBe aNewPath.asInstanceOf[Any]
+    argument.value.get.asInstanceOf[Option[PathToNowhere]] should be (aNewPath)
+    argument.value.get.asInstanceOf[Option[PathToNowhere]].value should be (aNewPath.get)
+    // try with setArgument
+    // FIXME: need a way to give a string that creates "None"
+    //argument.setArgument(aPath.get.toString)
+    //argument.value.get shouldBe aPath.asInstanceOf[Any]
+    //argument.value.get.asInstanceOf[Option[PathToNowhere]] should be (aPath)
+    //argument.value.get.asInstanceOf[Option[PathToNowhere]].value should be (aPath.get)
   }
 
   it should "get the description correctly for type aliases" in {
