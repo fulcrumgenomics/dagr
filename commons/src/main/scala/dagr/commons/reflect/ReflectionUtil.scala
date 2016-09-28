@@ -23,17 +23,18 @@
  */
 package dagr.commons.reflect
 
-import java.lang.reflect.{InvocationTargetException, Constructor}
+import java.lang.reflect.{Constructor, InvocationTargetException}
 import java.nio.file.Path
 
 import dagr.commons.io.PathUtil
 import dagr.commons.CommonsDef._
 
 import scala.annotation.ClassfileAnnotation
+import scala.collection.mutable
 import scala.reflect._
 import scala.reflect.runtime.universe._
 import scala.reflect.runtime.{universe => ru}
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 
 /** Base class for all exceptions thrown by the reflection util */
 class ReflectionException(msg: String) extends RuntimeException(msg) {
@@ -50,6 +51,9 @@ object ReflectionUtil {
   private val mirror: ru.Mirror = scala.reflect.runtime.currentMirror
 
   val SpecialEmptyOrNoneToken = ":none:"
+
+  /** A cache of Type objects to their Class objects. */
+  private val typeToClassCache = mutable.HashMap[Type, Class[_]]()
 
   /**
     * Creates a new instance of various java collections.  Will inspect the type given to see
@@ -243,11 +247,19 @@ object ReflectionUtil {
     * Takes a Type symbol that represents a concrete class and returns the Class object associated with it.
     */
   def typeToClass(typ : Type) : Class[_] = {
-    if      (typ.typeSymbol.asClass == typeOf[Any].typeSymbol.asClass)      classOf[Any]
-    else if (typ.typeSymbol.asClass == typeOf[AnyRef].typeSymbol.asClass)   classOf[AnyRef]
-    else if (typ.typeSymbol.asClass == typeOf[AnyVal].typeSymbol.asClass)   classOf[AnyVal]
-    else if (typ.typeSymbol.asClass == typeOf[Array[_]].typeSymbol.asClass) classOf[Array[_]]
-    else mirror.runtimeClass(typ.typeSymbol.asClass)
+    this.typeToClassCache.get(typ) match {
+      case Some(c) => c
+      case None    =>
+        val c = {
+          if      (typ.typeSymbol.asClass == typeOf[Any].typeSymbol.asClass)      classOf[Any]
+          else if (typ.typeSymbol.asClass == typeOf[AnyRef].typeSymbol.asClass)   classOf[AnyRef]
+          else if (typ.typeSymbol.asClass == typeOf[AnyVal].typeSymbol.asClass)   classOf[AnyVal]
+          else if (typ.typeSymbol.asClass == typeOf[Array[_]].typeSymbol.asClass) classOf[Array[_]]
+          else mirror.runtimeClass(typ.typeSymbol.asClass)
+        }
+        this.typeToClassCache(typ) = c
+        c
+    }
   }
 
   /** Gets the annotation of type `T` of the class `clazz` */
