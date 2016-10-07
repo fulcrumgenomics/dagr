@@ -143,7 +143,9 @@ class DagrCoreMain(
   @arg(doc = "Write an execution report to this file, otherwise write to the stdout", common = true)
   val report: Option[Path] = None,
   @arg(doc = "Provide an top-like interface for tasks with the give delay in seconds. This suppress info logging.")
-  var interactive: Boolean = false
+  var interactive: Boolean = false,
+  @arg(doc = "The scheduling strategy when choosing between tasks whose resource needs can be met.")
+  var schedulingStrategy: SchedulingStrategy = SchedulingStrategy.AnyTask
 ) extends LazyLogging {
 
   // These are not optional, but are only populated during configure()
@@ -189,7 +191,7 @@ class DagrCoreMain(
       this.reportPath.foreach(p => Io.assertCanWriteFile(p, parentMustExist=false))
 
       val resources = SystemResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
-      this.taskManager = Some(new TaskManager(taskManagerResources=resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
+      this.taskManager = Some(new TaskManager(taskManagerResources=resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory, scheduler = NaiveScheduler(schedulingStrategy)))
     }
     catch {
       case v: ValidationException => throw v

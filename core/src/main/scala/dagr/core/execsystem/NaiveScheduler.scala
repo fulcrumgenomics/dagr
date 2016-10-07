@@ -24,9 +24,67 @@
 package dagr.core.execsystem
 
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, UnitTask}
+import SchedulingStrategy._
+import dagr.commons.CommonsDef.unreachable
+
+/** A little trait to help choose a task to be scheduled among a set of tasks whose resource needs can be met. */
+trait SelectTaskScheduler {
+  /**
+    * Selects a task to be scheduled among a set of tasks whose resource needs can be met.
+ *
+    * @param tasksAndResources the task its associated resource set.
+    * @return
+    */
+  protected def selectTask(tasksAndResources: Traversable[(UnitTask, ResourceSet)]): Option[(UnitTask, ResourceSet)]
+}
+
+/** Selects the first task encountered regardless. */
+trait SelectFirstTaskScheduler extends SelectTaskScheduler {
+  override protected def selectTask(tasksAndResources: Traversable[(UnitTask, ResourceSet)]): Option[(UnitTask, ResourceSet)] = tasksAndResources.headOption
+}
+
+/** Selects the task with the smallest Task Id. */
+trait SelectMinimumIdTaskScheduler extends SelectTaskScheduler {
+  override protected def selectTask(tasksAndResources: Traversable[(UnitTask, ResourceSet)]): Option[(UnitTask, ResourceSet)] = {
+    tasksAndResources.toSeq
+      .sortBy(_._1.taskInfo.taskId)
+      .headOption
+  }
+}
+
+/** Selects the task needing the most cores. */
+trait SelectMaximumCoresTaskScheduler extends SelectTaskScheduler {
+  override protected def selectTask(tasksAndResources: Traversable[(UnitTask, ResourceSet)]): Option[(UnitTask, ResourceSet)] = {
+    tasksAndResources.toSeq
+      .sortBy(_._2.cores.value)
+      .lastOption
+  }
+}
+
+/** Selects the task needing the most memory. */
+trait SelectMaximumMemoryTaskScheduler extends SelectTaskScheduler {
+  override protected def selectTask(tasksAndResources: Traversable[(UnitTask, ResourceSet)]): Option[(UnitTask, ResourceSet)] = {
+    tasksAndResources.toSeq
+      .sortBy(_._2.memory.value)
+      .lastOption
+  }
+}
+
+object NaiveScheduler {
+  /** Create a naive scheduler with the provided strategy to select among tasks whose resources needs can be met. */
+  def apply(strategy: SchedulingStrategy = AnyTask): NaiveScheduler = {
+    strategy match {
+      case AnyTask   => new NaiveScheduler with SelectFirstTaskScheduler
+      case MinTaskId => new NaiveScheduler with SelectMinimumIdTaskScheduler
+      case MaxCores  => new NaiveScheduler with SelectMaximumCoresTaskScheduler
+      case MaxMemory => new NaiveScheduler with SelectMaximumMemoryTaskScheduler
+      case _         => unreachable("Unknown scheduling strategy")
+    }
+  }
+}
 
 /** Simple scheduler that picks the task that uses the most memory, cores, then disk. */
-class NaiveScheduler extends Scheduler {
+abstract class NaiveScheduler extends Scheduler with SelectTaskScheduler {
   /**
     * Takes the list of tasks that could be scheduled if their resource needs can be met and attempts
     * to schedule a single task for execution.
@@ -37,21 +95,18 @@ class NaiveScheduler extends Scheduler {
                                           remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
     val systemResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingSystemMemory)
     val jvmResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingJvmMemory)
-    // Find the first task that can be executed
-    readyTasks
+    // Find a task that can be executed
+    val schedulableTasks = readyTasks
       .view // lazy
       .map { // pick resources
         case task: ProcessTask => (task, task.pickResources(systemResourceSet))
         case task: InJvmTask   => (task, task.pickResources(jvmResourceSet))
       }
-      .find { // find the first that returned a resource set
-        case (_, Some(resourceSet)) => true
-        case _ => false
+      .flatMap { // find those that returned a resource set
+        case (task, Some(resourceSet)) => Some((task, resourceSet))
+        case _ => None
       }
-      .map { // get the resource set
-        case (task, Some(resourceSet)) => (task, resourceSet)
-        case _ => throw new IllegalStateException("BUG")
-      }
+    selectTask(schedulableTasks)
   }
 
   /** Runs one round of scheduling, trying to schedule as many ready tasks as possible given the
