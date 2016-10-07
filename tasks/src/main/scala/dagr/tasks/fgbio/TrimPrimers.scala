@@ -32,6 +32,7 @@ import scala.collection.mutable.ListBuffer
 class TrimPrimers(val in: PathToBam,
                   val out: PathToBam,
                   val primers: FilePath,
+                  val ref: Option[PathToFasta],
                   val slop: Option[Int] = None,
                   val hardClip: Option[Boolean] = None,
                   val sortOrder: Option[SortOrder] = None
@@ -41,6 +42,7 @@ class TrimPrimers(val in: PathToBam,
     buffer.append("-i", in)
     buffer.append("-o", out)
     buffer.append("-p", primers)
+    ref.foreach(r => buffer.append("-r", r))
     slop.foreach(s => buffer.append("-S", s))
     hardClip.foreach(h => buffer.append("-H", h))
     sortOrder.foreach(so => buffer.append("-s", so))
