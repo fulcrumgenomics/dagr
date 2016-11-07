@@ -27,10 +27,11 @@ package dagr.tasks.fgbio
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Memory, Cores}
+import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.JarTask
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 object FgBioTask {
@@ -39,8 +40,11 @@ object FgBioTask {
 
 /**
   * Base Task for any task in the FgBio jar.
+  *
+  * @param compressionLevel the compress level to use for HTSJDK.
   */
-abstract class FgBioTask extends ProcessTask with JarTask with FixedResources with Configuration {
+abstract class FgBioTask(var compressionLevel: Option[Int] = None)
+  extends ProcessTask with JarTask with FixedResources with Configuration {
   requires(Cores(1), Memory("4G"))
 
   /** Looks up the first super class that does not have "\$anon\$" in its name. */
@@ -50,7 +54,9 @@ abstract class FgBioTask extends ProcessTask with JarTask with FixedResources wi
 
   override final def args: Seq[Any] = {
     val buffer = ListBuffer[Any]()
-    buffer.appendAll(jarArgs(this.fgBioJar, jvmMemory=this.resources.memory))
+    val jvmProps = mutable.Map[String,String]()
+    compressionLevel.foreach(c => jvmProps("samjdk.compression_level") = c.toString)
+    buffer.appendAll(jarArgs(this.fgBioJar, jvmProperties=jvmProps, jvmMemory=this.resources.memory))
     buffer += commandName
     addFgBioArgs(buffer)
     buffer
@@ -61,4 +67,7 @@ abstract class FgBioTask extends ProcessTask with JarTask with FixedResources wi
 
   /** Implement this to add the tool-specific arguments */
   protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit
+
+  /** Sets the compression level to a specific value. */
+  def withCompression(i: Int) : this.type = { this.compressionLevel = Some(i); this }
 }
