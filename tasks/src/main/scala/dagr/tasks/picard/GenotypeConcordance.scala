@@ -34,15 +34,16 @@ import scala.collection.mutable.ListBuffer
   *
   * Please note MISSING_SITES_HOM_REF is set to true by default, whereas the default in GenotypeConcordance is false. */
 class GenotypeConcordance(val truthVcf: PathToVcf,
-                         val callVcf: PathToVcf,
-                         var truthSample: String,
-                         var callSample: String,
-                         val prefix: Path,
-                         val intervals: List[PathToIntervals] = Nil,
-                         val intersectIntervals: Boolean = true,
-                         val minGQ: Int = 0,
-                         val minDP: Int = 0,
-                         val missingSitesAreHomRef: Boolean = true
+                          val callVcf: PathToVcf,
+                          var truthSample: String,
+                          var callSample: String,
+                          val prefix: Path,
+                          val outputVcf: Boolean = true,
+                          val intervals: List[PathToIntervals] = Nil,
+                          val intersectIntervals: Boolean = true,
+                          val minGQ: Int = 0,
+                          val minDP: Int = 0,
+                          val missingSitesAreHomRef: Boolean = true
                          ) extends PicardTask {
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
@@ -51,6 +52,7 @@ class GenotypeConcordance(val truthVcf: PathToVcf,
     buffer.append("TRUTH_SAMPLE="          + truthSample)
     buffer.append("CALL_SAMPLE="           + callSample)
     buffer.append("OUTPUT="                + prefix.toAbsolutePath)
+    buffer.append("OUTPUT_VCF="            + outputVcf)
     intervals.foreach(interval => buffer.append("INTERVALS=" + interval.toAbsolutePath))
     buffer.append("INTERSECT_INTERVALS="   + intersectIntervals)
     buffer.append("MIN_GQ="                + minGQ)

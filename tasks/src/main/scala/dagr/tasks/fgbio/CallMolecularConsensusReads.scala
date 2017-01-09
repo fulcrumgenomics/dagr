@@ -43,11 +43,8 @@ class CallMolecularConsensusReads(val in: PathToBam,
                                   val errorRatePreUmi: Option[Int] = None,
                                   val errorRatePostUmi: Option[Int] = None,
                                   val minInputBaseQuality: Option[Int] = None,
-                                  val maxBaseQuality: Option[Int] = None,
-                                  val baseQualityShift: Option[Int] = None,
                                   val minConsensusBaseQuality: Option[Int] = None,
                                   val minReads: Option[Int] = None,
-                                  val minMeanConsensusBaseQuality: Option[Int] = None,
                                   val requireConsensusForBothPairs: Boolean = false
                                  ) extends FgBioTask with Pipe[SamOrBam, SamOrBam] {
 
@@ -61,11 +58,8 @@ class CallMolecularConsensusReads(val in: PathToBam,
     errorRatePreUmi.foreach              (x => buffer.append("-1", x))
     errorRatePostUmi.foreach             (x => buffer.append("-2", x))
     minInputBaseQuality.foreach          (x => buffer.append("-m", x))
-    maxBaseQuality.foreach               (x => buffer.append("-q", x))
-    baseQualityShift.foreach             (x => buffer.append("-s", x))
     minConsensusBaseQuality.foreach      (x => buffer.append("-N", x))
     minReads.foreach                     (x => buffer.append("-M", x))
-    minMeanConsensusBaseQuality.foreach  (x => buffer.append("-Q", x))
     buffer.append("-P", requireConsensusForBothPairs)
   }
 }

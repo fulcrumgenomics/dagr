@@ -40,6 +40,7 @@ object AssignmentStrategy extends Enumeration {
 /** Task to invoke GroupReadsByUmi. */
 class GroupReadsByUmi(val in:  PathToBam,
                       val out: PathToBam,
+                      val familySizeOut: Option[FilePath] = None,
                       val rawTag: Option[String] = None,
                       val assignTag: String,
                       val minMapQ: Option[Int] = None,
@@ -51,6 +52,7 @@ class GroupReadsByUmi(val in:  PathToBam,
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
     buffer.append("-o", out)
+    familySizeOut.foreach(f => buffer.append("-f", f))
     rawTag.foreach(t => buffer.append("-t", t))
     buffer.append("-T", assignTag)
     minMapQ.foreach(m => buffer.append("-m", m))
