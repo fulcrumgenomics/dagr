@@ -53,6 +53,8 @@ object SystemResources {
       case None         => (Resource.systemMemory - heapSize, heapSize)
     }
 
+    require(system.bytes > 0, "System memory cannot be <= 0 bytes.")
+
     new SystemResources(cores.getOrElse(Resource.systemCores), system, jvm)
   }
 
