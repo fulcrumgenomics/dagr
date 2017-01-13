@@ -174,6 +174,13 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   /** For testing purposes only. */
   private[execsystem] def completedTasks(failedAreCompleted: Boolean): Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks(failedAreCompleted=failedAreCompleted)
 
+  /** Logs a message for the given task. */
+  private def logTaskMessage(intro: String, taskInfo: TaskExecutionInfo): Unit = {
+    val cores  = taskInfo.resources.cores.toString
+    val memory = taskInfo.resources.memory.prettyString
+    logger.info(s"$intro '${taskInfo.task.name}' ${taskInfo.status} on attempt #${taskInfo.attemptIndex} with $cores cores and $memory memory")
+  }
+
   /** Replace the original task with the replacement task and update
    * any internal references.  This will terminate the task if it is running.
    *
@@ -261,7 +268,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private[execsystem] def processCompletedTask(taskId: TaskId, doRetry: Boolean = true): Unit = {
     val node      = this(taskId)
     val taskInfo  = node.taskInfo
-    logger.info("processCompletedTask: Task [" + taskInfo.task.name + "] had TaskStatus=" + taskInfo.status.toString)
+    logTaskMessage(intro="Task", taskInfo=taskInfo)
     val updateNodeToCompleted: Boolean = if (TaskStatus.isTaskFailed(taskStatus = taskInfo.status) && doRetry) {
       val retryTask = taskInfo.task match {
         case retry: Retry => retry.retry(this.getTaskManagerResources, taskInfo)
@@ -476,11 +483,12 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       taskInfo.resources = taskResourceSet // update the resource set that was used when scheduling the task
       if (taskExecutionRunner.runTask(taskInfo, simulate)) {
         node.state = RUNNING
+        logTaskMessage(intro="Starting task", taskInfo=taskInfo)
       }
       else {
         completeGraphNode(node, Some(taskInfo))
+        logTaskMessage(intro="Could not start task", taskInfo=taskInfo)
       }
-      logger.info("scheduleAndRunTasks: running task [" + task.name + "] state [" + node.state + "]")
     }
   }
 
@@ -559,7 +567,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
           val memory = resources.map(_.memory.prettyString).getOrElse("?")
           logger.error(s"Task with name '${readyTask.name}' requires $cores cores and $memory memory (task schedulable type: $resourcesType)")
         }
-        logger.error(s"There is ${taskManagerResources.cores} cores and ${taskManagerResources.systemMemory.prettyString} system memory available.")
+        logger.error(s"There are ${taskManagerResources.cores} core(s) and ${taskManagerResources.systemMemory.prettyString} system memory available.")
         allDone = true
       }
       else if (failFast && hasFailedTasks) {
