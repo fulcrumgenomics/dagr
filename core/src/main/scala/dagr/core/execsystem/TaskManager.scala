@@ -64,10 +64,10 @@ case class SystemResources(cores: Cores, systemMemory: Memory, jvmMemory: Memory
 /** Various defaults for task manager */
 object TaskManagerDefaults extends LazyLogging {
   /** The default scaling factor for system memory */
-  def defaultSystemMemoryScalingFactor: Double = 0.95
+  def defaultSystemMemoryScalingFactor: Double = 1.0
 
   /** The default scaling factor for the memory for the JVM */
-  def defaultJvmMemoryScalingFactor: Double = 0.9
+  def defaultJvmMemoryScalingFactor: Double = 1.0
 
   def defaultTaskManagerResources: SystemResources = {
     val resources = SystemResources(cores=None, totalMemory=None) // Let the apply method figure it all out
