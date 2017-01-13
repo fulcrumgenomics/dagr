@@ -46,8 +46,8 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
         task=task,
         taskId=id,
         status=UNKNOWN,
-        script=scriptPathFor(task=task, id=id),
-        logFile=logPathFor(task=task, id=id),
+        script=scriptPathFor(task=task, id=id, attemptIndex=1),
+        logFile=logPathFor(task=task, id=id, attemptIndex=1),
         submissionDate=Some(Instant.now())
       )
       val node = predecessorsOf(task = task) match {
@@ -100,8 +100,8 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
           task=task,
           taskId=id,
           status=UNKNOWN,
-          script=scriptPathFor(task=task, id=id),
-          logFile=logPathFor(task=task, id=id),
+          script=scriptPathFor(task=task, id=id, attemptIndex=1),
+          logFile=logPathFor(task=task, id=id, attemptIndex=1),
           submissionDate=Some(Instant.now())
         )
         task._taskInfo = Some(info)
@@ -257,10 +257,10 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
   override def hasFailedTasks: Boolean = taskAndGraphNode.values.exists(trackingInfo => TaskStatus.isTaskFailed(trackingInfo.taskInfo.status))
 
   /** Generates a path to a file to hold the task command */
-  protected def scriptPathFor(task: Task, id: TaskId): Path
+  protected def scriptPathFor(task: Task, id: TaskId, attemptIndex: Int): Path
 
   /** Generates a path to file to store the log output of the task */
-  protected def logPathFor(task: Task, id: TaskId): Path
+  protected def logPathFor(task: Task, id: TaskId, attemptIndex: Int): Path
 
   /** Checks for cycles in the graph to which the task belongs.
     *

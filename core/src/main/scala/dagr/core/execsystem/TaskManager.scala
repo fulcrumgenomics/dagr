@@ -153,13 +153,13 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
   private[core] def getTaskManagerResources: SystemResources = taskManagerResources
 
-  private def pathFor(task: Task, taskId: TaskId, directory: Path, ext: String): Path = {
+  private def pathFor(task: Task, taskId: TaskId, attemptIndex: Int, directory: Path, ext: String): Path = {
     val sanitizedName: String = PathUtil.sanitizeFileName(task.name)
-    PathUtil.pathTo(directory.toString, s"$sanitizedName.$taskId.$ext")
+    PathUtil.pathTo(directory.toString, s"$sanitizedName.$taskId.$attemptIndex.$ext")
   }
 
-  override protected def scriptPathFor(task: Task, taskId: TaskId): Path = pathFor(task, taskId, actualScriptsDirectory, "sh")
-  override protected def logPathFor(task: Task, taskId: TaskId): Path = pathFor(task, taskId, actualLogsDirectory, "log")
+  override protected def scriptPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, actualScriptsDirectory, "sh")
+  override protected def logPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, actualLogsDirectory, "log")
 
   /** Attempts to terminate a task's underlying process.
     *
@@ -279,6 +279,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         logger.debug("task [" + taskInfo.task.name + "] is being retried")
         node.state = NO_PREDECESSORS
         taskInfo.attemptIndex += 1
+        taskInfo.script  = scriptPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attemptIndex)
+        taskInfo.logFile = logPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attemptIndex)
         false // do not update the node to completed
       }
       else {
