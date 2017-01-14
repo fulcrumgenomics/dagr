@@ -47,12 +47,14 @@ object SystemResources {
   /** Creates a new SystemResources with the cores provided and partitions the memory between system and JVM. */
   def apply(cores: Option[Cores] = None, totalMemory: Option[Memory] = None) : SystemResources = {
     val heapSize = Resource.heapSize
-    val system   = totalMemory match {
-      case Some(memory) if heapSize >= memory => throw new IllegalArgumentException(s"Heap size ${heapSize.prettyString} (-Xmx) must less than the total memory of ${memory.prettyString}.")
-      case Some(memory) => memory - heapSize
-      case None         => Memory((Resource.systemMemory.bytes * TaskManagerDefaults.defaultSystemMemoryScalingFactor - heapSize.bytes).toLong)
+
+    val (system, jvm) = totalMemory match {
+      case Some(memory) => (memory, heapSize)
+      case None         => (Resource.systemMemory - heapSize, heapSize)
     }
-    val jvm      = Memory((heapSize.bytes * TaskManagerDefaults.defaultJvmMemoryScalingFactor).toLong)
+
+    require(system.bytes > 0, "System memory cannot be <= 0 bytes.")
+
     new SystemResources(cores.getOrElse(Resource.systemCores), system, jvm)
   }
 
@@ -63,12 +65,6 @@ case class SystemResources(cores: Cores, systemMemory: Memory, jvmMemory: Memory
 
 /** Various defaults for task manager */
 object TaskManagerDefaults extends LazyLogging {
-  /** The default scaling factor for system memory */
-  def defaultSystemMemoryScalingFactor: Double = 0.95
-
-  /** The default scaling factor for the memory for the JVM */
-  def defaultJvmMemoryScalingFactor: Double = 0.9
-
   def defaultTaskManagerResources: SystemResources = {
     val resources = SystemResources(cores=None, totalMemory=None) // Let the apply method figure it all out
     logger.info("Defaulting System Resources to " + resources.cores.value + " cores and " + Resource.parseBytesToSize(resources.systemMemory.value) + " memory")
