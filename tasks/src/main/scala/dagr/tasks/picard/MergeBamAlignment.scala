@@ -42,11 +42,13 @@ class MergeBamAlignment(unmapped: PathToBam,
                         programGroupCommand: Option[String] = None,
                         programGroupName: Option[String] = None,
                         attributesToRetain: List[String] = List[String]("X0", "ZS", "ZI", "ZM", "ZC", "ZN"),
+                        attributesToReverse: List[String] = List[String]("ad", "bd", "cd", "ae", "be", "ce"), // fgbio consensus tags
+                        attributesToReverseComplement: List[String] = Nil,
                         orientation: PairOrientation = PairOrientation.FR,
                         maxGaps: Int = -1,
                         sortOrder: SortOrder = SortOrder.coordinate,
                         useAlignerProperPairFlags: Boolean = false
-                         )
+                       )
   extends PicardTask with Pipe[SamOrBam,SamOrBam] {
   requires(Cores(1), Memory("4g"))
 
@@ -61,6 +63,8 @@ class MergeBamAlignment(unmapped: PathToBam,
     programGroupCommand.foreach(cmd => buffer.append("PG_COMMAND=\'" + cmd + "\'"))
     programGroupName.foreach(name => buffer.append("PG_NAME=" + name))
     attributesToRetain.foreach(attr => buffer.append("ATTRIBUTES_TO_RETAIN=" + attr))
+    attributesToReverse.foreach(attr => buffer.append("RV=" + attr))
+    attributesToReverseComplement.foreach(attr => buffer.append("RC=" + attr))
     buffer.append("ORIENTATIONS=" + orientation.name())
     buffer.append("MAX_GAPS=" + maxGaps)
     buffer.append("SO=" + sortOrder.name())

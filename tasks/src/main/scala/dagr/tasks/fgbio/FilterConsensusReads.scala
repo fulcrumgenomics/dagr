@@ -32,7 +32,7 @@ import scala.collection.mutable.ListBuffer
 class FilterConsensusReads(val in: PathToBam,
                            val out: PathToBam,
                            val ref: PathToFasta,
-                           val reverseTags: Boolean = true,
+                           val reverseTags: Boolean = false,
                            val minReads: Int,
                            val maxReadErrorRate: Double,
                            val minQuality: Int,
