@@ -171,10 +171,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private[execsystem] def completedTasks(failedAreCompleted: Boolean): Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks(failedAreCompleted=failedAreCompleted)
 
   /** Logs a message for the given task. */
-  private def logTaskMessage(intro: String, taskInfo: TaskExecutionInfo): Unit = {
+  private def logTaskMessage(taskInfo: TaskExecutionInfo): Unit = {
     val cores  = taskInfo.resources.cores.toString
     val memory = taskInfo.resources.memory.prettyString
-    logger.info(s"$intro '${taskInfo.task.name}' ${taskInfo.status} on attempt #${taskInfo.attemptIndex} with $cores cores and $memory memory")
+    logger.info(s"'${taskInfo.task.name}' ${taskInfo.status} on attempt #${taskInfo.attemptIndex} with $cores cores and $memory memory")
   }
 
   /** Replace the original task with the replacement task and update
@@ -264,7 +264,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private[execsystem] def processCompletedTask(taskId: TaskId, doRetry: Boolean = true): Unit = {
     val node      = this(taskId)
     val taskInfo  = node.taskInfo
-    logTaskMessage(intro="Task", taskInfo=taskInfo)
+    logTaskMessage(taskInfo=taskInfo)
     val updateNodeToCompleted: Boolean = if (TaskStatus.isTaskFailed(taskStatus = taskInfo.status) && doRetry) {
       val retryTask = taskInfo.task match {
         case retry: Retry => retry.retry(this.getTaskManagerResources, taskInfo)
@@ -481,11 +481,11 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       taskInfo.resources = taskResourceSet // update the resource set that was used when scheduling the task
       if (taskExecutionRunner.runTask(taskInfo, simulate)) {
         node.state = RUNNING
-        logTaskMessage(intro="Starting task", taskInfo=taskInfo)
+        logTaskMessage( taskInfo=taskInfo)
       }
       else {
         completeGraphNode(node, Some(taskInfo))
-        logTaskMessage(intro="Could not start task", taskInfo=taskInfo)
+        logTaskMessage(taskInfo=taskInfo)
       }
     }
   }
