@@ -75,6 +75,8 @@ private class VarDictJava(tumorBam: PathToBam,
                           includeNonPf: Boolean = false,
                           minimumQuality: Option[Int] = None,
                           maximumMismatches: Option[Int] = None,
+                          minimumAltReads: Option[Int] = None,
+                          pileupMode: Boolean = false,
                           minThreads: Int = 1,
                           maxThreads: Int = 32,
                           memory: Memory = Memory("8G")
@@ -88,13 +90,15 @@ private class VarDictJava(tumorBam: PathToBam,
   override def args: Seq[Any] = {
     val buffer   = new ListBuffer[Any]()
     buffer.appendAll(List(VarDictJava.VarDictJava, "-G", ref, "-N", tumorName, "-b", tumorBam))
+    if (pileupMode) buffer.append("-p")
     buffer.append("-z", "1") // Set to 1 since we are using a BED as input
     buffer.append("-c", "1") // The column for the chromosome
     buffer.append("-S", "2") // The column for the region start
     buffer.append("-E", "3") // The column for the region end
     buffer.append("-g", "4") // The column for the gene name
-    buffer.append("-f", minimumAf) // The minimum allele frequency threshold
     if (!includeNonPf) buffer.append("-F", "0x700") // ignore non-PF reads
+    buffer.append("-f", minimumAf) // The minimum allele frequency threshold
+    minimumAltReads.foreach(buffer.append("-r", _)) // Minimum # of reads supporting an alternate allele
     minimumQuality.foreach(buffer.append("-q", _)) // The minimum base quality for a "good call"
     maximumMismatches.foreach(buffer.append("-m", _)) // Maximum number of mismatches for reads to be included, otherwise they will be filtered.
     buffer.append("-th", resources.cores.toInt) // The number of threads.
@@ -118,6 +122,8 @@ class VarDictJavaEndToEnd(tumorBam: PathToBam,
                           includeNonPf: Boolean = false,
                           minimumQuality: Option[Int] = None,
                           maximumMismatches: Option[Int] = None,
+                          minimumAltReads: Option[Int] = None,
+                          pileupMode: Boolean = false,
                           minThreads: Int = 1,
                           maxThreads: Int = 32) extends Pipeline {
   import VarDictJava.BinDir
@@ -140,6 +146,8 @@ class VarDictJavaEndToEnd(tumorBam: PathToBam,
       includeNonPf      = includeNonPf,
       minimumQuality    = minimumQuality,
       maximumMismatches = maximumMismatches,
+      minimumAltReads   = minimumAltReads,
+      pileupMode        = pileupMode,
       minThreads        = minThreads,
       maxThreads        = maxThreads
     )
