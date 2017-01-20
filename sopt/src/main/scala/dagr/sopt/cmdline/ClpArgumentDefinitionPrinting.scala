@@ -24,11 +24,13 @@
 
 package dagr.sopt.cmdline
 
+import java.util
+
 import dagr.commons.reflect.ReflectionUtil
 import dagr.sopt.util._
 import dagr.commons.util.StringUtil
 
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 
 object ClpArgumentDefinitionPrinting {
 
@@ -80,7 +82,7 @@ object ClpArgumentDefinitionPrinting {
     val desciption = (argumentDefinition.minElements, argumentDefinition.maxElements) match {
       case (0, Integer.MAX_VALUE) => "*"
       case (1, Integer.MAX_VALUE) => "+"
-      case (m, n)                 => s"{$m, $n}"
+      case (m, n)                 => s"{${m}..${n}}"
     }
     Some(desciption)
   }
@@ -93,12 +95,14 @@ object ClpArgumentDefinitionPrinting {
     *  d) There is a default, but it's an empty set
     */
   private[cmdline] def makeDefaultValueString(value : Option[_]) : String = {
+    import scala.collection.JavaConversions.iterableAsScalaIterable
     val v = value match {
       case None          => ""
       case Some(None)    => ""
       case Some(Nil)     => ""
       case Some(s) if Set.empty == s => ""
-      case Some(c) if c.isInstanceOf[java.util.Collection[_]] && c.asInstanceOf[java.util.Collection[_]].isEmpty => ""
+      case Some(c) if c.isInstanceOf[util.Collection[_]]  => c.asInstanceOf[util.Collection[_]].mkString(", ")
+      case Some(t) if t.isInstanceOf[Traversable[_]]      => t.asInstanceOf[Traversable[_]].mkString(", ")
       case Some(Some(x)) => x.toString
       case Some(x)       => x.toString
     }
