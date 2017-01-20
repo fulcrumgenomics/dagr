@@ -58,7 +58,7 @@ class ClpArgumentDefinitionPrintingTest extends UnitSpec with BeforeAndAfterAll 
     makeDefaultValueString(Some(Some("Value"))) shouldBe "[Default: Value]. "
     makeDefaultValueString(Some("Value")) shouldBe "[Default: Value]. "
     makeDefaultValueString(Some(Some(Some("Value")))) shouldBe "[Default: Some(Value)]. "
-    makeDefaultValueString(Some(List("A", "B", "C"))) shouldBe "[Default: List(A, B, C)]. "
+    makeDefaultValueString(Some(List("A", "B", "C"))) shouldBe "[Default: A, B, C]. "
   }
 
   private def printArgumentUsage(name: String, shortName: String, theType: String,
