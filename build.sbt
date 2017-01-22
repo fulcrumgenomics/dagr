@@ -4,7 +4,7 @@ import sbt._
 import sbtassembly.AssemblyKeys.assembly
 import sbtassembly.MergeStrategy
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
-import scoverage.ScoverageSbtPlugin.ScoverageKeys._
+import scoverage.ScoverageKeys._
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // We have the following "settings" in this build.sbt:
@@ -86,7 +86,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://www.fulcrumgenomics.com")),
   homepage             := Some(url("http://github.com/fulcrumgenomics/dagr")),
   startYear            := Some(2015),
-  scalaVersion         := "2.11.7",
+  scalaVersion         := "2.11.8",
   scalacOptions        += "-target:jvm-1.8",
   scalacOptions in (Compile, doc) ++= docScalacOptions,
   scalacOptions in (Test, doc) ++= docScalacOptions,
@@ -100,7 +100,8 @@ lazy val commonSettings = Seq(
   shellPrompt          := { state => "%s| %s> ".format(GitCommand.prompt.apply(state), version.value) },
   coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*",
   updateOptions        := updateOptions.value.withCachedResolution(true),
-  javaOptions in Test += "-Ddagr.color-status=false"
+  javaOptions in Test += "-Ddagr.color-status=false",
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
 ) ++ Defaults.coreDefaultSettings
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,9 +112,7 @@ lazy val commons = Project(id="dagr-commons", base=file("commons"))
   .settings(description := "Scala commons for Fulcrum Genomics.")
   .settings(
     libraryDependencies ++= Seq(
-      "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value,
-      //---------- Test libraries -------------------//
-      "org.scalatest"      %%  "scalatest"       %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
+      "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
@@ -127,9 +126,7 @@ lazy val sopt = Project(id="dagr-sopt", base=file("sopt"))
   .settings(
     libraryDependencies ++= Seq(
       "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value,
-      "com.typesafe"       %   "config"            %  "1.3.0",
-      //---------- Test libraries -------------------//
-      "org.scalatest"      %%  "scalatest"       %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
+      "com.typesafe"       %   "config"            %  "1.3.1"
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
@@ -143,14 +140,12 @@ lazy val core = Project(id="dagr-core", base=file("core"))
   .settings(description := "Core methods and classes to execute tasks in dagr.")
   .settings(
     libraryDependencies ++= Seq(
-      "com.github.dblock"  %   "oshi-core"         %  "2.1",
+      "com.github.dblock"  %   "oshi-core"         %  "3.3",
       "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value,
       "org.scala-lang"     %   "scala-compiler"    %  scalaVersion.value,
       "org.reflections"    %   "reflections"       %  "0.9.10",
-      "com.typesafe"       %   "config"            %  "1.3.0",
-      "javax.servlet"      %   "javax.servlet-api" %  "3.1.0",
-      //---------- Test libraries -------------------//
-      "org.scalatest"      %%  "scalatest"         %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
+      "com.typesafe"       %   "config"            %  "1.3.1",
+      "javax.servlet"      %   "javax.servlet-api" %  "3.1.0"
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
@@ -173,10 +168,8 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "com.github.samtools"       % "htsjdk"     % "2.6.0" excludeAll(htsjdkAndPicardExcludes: _*),
-      "com.github.broadinstitute" % "picard"     % "2.6.0" excludeAll(htsjdkAndPicardExcludes: _*),
-      //---------- Test libraries -------------------//
-      "org.scalatest"             %% "scalatest" %  "2.2.4" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
+      "com.github.samtools"       % "htsjdk"     % "2.8.1" excludeAll(htsjdkAndPicardExcludes: _*),
+      "com.github.broadinstitute" % "picard"     % "2.8.1" excludeAll(htsjdkAndPicardExcludes: _*)
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
