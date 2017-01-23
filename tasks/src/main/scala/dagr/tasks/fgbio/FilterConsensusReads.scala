@@ -29,26 +29,38 @@ import dagr.tasks.DagrDef.PathToBam
 
 import scala.collection.mutable.ListBuffer
 
-class FilterConsensusReads(val in: PathToBam,
-                           val out: PathToBam,
-                           val ref: PathToFasta,
-                           val reverseTags: Boolean = false,
-                           val minReads: Int,
-                           val maxReadErrorRate: Double,
-                           val minQuality: Int,
-                           val maxBaseErrorRate: Double,
-                           val maxNoCallFraction: Double)
+object FilterConsensusReads {
+  def apply(in: PathToBam,
+            out: PathToBam,
+            ref: PathToFasta,
+            minReads: Int,
+            maxReadErrorRate: Double,
+            maxBaseErrorRate: Double,
+            minQuality: Int,
+            maxNoCallFraction: Double): FilterConsensusReads = {
+    apply(in=in, out=out, ref=ref, minReads=Seq(minReads), maxReadErrorRate=Seq(maxReadErrorRate),
+      maxBaseErrorRate=Seq(maxBaseErrorRate), minQuality=minQuality, maxNoCallFraction=maxNoCallFraction)
+  }
+}
+
+case class FilterConsensusReads(in: PathToBam,
+                                out: PathToBam,
+                                ref: PathToFasta,
+                                minReads: Seq[Int],
+                                maxReadErrorRate: Seq[Double],
+                                maxBaseErrorRate: Seq[Double],
+                                minQuality: Int,
+                                maxNoCallFraction: Double)
   extends FgBioTask {
 
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
     buffer.append("-o", out)
     buffer.append("-r", ref)
-    buffer.append("-R", reverseTags)
-    buffer.append("-M", minReads)
-    buffer.append("-E", maxReadErrorRate)
+    if (minReads.nonEmpty)         { buffer.append("-M"); buffer.append(minReads:_*)         }
+    if (maxReadErrorRate.nonEmpty) { buffer.append("-E"); buffer.append(maxReadErrorRate:_*) }
+    if (maxBaseErrorRate.nonEmpty) { buffer.append("-e"); buffer.append(maxBaseErrorRate:_*) }
     buffer.append("-N", minQuality)
-    buffer.append("-e", maxBaseErrorRate)
     buffer.append("-n", maxNoCallFraction)
   }
 }
