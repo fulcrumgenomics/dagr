@@ -573,6 +573,17 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       }
     }
 
+    // Output a brief statement about the end state of execution
+    if (graphNodesInStatesFor(List(ORPHAN)).nonEmpty) {
+      logger.info("Completed execution with orphaned tasks.")
+    }
+    else if (hasFailedTasks) {
+      logger.info("Completed execution with failed tasks.")
+    }
+    else {
+      logger.info("Completed execution successfully.")
+    }
+
     // terminate all running tasks
     for (node <- graphNodes.filter(node => node.state == RUNNING)) {
       terminateTask(node.taskId)
