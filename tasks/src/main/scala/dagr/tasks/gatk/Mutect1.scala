@@ -43,6 +43,7 @@ class Mutect1(val tumorBam: PathToBam,
               val tumorSampleName: String = "tumor",
               val normalSampleName: String = "normal",
               val fractionContamination: Double = 0,
+              val minTumorMaf: Option[Double] = None,
               val maxAltAlleleInNormalFraction: Double = 0.03,
               val maxAltAlleleInNormalCount: Int = 5, // MuTect Default = 2
               val maxAltAlleleInNormalBqSum: Int = 40 // MuTect Default = 40
@@ -56,6 +57,7 @@ class Mutect1(val tumorBam: PathToBam,
     normalBam.foreach(buffer.append("--input_file:normal", _))
     buffer.append("--tumor_sample_name", tumorSampleName)
     buffer.append("--normal_sample_name", normalSampleName)
+    minTumorMaf.foreach(buffer.append("--tumor_f_pretest", _))
     buffer.append("--fraction_contamination", fractionContamination)
     buffer.append("--max_alt_allele_in_normal_fraction", maxAltAlleleInNormalFraction)
     buffer.append("--max_alt_alleles_in_normal_count", maxAltAlleleInNormalCount)
