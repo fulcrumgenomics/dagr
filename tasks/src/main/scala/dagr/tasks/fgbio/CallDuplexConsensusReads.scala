@@ -32,11 +32,11 @@ import scala.collection.mutable.ListBuffer
 
 class CallDuplexConsensusReads(val in: PathToBam,
                                val out: PathToBam,
-                               val readNamePrefix: Option[String] = None,
-                               val readGroupId: Option[String] = None,
-                               val errorRatePreUmi: Option[Int] = None,
-                               val errorRatePostUmi: Option[Int] = None,
-                               val minInputBaseQuality: Option[Int] = None
+                               val readNamePrefix:      Option[String] = None,
+                               val readGroupId:         Option[String] = None,
+                               val errorRatePreUmi:     Option[Int]    = None,
+                               val errorRatePostUmi:    Option[Int]    = None,
+                               val minInputBaseQuality: Option[Int]    = None
                               ) extends FgBioTask with Pipe[SamOrBam,SamOrBam] {
 
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
