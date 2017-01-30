@@ -29,13 +29,16 @@ import java.nio.file.Path
 
 import dagr.commons.CommonsDef.yieldAndThen
 import dagr.commons.io.{Io, PathUtil}
+import dagr.core.cmdline.Pipelines
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import dagr.core.tasksystem.Pipes.PipeWithNoResources
 import dagr.core.tasksystem._
-import dagr.tasks.DagrDef.{FilePath, PathToBam, PathToFasta, PathToVcf}
+import dagr.sopt.{arg, clp}
+import dagr.tasks.DagrDef._
 import dagr.tasks.DataTypes.Vcf
 import dagr.tasks.misc.DeleteFiles
-import dagr.tasks.picard.SortVcf
+import dagr.tasks.picard.{IntervalListToBed, SortVcf}
 import htsjdk.samtools.SamReaderFactory
 
 import scala.collection.mutable.ListBuffer
@@ -80,7 +83,7 @@ private class VarDictJava(tumorBam: PathToBam,
                           minThreads: Int = 1,
                           maxThreads: Int = 32,
                           memory: Memory = Memory("8G")
-                         ) extends ProcessTask with VariableResources with PipeOut[Vcf] {
+                         ) extends ProcessTask with VariableResources with PipeOut[Any] {
   name = "VarDictJava"
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
@@ -108,24 +111,32 @@ private class VarDictJava(tumorBam: PathToBam,
   }
 }
 
-/**
-  * Tumor-only single-sample variant calling with VarDictJava: https://github.com/AstraZeneca-NGS/VarDictJava
-  *
-  * The output Tumor name will be inferred from the the first read group in the input BAM if not provided.
-  */
-class VarDictJavaEndToEnd(tumorBam: PathToBam,
-                          bed: FilePath,
-                          ref: PathToFasta,
-                          out: PathToVcf,
-                          tumorName: Option[String] = None,
-                          minimumAf: Double = 0.01,
-                          includeNonPf: Boolean = false,
-                          minimumQuality: Option[Int] = None,
-                          maximumMismatches: Option[Int] = None,
-                          minimumAltReads: Option[Int] = None,
-                          pileupMode: Boolean = false,
-                          minThreads: Int = 1,
-                          maxThreads: Int = 32) extends Pipeline {
+/** Pipeline to call variants from a tumor-only sample using VarDictJava. */
+@clp(
+  description =
+    """
+      |Calls somatic variants in a tumor-only sample using VarDictJava.
+      |
+      |Tumor-only single-sample variant calling with VarDictJava: https://github.com/AstraZeneca-NGS/VarDictJava
+      |
+      |The output Tumor name will be inferred from the the first read group in the input BAM if not provided.
+    """",
+  group = classOf[Pipelines]
+)
+class VarDictJavaEndToEnd
+(@arg(flag="i", doc="The input tumor BAM file.") tumorBam: PathToBam,
+ @arg(flag="l", doc="The intervals over which to call variants.") bed: FilePath,
+ @arg(flag="r", doc="Path to the reference fasta file.") ref: PathToFasta,
+ @arg(flag="o", doc="The output VCF.") out: PathToVcf,
+ @arg(flag="n", doc="The tumor sample name, otherwise taken from the first read group in the BAM.") tumorName: Option[String] = None,
+ @arg(flag="f", doc="The minimum allele frequency.") minimumAf: Double = 0.01,
+ @arg(flag="p", doc="Include non-pf reads.") includeNonPf: Boolean = false,
+ @arg(flag="m", doc="The minimum base quality to use.") minimumQuality: Option[Int] = None,
+ @arg(flag="M", doc="he maximum # of mismatches (not indels).") maximumMismatches: Option[Int] = None,
+ @arg(flag="R", doc="The minimum # of reads with alternate bases.") minimumAltReads: Option[Int] = None,
+ @arg(flag="P", doc="Use the pileup mode (emit all sites with an alternate).") pileupMode: Boolean = false,
+ @arg(flag="t", doc="The minimum # of threads with which to run.") minThreads: Int = 1,
+ @arg(flag="T", doc="The maximum # of threads with which to run.") maxThreads: Int = 32) extends Pipeline {
   import VarDictJava.BinDir
 
   // Put these here so that they'll error at construction if missing
@@ -135,11 +146,13 @@ class VarDictJavaEndToEnd(tumorBam: PathToBam,
   def build(): Unit = {
     val tn = tumorName.getOrElse(VarDictJava.extractSampleName(bam=tumorBam))
     val dict = PathUtil.replaceExtension(ref, ".dict")
-    val tmpVcf = Io.makeTempFile("vardict.", ".vcf", dir= if (out == Io.StdOut) None else Some(out.getParent))
+    def f(ext: String): Path = Io.makeTempFile("vardict.", ext, dir= if (out == Io.StdOut) None else Some(out.getParent))
+    val tmpVcf = f(".vcf")
+    val tmpBed = f(".bed")
 
     val vardict = new VarDictJava(
       tumorBam          = tumorBam,
-      bed               = bed,
+      bed               = tmpBed,
       ref               = ref,
       tumorName         = tn,
       minimumAf         = minimumAf,
@@ -151,14 +164,11 @@ class VarDictJavaEndToEnd(tumorBam: PathToBam,
       minThreads        = minThreads,
       maxThreads        = maxThreads
     )
-    val bias               = new ShellCommand(biasScript.toString) with Pipe[Any,Any]
-    val toVcf              = new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with Pipe[Any,Vcf]
-    val removeRefEqAltRows = new ShellCommand("awk", "{if ($1 ~ /^#/) print; else if ($4 != $5) print}") with Pipe[Vcf,Vcf]
+    val removeRefEqAltRows = new ShellCommand("awk", "{if ($6 != $7) print}") with PipeWithNoResources[Any,Any]
+    val bias               = new ShellCommand(biasScript.toString) with PipeWithNoResources[Any,Any]
+    val toVcf              = new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with PipeWithNoResources[Any,Vcf]
     val sortVcf            = new SortVcf(in=tmpVcf, out=out, dict=Some(dict))
 
-    bias.requires(Cores(0), Memory("32m"))
-    toVcf.requires(Cores(0), Memory("32m"))
-
-    root ==> (vardict | bias | toVcf | removeRefEqAltRows > tmpVcf).withName("VarDictJava") ==> sortVcf ==> new DeleteFiles(tmpVcf)
+    root ==> (vardict | removeRefEqAltRows | bias | toVcf > tmpVcf).withName("VarDictJava") ==> sortVcf ==> new DeleteFiles(tmpVcf, tmpBed)
   }
 }
