@@ -550,7 +550,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       Thread.sleep(sleepMilliseconds)
 
       // check if we have only completed or orphan all tasks
-      allDone = graphNodesInStatesFor(List(ORPHAN, GraphNodeState.COMPLETED)).size == graphNodes.size
+      allDone = graphNodesInStatesFor(List(ORPHAN, COMPLETED)).size == graphNodes.size
 
       if (!allDone && runningTasks.isEmpty && tasksToSchedule.isEmpty) {
         logger.error(s"There are ${readyTasks.size} tasks ready to be scheduled but not enough system resources available.")
@@ -574,11 +574,14 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     }
 
     // Output a brief statement about the end state of execution
-    if (graphNodesInStatesFor(List(ORPHAN)).nonEmpty) {
+    if (graphNodesInStatesFor(List(ORPHAN)).nonEmpty) { // orphaned tasks
       logger.info("Completed execution with orphaned tasks.")
     }
-    else if (hasFailedTasks) {
+    else if (hasFailedTasks) { // failed tasks
       logger.info("Completed execution with failed tasks.")
+    }
+    else if (graphNodesInStatesFor(List(COMPLETED)).size != graphNodes.size) { // not all tasks completed
+      logger.info("Completed execution with tasks that did not complete.")
     }
     else {
       logger.info("Completed execution successfully.")
