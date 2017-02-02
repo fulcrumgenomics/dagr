@@ -168,6 +168,6 @@ class VarDictJavaEndToEnd
     val toVcf              = new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with PipeWithNoResources[Any,Vcf]
     val sortVcf            = new SortVcf(in=tmpVcf, out=out, dict=Some(dict))
 
-    root ==> (vardict | removeRefEqAltRows | bias | toVcf > tmpVcf).withName("VarDictJava") ==> sortVcf
+    root ==> (vardict | removeRefEqAltRows | bias | toVcf > tmpVcf).withName("VarDictJava") ==> sortVcf ==> new DeleteFiles(tmpVcf)
   }
 }
