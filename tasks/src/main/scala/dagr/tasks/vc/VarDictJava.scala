@@ -148,11 +148,10 @@ class VarDictJavaEndToEnd
     val dict = PathUtil.replaceExtension(ref, ".dict")
     def f(ext: String): Path = Io.makeTempFile("vardict.", ext, dir= if (out == Io.StdOut) None else Some(out.getParent))
     val tmpVcf = f(".vcf")
-    val tmpBed = f(".bed")
 
     val vardict = new VarDictJava(
       tumorBam          = tumorBam,
-      bed               = tmpBed,
+      bed               = bed,
       ref               = ref,
       tumorName         = tn,
       minimumAf         = minimumAf,
@@ -169,6 +168,6 @@ class VarDictJavaEndToEnd
     val toVcf              = new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with PipeWithNoResources[Any,Vcf]
     val sortVcf            = new SortVcf(in=tmpVcf, out=out, dict=Some(dict))
 
-    root ==> (vardict | removeRefEqAltRows | bias | toVcf > tmpVcf).withName("VarDictJava") ==> sortVcf ==> new DeleteFiles(tmpVcf, tmpBed)
+    root ==> (vardict | removeRefEqAltRows | bias | toVcf > tmpVcf).withName("VarDictJava") ==> sortVcf
   }
 }
