@@ -149,7 +149,7 @@ private[sopt] class ClpArgument(declaringClass: Class[_],
   lazy val isSensitive: Boolean = annotation.exists(_.sensitive())
   lazy val longName: String     = if (annotation.isDefined && annotation.get.name.nonEmpty) annotation.get.name else StringUtil.camelToGnu(name)
   lazy val shortName: String    = annotation.map(_.flag()).getOrElse("")
-  lazy val doc: String          = annotation.map(_.doc()).getOrElse("")
+  lazy val doc: String          = annotation.map(_.doc().stripMargin.replace('\n', ' ')).getOrElse("")
   lazy val isCommon: Boolean    = annotation.exists(_.common())
   lazy val minElements: Int     = if (isCollection) {
     annotation.map(_.minElements).getOrElse(1)
