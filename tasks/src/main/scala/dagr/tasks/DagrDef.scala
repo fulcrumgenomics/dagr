@@ -25,6 +25,8 @@
 
 package dagr.tasks
 
+import dagr.core.tasksystem.{Dependable, EmptyDependable}
+
 /**
   * Object that is designed to be imported with `import DagrDef._` in any/all classes
   * much like the way that scala.PreDef is imported in all files automatically.
@@ -65,4 +67,6 @@ object DagrDef {
   /** A String that represents the prefix or basename of a filename. */
   type FilenamePrefix = String
 
+  /** Implicit that will convert an Option[Dependable] to a Dependable when needed. */
+  implicit def optionDependableToDependable(maybe: Option[Dependable]): Dependable = EmptyDependable.optionDependableToDependable(maybe)
 }
