@@ -42,7 +42,7 @@ class GroupReadsByUmi(val in:  PathToBam,
                       val out: PathToBam,
                       val familySizeOut: Option[FilePath] = None,
                       val rawTag: Option[String] = None,
-                      val assignTag: String,
+                      val assignTag: Option[String] = None,
                       val minMapQ: Option[Int] = None,
                       val strategy: AssignmentStrategy = AssignmentStrategy.Adjacency,
                       val edits: Option[Int] = None,
@@ -54,7 +54,7 @@ class GroupReadsByUmi(val in:  PathToBam,
     buffer.append("-o", out)
     familySizeOut.foreach(f => buffer.append("-f", f))
     rawTag.foreach(t => buffer.append("-t", t))
-    buffer.append("-T", assignTag)
+    assignTag.foreach(t => buffer.append("-T", t))
     minMapQ.foreach(m => buffer.append("-m", m))
     buffer.append("-s", strategy.toString.toLowerCase)
     edits.foreach(e => buffer.append("-e", e))
