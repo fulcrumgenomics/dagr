@@ -29,9 +29,18 @@ package dagr.core.tasksystem
   */
 trait Dependable {
   /** Creates a dependency on this dependable, for the provided Task. */
-  final def ==> (other: Dependable) : Dependable = {
-    addDependent(other)
-    new DependencyChain(this, other)
+  final def ==> (other: Dependable) : Dependable = (this, other) match {
+    case (EmptyDependable, d) => d
+    case (d, EmptyDependable) => d
+    case _ =>
+      addDependent(other)
+      new DependencyChain(this, other)
+  }
+
+  /** Optionally creates a dependency between this dependable and another dependable if one is provided. */
+  final def ==> (other: Option[Dependable]): Dependable = other match {
+    case None    => this
+    case Some(d) => this ==> d
   }
 
   /** Must be implemented to handle the addition of a dependent. */
@@ -41,17 +50,45 @@ trait Dependable {
   def !=> (other: Dependable) : Unit
 
   /** Returns an object that can be used to manage dependencies that apply to this and the other Dependable. */
-  def :: (other: Dependable) : Dependable = new DependencyGroup(this, other)
+  def :: (other: Dependable) : Dependable = (this, other) match {
+    case (EmptyDependable, d) => d
+    case (d, EmptyDependable) => d
+    case _                    => new DependencyGroup(other, this)
+  }
+
+  /** Returns an object that can be used to manage dependencies that apply to this and the other Dependable. */
+  def :: (other: Option[Dependable]) : Dependable = other match {
+    case None    => this
+    case Some(d) => this :: d
+  }
 
   /** Abstract method that must be implemented to return all Tasks associated with this Dependable. */
   private[tasksystem] def toTasks: Traversable[Task]
+}
+
+/** An object that can be implicitly converted to from a None when using Option[Dependable]. */
+object EmptyDependable extends Dependable {
+  /** Converts an Option[Dependable] to a Dependable when needed. */
+  implicit def optionDependableToDependable(maybe: Option[Dependable]): Dependable = maybe match {
+    case Some(d) => d
+    case None    => EmptyDependable
+  }
+
+  /** Must be implemented to handle the addition of a dependent. */
+  override def addDependent(dependent: Dependable): Unit = Unit
+
+  /** Breaks the dependency link between this dependable and the provided Task. */
+  override def !=>(other: Dependable): Unit = Unit
+
+  /** Abstract method that must be implemented to return all Tasks associated with this Dependable. */
+  override private[tasksystem] def toTasks: Traversable[Task] = Nil
 }
 
 /**
   * Represents a link from one Dependable to another, which can have dependencies wired
   * up to it, and will vector the dependencies to the appropriate sub-dependencies.
   */
-class DependencyChain(from: Dependable, to: Dependable) extends Dependable {
+case class DependencyChain(from: Dependable, to: Dependable) extends Dependable {
   override def addDependent(dependent: Dependable): Unit = to ==> dependent
 
   /** Breaks the dependency link between this dependable and the provided Task. */
@@ -65,7 +102,7 @@ class DependencyChain(from: Dependable, to: Dependable) extends Dependable {
  * Represents a group of Dependable objects such that depedency operations on a
  * DependencyGroup are transmitted to all contained Dependables.
  */
-private class DependencyGroup(val a: Dependable, val b: Dependable) extends Dependable {
+case class DependencyGroup(a: Dependable, b: Dependable) extends Dependable {
   override def addDependent(dependent: Dependable): Unit = foreach(_ ==> dependent)
 
   override private[tasksystem] def toTasks: Traversable[Task] = a.toTasks ++ b.toTasks
