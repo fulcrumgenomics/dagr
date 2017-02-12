@@ -70,11 +70,11 @@ class DependableTest extends UnitSpec {
   }
 
   it should "build groups of tasks" in {
-    (X :: Y :: Z).toTasks should contain theSameElementsAs Seq(X, Y, Z)
-    (None :: Some(X) :: None :: Y :: Some(Z)).toTasks should contain theSameElementsAs Seq(X, Y, Z)
+    (X :: Y :: Z).allTasks should contain theSameElementsAs Seq(X, Y, Z)
+    (None :: Some(X) :: None :: Y :: Some(Z)).allTasks should contain theSameElementsAs Seq(X, Y, Z)
   }
 
   "EmptyDependable.toTasks" should "always return no tasks" in {
-    (None :: None :: None).toTasks shouldBe empty
+    (None :: None :: None).allTasks shouldBe empty
   }
 }

@@ -172,24 +172,25 @@ trait Task extends Dependable {
   protected[core] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
 
   /** Must be implemented to handle the addition of a dependent. */
-  override def addDependent(dependent: Dependable): Unit = dependent.toTasks.foreach(t => {
+  override def addDependent(dependent: Dependable): Unit = dependent.headTasks.foreach(t => {
       t.dependsOnTasks += this
       this.dependedOnByTasks += t
     })
 
   /** Removes this as a dependency for other */
-  override def !=>(other: Dependable): Unit = other.toTasks.foreach(_.removeDependency(this))
+  override def !=>(other: Dependable): Unit = other.headTasks.foreach(_.removeDependency(this))
 
-  /** Implementation of method from Dependable, to return the task as the set of Tasks represented. */
-  override private[tasksystem] def toTasks: Traversable[Task] = Some(this)
+  override def headTasks: Traversable[Task] = Seq(this)
+  override def tailTasks: Traversable[Task] = Seq(this)
+  override def allTasks: Traversable[Task]  = Seq(this)
 
   /**
-   * Removes a dependency by removing the supplied task from the list of dependencies for this task
-   * and removing this from the list of tasks depending on "task".
-   *
-   * @param task a task on which this task depends
-   * @return true if a dependency existed and was removed, false otherwise
-   */
+     * Removes a dependency by removing the supplied task from the list of dependencies for this task
+     * and removing this from the list of tasks depending on "task".
+     *
+     * @param task a task on which this task depends
+     * @return true if a dependency existed and was removed, false otherwise
+     */
   def removeDependency(task: Task): Boolean = {
     if (this.dependsOnTasks.contains(task)) {
       this.dependsOnTasks -= task

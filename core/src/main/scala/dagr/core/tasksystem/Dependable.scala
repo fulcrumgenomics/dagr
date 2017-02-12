@@ -62,8 +62,14 @@ trait Dependable {
     case Some(d) => this :: d
   }
 
-  /** Abstract method that must be implemented to return all Tasks associated with this Dependable. */
-  private[tasksystem] def toTasks: Traversable[Task]
+  /** Must be implemented to return all tasks on which new predecessor dependencies should be added. */
+  def headTasks: Traversable[Task]
+
+  /** Must be implemented to return all tasks on which new successor dependencies should be added. */
+  def tailTasks: Traversable[Task]
+
+  /** Must be implemented to return all tasks represented by the Dependable. */
+  def allTasks: Traversable[Task]
 }
 
 /** An object that can be implicitly converted to from a None when using Option[Dependable]. */
@@ -74,14 +80,11 @@ object EmptyDependable extends Dependable {
     case None    => EmptyDependable
   }
 
-  /** Must be implemented to handle the addition of a dependent. */
   override def addDependent(dependent: Dependable): Unit = Unit
-
-  /** Breaks the dependency link between this dependable and the provided Task. */
   override def !=>(other: Dependable): Unit = Unit
-
-  /** Abstract method that must be implemented to return all Tasks associated with this Dependable. */
-  override private[tasksystem] def toTasks: Traversable[Task] = Nil
+  override def headTasks: Traversable[Task] = Nil
+  override def tailTasks: Traversable[Task] = Nil
+  override def allTasks: Traversable[Task]  = Nil
 }
 
 /**
@@ -94,8 +97,10 @@ case class DependencyChain(from: Dependable, to: Dependable) extends Dependable 
   /** Breaks the dependency link between this dependable and the provided Task. */
   override def !=>(other: Dependable): Unit = to !=> other
 
-  /** Returns all the tasks associated with both the from and to Dependencies. */
-  override private[tasksystem] def toTasks: Traversable[Task] = from.toTasks ++ to.toTasks
+
+  override def headTasks: Traversable[Task] = from.headTasks
+  override def tailTasks: Traversable[Task] = to.tailTasks
+  override def allTasks: Traversable[Task]  = from.allTasks ++ to.allTasks
 }
 
 /**
@@ -105,8 +110,6 @@ case class DependencyChain(from: Dependable, to: Dependable) extends Dependable 
 case class DependencyGroup(a: Dependable, b: Dependable) extends Dependable {
   override def addDependent(dependent: Dependable): Unit = foreach(_ ==> dependent)
 
-  override private[tasksystem] def toTasks: Traversable[Task] = a.toTasks ++ b.toTasks
-
   /** Breaks the dependency link between this dependable and the provided Task. */
   override def !=>(other: Dependable): Unit = foreach(_ !=> other)
 
@@ -115,4 +118,8 @@ case class DependencyGroup(a: Dependable, b: Dependable) extends Dependable {
     f(a)
     f(b)
   }
+
+  override def headTasks: Traversable[Task] = a.headTasks ++ b.headTasks
+  override def tailTasks: Traversable[Task] = a.tailTasks ++ b.tailTasks
+  override def allTasks: Traversable[Task]  = a.allTasks  ++ b.allTasks
 }
