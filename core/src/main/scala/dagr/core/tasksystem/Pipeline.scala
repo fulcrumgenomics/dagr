@@ -39,13 +39,14 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
   /** A name exposed to sub-classes that can be treated like a Task, to add root tasks. */
   val root = new Dependable {
     /** Must be implemented to handle the addition of a dependent. */
-    override def addDependent(dependent: Dependable): Unit = dependent.toTasks.foreach(tasks.add)
+    override def addDependent(dependent: Dependable): Unit = dependent.headTasks.foreach(tasks.add)
 
     /** Breaks the dependency link between this dependable and the provided Task. */
-    override def !=> (other: Dependable): Unit = other.toTasks.foreach(tasks.remove)
+    override def !=> (other: Dependable): Unit = other.headTasks.foreach(tasks.remove)
 
-    /** Returns none as the symbolic `root` should never appear on the right hand side of a `==>`. */
-    override private[tasksystem] def toTasks: Traversable[Task] = None
+    override def headTasks: Traversable[Task] = Pipeline.this.headTasks
+    override def tailTasks: Traversable[Task] = Pipeline.this.tailTasks
+    override def allTasks: Traversable[Task]  = Pipeline.this.allTasks
   }
 
   /**
