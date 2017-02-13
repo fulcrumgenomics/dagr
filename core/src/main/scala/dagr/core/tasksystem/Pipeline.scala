@@ -44,9 +44,9 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
     /** Breaks the dependency link between this dependable and the provided Task. */
     override def !=> (other: Dependable): Unit = other.headTasks.foreach(tasks.remove)
 
-    override def headTasks: Traversable[Task] = ???
-    override def tailTasks: Traversable[Task] = ???
-    override def allTasks: Traversable[Task]  = ???
+    override def headTasks: Traversable[Task] = Pipeline.this.headTasks
+    override def tailTasks: Traversable[Task] = Pipeline.this.tailTasks
+    override def allTasks: Traversable[Task]  = Pipeline.this.allTasks
   }
 
   /**
