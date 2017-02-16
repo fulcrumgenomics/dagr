@@ -45,8 +45,9 @@ class Mutect1(val tumorBam: PathToBam,
               val minimumAf: Option[Double] = None,
               val fractionContamination: Double = 0,
               val maxAltAlleleInNormalFraction: Double = 0.03,
-              val maxAltAlleleInNormalCount: Int = 5, // MuTect Default = 2
-              val maxAltAlleleInNormalBqSum: Int = 40 // MuTect Default = 40
+              val maxAltAlleleInNormalCount: Int = 5,  // MuTect Default = 2
+              val maxAltAlleleInNormalBqSum: Int = 40, // MuTect Default = 40
+              val minBaseQuality: Int = 5
              ) extends GatkTask(walker="MuTect", ref=ref, intervals=Some(intervals)) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
@@ -62,6 +63,7 @@ class Mutect1(val tumorBam: PathToBam,
     buffer.append("--max_alt_allele_in_normal_fraction", maxAltAlleleInNormalFraction)
     buffer.append("--max_alt_alleles_in_normal_count", maxAltAlleleInNormalCount)
     buffer.append("--max_alt_alleles_in_normal_qscore_sum", maxAltAlleleInNormalBqSum)
+    buffer.append("--min_qscore", minBaseQuality)
   }
 
   /** Use a custom JAR for running Mutect1. */
