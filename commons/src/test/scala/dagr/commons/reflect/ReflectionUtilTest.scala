@@ -27,7 +27,8 @@ import java.util
 import java.util.concurrent.TimeUnit
 
 import dagr.commons.io.PathUtil
-import dagr.commons.util.{StringUtil, UnitSpec, LogLevel}
+import dagr.commons.reflect.ReflectionUtilTest.SecondaryConstructor
+import dagr.commons.util.{LogLevel, StringUtil, UnitSpec}
 
 import scala.annotation.ClassfileAnnotation
 import scala.reflect.runtime.{universe => ru}
@@ -44,6 +45,16 @@ object ReflectionUtilTest {
   case class StringDefault(var s: String = "null")
   case class ComplexDefault(var v: StringDefault = new StringDefault())
   case class ComplexNoDefault(var v: StringDefault)
+  // Primary constructor cannot be built from a string, so we have to use the secondary constructor
+  object SecondaryConstructor {
+    def apply(ints: String): SecondaryConstructor = new SecondaryConstructor(ints.split(",").map(_.toInt))
+  }
+  class SecondaryConstructor(val ints: Seq[Int]) extends scala.collection.immutable.Seq[Int] {
+    def this(ints: String) = this(SecondaryConstructor.apply(ints).ints)
+    def length: Int = ints.length
+    def iterator: Iterator[Int] = ints.iterator
+    def apply(idx: Int): Int = ints(idx)
+  }
 }
 
 /** Tests for many of the methods in ReflectionUtil.  More tests in other classes below! */
@@ -217,6 +228,11 @@ class ReflectionUtilTest extends UnitSpec {
     collection should have size 2
     collection should contain ("1")
     collection should contain ("2")
+  }
+
+  it should "construct using a secondary string constructor" in {
+    val thing = ReflectionUtil.constructFromString(classOf[SecondaryConstructor], classOf[SecondaryConstructor], "1,2,3").get.asInstanceOf[SecondaryConstructor]
+    thing.ints should contain theSameElementsInOrderAs Seq(1, 2, 3)
   }
 
   it should "construct an Path from a string for a PathToBam field" in {

@@ -303,7 +303,7 @@ object ReflectionUtil {
     * the creation of and packaging into collections as necessary.
     */
   private[reflect] def typedValueFromString(resultType: Class[_], unitType: Class[_], value: String*): Try[Any] = Try {
-    if (ReflectionUtil.isCollectionClass(resultType)) {
+    if (ReflectionUtil.isCollectionClass(resultType) && resultType != unitType) {
       val typedValues = if (value.length == 1 && value.head.toLowerCase == SpecialEmptyOrNoneToken) {
         Seq.empty
       }
