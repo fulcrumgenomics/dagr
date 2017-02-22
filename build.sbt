@@ -87,6 +87,7 @@ lazy val commonSettings = Seq(
   homepage             := Some(url("http://github.com/fulcrumgenomics/dagr")),
   startYear            := Some(2015),
   scalaVersion         := "2.11.8",
+  crossScalaVersions   := Seq("2.11.8", "2.12.1"),
   scalacOptions        += "-target:jvm-1.8",
   scalacOptions in (Compile, doc) ++= docScalacOptions,
   scalacOptions in (Test, doc) ++= docScalacOptions,
