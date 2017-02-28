@@ -36,20 +36,20 @@ import scala.collection.mutable.ListBuffer
  */
 class CallMolecularConsensusReads(val in: PathToBam,
                                   val out: PathToBam,
+                                  val minReads: Int,
                                   val rejects: Option[PathToBam] = None,
                                   val tag: Option[String] = None,
                                   val readNamePrefix: Option[String] = None,
                                   val readGroupId: Option[String] = None,
                                   val errorRatePreUmi: Option[Int] = None,
                                   val errorRatePostUmi: Option[Int] = None,
-                                  val minInputBaseQuality: Option[Int] = None,
-                                  val minConsensusBaseQuality: Option[Int] = None,
-                                  val minReads: Option[Int] = None
+                                  val minInputBaseQuality: Option[Int] = None
                                  ) extends FgBioTask with Pipe[SamOrBam, SamOrBam] {
 
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
     buffer.append("-o", out)
+    buffer.append("-M", minReads)
     rejects.foreach                      (x => buffer.append("-r", x))
     tag.foreach                          (x => buffer.append("-t", x))
     readNamePrefix.foreach               (x => buffer.append("-p", x))
@@ -57,7 +57,5 @@ class CallMolecularConsensusReads(val in: PathToBam,
     errorRatePreUmi.foreach              (x => buffer.append("-1", x))
     errorRatePostUmi.foreach             (x => buffer.append("-2", x))
     minInputBaseQuality.foreach          (x => buffer.append("-m", x))
-    minConsensusBaseQuality.foreach      (x => buffer.append("-N", x))
-    minReads.foreach                     (x => buffer.append("-M", x))
   }
 }
