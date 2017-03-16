@@ -280,15 +280,16 @@ class CommandLineProgramParser[T](val targetClass: Class[T]) extends CommandLine
   }
 
   /** Gets the command line assuming `parseTasks` has been called */
-  def commandLine(printCommon: Boolean = true): String = {
+  def commandLine(): String = {
     val argumentList = this.argumentLookup.ordered.filterNot(_.hidden)
     val toolName: String = targetName
     val commandLineString: StringBuilder = new StringBuilder
 
-    commandLineString.append(argumentList.filter( _.hasValue).filter(!_.isSpecial).map(_.toCommandLineString).mkString(" "))
-    commandLineString.append(argumentList.filter(!_.hasValue).filter(!_.isSpecial).map(_.toCommandLineString).mkString(" "))
+    commandLineString.append(argumentList.filter( _.hasValue).filterNot(_.isSpecial).map(_.toCommandLineString).mkString(" "))
+    commandLineString.append(argumentList.filter(!_.hasValue).filterNot(_.isSpecial).map(_.toCommandLineString).mkString(" "))
 
-    s"$toolName ${commandLineString.toString}"
+    if (commandLineString.isEmpty) toolName
+    else s"$toolName $commandLineString"
   }
 
   /**

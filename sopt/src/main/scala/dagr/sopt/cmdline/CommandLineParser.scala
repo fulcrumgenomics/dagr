@@ -147,6 +147,12 @@ class CommandLineParser[SubCommand](val commandLineName: String)
   private type SubCommandClass = Class[_ <: SubCommand]
   private type SubCommandGroupClass = Class[_ <: ClpGroup]
 
+  private var _commandLine: Option[String] = None
+
+  /** The command line with all arguments and values stored after the [[parseSubCommand()]] or
+    * [[parseCommandAndSubCommand()]] was successful, otherwise [[None]]. */
+  def commandLine: Option[String] = _commandLine
+
   /** The error message for an unknown sub-command. */
   private[cmdline] def unknownSubCommandErrorMessage(command: String, classes: Set[SubCommandClass] = Set.empty): String = {
     s"'$command' is not a valid sub-command. See $commandLineName --help for more information." + printUnknown(command, classes.map(_.getSimpleName))
@@ -323,6 +329,7 @@ class CommandLineParser[SubCommand](val commandLineName: String)
           case ParseSuccess() => // Case 8
             val clp: SubCommand = clpParser.instance.get
             try {
+              _commandLine = Some(_commandLine.map(_ + " ").getOrElse("") + clpParser.commandLine())
               afterSubCommandBuild(clp)
               Some(clp)
             }
@@ -354,20 +361,18 @@ class CommandLineParser[SubCommand](val commandLineName: String)
     * @param packageList       the list of packages to search for classes that extend [[SubCommand]].
     * @param omitSubClassesOf  individual classes to omit from including on the command line.
     * @param includeHidden     true to include classes whose [[clp]] annotation's hidden values is set to false.
-    * @param afterCommandBuild a block of code to execute after a [[CommandClass]] (main) instance has been created successfully.
+    * @param afterCommandBuild a block of code to execute after a [[Command]] (main) instance has been created successfully.
     * @param afterSubCommandBuild a block of code to execute after a [[clp]] instance has been created successfully.
-    * @return                  a [[clp]] instance initialized with the command line arguments, or [[None]] if
-    *                          unsuccessful.
+    * @return                  the [[Command]] and [[SubCommand]] instances initialized with the command line arguments, or [[None]] if unsuccessful.
     */
-  def parseCommandAndSubCommand[CommandClass](args: Array[String],
-                                           packageList: List[String],
-                                           omitSubClassesOf: Iterable[Class[_]] = Nil,
-                                           includeHidden: Boolean = false,
-                                           afterCommandBuild: CommandClass => Unit = (t: CommandClass) => Unit,
-                                           afterSubCommandBuild: CommandClass => SubCommand => Unit = (t: CommandClass) => (c: SubCommand) => Unit)
-                                          (implicit tt: TypeTag[CommandClass]): Option[(CommandClass, SubCommand)] = {
-    val mainClazz: Class[CommandClass] = ReflectionUtil.typeTagToClass[CommandClass]
-    val clpClazz: Class[SubCommand] = ReflectionUtil.typeTagToClass[SubCommand]
+  def parseCommandAndSubCommand[Command](args: Array[String],
+                                         packageList: List[String],
+                                         omitSubClassesOf: Iterable[Class[_]] = Nil,
+                                         includeHidden: Boolean = false,
+                                         afterCommandBuild: Command => Unit = (t: Command) => Unit,
+                                         afterSubCommandBuild: Command => SubCommand => Unit = (t: Command) => (c: SubCommand) => Unit)
+                                        (implicit tt: TypeTag[Command]): Option[(Command, SubCommand)] = {
+    val mainClazz: Class[Command] = ReflectionUtil.typeTagToClass[Command]
     val thisParser = this
 
     // Parse the args for the main class
@@ -417,9 +422,10 @@ class CommandLineParser[SubCommand](val commandLineName: String)
         // Get setup, and attempt to ID and load the clp class
         /////////////////////////////////////////////////////////////////////////
         val mainInstance = mainClassParser.instance.get
+        this._commandLine = Some(mainClassParser.commandLine())
         afterCommandBuild(mainInstance)
 
-        val clpInstance = this.parseSubCommand(
+        this.parseSubCommand(
           args                 = clpArgs,
           packageList          = packageList,
           omitSubClassesOf     = Seq(mainClazz),
@@ -427,10 +433,8 @@ class CommandLineParser[SubCommand](val commandLineName: String)
           includeHidden        = includeHidden,
           afterSubCommandBuild = afterSubCommandBuild(mainInstance),
           extraUsage           = Some(mainClassParser.usage())
-        )
-        clpInstance match {
-          case Some(p) => Option(mainInstance, p)
-          case None => None
+        ).map { subCommand =>
+          (mainInstance, subCommand)
         }
     }
   }

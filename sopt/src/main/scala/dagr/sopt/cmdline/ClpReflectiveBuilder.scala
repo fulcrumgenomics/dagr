@@ -252,8 +252,10 @@ private[sopt] class ClpArgument(declaringClass: Class[_],
     */
   private def prettyNameValue(value: Any): String = {
     Option(value) match {
-      case Some(v) if isSensitive => String.format("--%s ***********", longName)
-      case Some(v) => String.format("--%s %s", longName, v.toString)
+      case Some(v) if isSensitive  => f"--$longName ***********"
+      case Some(Some(optionValue)) => prettyNameValue(optionValue)
+      case Some(None)              => f"--$longName ${ReflectionUtil.SpecialEmptyOrNoneToken}"
+      case Some(v)                 => f"--$longName $v"
       case _ => ""
     }
   }
@@ -265,7 +267,11 @@ private[sopt] class ClpArgument(declaringClass: Class[_],
     */
   def toCommandLineString: String = this.value match {
     case Some(v) =>
-      if (this.isCollection) prettyNameValue(new SomeCollection(v).values.mkString(" "))
+      if (this.isCollection) {
+        val someCollection = new SomeCollection(v)
+        if (someCollection.isEmpty) prettyNameValue(None)
+        else prettyNameValue(someCollection.values.mkString(" "))
+      }
       else prettyNameValue(v)
     case None =>
       throw new IllegalStateException("toCommandLineString not allowed on unset argument.")
