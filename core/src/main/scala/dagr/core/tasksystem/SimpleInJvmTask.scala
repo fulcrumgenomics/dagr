@@ -43,7 +43,6 @@ object SimpleInJvmTask {
   * uses the raising of exceptions or lack thereof to indicate failure and success.
   */
 abstract class SimpleInJvmTask extends InJvmTask with FixedResources {
-  name = "SimpleInJvmTask"
   requires(Cores(1), Memory("32M"))
 
   /** Executes run() and returns 0 if no exception is thrown, otherwise 1. */
