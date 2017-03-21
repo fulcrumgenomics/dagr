@@ -553,23 +553,26 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       allDone = graphNodesInStatesFor(List(ORPHAN, COMPLETED)).size == graphNodes.size
 
       if (!allDone && runningTasks.isEmpty && tasksToSchedule.isEmpty) {
-        logger.error(s"There are ${readyTasks.size} tasks ready to be scheduled but not enough system resources available.")
-        readyTasks.foreach { readyTask =>
-          val resourcesType: String = readyTask match {
-            case _: FixedResources    => "FixedResources"
-            case _: VariableResources => "VariableResources"
-            case _: Schedulable       => "Schedulable"
-            case _                    => "Unknown Type"
+        if (readyTasks.nonEmpty) {
+          logger.error(s"There are ${readyTasks.size} tasks ready to be scheduled but not enough system resources available.")
+          readyTasks.foreach { readyTask =>
+            val resourcesType: String = readyTask match {
+              case _: FixedResources => "FixedResources"
+              case _: VariableResources => "VariableResources"
+              case _: Schedulable => "Schedulable"
+              case _ => "Unknown Type"
+            }
+            val resources: Option[ResourceSet] = readyTask match {
+              case t: Schedulable => t.minResources(new ResourceSet(taskManagerResources.cores, taskManagerResources.systemMemory))
+              case _ => None
+            }
+            val cores = resources.map(_.cores.toString).getOrElse("?")
+            val memory = resources.map(_.memory.prettyString).getOrElse("?")
+            logger.error(s"Task with name '${readyTask.name}' requires $cores cores and $memory memory (task schedulable type: $resourcesType)")
           }
-          val resources: Option[ResourceSet] = readyTask match {
-            case t: Schedulable => t.minResources(new ResourceSet(taskManagerResources.cores, taskManagerResources.systemMemory))
-            case _              => None
-          }
-          val cores  = resources.map(_.cores.toString).getOrElse("?")
-          val memory = resources.map(_.memory.prettyString).getOrElse("?")
-          logger.error(s"Task with name '${readyTask.name}' requires $cores cores and $memory memory (task schedulable type: $resourcesType)")
+          logger.error(s"There are ${taskManagerResources.cores} core(s) and ${taskManagerResources.systemMemory.prettyString} system memory available.")
         }
-        logger.error(s"There are ${taskManagerResources.cores} core(s) and ${taskManagerResources.systemMemory.prettyString} system memory available.")
+
         allDone = true
       }
       else if (failFast && hasFailedTasks) {
