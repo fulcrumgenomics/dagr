@@ -29,27 +29,32 @@ import DagrDef.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 import scala.collection.mutable.ListBuffer
 
 /**
-  * Runs the GATK haplotype caller i GVCF mode on a single sample.
+  * Runs the GATK haplotype caller in GVCF mode on a single sample.
   */
 class HaplotypeCaller(ref: PathToFasta,
                       intervals: Option[PathToIntervals],
                       val bam: PathToBam,
                       val vcf: PathToVcf,
                       val maxAlternateAlleles: Int = 3,
+                      val minPruning: Int = 3,
                       val contaminationFraction: Double = 0.0,
                       val rnaMode: Boolean = false,
-                      val useNativePairHmm: Boolean = false
+                      val useNativePairHmm: Boolean = false,
+                      val maxReadsInRegionPerSample: Option[Int] = None,
+                      val minReadsPerAlignmentStart: Option[Int] = None
                       )
  extends GatkTask("HaplotypeCaller", ref, intervals=intervals) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("--minPruning", "3")
+    buffer.append("--minPruning", minPruning)
     buffer.append("--maxNumHaplotypesInPopulation", "200")
     buffer.append("-variant_index_parameter", "128000")
     buffer.append("-variant_index_type", "LINEAR")
     buffer.append("--emitRefConfidence", "GVCF")
 
     buffer.append("--max_alternate_alleles", maxAlternateAlleles)
+    maxReadsInRegionPerSample.foreach(n => buffer.append("--maxReadsInRegionPerSample", n))
+    minReadsPerAlignmentStart.foreach(n => buffer.append("--minReadsPerAlignmentStart", n))
     buffer.append("--contamination_fraction_to_filter", contaminationFraction)
     buffer.append("-I", bam.toAbsolutePath)
     buffer.append("-o", vcf.toAbsolutePath)
