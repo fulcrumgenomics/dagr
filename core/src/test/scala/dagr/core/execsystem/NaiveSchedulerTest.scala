@@ -30,7 +30,7 @@ import dagr.commons.util.UnitSpec
 import scala.collection.mutable.ListBuffer
 
 class NaiveSchedulerTest extends UnitSpec with LazyLogging {
-  private val scheduler = new NaiveScheduler()
+  private val scheduler = NaiveScheduler()
 
   private val systemCores: Cores = Cores(2)
   private val systemMemory: Memory = Memory("2G")
@@ -170,7 +170,7 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
   }
 
   it should "not schedule tasks concurrently with more Cores than are defined in the system." in {
-    val scheduler = new NaiveScheduler()
+    val scheduler = NaiveScheduler()
     val systemCores: Cores = Cores(4)
     val systemMemory: Memory = Memory("4G")
     val jvmMemory: Memory = Memory.none

@@ -73,7 +73,7 @@ object TaskManagerDefaults extends LazyLogging {
   }
 
   /** @return the default scheduler */
-  def defaultScheduler: Scheduler = new NaiveScheduler
+  def defaultScheduler: Scheduler = NaiveScheduler()
 }
 
 /** Defaults and utility methods for a TaskManager. */
