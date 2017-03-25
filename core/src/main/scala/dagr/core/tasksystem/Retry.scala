@@ -118,20 +118,13 @@ trait MultipleRetry extends Retry with LazyLogging {
   }
 }
 
-object JvmRanOutOfMemory {
-  val outOfMemoryTokens: List[String] = List ("OutOfMemory", "you did not provide enough memory to run this program")
-}
-
 /** Determines if a the task failed because it ran out of memory by looking for various strings in the log file. */
 trait JvmRanOutOfMemory extends MemoryRetry {
-  protected def outOfMemoryTokens: List[String] = JvmRanOutOfMemory.outOfMemoryTokens
+  /** A list of tokens that are looked for in the log file of a process by the default [[ranOutOfMemory]]. */
+  def outOfMemoryTokens: List[String] =  List ("OutOfMemory", "you did not provide enough memory to run this program")
 
   override protected[core] def ranOutOfMemory(taskInfo: TaskExecutionInfo): Boolean = {
-    if (Files.exists(taskInfo.logFile)) {
-      Io.readLines(taskInfo.logFile).exists(outOfMemoryTokens.contains(_))
-    }
-    else {
-      false
-    }
+    Files.exists(taskInfo.logFile) &&
+      Io.readLines(taskInfo.logFile).exists(line => outOfMemoryTokens.exists(token => line.contains(token)))
   }
 }

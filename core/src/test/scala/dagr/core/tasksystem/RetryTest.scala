@@ -107,12 +107,20 @@ class RetryTest extends UnitSpec with OptionValues {
   }
 
   "JvmRanOutOfMemory.ranOutOfMemory" should "return true when it finds OOM tokens in the log file" in {
-    JvmRanOutOfMemory.outOfMemoryTokens.foreach {
+    val task = new ShellCommand("exit", "0") with JvmRanOutOfMemory with MemoryDoublingRetry
+
+    task.outOfMemoryTokens.foreach {
       token =>
-        val logFile = Files.createTempFile("log", ".txt")
+        val logFile = Files.createTempFile("log.", ".txt")
         logFile.toFile.deleteOnExit()
-        Io.writeLines(logFile, Seq(token))
-        val task = new ShellCommand("exit", "0") with JvmRanOutOfMemory with MemoryDoublingRetry
+
+        Io.writeLines(logFile, Seq(
+          "This is an inoffensive line in a log file.",
+          s"It seems your program: $token (that's unfortunate).",
+          "Oh well."
+        ))
+
+
         val info = task match {
           case f: FixedResources => new TaskExecutionInfo(task, 1, TaskStatus.UNKNOWN, null, logFile=logFile, None, resources=f.resources)
           case _ => unreachable()
