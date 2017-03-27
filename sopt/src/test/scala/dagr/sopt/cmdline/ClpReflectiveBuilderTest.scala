@@ -24,6 +24,7 @@
 
 package dagr.sopt.cmdline
 
+import dagr.commons.reflect.ReflectionUtil
 import dagr.sopt.arg
 import dagr.commons.util.UnitSpec
 
@@ -31,10 +32,12 @@ private case class IntNoDefault(@arg v: Int)
 private case class TwoParamNoDefault(@arg v: Int = 2, @arg w: Int)
 private case class IntDefault(@arg v: Int = 2)
 private case class DefaultWithOption(@arg w: Option[Int] = None)
+private case class DefaultWithSomeOption(@arg w: Option[Int] = Some(4))
 private case class NoParams()
 private case class StringDefault(@arg s: String = "null")
 private case class ComplexDefault(@arg v: StringDefault = new StringDefault())
 private case class ComplexNoDefault(@arg v: StringDefault)
+private case class NoValuesInCollection(@arg(minElements=0) v: Seq[Int] = Seq.empty)
 
 private class NotCaseClass(@arg val i:Int, @arg val l:Long=123, @arg val o : Option[String] = None)
 private class ParamsNotVals(@arg i:Int, @arg l:Long) {
@@ -50,9 +53,9 @@ class ClpReflectiveBuilderTest extends UnitSpec {
 
   "ClpReflectiveBuilder" should "instantiate a case-class with defaults" in {
     val t = new ClpReflectiveBuilder(classOf[IntDefault]).buildDefault()
-    t.v should be (2)
+    t.v should be(2)
     val tt = new ClpReflectiveBuilder(classOf[DefaultWithOption]).buildDefault()
-    tt.w should be (None)
+    tt.w should be(None)
     new ClpReflectiveBuilder(classOf[NoParams]).buildDefault()
     new ClpReflectiveBuilder(classOf[ComplexDefault]).buildDefault()
   }
@@ -110,6 +113,27 @@ class ClpReflectiveBuilderTest extends UnitSpec {
     val t = new ClpReflectiveBuilder(classOf[IntNoDefault])
     t.argumentLookup.view.foreach {
       an[IllegalStateException] should be thrownBy _.toCommandLineString
+    }
+  }
+
+  it should "print v if the argument type was an Option and the value was Some(v)" in {
+    val t = new ClpReflectiveBuilder(classOf[DefaultWithSomeOption])
+    t.argumentLookup.view.foreach {
+      _.toCommandLineString shouldBe "--w 4"
+    }
+  }
+
+  it should "print the special none token for a None value" in {
+    val t = new ClpReflectiveBuilder(classOf[DefaultWithOption])
+    t.argumentLookup.view.foreach {
+      _.toCommandLineString shouldBe s"--w ${ReflectionUtil.SpecialEmptyOrNoneToken}"
+    }
+  }
+
+  it should "print hte special empty token for an empty collection" in {
+    val t = new ClpReflectiveBuilder(classOf[NoValuesInCollection])
+    t.argumentLookup.view.foreach {
+      _.toCommandLineString shouldBe s"--v ${ReflectionUtil.SpecialEmptyOrNoneToken}"
     }
   }
 }

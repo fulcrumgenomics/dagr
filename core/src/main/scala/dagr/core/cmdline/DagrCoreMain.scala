@@ -82,15 +82,15 @@ object DagrCoreMain extends Configuration {
     def mainBlock(dagr: DagrCoreMain): Unit = loadScripts(clp=dagr)
 
     // the method that should be called once the dagr and pipeline instances have been successfully created
-    def clpBlock(dagr: DagrCoreMain)(pipeline: Pipeline): Unit = dagr.configure(pipeline)
+    def clpBlock(dagr: DagrCoreMain)(pipeline: Pipeline): Unit = dagr.configure(pipeline, parser.commandLine)
 
     parser.parseCommandAndSubCommand[DagrCoreMain](
-      args                = args,
-      packageList         = packageList,
-      omitSubClassesOf    = Seq(classOf[DagrCoreMain]),
-      includeHidden       = includeHidden,
-      afterCommandBuild           = mainBlock,
-      afterSubCommandBuild            = clpBlock
+      args                 = args,
+      packageList          = packageList,
+      omitSubClassesOf     = Seq(classOf[DagrCoreMain]),
+      includeHidden        = includeHidden,
+      afterCommandBuild    = mainBlock,
+      afterSubCommandBuild = clpBlock
     )
   }
 
@@ -165,7 +165,7 @@ class DagrCoreMain(
   }
 
   // Invoked by DagrCommandLineParser after the pipeline has also been instantiated
-  private[cmdline] def configure(pipeline: Pipeline) : Unit = {
+  private[cmdline] def configure(pipeline: Pipeline, commandLine: Option[String] = None) : Unit = {
     try {
       val config = new Configuration { }
 
@@ -179,7 +179,7 @@ class DagrCoreMain(
         val errors: ListBuffer[String] = ListBuffer[String]()
         scriptsDirectory.foreach(d => mkdir(dir=d, use="scripts", errors=errors))
         logDirectory.foreach(d => mkdir(dir=d, use="logs", errors=errors))
-        if (errors.nonEmpty) throw new ValidationException(errors.toList)
+        if (errors.nonEmpty) throw ValidationException(errors.toList)
       }
 
       Logger.level = this.logLevel
@@ -190,6 +190,13 @@ class DagrCoreMain(
 
       val resources = SystemResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
       this.taskManager = Some(new TaskManager(taskManagerResources=resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
+
+      // Print all the arguments if desired.
+      commandLine.foreach { line =>
+        config.optionallyConfigure(Configuration.Keys.PrintArgs).filter(x => x).foreach { _ =>
+          logger.info("Execution arguments: " + line)
+        }
+      }
     }
     catch {
       case v: ValidationException => throw v

@@ -25,22 +25,22 @@
 package dagr.sopt.cmdline
 
 import dagr.commons.reflect.ReflectionUtil
-import dagr.commons.util.{CaptureSystemStreams, Logger, UnitSpec, LogLevel}
+import dagr.commons.util.{CaptureSystemStreams, LogLevel, Logger, UnitSpec}
 import dagr.sopt._
 import dagr.sopt.cmdline.testing.clps._
 import dagr.sopt.util.TermCode
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, OptionValues}
 
 import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
 
 // Located here since we cannot be an inner class
 @clp(description = "", group = classOf[TestGroup], hidden = true)
-class CommandLineProgramValidionError(@arg var aStringSomething: String = "Default") {
+class CommandLineProgramValidationError(@arg var aStringSomething: String = "Default") {
   throw new ValidationException("WTF")
 }
 
-class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with BeforeAndAfterAll {
+class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with BeforeAndAfterAll with OptionValues {
 
   private val prevPrintColor = TermCode.printColor
   override protected def beforeAll(): Unit = TermCode.printColor = false
@@ -175,6 +175,7 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
       clpOption.get.getClass shouldBe clpClazz
       clpOption.get.asInstanceOf[CommandLineProgramThree].argument shouldBe "value"
       output shouldBe 'empty
+      parser.commandLine.value shouldBe "CommandLineProgramThree --argument value"
     }
   }
 
@@ -345,10 +346,10 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
     Stream(
       Array[String](nameOf(classOf[CommandLineProgramOne]))
     ).foreach { args =>
-      val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramValidionError,CommandLineProgramOne](args)
+      val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramValidationError,CommandLineProgramOne](args)
       commandOption shouldBe 'empty
       clpOption shouldBe 'empty
-      output should include(parser.standardCommandAndSubCommandUsagePreamble(commandClazz=Some(classOf[CommandLineProgramValidionError]), subCommandClazz=None))
+      output should include(parser.standardCommandAndSubCommandUsagePreamble(commandClazz=Some(classOf[CommandLineProgramValidationError]), subCommandClazz=None))
       output should include(classOf[ValidationException].getSimpleName)
       output should include("WTF")
     }
@@ -448,6 +449,7 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
       clpOption.get.getClass shouldBe classOf[CommandLineProgramThree]
       clpOption.get.argument shouldBe "value"
       output shouldBe 'empty
+      parser.commandLine.value shouldBe "CommandLineProgramTesting --a-string-something Default CommandLineProgramThree --argument value"
     }
   }
 
@@ -464,6 +466,7 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
       clpOption.get.argument shouldBe "default"
       output shouldBe 'empty
       output shouldBe 'empty
+      parser.commandLine.value shouldBe "CommandLineProgramTesting --a-string-something Default CommandLineProgramFour --argument default --flag false"
     }
   }
 
@@ -479,6 +482,7 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
       clpOption.get.getClass shouldBe classOf[CommandLineProgramNoArgs]
       output shouldBe 'empty
       output shouldBe 'empty
+      parser.commandLine.value shouldBe "CommandLineProgramTesting --a-string-something Default CommandLineProgramNoArgs"
     }
   }
 
@@ -493,6 +497,7 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
     clpOption.get.argument.get shouldBe "default"
     output shouldBe 'empty
     output shouldBe 'empty
+    parser.commandLine.value shouldBe "CommandLineProgramTesting --a-string-something Default CommandLineProgramWithOptionSomeDefault --argument default"
   }
 
   it should "return a valid clp when an option with a default value is set to none" in {
@@ -505,12 +510,13 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
     clpOption.get.argument shouldBe 'empty
     output shouldBe 'empty
     output shouldBe 'empty
+    parser.commandLine.value shouldBe s"CommandLineProgramTesting --a-string-something Default CommandLineProgramWithOptionSomeDefault --argument ${ReflectionUtil.SpecialEmptyOrNoneToken}"
   }
 
   it should "return a valid clp when an collection with a default value is set to empty" in {
     Seq(ReflectionUtil.SpecialEmptyOrNoneToken.toUpperCase, ReflectionUtil.SpecialEmptyOrNoneToken.toLowerCase()).foreach { token =>
       val args = Array[String](nameOf(classOf[CommandLineProgramWithSeqDefault]), "--argument", token)
-      val (_, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting, CommandLineProgramWithSeqDefault](args)
+      val (parser, commandOption, clpOption, output) = TestParsecommandAndClp.parseCommandAndClp[CommandLineProgramTesting, CommandLineProgramWithSeqDefault](args)
       commandOption shouldBe 'defined
       commandOption.get.getClass shouldBe classOf[CommandLineProgramTesting]
       clpOption shouldBe 'defined
@@ -518,6 +524,7 @@ class CommandLineParserTest extends UnitSpec with CaptureSystemStreams with Befo
       clpOption.get.argument shouldBe 'empty
       output shouldBe 'empty
       output shouldBe 'empty
+      parser.commandLine.value shouldBe s"CommandLineProgramTesting --a-string-something Default CommandLineProgramWithSeqDefault --argument ${ReflectionUtil.SpecialEmptyOrNoneToken}"
     }
   }
   

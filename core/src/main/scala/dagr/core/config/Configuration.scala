@@ -54,6 +54,7 @@ object Configuration extends ConfigurationLike {
     val LogDirectory    = "dagr.log-directory"
     val SystemCores     = "dagr.system-cores"
     val SystemMemory    = "dagr.system-memory"
+    val PrintArgs       = "dagr.print-args"
   }
 
   // The global configuration instance
