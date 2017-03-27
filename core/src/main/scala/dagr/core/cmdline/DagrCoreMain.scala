@@ -193,7 +193,7 @@ class DagrCoreMain(
 
       // Print all the arguments if desired.
       commandLine.foreach { line =>
-        config.optionallyConfigure(Configuration.Keys.PrintArgs).filter(x => x).foreach { _ =>
+        config.optionallyConfigure[Boolean](Configuration.Keys.PrintArgs).filter(x => x).foreach { _ =>
           logger.info("Execution arguments: " + line)
         }
       }
