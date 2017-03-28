@@ -283,11 +283,11 @@ class CommandLineProgramParser[T](val targetClass: Class[T]) extends CommandLine
   def commandLine(): String = {
     val argumentList = this.argumentLookup.ordered.filterNot(_.hidden)
     val toolName: String = targetName
-    val commandLineString: StringBuilder = new StringBuilder
-
-    commandLineString.append(argumentList.filter( _.hasValue).filterNot(_.isSpecial).map(_.toCommandLineString).mkString(" "))
-    commandLineString.append(argumentList.filter(!_.hasValue).filterNot(_.isSpecial).map(_.toCommandLineString).mkString(" "))
-
+    val commandLineString = argumentList
+      .filterNot(_.isSpecial)
+      .groupBy(!_.hasValue) // so that args with values come first
+      .flatMap { case (_, args) => args.map(_.toCommandLineString) }
+      .mkString(" ")
     if (commandLineString.isEmpty) toolName
     else s"$toolName $commandLineString"
   }
