@@ -23,12 +23,11 @@
  */
 package dagr.sopt.cmdline
 
-import dagr.commons.util.{CaptureSystemStreams, UnitSpec, LogLevel}
-import dagr.commons.reflect.{ReflectionException, GoodEnum, BadEnum}
+import dagr.commons.util.{CaptureSystemStreams, LogLevel, UnitSpec}
+import dagr.commons.reflect.{BadEnum, GoodEnum, ReflectionException, ReflectionUtil}
 import dagr.sopt._
 import dagr.sopt.cmdline.ClpArgumentDefinitionPrinting._
-
-import dagr.sopt.cmdline.testing.clps.{CommandLineProgramShortArg, CommandLineProgramReallyLongArg}
+import dagr.sopt.cmdline.testing.clps.{CommandLineProgramReallyLongArg, CommandLineProgramShortArg}
 import dagr.sopt.util.TermCode
 import org.scalatest.{BeforeAndAfterAll, Inside, OptionValues}
 
@@ -229,6 +228,13 @@ private case class NoVarFlagClass
 private case class SensitiveArgTestingProgram
 (
   @arg(sensitive = true) var flag: Boolean = false
+) extends CommandLineProgramTesting
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private case class NoneTestingProgram
+(
+  @arg flag: Boolean = false,
+  @arg option: Option[Boolean] = None
 ) extends CommandLineProgramTesting
 
 @clp(description = "", group = classOf[TestGroup], hidden = true)
@@ -1015,7 +1021,7 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
     }
   }
 
-  "CommandLineProgramParser.getCommandLine" should "should return the command line string" in {
+  "CommandLineProgramParser.getCommandLine" should "return the command line string" in {
     val task = new GeneralTestingProgram
     val args = Array[String](
       "--string-set", "Foo", "Bar",
@@ -1030,13 +1036,22 @@ with CommandLineParserStrings with CaptureSystemStreams with BeforeAndAfterAll {
     commandLine shouldBe "GeneralTestingProgram --string-set Foo Bar --int-set 1 2 --int-arg 1 --enum-arg Debug --string-list Foo Bar --flag false"
   }
 
-  it should "should return the command line string but not show a sensitive arg" in {
+  it should "return the command line string but not show a sensitive arg" in {
     val task = new SensitiveArgTestingProgram
     val args = Array[String]()
     val p = parser(classOf[SensitiveArgTestingProgram])
     inside (p.parseAndBuild(args=args)) { case ParseSuccess() => }
     val commandLine: String = p.commandLine()
     commandLine shouldBe s"${task.getClass.getSimpleName} --flag ***********"
+  }
+
+  it should "return the command line string having options with no value at the end" in {
+    val task = new NoneTestingProgram
+    val args = Array[String]()
+    val p = parser(classOf[NoneTestingProgram])
+    inside (p.parseAndBuild(args=args)) { case ParseSuccess() => }
+    val commandLine: String = p.commandLine()
+    commandLine shouldBe s"${task.getClass.getSimpleName} --flag false --option ${ReflectionUtil.SpecialEmptyOrNoneToken}"
   }
 
   "CommandLineProgramParser.version" should "return the version" in {
