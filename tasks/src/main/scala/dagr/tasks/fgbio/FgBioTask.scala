@@ -28,7 +28,7 @@ import java.nio.file.Path
 
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.tasksystem.{FixedResources, ProcessTask}
+import dagr.core.tasksystem.{FixedResources, LinearMemoryRetry, ProcessTask}
 import dagr.tasks.JarTask
 
 import scala.collection.mutable
@@ -44,7 +44,7 @@ object FgBioTask {
   * @param compressionLevel the compress level to use for HTSJDK.
   */
 abstract class FgBioTask(var compressionLevel: Option[Int] = None)
-  extends ProcessTask with JarTask with FixedResources with Configuration {
+  extends ProcessTask with JarTask with FixedResources with Configuration with LinearMemoryRetry {
   requires(Cores(1), Memory("4G"))
 
   /** Looks up the first super class that does not have "\$anon\$" in its name. */
