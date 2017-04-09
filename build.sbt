@@ -126,8 +126,9 @@ lazy val sopt = Project(id="dagr-sopt", base=file("sopt"))
   .settings(description := "Scala command line option parser.")
   .settings(
     libraryDependencies ++= Seq(
-      "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value,
-      "com.typesafe"       %   "config"            %  "1.3.1"
+      "org.scala-lang"       % "scala-reflect"  %  scalaVersion.value,
+      "com.vladsch.flexmark" % "flexmark"       % "0.18.5",
+      "com.typesafe"         % "config"         %  "1.3.1"
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
