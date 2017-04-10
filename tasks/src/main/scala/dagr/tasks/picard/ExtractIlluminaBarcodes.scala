@@ -33,7 +33,7 @@ import scala.collection.mutable.ListBuffer
 
 
 /** The output metric file will be named "barcode_counts.lane-<lane>.metrics.txt".  And will be placed in the
-  * [[barcodesDir]] if given, otherwise the [[basecallsDir]].
+  * [[output]] if given, otherwise the [[basecallsDir]].
   */
 class ExtractIlluminaBarcodes(basecallsDir: DirPath,
                               lane: Int,
@@ -46,10 +46,10 @@ class ExtractIlluminaBarcodes(basecallsDir: DirPath,
                               compressOutputs: Boolean = true,
                               minThreads: Int = 4,
                               maxThreads: Int = 16,
-                              barcodesDir: Option[DirPath] = None
+                              output: Option[DirPath] = None
                              ) extends PicardTask with PicardMetricsTask with VariableResources {
 
-  private val _barcodesDir: DirPath = barcodesDir.getOrElse(basecallsDir)
+  private val _barcodesDir: DirPath = output.getOrElse(basecallsDir)
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
     resources.subset(minCores=Cores(minThreads), maxCores=Cores(maxThreads), memory=Memory("4G"))

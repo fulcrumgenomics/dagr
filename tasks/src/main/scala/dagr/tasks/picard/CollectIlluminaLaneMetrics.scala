@@ -34,7 +34,7 @@ import scala.collection.mutable.ListBuffer
   * is provided with either, an error will be thrown.
   */
 class CollectIlluminaLaneMetrics(runDirectory: DirPath,
-                                 basecallsDir: DirPath,
+                                 output: DirPath,
                                  flowcellBarcode: String,
                                  readStructure: String
                                 ) extends PicardTask {
@@ -45,7 +45,7 @@ class CollectIlluminaLaneMetrics(runDirectory: DirPath,
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer += "RUN_DIRECTORY=" + runDirectory
-    buffer += "OUTPUT_DIRECTORY=" + basecallsDir
+    buffer += "OUTPUT_DIRECTORY=" + output
     buffer += "OUTPUT_PREFIX=" + flowcellBarcode
     buffer += "READ_STRUCTURE=" + readStructure
   }

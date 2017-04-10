@@ -25,25 +25,31 @@
 
 package dagr.tasks.picard
 
+import java.nio.file.Path
+
 import dagr.tasks.DagrDef.{DirPath, FilePath}
 
 import scala.collection.mutable.ListBuffer
 
 object CollectIlluminaBasecallingMetrics {
-  def toMetricsFileName(lane: Int): String = s".lane-$lane.metrics"
+  def toMetricsExtension(lane: Int): String = s".lane-$lane.metrics"
 }
 
 class CollectIlluminaBasecallingMetrics(basecallsDir: DirPath,
                                         lane: Int,
                                         barcodeFile: Option[FilePath] = None,
                                         readStructure: String,
-                                        outputDir: Option[DirPath] = None,
+                                        prefix: Option[Path] = None,
                                         barcodesDir: Option[DirPath] = None
                                        ) extends PicardTask with PicardMetricsTask {
 
-  override def in: FilePath = outputDir.getOrElse(basecallsDir).resolve("basecalling")
+  /** The path to the input file used to name the output metrics file if [[prefix]] is not given.  In our case, the
+    * input is the basecalling directory and not a file.  Therefore, we set [[in]] to be a non-existent file with name
+    * "basecalling" located in the basecalls directory.  If [[prefix]] is given, then [[in]] will not be used.
+    */
+  override def in: FilePath = basecallsDir.resolve("basecalling")
 
-  override def metricsExtension: String = CollectIlluminaBasecallingMetrics.toMetricsFileName(lane=lane)
+  override def metricsExtension: String = CollectIlluminaBasecallingMetrics.toMetricsExtension(lane=lane)
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer += "BASECALLS_DIR=" + basecallsDir
