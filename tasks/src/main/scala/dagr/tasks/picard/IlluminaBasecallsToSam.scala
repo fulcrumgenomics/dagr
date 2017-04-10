@@ -52,12 +52,12 @@ class IlluminaBasecallsToSam(basecallsDir: DirPath,
                                IlluminaAdapterPair.FLUIDIGM
                              ),
                              barcodesDir: Option[DirPath] = None,
-                             maxReadsInRamPerTile: Option[Int] = None,
+                             maxReadsInRamPerTile: Option[Int] = Some(500000),
                              tmpDir: Option[DirPath] = None
                             ) extends PicardTask with VariableResources with Retry {
 
-  private val byMemoryPerThread: Memory = Memory("250MB")
-  private var memoryPerThread: Memory = Memory("750MB")
+  protected val byMemoryPerThread: Memory = Memory("1GB")
+  protected var memoryPerThread: Memory = Memory("2GB")
 
   /** Increases the memory per core/thread and returns true if we can run with the fewest # of threads. */
   override def retry(systemResources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
