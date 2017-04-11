@@ -28,7 +28,7 @@ package dagr.tasks.picard
 import java.text.SimpleDateFormat
 
 import dagr.core.execsystem._
-import dagr.core.tasksystem.{Retry, VariableResources}
+import dagr.core.tasksystem.{JvmRanOutOfMemory, VariableResources}
 import dagr.tasks.DagrDef.{DirPath, FilePath}
 import htsjdk.samtools.util.Iso8601Date
 import picard.util.IlluminaUtil.IlluminaAdapterPair
@@ -54,18 +54,16 @@ class IlluminaBasecallsToSam(basecallsDir: DirPath,
                              barcodesDir: Option[DirPath] = None,
                              maxReadsInRamPerTile: Option[Int] = Some(500000),
                              tmpDir: Option[DirPath] = None
-                            ) extends PicardTask with VariableResources with Retry {
+                            ) extends PicardTask with VariableResources with JvmRanOutOfMemory {
 
   protected val byMemoryPerThread: Memory = Memory("1GB")
   protected var memoryPerThread: Memory = Memory("2GB")
 
   /** Increases the memory per core/thread and returns true if we can run with the fewest # of threads. */
-  override def retry(systemResources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
-    require(taskInfo.resources.memory == this.resources.memory, "Scheduled memory does not equal current memory")
+  override protected def nextMemory(currentMemory: Memory): Option[Memory] = {
     // Increase the amount of memory required per-core
     this.memoryPerThread = this.memoryPerThread + this.byMemoryPerThread
-    // See if we can run in the maximum amount of system memory with the fewest # of cores.
-    Memory(this.memoryPerThread.value * minThreads) <= systemResources.systemMemory
+    Some(Memory(this.memoryPerThread.value * minThreads))
   }
 
   /** Chooses the maximum # of cores given a memory per core requirement. */

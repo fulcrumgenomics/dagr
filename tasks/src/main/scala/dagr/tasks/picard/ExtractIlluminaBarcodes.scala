@@ -25,15 +25,21 @@
 
 package dagr.tasks.picard
 
+import java.nio.file.Path
+
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.VariableResources
-import dagr.tasks.DagrDef.{DirPath, FilePath}
+import dagr.tasks.DagrDef.{DirPath, FilePath, PathPrefix}
 
 import scala.collection.mutable.ListBuffer
 
+object ExtractIlluminaBarcodes {
+  def toMetricsExtension(lane: Int): String = s".lane-$lane.metrics"
+}
 
-/** The output metric file will be named "barcode_counts.lane-<lane>.metrics.txt".  And will be placed in the
-  * [[output]] if given, otherwise the [[basecallsDir]].
+/** The output metric file will be named "<prefix>.lane-<lane>.metrics.txt" and will be placed in the
+  * same directory as [[prefix]] if given, otherwise it will be named "barcode_counts.lane-<lane>.metrics.txt" and be
+  * placed in [[basecallsDir]].
   */
 class ExtractIlluminaBarcodes(basecallsDir: DirPath,
                               lane: Int,
@@ -46,18 +52,22 @@ class ExtractIlluminaBarcodes(basecallsDir: DirPath,
                               compressOutputs: Boolean = true,
                               minThreads: Int = 4,
                               maxThreads: Int = 16,
-                              output: Option[DirPath] = None
+                              prefix: Option[PathPrefix] = None
                              ) extends PicardTask with PicardMetricsTask with VariableResources {
 
-  private val _barcodesDir: DirPath = output.getOrElse(basecallsDir)
+  private val _barcodesDir: DirPath = prefix.map(_.getParent).getOrElse(basecallsDir)
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
     resources.subset(minCores=Cores(minThreads), maxCores=Cores(maxThreads), memory=Memory("4G"))
   }
 
-  override def in: FilePath = _barcodesDir.resolve("barcode_counts")
+  /** The path to the input file used to name the output metrics file if [[prefix]] is not given.  In our case, the
+    * input is the basecalling directory and not a file.  Therefore, we set [[in]] to be a non-existent file with name
+    * "barcode_counts" located in the basecalls directory.  If [[prefix]] is given, then [[in]] will not be used.
+    */
+  override def in: FilePath = basecallsDir.resolve("barcode_counts")
 
-  override def metricsExtension: String = s".lane-$lane.metrics"
+  override def metricsExtension: String = ExtractIlluminaBarcodes.toMetricsExtension(lane)
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer += "BASECALLS_DIR=" + basecallsDir

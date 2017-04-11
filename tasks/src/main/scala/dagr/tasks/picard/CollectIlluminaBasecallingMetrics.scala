@@ -27,7 +27,7 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.tasks.DagrDef.{DirPath, FilePath}
+import dagr.tasks.DagrDef.{DirPath, FilePath, PathPrefix}
 
 import scala.collection.mutable.ListBuffer
 
@@ -35,11 +35,15 @@ object CollectIlluminaBasecallingMetrics {
   def toMetricsExtension(lane: Int): String = s".lane-$lane.metrics"
 }
 
+/** The output metric file will be named "<prefix>.lane-<lane>.metrics.txt" and will be placed in the
+  * same directory as [[prefix]] if given, otherwise it will be named "basecalling.lane-<lane>.metrics.txt" and be
+  * placed in [[basecallsDir]].
+  */
 class CollectIlluminaBasecallingMetrics(basecallsDir: DirPath,
                                         lane: Int,
                                         barcodeFile: Option[FilePath] = None,
                                         readStructure: String,
-                                        prefix: Option[Path] = None,
+                                        prefix: Option[PathPrefix] = None,
                                         barcodesDir: Option[DirPath] = None
                                        ) extends PicardTask with PicardMetricsTask {
 

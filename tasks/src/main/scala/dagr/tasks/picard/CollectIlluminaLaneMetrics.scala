@@ -30,14 +30,34 @@ import dagr.tasks.DagrDef.DirPath
 import scala.collection.mutable.ListBuffer
 
 /**
-  * CollectIlluminaLaneMetrics does not support read structures with molecular barcodes or skips.  If a read structure
-  * is provided with either, an error will be thrown.
+  * CollectIlluminaLaneMetrics does not support read structures with molecular barcodes (M) or skips (S).  If a read structure
+  * is provided with either, an error will be thrown.  The preferred solution is to convert all molecular barcode and
+  * skip segments to template (T).
   */
 class CollectIlluminaLaneMetrics(runDirectory: DirPath,
                                  output: DirPath,
                                  flowcellBarcode: String,
-                                 readStructure: String
+                                 readStructure: String,
+                                 convertBarcodeAndSkipToTemplate: Boolean = true
                                 ) extends PicardTask {
+
+  private val _readStructure: String = if (convertBarcodeAndSkipToTemplate) {
+    this.readStructure
+      .replaceAll("[MS]", "T")
+      .split("(?<=[ST])") // split by segment type, but keep it around
+      .map(s => (s.dropRight(1).toInt, s.last.toString)) // split into template length and type
+      .foldLeft(("", 0, "")) { case ((rs, lastLen, lastSeg), (len, seg)) => // group all of the same type
+        if (lastSeg == seg) {
+          (rs, lastLen  + len, lastSeg)
+        } else {
+          (s"$rs$lastLen$lastSeg", len, seg)
+        }
+      }
+      .productIterator.mkString // the last segment needs to be joined
+  }
+  else {
+    this.readStructure
+  }
 
   if (readStructure.exists(c => c == 'M' || c == 'S')) {
     throw new IllegalArgumentException(s"Found 'M' or 'S' segment in read structure '$readStructure'.")
@@ -47,6 +67,6 @@ class CollectIlluminaLaneMetrics(runDirectory: DirPath,
     buffer += "RUN_DIRECTORY=" + runDirectory
     buffer += "OUTPUT_DIRECTORY=" + output
     buffer += "OUTPUT_PREFIX=" + flowcellBarcode
-    buffer += "READ_STRUCTURE=" + readStructure
+    buffer += "READ_STRUCTURE=" + _readStructure
   }
 }
