@@ -41,7 +41,7 @@ trait PicardMetricsTask {
   def in: PathToBam
 
   /** The optional path to the prefix of the metrics file */
-  def prefix: Option[Path] = None
+  def prefix: Option[PathPrefix] = None
 
   /** Method that should be used to fetch the file prefix, instead of accessing `prefix` directly. */
   def pathPrefix: PathPrefix = prefix getOrElse PathUtil.removeExtension(in)

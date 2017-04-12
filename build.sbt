@@ -102,6 +102,11 @@ lazy val commonSettings = Seq(
   coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*",
   updateOptions        := updateOptions.value.withCachedResolution(true),
   javaOptions in Test += "-Ddagr.color-status=false",
+  // Needed to avoid "sbt.ForkMain failed with exit code 137"
+  //in Travis with `sudo: false`.
+  // See https://github.com/sbt/sbt/issues/653
+  // and https://github.com/travis-ci/travis-ci/issues/3775
+  javaOptions in Test += "-Xmx1G",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
 ) ++ Defaults.coreDefaultSettings
 
