@@ -87,4 +87,30 @@ class StringUtilTest extends UnitSpec {
     StringUtil.camelToGnu("A") should be ("a")
     StringUtil.camelToGnu("b") should be ("b")
   }
+
+  "StringUtil.addSpacesToCamelCase" should "correctly handle simple multi-word variable names" in {
+    StringUtil.addSpacesToCamelCase("fooBar") should be ("foo Bar")
+    StringUtil.addSpacesToCamelCase("oneTwoThreeFourFiveSixSeven") should be ("one Two Three Four Five Six Seven")
+  }
+
+  it should "not modify single word variable names" in {
+    StringUtil.addSpacesToCamelCase("foo") should be ("foo")
+  }
+
+  it should "not add a space when the word starts with a caps" in {
+    StringUtil.addSpacesToCamelCase("BigBad") should be ("Big Bad")
+  }
+
+  it should "insert spaces between adjacent capital letters" in {
+    StringUtil.addSpacesToCamelCase("TisASillyName") should be ("Tis A Silly Name")
+  }
+
+  it should "handle single letter names" in {
+    StringUtil.addSpacesToCamelCase("A") should be ("A")
+    StringUtil.addSpacesToCamelCase("b") should be ("b")
+  }
+
+  it should "add a space between adjacen upper case characters" in {
+    StringUtil.addSpacesToCamelCase("BBIAB") should be ("B B I A B")
+  }
 }
