@@ -46,6 +46,6 @@ class CollectWgsMetrics(override val in: PathToBam,
     buffer.append("I=" + in)
     buffer.append("O=" + metricsFile)
     buffer.append("R=" + ref)
-    intervals.map("INTERVALS=" + _)
+    intervals.foreach(i => buffer.append("INTERVALS=" + i))
   }
 }
