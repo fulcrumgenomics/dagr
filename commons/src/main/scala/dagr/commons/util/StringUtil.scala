@@ -24,7 +24,7 @@
 
 package dagr.commons.util
 
-import java.nio.file.{Paths, Path}
+import java.nio.file.{Path, Paths}
 import java.text.{DecimalFormat, NumberFormat}
 
 object StringUtil {
@@ -101,8 +101,9 @@ object StringUtil {
     * Takes in a camel-case string and converts it to a GNU option style string by identifying capital letters and
     * replacing them with a hyphen followed by the lower case letter.
     */
-  def camelToGnu(in:String) : String = {
+  def camelToGnu(in: String) : String = {
     val builder = new StringBuilder
+    builder.sizeHint(in.length + 4)
     val chs = in.toCharArray
     for (i <- 0 until chs.length) {
       val ch = chs(i)
@@ -116,6 +117,19 @@ object StringUtil {
       }
     }
 
+    builder.toString()
+  }
+
+  /** Takes in a camel-case string and places a space before any uppercase letter. */
+  def addSpacesToCamelCase(str: String): String = {
+    val builder = new StringBuilder
+    builder.sizeHint(str.length + 5)
+    val chs     = str.toCharArray
+    for (i <- 0 until chs.length) {
+      val ch = chs(i)
+      if (i > 0 && ch.isUpper) builder.append(" ")
+      builder.append(ch)
+    }
     builder.toString()
   }
 
