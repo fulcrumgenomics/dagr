@@ -25,10 +25,9 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
+import dagr.commons.io.Io
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.commons.io.{PathUtil, Io}
-import dagr.tasks.DagrDef
-import dagr.tasks.DagrDef.{PathPrefix, PathToBam}
+import dagr.tasks.DagrDef.PathToBam
 
 import scala.collection.mutable.ListBuffer
 
@@ -51,7 +50,10 @@ class MarkDuplicates(val inputs: Seq[PathToBam],
   extends PicardTask with PicardMetricsTask {
   requires(Cores(1), Memory("6G"))
 
-  override def in: PathToBam = inputs.head
+  override def in: PathToBam = inputs.head match {
+    case Io.StdIn => out.getOrElse(Io.DevNull)
+    case path     => path
+  }
 
   override def metricsExtension: String = MarkDuplicates.MetricsExtension
 
