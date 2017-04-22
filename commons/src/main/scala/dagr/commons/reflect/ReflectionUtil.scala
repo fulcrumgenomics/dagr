@@ -369,10 +369,17 @@ object ReflectionUtil {
     }
     else if (clazz == classOf[java.lang.Object]) value
     else {
-      import java.lang.reflect.Constructor
-      val ctor: Constructor[_] = clazz.getDeclaredConstructor(classOf[String])
-      ctor.setAccessible(true)
-      ctor.newInstance(value)
+      Try {
+        import java.lang.reflect.Constructor
+        val ctor: Constructor[_] = clazz.getDeclaredConstructor(classOf[String])
+        ctor.setAccessible(true)
+        ctor.newInstance(value)
+      }.getOrElse {
+        val typ             = mirror.classSymbol(clazz).toType
+        val companionMirror = mirror.reflectModule(typ.typeSymbol.companion.asModule)
+        val companion       = companionMirror.instance
+        companion.getClass.getMethod("apply", classOf[String]).invoke(companion, value)
+      }
     }
   }
 
