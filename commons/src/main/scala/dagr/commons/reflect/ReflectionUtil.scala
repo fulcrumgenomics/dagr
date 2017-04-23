@@ -268,7 +268,11 @@ object ReflectionUtil {
   }
 
   /**
-    * Constructs one or more objects from Strings.
+    * Constructs one or more objects from Strings. Supports building any unitType class that either:
+    *   1. Has a one-arg constructor that takes a String
+    *   2. Has a one-arg apply() method that takes a String in it's Companion object
+    *   3. Is a Java[[Enum]]
+    *   4. Is [[java.nio.file.Path]]
     *
     * @param resultType the type that must be assignable to, from the return of this function (may be a collection or a single-valued type)
     * @param unitType either the same as resultType or when resultType is a collection, the type of elements in the collection
@@ -342,8 +346,14 @@ object ReflectionUtil {
   }
 
   /**
-    * Supports any class with a string constructor, [[Enum]], and [[java.nio.file.Path]].  If the class is an [[Option]],
-    * it will either return `None` if `s == null`, or `Some` object wrapping the an object of the wrapped type.
+    * Supports building any unitType class that either:
+    *   1. Has a one-arg constructor that takes a String
+    *   2. Has a one-arg apply() method that takes a String in it's Companion object
+    *   3. Is a Java[[Enum]]
+    *   4. Is [[java.nio.file.Path]]
+    *
+    * If the resultType class is an [[Option]], it will either return `None` if `s == null`,
+    * or `Some` object wrapping the an object of the unitType.
     */
   private def buildUnitOrOptionFromString(resultType: Class[_], unitType: Class[_], value: String): Try[Any] = Try {
     val unit = buildUnitFromString(unitType, value).get
@@ -369,10 +379,19 @@ object ReflectionUtil {
     }
     else if (clazz == classOf[java.lang.Object]) value
     else {
-      import java.lang.reflect.Constructor
-      val ctor: Constructor[_] = clazz.getDeclaredConstructor(classOf[String])
-      ctor.setAccessible(true)
-      ctor.newInstance(value)
+      Try {
+        import java.lang.reflect.Constructor
+        val ctor: Constructor[_] = clazz.getDeclaredConstructor(classOf[String])
+        ctor.setAccessible(true)
+        ctor.newInstance(value)
+      }.getOrElse {
+        // Last chance: if everything else fails look to see if there is a companion object
+        // with an apply(String) method that could work
+        val typ             = mirror.classSymbol(clazz).toType
+        val companionMirror = mirror.reflectModule(typ.typeSymbol.companion.asModule)
+        val companion       = companionMirror.instance
+        companion.getClass.getMethod("apply", classOf[String]).invoke(companion, value)
+      }
     }
   }
 

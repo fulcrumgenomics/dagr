@@ -57,6 +57,9 @@ object ReflectionUtilTest {
   }
 }
 
+object UsingCompanion { def apply(s: String): UsingCompanion = new UsingCompanion(s.toInt)}
+case class UsingCompanion(x: Int)
+
 /** Tests for many of the methods in ReflectionUtil.  More tests in other classes below! */
 class ReflectionUtilTest extends UnitSpec {
   val mirror: ru.Mirror = ru.runtimeMirror(getClass.getClassLoader)
@@ -308,6 +311,10 @@ class ReflectionUtilTest extends UnitSpec {
 
   it should "not be able to construct a Seq[Int] when a bad value for the Int(s) are given" in {
     an[Exception] should be thrownBy ReflectionUtil.constructFromString(classOf[Seq[Int]], classOf[Int], "prefix", "null", "suffix").get
+  }
+
+  it should "construct a case class from string using it's companion object when necessary" in {
+    ReflectionUtil.constructFromString(classOf[UsingCompanion], classOf[UsingCompanion], "123").get shouldBe UsingCompanion(123)
   }
 
   "ReflectionUtil.typedValueFromString" should "not be able to construct a java collection with a bad value for its type" in {
