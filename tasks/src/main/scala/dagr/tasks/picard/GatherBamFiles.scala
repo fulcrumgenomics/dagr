@@ -25,12 +25,14 @@
 
 package dagr.tasks.picard
 
+import dagr.core.tasksystem.PipeOut
 import dagr.tasks.DagrDef._
+import dagr.tasks.DataTypes.SamOrBam
 
 import scala.collection.mutable.ListBuffer
 
 class GatherBamFiles(val in: Seq[PathToBam], val out: PathToBam, createIndex: Option[Boolean] = Some(true))
-  extends PicardTask(createIndex=createIndex) {
+  extends PicardTask(createIndex=createIndex) with PipeOut[SamOrBam] {
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     in.foreach(p => buffer.append("INPUT=" + p))
     buffer.append("OUTPUT=" + out)
