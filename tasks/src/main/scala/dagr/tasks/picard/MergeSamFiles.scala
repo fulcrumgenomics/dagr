@@ -25,6 +25,8 @@ package dagr.tasks.picard
 
 import dagr.tasks.DagrDef
 import DagrDef.PathToBam
+import dagr.core.tasksystem.PipeOut
+import dagr.tasks.DataTypes.SamOrBam
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable.ListBuffer
@@ -33,7 +35,7 @@ import scala.collection.mutable.ListBuffer
  * Task for running MergeSamFiles with one or more inputs.
  */
 class MergeSamFiles(in: Traversable[PathToBam], out: PathToBam, sortOrder: SortOrder, useAsyncIo: Boolean = false)
-  extends PicardTask(createIndex = Some(sortOrder == SortOrder.coordinate), useAsyncIo=useAsyncIo) {
+  extends PicardTask(createIndex = Some(sortOrder == SortOrder.coordinate), useAsyncIo=useAsyncIo) with PipeOut[SamOrBam] {
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     in.foreach(p => buffer.append("INPUT=" + p))
     buffer.append("OUTPUT=" + out)
