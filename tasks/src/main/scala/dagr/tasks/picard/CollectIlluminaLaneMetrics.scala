@@ -29,6 +29,23 @@ import dagr.tasks.DagrDef.DirPath
 
 import scala.collection.mutable.ListBuffer
 
+object CollectIlluminaLaneMetrics {
+  def convertBarcodeAndSkipToTemplate(readStructure: String): String = {
+    readStructure
+      .replaceAll("[MS]", "T")
+      .split("(?<=[BT])") // split by segment type, but keep it around
+      .map(s => (s.dropRight(1).toInt, s.last.toString)) // split into template length and type
+      .foldLeft(("", 0, "")) { case ((rs, lastLen, lastSeg), (len, seg)) => // group all of the same type
+        if (lastSeg == seg || lastLen == 0) {
+          (rs, lastLen  + len, seg)
+        } else {
+          (s"$rs$lastLen$lastSeg", len, seg)
+        }
+      }
+      .productIterator.mkString // the last segment needs to be joined
+  }
+}
+
 /**
   * CollectIlluminaLaneMetrics does not support read structures with molecular barcodes (M) or skips (S).  If a read structure
   * is provided with either, an error will be thrown.  The preferred solution is to convert all molecular barcode and
@@ -42,18 +59,7 @@ class CollectIlluminaLaneMetrics(runDirectory: DirPath,
                                 ) extends PicardTask {
 
   private val _readStructure: String = if (convertBarcodeAndSkipToTemplate) {
-    this.readStructure
-      .replaceAll("[MS]", "T")
-      .split("(?<=[ST])") // split by segment type, but keep it around
-      .map(s => (s.dropRight(1).toInt, s.last.toString)) // split into template length and type
-      .foldLeft(("", 0, "")) { case ((rs, lastLen, lastSeg), (len, seg)) => // group all of the same type
-        if (lastSeg == seg) {
-          (rs, lastLen  + len, lastSeg)
-        } else {
-          (s"$rs$lastLen$lastSeg", len, seg)
-        }
-      }
-      .productIterator.mkString // the last segment needs to be joined
+    CollectIlluminaLaneMetrics.convertBarcodeAndSkipToTemplate(readStructure=this.readStructure)
   }
   else {
     this.readStructure
