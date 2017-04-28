@@ -29,50 +29,25 @@ import dagr.tasks.DagrDef.DirPath
 
 import scala.collection.mutable.ListBuffer
 
-object CollectIlluminaLaneMetrics {
-  def convertBarcodeAndSkipToTemplate(readStructure: String): String = {
-    readStructure
-      .replaceAll("[MS]", "T")
-      .split("(?<=[BT])") // split by segment type, but keep it around
-      .map(s => (s.dropRight(1).toInt, s.last.toString)) // split into template length and type
-      .foldLeft(("", 0, "")) { case ((rs, lastLen, lastSeg), (len, seg)) => // group all of the same type
-        if (lastSeg == seg || lastLen == 0) {
-          (rs, lastLen  + len, seg)
-        } else {
-          (s"$rs$lastLen$lastSeg", len, seg)
-        }
-      }
-      .productIterator.mkString // the last segment needs to be joined
-  }
-}
-
 /**
-  * CollectIlluminaLaneMetrics does not support read structures with molecular barcodes (M) or skips (S).  If a read structure
-  * is provided with either, an error will be thrown.  The preferred solution is to convert all molecular barcode and
-  * skip segments to template (T).
+  * CollectIlluminaLaneMetrics does not support read structures with molecular barcodes (M) or skips (S).  If a read
+  * structure is provided with either, an error will be thrown.  The preferred solution is to not specify a
+  * read structure so that CollectIlluminaLaneMetrics will use the RunInfo.xml in the run directory.
   */
 class CollectIlluminaLaneMetrics(runDirectory: DirPath,
                                  output: DirPath,
                                  flowcellBarcode: String,
-                                 readStructure: String,
-                                 convertBarcodeAndSkipToTemplate: Boolean = true
+                                 readStructure: Option[String] = None
                                 ) extends PicardTask {
 
-  private val _readStructure: String = if (convertBarcodeAndSkipToTemplate) {
-    CollectIlluminaLaneMetrics.convertBarcodeAndSkipToTemplate(readStructure=this.readStructure)
-  }
-  else {
-    this.readStructure
-  }
-
-  if (readStructure.exists(c => c == 'M' || c == 'S')) {
-    throw new IllegalArgumentException(s"Found 'M' or 'S' segment in read structure '$readStructure'.")
+  if (readStructure.exists(_.exists(c => c == 'M' || c == 'S'))) {
+      throw new IllegalArgumentException(s"Found 'M' or 'S' segment in read structure '$readStructure'.")
   }
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer += "RUN_DIRECTORY=" + runDirectory
     buffer += "OUTPUT_DIRECTORY=" + output
     buffer += "OUTPUT_PREFIX=" + flowcellBarcode
-    buffer += "READ_STRUCTURE=" + _readStructure
+    readStructure.foreach(rs => buffer += "READ_STRUCTURE=" + rs)
   }
 }
