@@ -52,7 +52,7 @@ class ExtractIlluminaBarcodes(basecallsDir: DirPath,
                               compressOutputs: Boolean = true,
                               minThreads: Int = 4,
                               maxThreads: Int = 16,
-                              prefix: Option[PathPrefix] = None
+                              override val prefix: Option[PathPrefix] = None
                              ) extends PicardTask with PicardMetricsTask with VariableResources {
 
   private val _barcodesDir: DirPath = prefix.map(_.getParent).getOrElse(basecallsDir)
