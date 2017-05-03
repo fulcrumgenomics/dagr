@@ -43,7 +43,7 @@ class CollectIlluminaBasecallingMetrics(basecallsDir: DirPath,
                                         lane: Int,
                                         barcodeFile: Option[FilePath] = None,
                                         readStructure: String,
-                                        prefix: Option[PathPrefix] = None,
+                                        override val prefix: Option[PathPrefix] = None,
                                         barcodesDir: Option[DirPath] = None
                                        ) extends PicardTask with PicardMetricsTask {
 
