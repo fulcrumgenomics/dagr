@@ -79,7 +79,10 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
     val jvmProps = mutable.Map[String,String]()
     compressionLevel.foreach(c => jvmProps("samjdk.compression_level") = c.toString)
     bufferSize.foreach(b => jvmProps("samjdk.buffer_size") = b.toString)
-    if (useAsyncIo) jvmProps("samjdk.use_async_io") = "true"
+    if (useAsyncIo) {
+      jvmProps("samjdk.use_async_io_read_samtools") = "true"
+      jvmProps("samjdk.use_async_io_write_samtools") = "true"
+    }
     buffer.appendAll(jarArgs(jarPath, jvmArgs=jvmArgs, jvmProperties=jvmProps,
                      jvmMemory=this.resources.memory, useAdvancedGcOptions=useAdvancedGcOptions))
 
