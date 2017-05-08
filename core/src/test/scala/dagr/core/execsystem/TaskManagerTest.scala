@@ -24,9 +24,10 @@
 package dagr.core.execsystem
 
 import dagr.core.DagrDef._
-import dagr.commons.util.{UnitSpec, LogLevel, LazyLogging, Logger}
+import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
 import dagr.core.tasksystem._
-import dagr.commons.util._
+import com.fulcrumgenomics.commons.collection._
+import dagr.core.{TestTags, UnitSpec}
 import org.scalatest._
 
 object TaskManagerTest {

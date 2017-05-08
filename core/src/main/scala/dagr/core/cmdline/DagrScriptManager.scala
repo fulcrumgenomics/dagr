@@ -29,8 +29,8 @@ package dagr.core.cmdline
 import java.net.{URL, URLClassLoader}
 import java.nio.file.Path
 
-import dagr.commons.io.Io
-import dagr.commons.util.{LazyLogging, LogLevel}
+import com.fulcrumgenomics.commons.io.Io
+import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel}
 import org.reflections.util.ClasspathHelper
 
 import scala.collection.JavaConversions._
@@ -141,11 +141,13 @@ object DagrScriptManager {
           case LogLevel.Warning => logger.warning(message)
           case LogLevel.Error   => logger.error(message)
           case LogLevel.Fatal   => logger.fatal(message)
-          case _ => throw new RuntimeException(s"Could not determine log level: $level")
+          case _ => throw new DagrScriptManagerException(s"Could not determine log level: $level")
         }
       }
     }
   }
+
+  class DagrScriptManagerException(msg: String) extends RuntimeException(msg)
 }
 
 private[core] class DagrScriptManager extends LazyLogging {
@@ -187,7 +189,7 @@ private[core] class DagrScriptManager extends LazyLogging {
       reporter.printSummary()
       if (reporter.hasErrors) {
         val msg = "Compile of %s failed with %d error%s".format(scripts.mkString(", "), reporter.ERROR.count, plural(reporter.ERROR.count))
-        throw new RuntimeException(msg)
+        throw new DagrScriptManagerException(msg)
       }
       else if (reporter.WARNING.count > 0) {
         if (!quiet) logger.warning("Compile succeeded with %d warning%s".format(reporter.WARNING.count, plural(reporter.WARNING.count)))

@@ -26,9 +26,9 @@ package dagr.core.tasksystem
 
 import java.nio.file.{Files, Paths}
 
-import dagr.commons.io.Io
-import dagr.commons.util.UnitSpec
-import dagr.commons.CommonsDef._
+import com.fulcrumgenomics.commons.io.Io
+import dagr.core.UnitSpec
+import com.fulcrumgenomics.commons.CommonsDef._
 import dagr.core.execsystem._
 import org.scalatest.OptionValues
 

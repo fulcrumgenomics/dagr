@@ -29,8 +29,8 @@ import java.time.Duration
 
 import com.typesafe.config.{ConfigParseOptions, ConfigFactory, Config}
 import com.typesafe.config.ConfigException.Generic
-import dagr.commons.io.PathUtil._
-import dagr.commons.util.LazyLogging
+import com.fulcrumgenomics.commons.io.PathUtil._
+import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.execsystem.{Cores, Memory}
 
 import scala.collection.SortedSet
@@ -218,8 +218,8 @@ private[config] trait ConfigurationLike extends LazyLogging {
     }
   }
 
-  def commandLineName: String = {
-    configure(Configuration.Keys.CommandLineName, "Dagr")
+  def commandLineName(default: String = "dagr"): String = {
+    configure(Configuration.Keys.CommandLineName, default)
   }
 
   /**

@@ -24,7 +24,7 @@
 
 package dagr.core.execsystem
 
-import dagr.commons.util.UnitSpec
+import dagr.core.UnitSpec
 
 class ResourceSetTest extends UnitSpec {
   "ResourceSet.isEmpty" should "return true for the empty resource set" in {

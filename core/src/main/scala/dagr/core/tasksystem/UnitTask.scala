@@ -23,7 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.commons.util.LazyLogging
+import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.execsystem.{ResourceSet, Scheduler}
 
 /** A task that should be directly executed or scheduled.

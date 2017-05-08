@@ -23,7 +23,7 @@
  */
 package dagr.core.execsystem
 
-import dagr.commons.util.LazyLogging
+import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
 
 /** Scheduler of [[Task]] tasks */

@@ -28,14 +28,14 @@ import java.nio.file.{Files, Path, Paths}
 import java.time.Duration
 
 import com.typesafe.config.{ConfigException, ConfigFactory}
-import dagr.commons.io.{Io, PathUtil}
-import dagr.commons.util.UnitSpec
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
+import dagr.core.{CaptureAllOutputs, UnitSpec}
 import dagr.core.execsystem.{Cores, Memory}
 
 /**
   * Tests for the Configuration trait.
   */
-class ConfigurationTest extends UnitSpec {
+class ConfigurationTest extends CaptureAllOutputs {
   val _config = ConfigFactory.parseString(
     """
       |dagr.path = ${PATH}
@@ -55,6 +55,7 @@ class ConfigurationTest extends UnitSpec {
       |some-cores  = 2.5
       |some-memory = 2G
       |some-executable = /does/not/exist
+      |a-string-set = ["A", "B", "C"]
       |    """.stripMargin)
 
   val conf = new Configuration { override val config = _config.resolve() }
@@ -110,7 +111,10 @@ class ConfigurationTest extends UnitSpec {
 
   it should "throw an exception for unsupported types" in {
     an[IllegalArgumentException] should be thrownBy conf.configure[Char]("a-char")
-    an[IllegalArgumentException] should be thrownBy conf.configure[Set[String]]("a-string-set")
+    val log = captureLogger(() => {
+      an[IllegalArgumentException] should be thrownBy conf.configure[Set[String]]("a-string-set", Set("String"))
+    })
+    log should include("IllegalArgumentException")
   }
 
   it should "load a config from a file" in {

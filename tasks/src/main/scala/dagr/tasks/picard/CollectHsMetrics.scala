@@ -25,7 +25,7 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.commons.io.PathUtil
+import com.fulcrumgenomics.commons.io.PathUtil
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFasta, PathToIntervals}
 

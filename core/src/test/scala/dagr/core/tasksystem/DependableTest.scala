@@ -24,7 +24,7 @@
 
 package dagr.core.tasksystem
 
-import dagr.commons.util.UnitSpec
+import dagr.core.UnitSpec
 
 class DependableTest extends UnitSpec {
   import EmptyDependable.optionDependableToDependable // import the implicit

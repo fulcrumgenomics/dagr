@@ -23,7 +23,7 @@
  */
 package dagr.core.cmdline
 
-import dagr.sopt.cmdline.ClpGroup
+import com.fulcrumgenomics.sopt.cmdline.ClpGroup
 
 /**
  * Program group/type for pipeline programs.

@@ -25,8 +25,8 @@ package dagr.core.tasksystem
 
 import java.nio.file.Path
 
-import dagr.commons.io.Io
-import dagr.commons.util.LazyLogging
+import com.fulcrumgenomics.commons.io.Io
+import com.fulcrumgenomics.commons.util.LazyLogging
 
 /** Simple trait to track tasks within a pipeline */
 abstract class Pipeline(val outputDirectory: Option[Path] = None,

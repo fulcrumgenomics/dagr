@@ -23,9 +23,9 @@
  */
 package dagr.core.tasksystem
 
-import dagr.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.commons.util.UnitSpec
+import dagr.core.UnitSpec
 
 /**
   * Tests for the piping together of tasks

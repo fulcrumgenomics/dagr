@@ -24,7 +24,7 @@
 
 package dagr.cmdline
 
-import dagr.core.cmdline.DagrCoreMain._
+import dagr.core.cmdline.DagrCoreMain
 
 object DagrMain {
   /** The packages we wish to include in our command line **/
@@ -32,6 +32,6 @@ object DagrMain {
 
   /** The main method */
   def main(args: Array[String]): Unit = {
-    makeItSo(args, packageList = getPackageList)
+    System.exit(new DagrCoreMain().makeItSo(args, packageList = getPackageList))
   }
 }

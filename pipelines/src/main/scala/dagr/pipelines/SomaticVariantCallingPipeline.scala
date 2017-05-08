@@ -24,7 +24,7 @@
 package dagr.pipelines
 
 import dagr.core.cmdline.Pipelines
-import dagr.sopt._
+import com.fulcrumgenomics.sopt._
 import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline, ShellCommand}
 import dagr.tasks.DagrDef
 import DagrDef._
@@ -45,11 +45,11 @@ import dagr.tasks.vc.{FilterFreeBayesCalls, FreeBayesSomatic, Varscan2Somatic}
   group = classOf[Pipelines]
 )
 class SomaticVariantCallingPipeline
-( @arg(flag="t", doc="The tumor BAM file.")                                       val tumorBam: PathToBam,
-  @arg(flag="n", doc="The matched normal BAM file.")                              val normalBam: PathToBam,
-  @arg(flag="r", doc="Path to the reference FASTA.")                              val ref: PathToFasta,
-  @arg(flag="l", doc="Intervals to call over.")                                   val intervals: PathToIntervals,
-  @arg(flag="o", doc="Output prefix (including directories) for output files.")   val outputPrefix: DirPath,
+( @arg(flag='t', doc="The tumor BAM file.")                                       val tumorBam: PathToBam,
+  @arg(flag='n', doc="The matched normal BAM file.")                              val normalBam: PathToBam,
+  @arg(flag='r', doc="Path to the reference FASTA.")                              val ref: PathToFasta,
+  @arg(flag='l', doc="Intervals to call over.")                                   val intervals: PathToIntervals,
+  @arg(flag='o', doc="Output prefix (including directories) for output files.")   val outputPrefix: DirPath,
   @arg(          doc="Run MuTect2. Off by default since it is so slow.")          val includeMutect2: Boolean = false,
   @arg(          doc="Run FreeBayes.")                                            val includeFreeBayes: Boolean = false,
   @arg(          doc="If true, remove all intermediate files created.")           val removeIntermediates: Boolean = false

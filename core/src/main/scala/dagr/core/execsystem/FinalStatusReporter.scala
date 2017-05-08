@@ -24,9 +24,9 @@
 
 package dagr.core.execsystem
 
-import dagr.commons.util.BiMap
-import dagr.commons.util.StringUtil._
-import dagr.commons.util.TimeUtil._
+import com.fulcrumgenomics.commons.collection.BiMap
+import com.fulcrumgenomics.commons.util.StringUtil._
+import com.fulcrumgenomics.commons.util.TimeUtil._
 import dagr.core.tasksystem.Task
 
 import scala.collection.mutable
