@@ -145,8 +145,15 @@ class DagrCoreArgs(
       Logger.level = this.logLevel
 
       // report file
-      this.reportPath = pick(report, pipeline.outputDirectory.map(_.resolve("execution_report.txt")), Option(Io.StdOut)).map(_.toAbsolutePath)
+      this.reportPath = pick(
+        report,
+        pipeline.outputDirectory.map(_.resolve("execution_report.txt")),
+        logDirectory.map(_.resolve("execution_report.txt"))
+      ).map(_.toAbsolutePath)
       this.reportPath.foreach(p => Io.assertCanWriteFile(p, parentMustExist=false))
+      if (interactive && reportPath.contains(Io.StdOut)) {
+        throw new ValidationException("report cannot write to stdout when --interactive=true")
+      }
 
       val resources = SystemResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
       this.taskManager = Some(new TaskManager(taskManagerResources=resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
@@ -189,9 +196,11 @@ class DagrCoreArgs(
     taskMan.addTask(pipeline)
     taskMan.runToCompletion(this.failFast)
 
-    // Write out the execution report
-    if (!interactive || Io.StdOut != report) {
-      val pw = new PrintWriter(Io.toWriter(report))
+    // Write out the execution report to file.
+    // NB: report should never equal Io.Stdout
+    val reportPaths = if (interactive) Seq(report) else Seq(report, Io.StdOut)
+    reportPaths.foreach { path =>
+      val pw = new PrintWriter(Io.toWriter(path))
       taskMan.logReport({ str: String => pw.write(str + "\n") })
       pw.close()
     }
