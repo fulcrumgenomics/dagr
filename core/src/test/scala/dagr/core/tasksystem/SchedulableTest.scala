@@ -25,7 +25,7 @@
 
 package dagr.core.tasksystem
 
-import dagr.commons.util.UnitSpec
+import dagr.core.UnitSpec
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import org.scalatest.OptionValues
 

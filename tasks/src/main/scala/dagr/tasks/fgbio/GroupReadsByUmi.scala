@@ -24,7 +24,7 @@
 
 package dagr.tasks.fgbio
 
-import dagr.commons.CommonsDef._
+import com.fulcrumgenomics.commons.CommonsDef._
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.fgbio.AssignmentStrategy.AssignmentStrategy

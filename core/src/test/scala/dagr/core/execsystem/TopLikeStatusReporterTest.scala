@@ -24,7 +24,8 @@
 
 package dagr.core.execsystem
 
-import dagr.commons.util.{CaptureSystemStreams, LogLevel, Logger, UnitSpec}
+import com.fulcrumgenomics.commons.util.{CaptureSystemStreams, LogLevel, Logger}
+import dagr.core.UnitSpec
 import dagr.core.execsystem.Terminal.Dimensions
 import dagr.core.tasksystem.{NoOpInJvmTask, SimpleInJvmTask}
 import org.scalatest.BeforeAndAfterAll

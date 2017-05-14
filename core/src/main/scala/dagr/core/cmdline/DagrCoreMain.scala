@@ -23,19 +23,25 @@
  */
 package dagr.core.cmdline
 
-import java.io.{PrintStream, ByteArrayOutputStream, PrintWriter}
+import java.io.{ByteArrayOutputStream, PrintStream, PrintWriter}
+import java.net.InetAddress
 import java.nio.file.{Files, Path}
+import java.text.DecimalFormat
 
-import dagr.commons.util.{LogLevel, LazyLogging, Logger}
+import com.fulcrumgenomics.commons.CommonsDef.unreachable
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
+import com.fulcrumgenomics.sopt.Sopt.CommandSuccess
+import com.fulcrumgenomics.sopt.cmdline.{CommandLineParser, CommandLineProgramParserStrings, ValidationException}
+import com.fulcrumgenomics.sopt.parsing.{ArgOptionAndValues, ArgTokenCollator, ArgTokenizer, OptionParser}
+import com.fulcrumgenomics.sopt.util.TermCode
+import com.fulcrumgenomics.sopt.{OptionName, Sopt, arg}
 import dagr.core.config.Configuration
 import dagr.core.execsystem._
 import dagr.core.tasksystem.Pipeline
-import dagr.commons.io.{PathUtil, Io}
-import dagr.sopt.arg
-import dagr.sopt.cmdline.{CommandLineParser, ValidationException}
-import dagr.sopt.util.TermCode
 
 import scala.collection.mutable.ListBuffer
+import scala.util.{Failure, Success}
 
 object DagrCoreMain extends Configuration {
   /** The packages we wish to include in our command line **/
@@ -45,63 +51,17 @@ object DagrCoreMain extends Configuration {
   }
 
   /** The main method */
-  def main(args: Array[String]): Unit = {
-    makeItSo(args, packageList = getPackageList)
-  }
+  /** The main method */
+  def main(args: Array[String]): Unit = new DagrCoreMain().makeItSoAndExit(args)
 
-
-  /** Loads the various dagr scripts and puts them on the classpath. */
-  private def loadScripts(clp: DagrCoreMain): Unit = {
-    val scriptLoader = new DagrScriptManager
-    scriptLoader.loadScripts(
-      clp.scripts,
-      Files.createTempDirectory(PathUtil.pathTo(System.getProperty("java.io.tmpdir")), "dagrScripts"),
-      quiet = false
-    )
-  }
-
-  /**
-    * Main entry point for the class. Parses the args and executes the pipeline. */
-  def makeItSo(args: Array[String], packageList: List[String] = getPackageList): Unit = {
-    // Initialize color options
-    TermCode.printColor = this.optionallyConfigure[Boolean](Configuration.Keys.ColorStatus).getOrElse(true)
-    parse(args=args, packageList=packageList, includeHidden=false) match {
-      case Some((clp, pipeline)) => System.exit(clp.execute(pipeline))
-      case None => System.exit(1)
-    }
-  }
-
-  /** Parse the args and returns the instances of this class and a pipeline if successful.  Not in-lined so we can test it
-    * without executing the pipeline. */
-  private[core] def parse(args: Array[String], packageList: List[String] = getPackageList, includeHidden: Boolean): Option[(DagrCoreMain, Pipeline)] = {
-    val parser = new CommandLineParser[Pipeline](commandLineName=this.commandLineName) {
-      override def genericClpNameOnCommandLine: String = "pipeline"
-    }
-
-    // Load any Dagr scripts and add them to the classpath.
-    def mainBlock(dagr: DagrCoreMain): Unit = loadScripts(clp=dagr)
-
-    // the method that should be called once the dagr and pipeline instances have been successfully created
-    def clpBlock(dagr: DagrCoreMain)(pipeline: Pipeline): Unit = dagr.configure(pipeline, parser.commandLine)
-
-    parser.parseCommandAndSubCommand[DagrCoreMain](
-      args                 = args,
-      packageList          = packageList,
-      omitSubClassesOf     = Seq(classOf[DagrCoreMain]),
-      includeHidden        = includeHidden,
-      afterCommandBuild    = mainBlock,
-      afterSubCommandBuild = clpBlock
-    )
-  }
-
-  /** Provide an command line validation error message */
+  /** Provide a command line validation error message */
   private[cmdline] def buildErrorMessage(msgOption: Option[String] = None, exceptionOption: Option[Exception] = None): String = {
     val extraMsg = msgOption map { text => s"\nmessage: $text" } getOrElse ""
     exceptionOption match {
       case Some(e) =>
-        s"${e.getClass.getCanonicalName}: ${this.commandLineName} command line validation error: ${e.getMessage}$extraMsg"
+        s"${e.getClass.getCanonicalName}: ${this.commandLineName()} command line validation error: ${e.getMessage}$extraMsg"
       case None =>
-        s"${this.commandLineName} command line validation error$extraMsg"
+        s"${this.commandLineName()} command line validation error$extraMsg"
     }
   }
 }
@@ -122,25 +82,25 @@ object DagrCoreMain extends Configuration {
   * @param scripts a list of Dagr (scala) scripts to be included in the command line.  Use this option to inject and
   *                execute custom tasks and pipelines without having to re-compile Dagr.
   */
-class DagrCoreMain(
+class DagrCoreArgs(
 // TODO: update args with precedence information
-  @arg(doc = "Load in a custom configuration into Dagr.  See https://github.com/typesafehub/config for details on the file format.", common = true)
+  @arg(doc = "Load in a custom configuration into Dagr.  See https://github.com/typesafehub/config for details on the file format.")
   val config: Option[Path] = None,
-  @arg(doc = "Stop pipelines immediately on detecting the first failed task.", common = true)
+  @arg(doc = "Stop pipelines immediately on detecting the first failed task.")
   val failFast: Boolean = false,
-  @arg(doc = "Overrides the default scripts directory in the configuration file.", common = true)
+  @arg(doc = "Overrides the default scripts directory in the configuration file.")
   val scriptDir: Option[Path] = None,
-  @arg(doc = "Overrides default log directory in the configuration file.", common = true)
+  @arg(doc = "Overrides default log directory in the configuration file.")
   val logDir: Option[Path] = None,
-  @arg(doc = "Set the logging level.", common = true, flag="l")
+  @arg(doc = "Set the logging level.", flag='l')
   val logLevel: LogLevel = LogLevel.Info,
-  @arg(doc = "Dagr scala scripts to compile and add to the list of programs.", common = true, minElements=0)
+  @arg(doc = "Dagr scala scripts to compile and add to the list of programs.", minElements=0)
   val scripts: List[Path] = Nil,
-  @arg(doc = "Set the number of cores available to dagr.", common = true)
+  @arg(doc = "Set the number of cores available to dagr.")
   val cores: Option[Double] = None,
-  @arg(doc = "Set the memory available to dagr.", common = true)
+  @arg(doc = "Set the memory available to dagr.")
   val memory: Option[String] = None,
-  @arg(doc = "Write an execution report to this file, otherwise write to the stdout", common = true)
+  @arg(doc = "Write an execution report to this file, otherwise write to the stdout")
   val report: Option[Path] = None,
   @arg(doc = "Provide an top-like interface for tasks with the give delay in seconds. This suppress info logging.")
   var interactive: Boolean = false
@@ -185,8 +145,15 @@ class DagrCoreMain(
       Logger.level = this.logLevel
 
       // report file
-      this.reportPath = pick(report, pipeline.outputDirectory.map(_.resolve("execution_report.txt")), Option(Io.StdOut)).map(_.toAbsolutePath)
+      this.reportPath = pick(
+        report,
+        pipeline.outputDirectory.map(_.resolve("execution_report.txt")),
+        logDirectory.map(_.resolve("execution_report.txt"))
+      ).map(_.toAbsolutePath)
       this.reportPath.foreach(p => Io.assertCanWriteFile(p, parentMustExist=false))
+      if (interactive && reportPath.contains(Io.StdOut)) {
+        throw new ValidationException("report cannot write to stdout when --interactive=true")
+      }
 
       val resources = SystemResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
       this.taskManager = Some(new TaskManager(taskManagerResources=resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
@@ -229,9 +196,11 @@ class DagrCoreMain(
     taskMan.addTask(pipeline)
     taskMan.runToCompletion(this.failFast)
 
-    // Write out the execution report
-    if (!interactive || Io.StdOut != report) {
-      val pw = new PrintWriter(Io.toWriter(report))
+    // Write out the execution report to file.
+    // NB: report should never equal Io.Stdout
+    val reportPaths = if (interactive) Seq(report) else Seq(report, Io.StdOut)
+    reportPaths.foreach { path =>
+      val pw = new PrintWriter(Io.toWriter(path))
       taskMan.logReport({ str: String => pw.write(str + "\n") })
       pw.close()
     }
@@ -239,8 +208,94 @@ class DagrCoreMain(
     interactiveReporter.foreach(_.shutdown())
 
     // return an exit code based on the number of non-completed tasks
-    taskMan.taskToInfoBiMapFor.count { case (task, info) =>
+    taskMan.taskToInfoBiMapFor.count { case (_, info) =>
       TaskStatus.isTaskNotDone(info.status, failedIsDone=false)
+    }
+  }
+
+}
+
+class DagrCoreMain extends LazyLogging {
+  protected def name: String = "dagr"
+
+  /** A main method that invokes System.exit with the exit code. */
+  def makeItSoAndExit(args: Array[String]): Unit = System.exit(makeItSo(args))
+
+  /** A main method that returns an exit code instead of exiting. */
+  def makeItSo(args: Array[String], packageList: List[String] = DagrCoreMain.getPackageList, includeHidden: Boolean = false): Int = {
+    // Initialize color options
+    TermCode.printColor = DagrCoreMain.optionallyConfigure[Boolean](Configuration.Keys.ColorStatus).getOrElse(true)
+
+    // Load any dagr scripts - assumes the option is "--scripts" only
+    loadScripts(args)
+
+    val startTime = System.currentTimeMillis()
+    val packages = Sopt.find[Pipeline](packageList, includeHidden=includeHidden)
+    val exit      = Sopt.parseCommandAndSubCommand[DagrCoreArgs,Pipeline](name, args, packages) match {
+      case Sopt.Failure(usage) =>
+        System.err.print(usage())
+        1
+      case Sopt.CommandSuccess(cmd) =>
+        unreachable("CommandSuccess should never be returned by parseCommandAndSubCommand.")
+      case Sopt.SubcommandSuccess(dagr, pipeline) =>
+        val name = pipeline.getClass.getSimpleName
+        try {
+          dagr.configure(pipeline, Some(args.mkString))
+          val name = Configuration.commandLineName(this.name)
+          printStartupLines(name, args)
+          val numFailed = dagr.execute(pipeline)
+          if (numFailed!= 0) logger.fatal("Execution failed!")
+          printEndingLines(startTime, name, true)
+          numFailed
+        }
+        catch {
+          case ex: Throwable =>
+            printEndingLines(startTime, name, false)
+            throw ex
+        }
+    }
+
+    exit
+  }
+
+  /** Prints a line of useful information when a tool starts executing. */
+  protected def printStartupLines(tool: String, args: Array[String]): Unit = {
+    val version    = CommandLineProgramParserStrings.version(getClass, color=false).replace("Version: ", "")
+    val host       = InetAddress.getLocalHost.getHostName
+    val user       = System.getProperty("user.name")
+    val jreVersion = System.getProperty("java.runtime.version")
+    logger.info(s"Executing $tool from $name version $version as $user@$host on JRE $jreVersion")
+  }
+
+  /** Prints a line of useful information when a tool stops executing. */
+  protected def printEndingLines(startTime: Long, name: String, success: Boolean): Unit = {
+    val elapsedMinutes: Double = (System.currentTimeMillis() - startTime) / (1000d * 60d)
+    val elapsedString: String = new DecimalFormat("#,##0.00").format(elapsedMinutes)
+    val verb = if (success) "completed" else "failed"
+    logger.info(s"$name $verb. Elapsed time: $elapsedString minutes.")
+  }
+
+  /** Loads the various dagr scripts and puts them on the classpath. */
+  private def loadScripts(args: Array[String]): Unit = {
+    val tokenizer = new ArgTokenizer(args, argFilePrefix=Some("@"))
+    val collator = new ArgTokenCollator(tokenizer)
+    collator.filter(_.isSuccess).foreach {
+      case Success(ArgOptionAndValues(name: String, values: Seq[String])) if name == "scripts" =>
+        val scripts = values.map(PathUtil.pathTo(_)).filter { path =>
+          try {
+            Io.assertReadable(path)
+            true
+          } catch {
+            case _: IllegalArgumentException => false
+            case _: AssertionError           => false
+          }
+        }
+        new DagrScriptManager().loadScripts(
+          scripts,
+          Files.createTempDirectory(PathUtil.pathTo(System.getProperty("java.io.tmpdir")), "dagrScripts"),
+          quiet = false
+        )
+      case _ => false
     }
   }
 }

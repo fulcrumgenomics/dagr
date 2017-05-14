@@ -27,14 +27,14 @@ package dagr.tasks.vc
 
 import java.nio.file.Path
 
-import dagr.commons.CommonsDef.yieldAndThen
-import dagr.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.CommonsDef.yieldAndThen
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.core.cmdline.Pipelines
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.Pipes.PipeWithNoResources
 import dagr.core.tasksystem._
-import dagr.sopt.{arg, clp}
+import com.fulcrumgenomics.sopt.{arg, clp}
 import dagr.tasks.DagrDef._
 import dagr.tasks.DataTypes.Vcf
 import dagr.tasks.misc.DeleteFiles
@@ -124,19 +124,19 @@ private class VarDictJava(tumorBam: PathToBam,
   group = classOf[Pipelines]
 )
 class VarDictJavaEndToEnd
-(@arg(flag="i", doc="The input tumor BAM file.") tumorBam: PathToBam,
- @arg(flag="l", doc="The intervals over which to call variants.") bed: FilePath,
- @arg(flag="r", doc="Path to the reference fasta file.") ref: PathToFasta,
- @arg(flag="o", doc="The output VCF.") out: PathToVcf,
- @arg(flag="n", doc="The tumor sample name, otherwise taken from the first read group in the BAM.") tumorName: Option[String] = None,
- @arg(flag="f", doc="The minimum allele frequency.") minimumAf: Double = 0.01,
- @arg(flag="p", doc="Include non-pf reads.") includeNonPf: Boolean = false,
- @arg(flag="m", doc="The minimum base quality to use.") minimumQuality: Option[Int] = None,
- @arg(flag="M", doc="he maximum # of mismatches (not indels).") maximumMismatches: Option[Int] = None,
- @arg(flag="R", doc="The minimum # of reads with alternate bases.") minimumAltReads: Option[Int] = None,
- @arg(flag="P", doc="Use the pileup mode (emit all sites with an alternate).") pileupMode: Boolean = false,
- @arg(flag="t", doc="The minimum # of threads with which to run.") minThreads: Int = 1,
- @arg(flag="T", doc="The maximum # of threads with which to run.") maxThreads: Int = 32) extends Pipeline {
+(@arg(flag='i', doc="The input tumor BAM file.") tumorBam: PathToBam,
+ @arg(flag='l', doc="The intervals over which to call variants.") bed: FilePath,
+ @arg(flag='r', doc="Path to the reference fasta file.") ref: PathToFasta,
+ @arg(flag='o', doc="The output VCF.") out: PathToVcf,
+ @arg(flag='n', doc="The tumor sample name, otherwise taken from the first read group in the BAM.") tumorName: Option[String] = None,
+ @arg(flag='f', doc="The minimum allele frequency.") minimumAf: Double = 0.01,
+ @arg(flag='p', doc="Include non-pf reads.") includeNonPf: Boolean = false,
+ @arg(flag='m', doc="The minimum base quality to use.") minimumQuality: Option[Int] = None,
+ @arg(flag='M', doc="he maximum # of mismatches (not indels).") maximumMismatches: Option[Int] = None,
+ @arg(flag='R', doc="The minimum # of reads with alternate bases.") minimumAltReads: Option[Int] = None,
+ @arg(flag='P', doc="Use the pileup mode (emit all sites with an alternate).") pileupMode: Boolean = false,
+ @arg(flag='t', doc="The minimum # of threads with which to run.") minThreads: Int = 1,
+ @arg(flag='T', doc="The maximum # of threads with which to run.") maxThreads: Int = 32) extends Pipeline {
   import VarDictJava.BinDir
 
   // Put these here so that they'll error at construction if missing

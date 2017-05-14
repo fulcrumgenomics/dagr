@@ -26,9 +26,9 @@ package dagr.tasks.gatk
 
 import java.nio.file.Files
 
-import dagr.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.core.tasksystem.{Pipeline, SimpleInJvmTask}
-import dagr.sopt.{arg, clp}
+import com.fulcrumgenomics.sopt.{arg, clp}
 import dagr.tasks.DagrDef._
 import dagr.tasks.misc.DeleteFiles
 
@@ -58,11 +58,11 @@ class IndelRealignment(val bams: Map[PathToBam, PathToBam],
                       ) extends Pipeline {
 
   /** CLP constructor for testing and manual use, since there's no easy way to provide a map on the CLI. */
-  def this(@arg(flag = "i", doc = "One or more input BAM files.") in: Seq[PathToBam],
-           @arg(flag = "o", doc = "Output directory.") out: DirPath,
-           @arg(flag = "r", doc = "Path to the reference fasta.") ref: PathToFasta,
-           @arg(flag = "k", doc = "Zero or more VCFs of known indels.") known: Seq[PathToVcf] = Nil,
-           @arg(flag = "l", doc = "Optional regions to run over") intervals: Option[PathToIntervals] = None) = {
+  def this(@arg(flag = 'i', doc = "One or more input BAM files.") in: Seq[PathToBam],
+           @arg(flag = 'o', doc = "Output directory.") out: DirPath,
+           @arg(flag = 'r', doc = "Path to the reference fasta.") ref: PathToFasta,
+           @arg(flag = 'k', doc = "Zero or more VCFs of known indels.") known: Seq[PathToVcf] = Nil,
+           @arg(flag = 'l', doc = "Optional regions to run over") intervals: Option[PathToIntervals] = None) = {
     this(bams           = in.map(b => b -> out.resolve(PathUtil.basename(b) + ".cleaned" + PathUtil.extensionOf(b).getOrElse(""))).toMap,
          ref            = ref,
          known          = known,

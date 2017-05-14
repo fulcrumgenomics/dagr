@@ -25,7 +25,7 @@ package dagr.core.tasksystem
 
 import java.nio.file.Path
 
-import dagr.commons.io.Io
+import com.fulcrumgenomics.commons.io.Io
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.Pipes.{RedirectErrorToFile, RedirectToFile}
 

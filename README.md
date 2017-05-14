@@ -84,8 +84,6 @@ Tests may be run with ```sbt test```.
 You can include the five sub-projects that make up dagr using:
 
 ```
-libraryDependencies += "com.fulcrumgenomics" %%  "dagr-commons" % "0.1.0"
-libraryDependencies += "com.fulcrumgenomics" %%  "dagr-sopt" % "0.1.0"
 libraryDependencies += "com.fulcrumgenomics" %%  "dagr-core" % "0.1.0"
 libraryDependencies += "com.fulcrumgenomics" %%  "dagr-tasks" % "0.1.0"
 libraryDependencies += "com.fulcrumgenomics" %%  "dagr-pipelines" % "0.1.0"
@@ -103,13 +101,11 @@ We are currently working on the first release of `dagr` and therefore rapidly ev
 
 ## Overview
 
-`dagr` contains five projects:
+`dagr` contains three projects:
 
-1. `dagr-commons` for common scala utility methods and classes.
-2. `dagr-sopt` for option and command-line parsing in scala.
-3. `dagr-core` for specifying, scheduling, and executing tasks with dependencies.
-4. `dagr-tasks` for common genomic analysis tasks, such as those in [Picard tools](https://github.com/broadinstitute/picard), [JeanLuc](https://github.com/fulcrumgenomics/JeanLuc), [Bwa](https://github.com/lh3/bwa), and elsewhere.
-5. `dagr-pipelines` for common genomic pipelines, such as mapping, variant calling, and quality control.
+1. `dagr-core` for specifying, scheduling, and executing tasks with dependencies.
+2. `dagr-tasks` for common genomic analysis tasks, such as those in [Picard tools](https://github.com/broadinstitute/picard), [JeanLuc](https://github.com/fulcrumgenomics/JeanLuc), [Bwa](https://github.com/lh3/bwa), and elsewhere.
+3. `dagr-pipelines` for common genomic pipelines, such as mapping, variant calling, and quality control.
 
 `dagr` endeavors to combine the full features of the Scala programming language with a simplifying DSL for fast and easy authoring of complicated tasks and pipelines.
 

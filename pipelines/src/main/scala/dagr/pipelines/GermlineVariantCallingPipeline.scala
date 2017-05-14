@@ -25,11 +25,11 @@ package dagr.pipelines
 
 import java.nio.file.Path
 
-import dagr.commons.io.PathUtil
+import com.fulcrumgenomics.commons.io.PathUtil
 import dagr.core.cmdline.Pipelines
-import dagr.sopt._
+import com.fulcrumgenomics.sopt._
 import dagr.core.tasksystem.{Linker, Pipeline, ShellCommand}
-import dagr.sopt.cmdline.ValidationException
+import com.fulcrumgenomics.sopt.cmdline.ValidationException
 import dagr.tasks.DagrDef
 import DagrDef._
 import dagr.tasks.gatk.{GenotypeGvcfs, HaplotypeCaller}
@@ -51,11 +51,11 @@ description =
   group = classOf[Pipelines]
 )
 class GermlineVariantCallingPipeline
-( @arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val in: PathToBam,
-  @arg(flag="o", doc="Output prefix (including directories) for output files.")     val out: Path,
-  @arg(flag="l", doc="Path to interval list of regions to call.")                   val intervals: Option[PathToIntervals] = None,
-  @arg(flag="r", doc="Path to the reference FASTA.")                                val ref: PathToFasta,
-  @arg(flag="d", doc="Path to dbSNP VCF (for GATK and CollectVariantCallingMetrics only).")
+( @arg(flag='i', doc="The input BAM file (indexed) from which to call variants.")   val in: PathToBam,
+  @arg(flag='o', doc="Output prefix (including directories) for output files.")     val out: Path,
+  @arg(flag='l', doc="Path to interval list of regions to call.")                   val intervals: Option[PathToIntervals] = None,
+  @arg(flag='r', doc="Path to the reference FASTA.")                                val ref: PathToFasta,
+  @arg(flag='d', doc="Path to dbSNP VCF (for GATK and CollectVariantCallingMetrics only).")
             val dbsnp: Option[PathToVcf] = None,
   @arg(          doc="If true, keep intermediate VCFs (GATK only).")                val keepIntermediates: Boolean = false,
   @arg(          doc="Use GATK (true), otherwise use FreeBayes (false).")           val useGatk: Boolean = true,

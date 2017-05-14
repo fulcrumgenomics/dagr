@@ -26,8 +26,9 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.Instant
 
-import dagr.commons.CommonsDef._
-import dagr.commons.util.{BiMap, LazyLogging}
+import com.fulcrumgenomics.commons.CommonsDef._
+import com.fulcrumgenomics.commons.collection.BiMap
+import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.DagrDef._
 import dagr.core.execsystem.TaskStatus._
 import dagr.core.tasksystem.Task

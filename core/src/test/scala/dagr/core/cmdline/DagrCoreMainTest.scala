@@ -24,24 +24,49 @@
 
 package dagr.core.cmdline
 
-import dagr.commons.util.{CaptureSystemStreams, LogLevel, Logger, UnitSpec}
 import dagr.core.cmdline.pipelines.PipelineFour
 import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
-import dagr.commons.io.Io
-import dagr.sopt.util.TermCode
+import com.fulcrumgenomics.commons.io.Io
+import com.fulcrumgenomics.sopt.util.TermCode
+import com.fulcrumgenomics.commons.util.CaptureSystemStreams
 import org.scalatest.BeforeAndAfterAll
+import java.nio.file.{Files, Path}
 
-class NoOpPipeline extends Pipeline {
+import dagr.core.UnitSpec
+import dagr.core.cmdline.DagrScriptManager.DagrScriptManagerException
+
+private class NoOpPipeline extends Pipeline {
   override def build(): Unit = {
     root ==> new NoOpInJvmTask("NoOpInJvmTask")
   }
 }
 
-class DagrCoreMainTest extends UnitSpec with CaptureSystemStreams with BeforeAndAfterAll {
+class DagrCoreMainTest extends UnitSpec with BeforeAndAfterAll with CaptureSystemStreams {
 
   private val prevPrintColor = TermCode.printColor
-  override protected def beforeAll(): Unit = TermCode.printColor = false
-  override protected def afterAll(): Unit = TermCode.printColor = prevPrintColor
+
+  private def nameOf(clazz: Class[_]): String = clazz.getSimpleName
+
+  private def packageName: String = "dagr.core.cmdline.pipelines"
+
+  private def reportPath: Path = {
+    val path = Files.createTempFile("DagrCoreMain.", ".report.txt")
+    path.toFile.deleteOnExit()
+    path
+  }
+
+  private def testParse(args: Array[String]): (Option[Int], StdErrString, StdOutString, LoggerString) = {
+    var exitCode: Option[Int] = None
+    val (stderr, stdout, log) = captureItAll(() => {
+      val argsWithReport = Array[String]("--report", reportPath.toAbsolutePath.toString) ++ args
+      exitCode = Some(new DagrCoreMain().makeItSo(args=argsWithReport, packageList=List(packageName), includeHidden=true))
+    })
+    (exitCode, stderr, stdout, log)
+  }
+
+  override private def beforeAll(): Unit = TermCode.printColor = false
+
+  override private def afterAll(): Unit = TermCode.printColor = prevPrintColor
 
   // required so that colors are not in our usage messages
   "DagrCoreMainTest" should "have color status of Dagr be false" in {
@@ -49,79 +74,71 @@ class DagrCoreMainTest extends UnitSpec with CaptureSystemStreams with BeforeAnd
     TermCode.printColor shouldBe false
   }
 
-  "DagrCoreMain.execute" should "run a pipeline end-to-end" in {
-    val clp = new DagrCoreMain(logLevel=LogLevel.Fatal, report=Some(Io.DevNull))
-    val pipeline = new NoOpPipeline()
+  "DagrCoreArgs.execute" should "run a pipeline end-to-end" in {
+    captureLogger(() => {
+      val clp = new DagrCoreArgs(report = Some(Io.DevNull))
+      val pipeline = new NoOpPipeline()
 
-    clp.configure(pipeline)
-    clp.execute(pipeline) shouldBe 0
-
-    // NB: need to set the log level back
-    Logger.level = LogLevel.Info
+      clp.configure(pipeline)
+      clp.execute(pipeline) shouldBe 0
+    })
   }
 
   it should "run a pipeline end-to-end in interactive mode" in {
-    val clp = new DagrCoreMain(logLevel=LogLevel.Fatal, report=Some(Io.DevNull), interactive=true)
-    val pipeline = new NoOpPipeline()
+    captureLogger(() => {
+      val clp = new DagrCoreArgs(report = Some(Io.DevNull), interactive = true)
+      val pipeline = new NoOpPipeline()
 
-    clp.configure(pipeline)
-    val stdout = captureStdout(() => {
-      clp.execute(pipeline) shouldBe 0
-    })
-    stdout should include("1 Done")
-
-    // NB: need to set the log level back
-    Logger.level = LogLevel.Info
-  }
-
-  private def nameOf(clazz: Class[_]): String = clazz.getSimpleName
-
-  private def testParse(args: Array[String]): (Option[DagrCoreMain], Option[Pipeline], String, String) = {
-    var mainOption: Option[DagrCoreMain] = None
-    var pipelineOption: Option[Pipeline] = None
-    var stdout: String = ""
-    val stderr: String = captureStderr(() => {
-      stdout = captureStdout(() => {
-        DagrCoreMain.parse(args=args, packageList=List("dagr.core.cmdline.pipelines"), includeHidden=true) match {
-          case Some((m, p)) =>
-            mainOption = Some(m)
-            pipelineOption = Some(p)
-          case None => Unit
-        }
+      clp.configure(pipeline)
+      val stdout = captureStdout(() => {
+        clp.execute(pipeline) shouldBe 0
       })
+      stdout should include("1 Done")
     })
-    (mainOption, pipelineOption, stderr, stdout)
   }
 
   "DagrCoreMain.parse" should "print just the main usage when the path to the main configuration file does not exist" in {
-    Stream(
-      Array[String]("--config", "/path/to/nowhere", nameOf(classOf[PipelineFour]))
-    ).foreach { args =>
-      val (_, _, stderr, _) = testParse(args)
-      stderr should include ("/path/to/nowhere")
-    }
+    val (_, stderr, _, _) = testParse(Array[String]("--config", "/path/to/nowhere", nameOf(classOf[PipelineFour])))
+    stderr should include ("/path/to/nowhere")
   }
 
-  // FIXME
-  /*
+  it should "accept a configuration file" in {
+    val path = Files.createTempFile("DagrCoreMain.", ".config.txt")
+    path.toFile.deleteOnExit()
+    Io.writeLines(path,
+      Seq("""
+            |dagr = {
+            |  command-line-name = "test-name"
+            |}
+      """.stripMargin
+      )
+    )
+
+    val (_, _, _, log) = testParse(Array[String]("--config", path.toAbsolutePath.toString, nameOf(classOf[PipelineFour])))
+    log should include("test-name")
+  }
+
+  it should "print the execution failure upon failure" in {
+    val (_, _, _, log) = testParse(Array[String](nameOf(classOf[PipelineFour])))
+    log should include("Elapsed time:")
+    log should include("Execution failed!")
+  }
+
   it should "load in a dagr script successfully" in {
-    val (tmpDir: Path, tmpFile: Path) = DagrScriptManagerTest.writeScript(DagrScriptManagerTest.helloWorldScript)
-    val args: Array[String] = Array[String]("--scripts", tmpFile.toAbsolutePath.normalize().toString)
-    val (mainOption, pipelineOption, stderr, stdout) = testParse(args)
-    println("stdout: " + stdout)
-    println("stderr:" + stderr)
-    stdout should include("Compilation complete")
+    val (_, tmpFile: Path) = DagrScriptManagerTest.writeScript(DagrScriptManagerTest.helloWorldScript(packageName))
+    val args: Array[String] = Array[String](s"--scripts", tmpFile.toAbsolutePath.normalize().toString, "HelloWorldPipeline")
+    val (_, _, _, log) = testParse(args)
+    log should include("Compilation complete")
   }
 
   it should "fail to compile a buggy dagr script" in {
-    val (tmpDir: Path, tmpFile: Path) = DagrScriptManagerTest.writeScript("ABCDEFG\n" + DagrScriptManagerTest.helloWorldScript)
+    val (_, tmpFile: Path) = DagrScriptManagerTest.writeScript("ABCDEFG\n" + DagrScriptManagerTest.helloWorldScript(packageName))
     val args: Array[String] = Array[String]("--scripts", tmpFile.toAbsolutePath.normalize().toString)
-    val (mainOption, pipelineOption, stderr, stdout) = testParse(args)
-    println("stdout: " + stdout)
-    println("stderr:" + stderr)
-    stderr should include("failed")
-  }
-  */
 
-  // TODO: test using loading up a config file on the command line
+    val exception = intercept[DagrScriptManagerException] {
+      testParse(args)
+    }
+    exception.getMessage should include(s"Compile of $tmpFile failed with")
+  }
+
 }

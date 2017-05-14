@@ -5,7 +5,7 @@ import java.nio.file.{Path, Files}
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{Pipe, Pipes}
-import dagr.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.tasks.DataTypes.{Fastq, Sam, SamOrBam}
 import dagr.tasks.DagrDef
 import DagrDef._
