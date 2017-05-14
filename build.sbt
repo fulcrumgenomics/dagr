@@ -95,7 +95,7 @@ lazy val commonSettings = Seq(
   testOptions in Test  += Tests.Argument(TestFrameworks.ScalaTest, "-h", Option(System.getenv("TEST_HTML_REPORTS")).getOrElse(htmlReportsDirectory)),
   testOptions in Test  += Tests.Argument("-l", "LongRunningTest"), // ignores long running tests
   // uncomment for full stack traces
-  //testOptions in Test  += Tests.Argument("-oD"),
+  //testOptions in Test  += Tests.Argument("-oDF"),
   fork in Test         := true,
   resolvers            += Resolver.jcenterRepo,
   resolvers            += Resolver.sonatypeRepo("public"),
