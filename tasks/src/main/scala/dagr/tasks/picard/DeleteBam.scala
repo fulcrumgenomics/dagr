@@ -26,7 +26,7 @@ package dagr.tasks.picard
 import java.nio.file.{Files, Path}
 
 import dagr.core.tasksystem.SimpleInJvmTask
-import dagr.commons.io.PathUtil
+import com.fulcrumgenomics.commons.io.PathUtil
 
 import scala.collection.mutable.ListBuffer
 

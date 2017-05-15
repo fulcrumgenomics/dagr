@@ -27,9 +27,9 @@ package dagr.core.execsystem
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
-import dagr.commons.util.BiMap
-import dagr.commons.util.StringUtil._
-import dagr.commons.util.TimeUtil._
+import com.fulcrumgenomics.commons.collection.BiMap
+import com.fulcrumgenomics.commons.util.StringUtil._
+import com.fulcrumgenomics.commons.util.TimeUtil._
 import dagr.core.execsystem.GraphNodeState._
 import dagr.core.execsystem.TopLikeStatusReporter.{ReportField, StatusRunnable}
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}

@@ -24,7 +24,7 @@
 
 package dagr.core.tasksystem
 
-import dagr.commons.util.UnitSpec
+import dagr.core.UnitSpec
 
 /**
  * Test that are specific to the Pipeline class

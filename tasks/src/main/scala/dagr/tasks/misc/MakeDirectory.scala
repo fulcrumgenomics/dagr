@@ -24,7 +24,7 @@
 
 package dagr.tasks.misc
 
-import dagr.commons.io.Io
+import com.fulcrumgenomics.commons.io.Io
 import dagr.core.tasksystem.{FixedResources, InJvmTask}
 import dagr.tasks.DagrDef.DirPath
 

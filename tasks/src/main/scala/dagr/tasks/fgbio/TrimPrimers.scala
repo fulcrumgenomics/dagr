@@ -24,7 +24,7 @@
 
 package dagr.tasks.fgbio
 
-import dagr.commons.CommonsDef._
+import com.fulcrumgenomics.commons.CommonsDef._
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable.ListBuffer

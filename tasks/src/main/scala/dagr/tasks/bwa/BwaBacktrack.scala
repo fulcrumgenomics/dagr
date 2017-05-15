@@ -2,7 +2,7 @@ package dagr.tasks.bwa
 
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{FixedResources, Pipeline, ProcessTask, VariableResources}
-import dagr.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.tasks.DagrDef
 import DagrDef._
 import dagr.tasks.misc.DeleteFiles

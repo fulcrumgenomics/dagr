@@ -27,16 +27,17 @@ import java.io.PrintWriter
 import java.nio.file.{Files, Path, Paths}
 import java.time.Duration
 
-import com.typesafe.config.{ConfigException, ConfigFactory}
-import dagr.commons.io.{Io, PathUtil}
-import dagr.commons.util.UnitSpec
+import com.typesafe.config.{Config, ConfigException, ConfigFactory}
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.util.CaptureSystemStreams
+import dagr.core.UnitSpec
 import dagr.core.execsystem.{Cores, Memory}
 
 /**
   * Tests for the Configuration trait.
   */
-class ConfigurationTest extends UnitSpec {
-  val _config = ConfigFactory.parseString(
+class ConfigurationTest extends UnitSpec with CaptureSystemStreams {
+  private val _config = ConfigFactory.parseString(
     """
       |dagr.path = ${PATH}
       |a-string = hello
@@ -55,9 +56,10 @@ class ConfigurationTest extends UnitSpec {
       |some-cores  = 2.5
       |some-memory = 2G
       |some-executable = /does/not/exist
+      |a-string-set = ["A", "B", "C"]
       |    """.stripMargin)
 
-  val conf = new Configuration { override val config = _config.resolve() }
+  val conf = new Configuration { override val config : Config = _config.resolve() }
 
   "Configuration" should "lookup basic types with keys that exist" in {
     conf.configure[String]("a-string") shouldBe "hello"
@@ -110,7 +112,10 @@ class ConfigurationTest extends UnitSpec {
 
   it should "throw an exception for unsupported types" in {
     an[IllegalArgumentException] should be thrownBy conf.configure[Char]("a-char")
-    an[IllegalArgumentException] should be thrownBy conf.configure[Set[String]]("a-string-set")
+    val log = captureLogger(() => {
+      an[IllegalArgumentException] should be thrownBy conf.configure[Set[String]]("a-string-set", Set("String"))
+    })
+    log should include("IllegalArgumentException")
   }
 
   it should "load a config from a file" in {
@@ -122,7 +127,7 @@ class ConfigurationTest extends UnitSpec {
     pw.println(Configuration.Keys.ColorStatus + " = false")
     pw.close()
 
-    val conf = new Configuration {  override val config = ConfigFactory.parseFile(configPath.toFile) }
+    val conf = new Configuration {  override val config : Config = ConfigFactory.parseFile(configPath.toFile) }
     conf.configure[String](Configuration.Keys.CommandLineName) shouldBe "command-line-name"
     conf.configure[Boolean](Configuration.Keys.ColorStatus) shouldBe false
     conf.optionallyConfigure[String](Configuration.Keys.SystemPath) shouldBe 'empty

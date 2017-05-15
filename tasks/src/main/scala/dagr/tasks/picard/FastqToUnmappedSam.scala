@@ -26,7 +26,7 @@ package dagr.tasks.picard
 import java.nio.file.Path
 
 import dagr.core.tasksystem.Pipe
-import dagr.commons.io.Io
+import com.fulcrumgenomics.commons.io.Io
 import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFastq}

@@ -27,10 +27,10 @@ package dagr.pipelines
 import java.nio.file.{Files, Path}
 
 import _root_.picard.analysis.CollectMultipleMetrics.Program
-import dagr.sopt._
+import com.fulcrumgenomics.sopt._
 import dagr.core.cmdline._
 import dagr.core.tasksystem.{Linker, Pipeline, ProcessTask, Task}
-import dagr.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.tasks.DagrDef
 import DagrDef._
 import dagr.tasks.bwa.{Bwa, BwaBacktrack}
@@ -59,9 +59,9 @@ class DnaResequencingFromUnmappedBamPipeline
   @arg(doc="Path to the reference FASTA.")                         val ref: PathToFasta,
   @arg(doc="Use bwa aln/sampe' instead of bwa mem.")               val useBwaBacktrack: Boolean = false,
   @arg(doc="The number of reads to target when downsampling.")     val downsampleToReads: Long = Math.round(185e6 / 101),
-  @arg(flag="t", doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
+  @arg(flag='t', doc="Target intervals to run HsMetrics over.")    val targetIntervals: Option[PathToIntervals],
   @arg(doc="Path to a temporary directory.")                       val tmp: Path,
-  @arg(flag="o", doc="The output directory to write to.")          val out: DirPath,
+  @arg(flag='o', doc="The output directory to write to.")          val out: DirPath,
   @arg(doc="The filename prefix for output files.")                val basename: FilenamePrefix
 ) extends Pipeline(Some(out)) {
 

@@ -27,10 +27,10 @@ package dagr.pipelines
 
 import java.nio.file.{Files, Path}
 
-import dagr.commons.io.PathUtil
+import com.fulcrumgenomics.commons.io.PathUtil
 import dagr.core.cmdline.Pipelines
 import dagr.core.tasksystem.Pipeline
-import dagr.sopt._
+import com.fulcrumgenomics.sopt._
 import dagr.tasks.DagrDef._
 import dagr.tasks.ScatterGather.Scatter
 import dagr.tasks.gatk.{GenotypeGvcfs, HaplotypeCaller, SplitIntervalsForCallingRegions}
@@ -50,15 +50,15 @@ description =
   group = classOf[Pipelines]
 )
 class ParallelHaplotypeCaller
-(@arg(flag="r", doc="Path to the reference FASTA.")                                val ref: PathToFasta,
- @arg(flag="i", doc="The input BAM file (indexed) from which to call variants.")   val input: PathToBam,
- @arg(flag="l", doc="Path to interval list of regions to call.")                   val intervals: Option[PathToIntervals] = None,
- @arg(flag="o", doc="The output VCF to which to write variants.")                  val output: PathToVcf,
- @arg(flag="d", doc="Path to dbSNP VCF (for GenotypeGvcfs).")                      val dbsnp: Option[PathToVcf] = None,
- @arg(flag="f", doc="Filter variants using Picard FilterVcf.")                     val filterVcf: Boolean = false,
- @arg(flag="s", doc="The size of the region to call for each parallel task.")      val maxBasesPerScatter: Int = 25000000,
- @arg(flag="t", doc="Temporary directory in which to store intermediate results.") val tmpDirectory: Option[Path],
- @arg(flag="H", doc="Use the native code for GATK (Unix only)")                    val useNativePairHmm: Boolean = false
+(@arg(flag='r', doc="Path to the reference FASTA.")                                val ref: PathToFasta,
+ @arg(flag='i', doc="The input BAM file (indexed) from which to call variants.")   val input: PathToBam,
+ @arg(flag='l', doc="Path to interval list of regions to call.")                   val intervals: Option[PathToIntervals] = None,
+ @arg(flag='o', doc="The output VCF to which to write variants.")                  val output: PathToVcf,
+ @arg(flag='d', doc="Path to dbSNP VCF (for GenotypeGvcfs).")                      val dbsnp: Option[PathToVcf] = None,
+ @arg(flag='f', doc="Filter variants using Picard FilterVcf.")                     val filterVcf: Boolean = false,
+ @arg(flag='s', doc="The size of the region to call for each parallel task.")      val maxBasesPerScatter: Int = 25000000,
+ @arg(flag='t', doc="Temporary directory in which to store intermediate results.") val tmpDirectory: Option[Path],
+ @arg(flag='H', doc="Use the native code for GATK (Unix only)")                    val useNativePairHmm: Boolean = false
 )
 extends Pipeline(outputDirectory = Some(output.getParent)) {
   private def replace(p: Path, a: String, b: String): Path = p.getParent.resolve(p.getFileName.toString.replace(a, b))

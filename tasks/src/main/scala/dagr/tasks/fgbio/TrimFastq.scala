@@ -24,7 +24,7 @@
 
 package dagr.tasks.fgbio
 
-import dagr.commons.CommonsDef.PathToFastq
+import com.fulcrumgenomics.commons.CommonsDef.PathToFastq
 
 import scala.collection.mutable.ListBuffer
 

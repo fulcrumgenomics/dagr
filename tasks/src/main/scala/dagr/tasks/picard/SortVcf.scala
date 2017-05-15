@@ -25,7 +25,7 @@
 
 package dagr.tasks.picard
 
-import dagr.commons.io.Io
+import com.fulcrumgenomics.commons.io.Io
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DagrDef._
 import dagr.tasks.DataTypes.Vcf
