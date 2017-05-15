@@ -31,7 +31,7 @@ import com.typesafe.config.{Config, ConfigException, ConfigFactory}
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.commons.util.CaptureSystemStreams
 import dagr.core.UnitSpec
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.core.exec.{Cores, Memory}
 
 /**
   * Tests for the Configuration trait.

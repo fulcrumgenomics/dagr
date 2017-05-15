@@ -74,7 +74,7 @@ trait Dependable {
 
 /** An object that can be implicitly converted to from a None when using Option[Dependable]. */
 object EmptyDependable extends Dependable {
-  /** Converts an Option[Dependable] to a Dependable when needed. Linked to from [[DagrDef]] to accessibility. */
+  /** Converts an Option[Dependable] to a Dependable when needed. Linked to from [[dagr.core.DagrDef]] to accessibility. */
   implicit def optionDependableToDependable(maybe: Option[Dependable]): Dependable = maybe match {
     case Some(d) => d
     case None    => EmptyDependable
@@ -104,7 +104,7 @@ case class DependencyChain(from: Dependable, to: Dependable) extends Dependable 
 }
 
 /**
- * Represents a group of Dependable objects such that depedency operations on a
+ * Represents a group of Dependable objects such that dependency operations on a
  * DependencyGroup are transmitted to all contained Dependables.
  */
 case class DependencyGroup(a: Dependable, b: Dependable) extends Dependable {

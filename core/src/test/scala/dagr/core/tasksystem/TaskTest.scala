@@ -24,16 +24,19 @@
 package dagr.core.tasksystem
 
 import java.nio.file.{Files, Path}
+import java.time.Instant
 
 import dagr.core.DagrDef._
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.execsystem._
 import dagr.core.UnitSpec
+import dagr.core.exec.{Cores, Memory, ResourceSet}
+import org.scalatest.OptionValues
 
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
-class TaskTest extends UnitSpec with LazyLogging {
+class TaskTest extends UnitSpec with LazyLogging with OptionValues {
   private val resources = ResourceSet(Cores(1), Memory("32M"))
 
   class SleepAndExitData(var sleepValue: Int, var exitCode: Int)
@@ -159,11 +162,9 @@ class TaskTest extends UnitSpec with LazyLogging {
       // Run the task
       taskRunner.runTask(taskInfo = new TaskExecutionInfo(
           task           = task,
-          taskId             = id,
-          status         = TaskStatus.UNKNOWN,
+          initId         = id,
           script         = script,
-          logFile        = logFile,
-          submissionDate = None
+          log            = logFile
         )
       )
       taskRunner.joinAll(1000)
@@ -415,5 +416,84 @@ class TaskTest extends UnitSpec with LazyLogging {
     it should "quote all special character in arguments that have single quotes" in {
       P("it's cold outside", "what?!", "I'm a *").commandLine shouldBe """it\'s\ cold\ outside 'what?!' I\'m\ a\ \*"""
     }
+  }
+
+  private class TestingInfo(task: Task, initStatus: Task.TaskStatus) extends Task.TaskInfo(task=task, initStatus=initStatus) {
+    override protected[core] def startDate = None
+    override protected[core] def submissionDate = None
+    override protected[core] def endDate = None
+  }
+
+  "TaskInfo.update" should "only add a time point if the status changes" in {
+    val task = new NoOpInJvmTask("no-op")
+    val info = new TestingInfo(task=task, initStatus=TaskStatus.Unknown)
+
+    info.timePoints.size shouldBe 1
+    val instant = info(TaskStatus.Unknown).value
+
+    info(TaskStatus.Unknown) = Instant.now()
+    info.timePoints.size shouldBe 1
+    info(TaskStatus.Unknown).value shouldBe instant
+
+    val startInstant = Instant.now()
+    info(TaskStatus.Started) = startInstant
+    info.timePoints.size shouldBe 2
+    info(TaskStatus.Unknown).value shouldBe instant
+    info(TaskStatus.Started).value shouldBe startInstant
+  }
+
+  "TaskInfo.latestStatus" should "get the latest instant of the given type of status" in {
+    val task = new NoOpInJvmTask("no-op")
+    val info = new TestingInfo(task=task, initStatus=TaskStatus.Unknown)
+
+    info.latestStatus[TaskStatus.Unknown.type].value shouldBe info(TaskStatus.Unknown).value
+
+    val startInstant = Instant.now()
+    info(TaskStatus.Started) = startInstant
+    info.latestStatus[TaskStatus.Started.type].value shouldBe startInstant
+
+    val failedInstant = Instant.now()
+    info(TaskStatus.FailedExecution) = failedInstant
+    info.latestStatus[TaskStatus.FailedExecution.type].value shouldBe failedInstant
+
+    val succeededInstant = Instant.now()
+    info(TaskStatus.SucceededExecution) = succeededInstant
+    info.latestStatus[TaskStatus.SucceededExecution.type].value shouldBe succeededInstant
+
+    info.latestStatus[TaskStatus.Completed].value shouldBe succeededInstant
+  }
+
+  "TaskInfo.statusTime" should "get the instant of latest status" in {
+    val task = new NoOpInJvmTask("no-op")
+    val info = new TestingInfo(task=task, initStatus=TaskStatus.Unknown)
+
+    info.statusTime shouldBe info(TaskStatus.Unknown).value
+
+    val startInstant = Instant.now()
+    info(TaskStatus.Started) = startInstant
+    info.statusTime shouldBe startInstant
+  }
+
+  "Task.execsystemTaskInfo" should "throw an exception if not the correct type" in {
+    val task = new NoOpInJvmTask("no-op")
+    new TestingInfo(task=task, initStatus=TaskStatus.Unknown)
+
+    an[IllegalStateException] should be thrownBy task.execsystemTaskInfo
+  }
+
+  "Task.removeDependency" should "return false if no dependency existed" in {
+    val left = new NoOpInJvmTask("no-op")
+    val right = new NoOpInJvmTask("no-op")
+    // no dependency
+    left.removeDependency(right) shouldBe false
+
+    // right is a dependency on left
+    left ==> right
+    right.removeDependency(left) shouldBe true
+
+    // left is not a dependency on right
+    left ==> right
+    left.removeDependency(right) shouldBe false
+    right.removeDependency(right) shouldBe false
   }
 }

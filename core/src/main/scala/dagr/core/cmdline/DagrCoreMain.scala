@@ -31,17 +31,18 @@ import java.text.DecimalFormat
 import com.fulcrumgenomics.commons.CommonsDef.unreachable
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
-import com.fulcrumgenomics.sopt.Sopt.CommandSuccess
-import com.fulcrumgenomics.sopt.cmdline.{CommandLineParser, CommandLineProgramParserStrings, ValidationException}
-import com.fulcrumgenomics.sopt.parsing.{ArgOptionAndValues, ArgTokenCollator, ArgTokenizer, OptionParser}
+import com.fulcrumgenomics.sopt.cmdline.{CommandLineProgramParserStrings, ValidationException}
+import com.fulcrumgenomics.sopt.parsing.{ArgOptionAndValues, ArgTokenCollator, ArgTokenizer}
 import com.fulcrumgenomics.sopt.util.TermCode
-import com.fulcrumgenomics.sopt.{OptionName, Sopt, arg}
+import com.fulcrumgenomics.sopt.{Sopt, arg}
 import dagr.core.config.Configuration
+import dagr.core.exec.{Cores, Memory}
 import dagr.core.execsystem._
+import dagr.core.reporting.{FinalStatusReporter, PeriodicRefreshingReporter, Terminal}
 import dagr.core.tasksystem.Pipeline
 
 import scala.collection.mutable.ListBuffer
-import scala.util.{Failure, Success}
+import scala.util.Success
 
 object DagrCoreMain extends Configuration {
   /** The packages we wish to include in our command line **/
@@ -172,35 +173,50 @@ class DagrCoreArgs(
     val taskMan = this.taskManager.getOrElse(throw new IllegalStateException("execute() called before configure()"))
     val report  = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
 
-    val interactiveReporter: Option[TopLikeStatusReporter] = interactive match {
-      case true if !Terminal.supportsAnsi =>
-        logger.warning("ANSI codes are not supported in your terminal.  Interactive mode will not be used.")
-        interactive = false
-        None
-      case true =>
-        val loggerOutputStream = new ByteArrayOutputStream()
-        val loggerPrintStream = new PrintStream(loggerOutputStream)
-        Logger.out = loggerPrintStream
-        Some(new TopLikeStatusReporter(taskMan, Some(loggerOutputStream), print = (s: String) => System.out.print(s)))
-      case false => None
+    if (interactive && !Terminal.supportsAnsi) {
+      logger.warning("ANSI codes are not supported in your terminal.  Interactive mode will not be used.")
+      interactive = false
     }
-    interactiveReporter.foreach(_.start())
 
-    taskMan.addTask(pipeline)
-    taskMan.runToCompletion(this.failFast)
+    def toLoggerOutputStream(): ByteArrayOutputStream = {
+      val loggerOutputStream = new ByteArrayOutputStream()
+      val loggerPrintStream = new PrintStream(loggerOutputStream)
+      Logger.out = loggerPrintStream
+      loggerOutputStream
+    }
+
+    val (finalStatusReporter: FinalStatusReporter, exitCode: Int) = {
+      val taskMan = this.taskManager.getOrElse(throw new IllegalStateException("execute() called before configure()"))
+
+      val interactiveReporter: Option[PeriodicRefreshingReporter] = if (!interactive) { None } else {
+        val reporter = new TaskManagerReporter(taskManager=taskMan)
+        Some(new PeriodicRefreshingReporter(reporter=reporter, loggerOut=Some(toLoggerOutputStream()), print = s => System.out.print(s)))
+      }
+      interactiveReporter.foreach(_.start())
+
+      taskMan.addTask(pipeline)
+      taskMan.runToCompletion(this.failFast)
+
+      interactiveReporter.foreach(_.shutdown())
+
+      // return an exit code based on the number of non-completed tasks
+      val code = taskMan.taskToInfoBiMapFor.count { case (_, info) =>
+        TaskStatus.notDone(info.status, failedIsDone=false)
+      }
+      (taskMan, code)
+    }
 
     // Write out the execution report
     if (!interactive || Io.StdOut != report) {
       val pw = new PrintWriter(Io.toWriter(report))
-      taskMan.logReport({ str: String => pw.write(str + "\n") })
+      finalStatusReporter.logReport({ str: String => pw.write(str + "\n") })
       pw.close()
     }
 
-    interactiveReporter.foreach(_.shutdown())
 
     // return an exit code based on the number of non-completed tasks
     taskMan.taskToInfoBiMapFor.count { case (_, info) =>
-      TaskStatus.isTaskNotDone(info.status, failedIsDone=false)
+      TaskStatus.notDone(info.status, failedIsDone=false)
     }
   }
 
