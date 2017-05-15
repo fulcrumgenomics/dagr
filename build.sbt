@@ -86,8 +86,8 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://www.fulcrumgenomics.com")),
   homepage             := Some(url("http://github.com/fulcrumgenomics/dagr")),
   startYear            := Some(2015),
-  scalaVersion         := "2.11.8",
-  crossScalaVersions   := Seq("2.11.8", "2.12.1"),
+  scalaVersion         := "2.11.11",
+  crossScalaVersions   := Seq("2.11.11", "2.12.2"),
   scalacOptions        += "-target:jvm-1.8",
   scalacOptions in (Compile, doc) ++= docScalacOptions,
   scalacOptions in (Test, doc) ++= docScalacOptions,
@@ -146,12 +146,12 @@ lazy val core = Project(id="dagr-core", base=file("core"))
   .settings(description := "Core methods and classes to execute tasks in dagr.")
   .settings(
     libraryDependencies ++= Seq(
-      "com.github.dblock"  %   "oshi-core"         %  "3.3",
-      "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value,
-      "org.scala-lang"     %   "scala-compiler"    %  scalaVersion.value,
-      "org.reflections"    %   "reflections"       %  "0.9.10",
-      "com.typesafe"       %   "config"            %  "1.3.1",
-      "javax.servlet"      %   "javax.servlet-api" %  "3.1.0"
+      "com.github.dblock"   %   "oshi-core"         %  "3.3",
+      "org.scala-lang"      %   "scala-reflect"     %  scalaVersion.value,
+      "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
+      "org.reflections"     %   "reflections"       %  "0.9.10",
+      "com.typesafe"        %   "config"            %  "1.3.1",
+      "javax.servlet"       %   "javax.servlet-api" %  "3.1.0"
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
