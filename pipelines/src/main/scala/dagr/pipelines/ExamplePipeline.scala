@@ -25,10 +25,10 @@ package dagr.pipelines
 
 import java.nio.file.Files
 
-import dagr.commons.io.Io
+import com.fulcrumgenomics.commons.io.Io
 import dagr.core.cmdline.Pipelines
 import dagr.core.tasksystem.Pipeline
-import dagr.sopt.{arg, clp}
+import com.fulcrumgenomics.sopt.{arg, clp}
 import dagr.tasks.DagrDef
 import dagr.tasks.bwa.BwaMem
 import dagr.tasks.picard.{CollectHsMetrics, DeleteBam, MarkDuplicates, SortSam}
@@ -40,11 +40,11 @@ import htsjdk.samtools.SAMFileHeader.SortOrder
   */
 @clp(description="Example FASTQ to BAM pipeline.", group = classOf[Pipelines])
 class ExamplePipeline
-( @arg(flag="i", doc="Input fastq.")        val fastq: PathToFastq,
-  @arg(flag="r", doc="Reference fasta.")    val ref: PathToFasta,
-  @arg(flag="t", doc="Target regions.")     val targets: Option[PathToIntervals] = None,
-  @arg(flag="o", doc="Output directory.")   val out: DirPath,
-  @arg(flag="p", doc="Output file prefix.") val prefix: String
+( @arg(flag='i', doc="Input fastq.")        val fastq: PathToFastq,
+  @arg(flag='r', doc="Reference fasta.")    val ref: PathToFasta,
+  @arg(flag='t', doc="Target regions.")     val targets: Option[PathToIntervals] = None,
+  @arg(flag='o', doc="Output directory.")   val out: DirPath,
+  @arg(flag='p', doc="Output file prefix.") val prefix: String
 ) extends Pipeline(Some(out)) {
 
   override def build(): Unit = {

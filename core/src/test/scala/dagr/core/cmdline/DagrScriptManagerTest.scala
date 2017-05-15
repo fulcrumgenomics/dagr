@@ -27,18 +27,21 @@ package dagr.core.cmdline
 import java.io.PrintWriter
 import java.nio.file.{Files, Path}
 
-import dagr.commons.util.{ClassFinder, UnitSpec}
+import com.fulcrumgenomics.commons.util.ClassFinder
+import dagr.core.UnitSpec
 import dagr.core.tasksystem.Pipeline
 import org.reflections.util.ClasspathHelper
 
 import scala.collection.JavaConversions._
 
 object DagrScriptManagerTest {
-  val helloWorldScript =
-    """
-      |package dagr.example
+  def packageName: String = "dagr.example"
+
+  def helloWorldScript(packageName: String = packageName) =
+    s"""
+      |package ${packageName}
       |
-      |import dagr.sopt._
+      |import com.fulcrumgenomics.sopt._
       |import dagr.core.tasksystem.Pipeline
       |
       |// NB: output directories must exist
@@ -52,8 +55,8 @@ object DagrScriptManagerTest {
       |) extends Pipeline {
       |
       |  override def build(): Unit = {
-      |      println("blockOne: " + blockOne.mkString("\n"))
-      |      println("blockTwo: " + blockTwo.mkString("\n"))
+      |      println("blockOne: " + blockOne.mkString("\\n"))
+      |      println("blockTwo: " + blockTwo.mkString("\\n"))
       |  }
       |}
     """.stripMargin
@@ -88,7 +91,7 @@ class DagrScriptManagerTest extends UnitSpec {
   import DagrScriptManagerTest._
 
   "DagrScriptManager" should "compile and load a Dagr script" in {
-    val (tmpDir: Path, tmpFile: Path) = writeScript(helloWorldScript)
+    val (tmpDir: Path, tmpFile: Path) = writeScript(helloWorldScript())
 
     val manager = new DagrScriptManager
     manager.loadScripts(Seq(tmpFile), tmpDir)

@@ -27,10 +27,10 @@ import java.nio.file.Path
 import java.time.Instant
 
 import dagr.core.DagrDef._
-import dagr.commons.util.LazyLogging
+import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.tasksystem._
-import dagr.commons.util.BiMap
-import dagr.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.collection.BiMap
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 
 /** The resources needed for the task manager */
 object SystemResources {
@@ -581,6 +581,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     }
 
     // Output a brief statement about the end state of execution
+    logger.info("#" * 80)
     if (graphNodesInStatesFor(List(ORPHAN)).nonEmpty) { // orphaned tasks
       logger.info("Completed execution with orphaned tasks.")
     }

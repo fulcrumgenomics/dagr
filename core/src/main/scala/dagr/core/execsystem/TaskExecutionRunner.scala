@@ -26,7 +26,7 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.Instant
 
-import dagr.commons.util.LazyLogging
+import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.DagrDef._
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, UnitTask}
 

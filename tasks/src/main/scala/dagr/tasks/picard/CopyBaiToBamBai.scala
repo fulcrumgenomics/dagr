@@ -24,7 +24,7 @@
 package dagr.tasks.picard
 
 import dagr.core.tasksystem.ShellCommand
-import dagr.commons.io.PathUtil
+import com.fulcrumgenomics.commons.io.PathUtil
 import dagr.tasks.DagrDef
 import DagrDef.PathToBam
 

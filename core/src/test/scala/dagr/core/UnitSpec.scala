@@ -21,26 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.sopt.cmdline
 
-import dagr.commons.util.UnitSpec
+package dagr.core
 
-class ClpsGroupOne extends ClpGroup {
-  val name: String = "AAAAA"
-  val description: String = "Various pipeline programs."
-}
+import org.scalatest.{FlatSpec, Matchers, Tag}
 
-class ClpsGroupTwo extends ClpGroup {
-  val name: String = "BBBBB"
-  val description: String = "Various pipeline programs."
-}
-class ClpGroupTest extends UnitSpec {
+/** Base class for unit and integration testing */
+class UnitSpec extends FlatSpec with Matchers
 
-  "ClpGroup" should "sort groups by alphabetical ordering of name" in {
-    val a = new ClpsGroupOne
-    val b = new ClpsGroupTwo
-    a.compareTo(b) should be < 0
-    a.compareTo(a) shouldBe 0
-    b.compareTo(a) should be > 0
-  }
+/** Tags for our tests */
+object TestTags {
+  /** Tags for long running tests that should be excluded from unit tests. */
+  object LongRunningTest extends Tag("LongRunningTest")
 }

@@ -26,7 +26,7 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.{Duration, Instant}
 
-import dagr.commons.util.TimeUtil._
+import com.fulcrumgenomics.commons.util.TimeUtil._
 import dagr.core.DagrDef._
 import dagr.core.tasksystem.Task
 

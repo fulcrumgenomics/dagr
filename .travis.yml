@@ -1,4 +1,4 @@
-sudo: false
+sudo: required
 language: scala
 scala:
 - 2.12.2

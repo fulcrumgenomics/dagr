@@ -26,9 +26,9 @@ package dagr.core.tasksystem
 
 import java.nio.file.Files
 
-import dagr.commons.util.LazyLogging
+import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.execsystem._
-import dagr.commons.io.Io
+import com.fulcrumgenomics.commons.io.Io
 
 /** A trait to facilitate retry a task when it has failed. */
 trait Retry {

@@ -23,8 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.commons.CommonsDef
-import CommonsDef._
+import com.fulcrumgenomics.commons.CommonsDef.unreachable
 import dagr.core.execsystem.TaskExecutionInfo
 
 import scala.collection.mutable

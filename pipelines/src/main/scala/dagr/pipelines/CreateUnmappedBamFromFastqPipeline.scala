@@ -27,12 +27,12 @@ import java.nio.file.{Files, Path}
 
 import dagr.core.cmdline._
 import dagr.core.tasksystem.{Pipeline, ProcessTask, ShellCommand}
-import dagr.commons.io.Io
-import dagr.sopt.cmdline.ValidationException
+import com.fulcrumgenomics.commons.io.Io
+import com.fulcrumgenomics.sopt.cmdline.ValidationException
 import dagr.tasks.DagrDef
 import DagrDef._
 import dagr.tasks.picard.{FastqToUnmappedSam, MergeSamFiles, DeleteBam}
-import dagr.sopt._
+import com.fulcrumgenomics.sopt._
 import htsjdk.samtools.SAMFileHeader.SortOrder
 import htsjdk.samtools.util.FastqQualityFormat
 
@@ -52,11 +52,11 @@ object CreateUnmappedBamFromFastqPipeline {
 class CreateUnmappedBamFromFastqPipeline
 ( @arg(doc="Input fastq file (optionally gzipped) for read 1.")                   val fastq1: List[PathToFastq],
   @arg(doc="Input fastq file (optionally gzipped) for read 2.")                   val fastq2: List[PathToFastq],
-  @arg(flag="s", doc="The name of the sample.")                                   val sample: String,
-  @arg(flag="l", doc="The name of the library.")                                  val library: String,
-  @arg(flag="p", doc="The platform unit (@RG.PU).")                               val platformUnit: List[String],
+  @arg(flag='s', doc="The name of the sample.")                                   val sample: String,
+  @arg(flag='l', doc="The name of the library.")                                  val library: String,
+  @arg(flag='p', doc="The platform unit (@RG.PU).")                               val platformUnit: List[String],
   @arg(doc="Path to a temporary directory.")                                      val tmp: Path,
-  @arg(flag="o", doc="The output directory in which to write files.")             val out: DirPath,
+  @arg(flag='o', doc="The output directory in which to write files.")             val out: DirPath,
   @arg(doc="The filename prefix for output files. Library is used if omitted.")   val basename: Option[FilenamePrefix] = None,
   @arg(doc="Path to the unmapped BAM. Use the output prefix if none is given. ")  var unmappedBam: Option[PathToBam] = None,
   @arg(doc="""

@@ -66,7 +66,7 @@ credentials ++= (for {
 } yield Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", username, password)).toSeq
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
-// Coverage settings: only count coverage of dagr.sopt and dagr.core
+// Coverage settings: only count coverage of dagr.core
 ////////////////////////////////////////////////////////////////////////////////////////////////
 coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*;dagr\\.cmdline.*"
 val htmlReportsDirectory: String = "target/test-reports"
@@ -98,6 +98,8 @@ lazy val commonSettings = Seq(
   //testOptions in Test  += Tests.Argument("-oD"),
   fork in Test         := true,
   resolvers            += Resolver.jcenterRepo,
+  resolvers            += Resolver.sonatypeRepo("public"),
+  resolvers            += Resolver.mavenLocal,
   shellPrompt          := { state => "%s| %s> ".format(GitCommand.prompt.apply(state), version.value) },
   coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*",
   updateOptions        := updateOptions.value.withCachedResolution(true),
@@ -111,34 +113,6 @@ lazy val commonSettings = Seq(
 ) ++ Defaults.coreDefaultSettings
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
-// commons project
-////////////////////////////////////////////////////////////////////////////////////////////////
-lazy val commons = Project(id="dagr-commons", base=file("commons"))
-  .settings(commonSettings: _*)
-  .settings(description := "Scala commons for Fulcrum Genomics.")
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value
-    )
-  )
-  .disablePlugins(sbtassembly.AssemblyPlugin)
-
-////////////////////////////////////////////////////////////////////////////////////////////////
-// sopt project
-////////////////////////////////////////////////////////////////////////////////////////////////
-lazy val sopt = Project(id="dagr-sopt", base=file("sopt"))
-  .settings(commonSettings: _*)
-  .settings(description := "Scala command line option parser.")
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.scala-lang"     %   "scala-reflect"     %  scalaVersion.value,
-      "com.typesafe"       %   "config"            %  "1.3.1"
-    )
-  )
-  .disablePlugins(sbtassembly.AssemblyPlugin)
-  .dependsOn(commons % "test->test;compile->compile")
-
-////////////////////////////////////////////////////////////////////////////////////////////////
 // core project
 ////////////////////////////////////////////////////////////////////////////////////////////////
 lazy val core = Project(id="dagr-core", base=file("core"))
@@ -146,6 +120,8 @@ lazy val core = Project(id="dagr-core", base=file("core"))
   .settings(description := "Core methods and classes to execute tasks in dagr.")
   .settings(
     libraryDependencies ++= Seq(
+      "com.fulcrumgenomics" %%  "commons"           %  "0.2.0-SNAPSHOT",
+      "com.fulcrumgenomics" %%  "sopt"              %  "0.2.0-SNAPSHOT",
       "com.github.dblock"   %   "oshi-core"         %  "3.3",
       "org.scala-lang"      %   "scala-reflect"     %  scalaVersion.value,
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
@@ -155,9 +131,6 @@ lazy val core = Project(id="dagr-core", base=file("core"))
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
-  .dependsOn(sopt % "test->test;compile->compile")
-  .dependsOn(commons % "test->test;compile->compile")
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // tasks project
@@ -180,7 +153,6 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
   .dependsOn(core)
-  .dependsOn(commons % "test->test;compile->compile")
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // pipelines project
@@ -203,8 +175,8 @@ lazy val root = Project(id="dagr", base=file("."))
   .settings(unidocSettings: _*)
   .settings(assemblySettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
-  .aggregate(commons, sopt, core, tasks, pipelines)
-  .dependsOn(commons % "test->test;compile->compile", sopt % "test->test;compile->compile", core, tasks, pipelines)
+  .aggregate(core, tasks, pipelines)
+  .dependsOn(core, tasks, pipelines)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Merge strategy for assembly
