@@ -168,6 +168,7 @@ trait TopLikeStatusReporter extends Terminal {
   /** Writes a delimited string of the status of all tasks managed to the console.
     *
     * @param print the method to use to write task status information, one line at a time.
+    * @param loggerOut the stream to which log messages are written, or none if no stream is available.
     * @param delimiter the delimiter between entries in a row.
     */
   def refresh(print: String => Unit, loggerOut: Option[ByteArrayOutputStream] = None, delimiter: String = "  "): Unit = {

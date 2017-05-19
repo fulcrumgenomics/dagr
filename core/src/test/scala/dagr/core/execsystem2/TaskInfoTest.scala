@@ -27,18 +27,31 @@ package dagr.core.execsystem2
 
 import java.time.Instant
 
-import dagr.core.tasksystem.Task
+import dagr.core.UnitSpec
+import dagr.core.tasksystem.{NoOpInJvmTask, Task}
+import org.scalatest.OptionValues
 
-/** [[dagr.core.tasksystem.Task.TaskInfo]] implementation specific to [[dagr.core.execsystem2]]. */
-class TaskInfo(task: Task, initStatus: TaskStatus)
-  extends Task.TaskInfo(task=task, initStatus=initStatus) {
+class TaskInfoTest extends UnitSpec with OptionValues {
+  private def task: Task = new NoOpInJvmTask("name")
+  
+  "TaskInfo.submissionDate" should "be the latest instant of Pending" in {
+    val info = new TaskInfo(task=task, initStatus=Queued)
+    val instant = Instant.now()
+    info.update(Pending, instant)
+    info.submissionDate.value shouldBe instant
+  }
 
-  /** Gets the instant that the task was submitted to the execution system. */
-  override protected[core] def submissionDate: Option[Instant] = this(Pending)
+  "TaskInfo.startDate" should "be the latest instant of Running" in {
+    val info = new TaskInfo(task=task, initStatus=Queued)
+    val instant = Instant.now()
+    info.update(Running, instant)
+    info.startDate.value shouldBe instant
+  }
 
-  /** The instant the task started executing. */
-  override protected[core] def startDate: Option[Instant]      = this(Running)
-
-  /** The instant that the task finished executing. */
-  override protected[core] def endDate: Option[Instant]        = latestStatus[Completed]
+  "TaskInfo.endDate" should "be the latest instant of Completed" in {
+    val info = new TaskInfo(task=task, initStatus=Queued)
+    val instant = Instant.now()
+    info.update(SucceededExecution, instant)
+    info.endDate.value shouldBe instant
+  }
 }

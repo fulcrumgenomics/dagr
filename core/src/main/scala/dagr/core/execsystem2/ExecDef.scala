@@ -25,20 +25,20 @@
 
 package dagr.core.execsystem2
 
-import java.time.Instant
+import scala.collection.mutable
 
-import dagr.core.tasksystem.Task
+private[execsystem2] object ExecDef {
+  /** Create a thread-safe mutable map. */
+  def concurrentMap[A,B](): mutable.Map[A,B] = {
+    import scala.collection.convert.decorateAsScala._
+    new java.util.concurrent.ConcurrentHashMap[A, B]().asScala
+  }
 
-/** [[dagr.core.tasksystem.Task.TaskInfo]] implementation specific to [[dagr.core.execsystem2]]. */
-class TaskInfo(task: Task, initStatus: TaskStatus)
-  extends Task.TaskInfo(task=task, initStatus=initStatus) {
-
-  /** Gets the instant that the task was submitted to the execution system. */
-  override protected[core] def submissionDate: Option[Instant] = this(Pending)
-
-  /** The instant the task started executing. */
-  override protected[core] def startDate: Option[Instant]      = this(Running)
-
-  /** The instant that the task finished executing. */
-  override protected[core] def endDate: Option[Instant]        = latestStatus[Completed]
+  /** Create a thread-safe mutable set. */
+  def concurrentSet[A](): mutable.Set[A] = {
+    import scala.collection.convert.decorateAsScala._
+    val map: java.util.Map[A, java.lang.Boolean] = new java.util.concurrent.ConcurrentHashMap[A, java.lang.Boolean]()
+    val set: java.util.Set[A] = java.util.Collections.newSetFromMap[A](map)
+    set.asScala
+  }
 }

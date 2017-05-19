@@ -25,20 +25,30 @@
 
 package dagr.core.execsystem2
 
-import java.time.Instant
+import dagr.core.exec.ResourceSet
+import dagr.core.tasksystem.SimpleInJvmTask
 
-import dagr.core.tasksystem.Task
+import scala.concurrent.{Await, ExecutionContext, Promise, TimeoutException}
+import scala.concurrent.duration.Duration
 
-/** [[dagr.core.tasksystem.Task.TaskInfo]] implementation specific to [[dagr.core.execsystem2]]. */
-class TaskInfo(task: Task, initStatus: TaskStatus)
-  extends Task.TaskInfo(task=task, initStatus=initStatus) {
-
-  /** Gets the instant that the task was submitted to the execution system. */
-  override protected[core] def submissionDate: Option[Instant] = this(Pending)
-
-  /** The instant the task started executing. */
-  override protected[core] def startDate: Option[Instant]      = this(Running)
-
-  /** The instant that the task finished executing. */
-  override protected[core] def endDate: Option[Instant]        = latestStatus[Completed]
+object PromiseTask {
+  def apply(duration: Duration = Duration.Inf,
+            resourceSet: ResourceSet = ResourceSet.Inf)
+           (implicit ex: ExecutionContext): PromiseTask = {
+    new PromiseTask(duration=duration, resourceSet=resourceSet)
+  }
 }
+
+/** A task that does not complete until the promise is completed. */
+class PromiseTask(duration: Duration = Duration.Inf,
+                  resourceSet: ResourceSet = ResourceSet.Inf)
+                 (implicit ex: ExecutionContext) extends SimpleInJvmTask {
+  val promise: Promise[Int] = Promise[Int]()
+  requires(resourceSet)
+  override def run() = try {
+    Await.result(promise.future, duration)
+  } catch {
+    case e: TimeoutException => this.promise.success(-1)
+  }
+}
+

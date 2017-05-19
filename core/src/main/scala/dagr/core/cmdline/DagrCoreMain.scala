@@ -38,10 +38,14 @@ import com.fulcrumgenomics.sopt.{Sopt, arg}
 import dagr.core.config.Configuration
 import dagr.core.exec.{Cores, Memory}
 import dagr.core.execsystem._
+import dagr.core.execsystem2.GraphExecutor
+import dagr.core.execsystem2.{TopLikeStatusReporter => TopLikeStatusReporter2}
+import dagr.core.execsystem2.local.LocalTaskExecutor
 import dagr.core.reporting.{FinalStatusReporter, PeriodicRefreshingReporter, Terminal}
 import dagr.core.tasksystem.Pipeline
 
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.ExecutionContext
 import scala.util.Success
 
 object DagrCoreMain extends Configuration {
@@ -53,7 +57,9 @@ object DagrCoreMain extends Configuration {
 
   /** The main method */
   /** The main method */
-  def main(args: Array[String]): Unit = new DagrCoreMain().makeItSoAndExit(args)
+  def main(args: Array[String]): Unit = {
+    new DagrCoreMain().makeItSoAndExit(args)
+  }
 
   /** Provide a command line validation error message */
   private[cmdline] def buildErrorMessage(msgOption: Option[String] = None, exceptionOption: Option[Exception] = None): String = {
@@ -104,11 +110,14 @@ class DagrCoreArgs(
   @arg(doc = "Write an execution report to this file, otherwise write to the stdout")
   val report: Option[Path] = None,
   @arg(doc = "Provide an top-like interface for tasks with the give delay in seconds. This suppress info logging.")
-  var interactive: Boolean = false
+  var interactive: Boolean = false,
+  @arg(doc = "Use the experimental execution system.")
+  val experimentalExecution: Boolean = false
 ) extends LazyLogging {
 
   // These are not optional, but are only populated during configure()
   private var taskManager : Option[TaskManager] = None
+  private var taskExecutor: Option[LocalTaskExecutor] = None
   private var reportPath  : Option[Path] = None
 
   // Initialize the configuration as early as possible
@@ -122,11 +131,11 @@ class DagrCoreArgs(
   /** Try to create a given directory, and if there is an exception, write the path since some exceptions can be obtuse */
   private def mkdir(dir: Path, use: String, errors: ListBuffer[String]): Unit = {
     try { Files.createDirectories(dir) }
-    catch { case e: Exception => errors += DagrCoreMain.buildErrorMessage(Some(s"Could not create the $use directory: $dir")) }
+    catch { case _: Exception => errors += DagrCoreMain.buildErrorMessage(Some(s"Could not create the $use directory: $dir")) }
   }
 
   // Invoked by DagrCommandLineParser after the pipeline has also been instantiated
-  private[cmdline] def configure(pipeline: Pipeline, commandLine: Option[String] = None) : Unit = {
+  private[cmdline] def configure(pipeline: Pipeline, commandLine: Option[String] = None)(implicit ex: ExecutionContext) : Unit = {
     try {
       val config = new Configuration { }
 
@@ -150,7 +159,12 @@ class DagrCoreArgs(
       this.reportPath.foreach(p => Io.assertCanWriteFile(p, parentMustExist=false))
 
       val resources = SystemResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
-      this.taskManager = Some(new TaskManager(taskManagerResources=resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
+      if (experimentalExecution) {
+        this.taskExecutor = Some(new LocalTaskExecutor(systemResources = resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
+      }
+      else {
+        this.taskManager = Some(new TaskManager(taskManagerResources = resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
+      }
 
       // Print all the arguments if desired.
       commandLine.foreach { line =>
@@ -169,13 +183,13 @@ class DagrCoreArgs(
     * Attempts to setup the various directories needed to executed the pipeline, execute it, and generate
     * an execution report.
     */
-  protected[cmdline] def execute(pipeline : Pipeline): Int = {
-    val taskMan = this.taskManager.getOrElse(throw new IllegalStateException("execute() called before configure()"))
+  protected[cmdline] def execute(pipeline : Pipeline)(implicit ex: ExecutionContext): Int = {
     val report  = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
 
     if (interactive && !Terminal.supportsAnsi) {
       logger.warning("ANSI codes are not supported in your terminal.  Interactive mode will not be used.")
       interactive = false
+      None
     }
 
     def toLoggerOutputStream(): ByteArrayOutputStream = {
@@ -185,7 +199,20 @@ class DagrCoreArgs(
       loggerOutputStream
     }
 
-    val (finalStatusReporter: FinalStatusReporter, exitCode: Int) = {
+    val (finalStatusReporter: FinalStatusReporter, exitCode: Int) = if (experimentalExecution) {
+      val taskExecutor = this.taskExecutor.getOrElse(throw new IllegalStateException("execute() called before configure()"))
+      val graphExecutor =  GraphExecutor(taskExecutor)
+      if (interactive) {
+        val reporter = new TopLikeStatusReporter2(
+          systemResources = taskExecutor.resources,
+          loggerOut       = Some(toLoggerOutputStream()),
+          print           = s => System.out.print(s)
+        )
+        graphExecutor.withLogger(reporter)
+      }
+      (graphExecutor, graphExecutor execute pipeline)
+    }
+    else {
       val taskMan = this.taskManager.getOrElse(throw new IllegalStateException("execute() called before configure()"))
 
       val interactiveReporter: Option[PeriodicRefreshingReporter] = if (!interactive) { None } else {
@@ -213,23 +240,22 @@ class DagrCoreArgs(
       pw.close()
     }
 
-
-    // return an exit code based on the number of non-completed tasks
-    taskMan.taskToInfoBiMapFor.count { case (_, info) =>
-      TaskStatus.notDone(info.status, failedIsDone=false)
-    }
+    exitCode
   }
-
 }
 
 class DagrCoreMain extends LazyLogging {
   protected def name: String = "dagr"
 
   /** A main method that invokes System.exit with the exit code. */
-  def makeItSoAndExit(args: Array[String]): Unit = System.exit(makeItSo(args))
+  def makeItSoAndExit(args: Array[String]): Unit = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    System.exit(makeItSo(args))
+  }
 
   /** A main method that returns an exit code instead of exiting. */
-  def makeItSo(args: Array[String], packageList: List[String] = DagrCoreMain.getPackageList, includeHidden: Boolean = false): Int = {
+  def makeItSo(args: Array[String], packageList: List[String] = DagrCoreMain.getPackageList, includeHidden: Boolean = false)
+              (implicit ex: ExecutionContext): Int = {
     // Initialize color options
     TermCode.printColor = DagrCoreMain.optionallyConfigure[Boolean](Configuration.Keys.ColorStatus).getOrElse(true)
 
@@ -242,7 +268,7 @@ class DagrCoreMain extends LazyLogging {
       case Sopt.Failure(usage) =>
         System.err.print(usage())
         1
-      case Sopt.CommandSuccess(cmd) =>
+      case Sopt.CommandSuccess(_) =>
         unreachable("CommandSuccess should never be returned by parseCommandAndSubCommand.")
       case Sopt.SubcommandSuccess(dagr, pipeline) =>
         val name = pipeline.getClass.getSimpleName

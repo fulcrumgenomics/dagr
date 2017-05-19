@@ -23,22 +23,22 @@
  *
  */
 
-package dagr.core.execsystem2
+package dagr.core
 
-import java.time.Instant
+import org.scalatest.{Matchers, OptionValues, AsyncFlatSpec => ScalaTestAsyncFlatSpec}
+import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.time.{Millis, Seconds, Span}
 
-import dagr.core.tasksystem.Task
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import java.util.concurrent.Executors
 
-/** [[dagr.core.tasksystem.Task.TaskInfo]] implementation specific to [[dagr.core.execsystem2]]. */
-class TaskInfo(task: Task, initStatus: TaskStatus)
-  extends Task.TaskInfo(task=task, initStatus=initStatus) {
+object FutureUnitSpec {
+  val nThreads: Int = 1000 // not to be used for cpu bound work
+  val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(nThreads))
+}
 
-  /** Gets the instant that the task was submitted to the execution system. */
-  override protected[core] def submissionDate: Option[Instant] = this(Pending)
+class FutureUnitSpec extends UnitSpec with OptionValues with ScalaFutures {
+  implicit val ec: ExecutionContext = FutureUnitSpec.ec
 
-  /** The instant the task started executing. */
-  override protected[core] def startDate: Option[Instant]      = this(Running)
-
-  /** The instant that the task finished executing. */
-  override protected[core] def endDate: Option[Instant]        = latestStatus[Completed]
+  implicit override val patienceConfig = FutureUnitSpec.this.PatienceConfig(timeout = Span(10, Seconds), interval = Span(20, Millis))
 }
