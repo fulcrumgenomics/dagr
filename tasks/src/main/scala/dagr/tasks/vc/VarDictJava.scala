@@ -62,10 +62,26 @@ object VarDictJava extends Configuration {
   /** Path to the VarDictJava bin directory with a multitude of perl scripts. */
   val BinDir = RootDir.resolve("VarDict")
 
+  val IllegalCharacters: String = "\t "
+
   /** Pulls a sample name out of a BAM file. */
   private[vc] def extractSampleName(bam: PathToBam) : String = {
     val in = SamReaderFactory.make().open(bam)
     yieldAndThen(in.getFileHeader.getReadGroups.iterator().next().getSample) { in.close() }
+  }
+
+  /** Replaces a set of illegal characters within a String that is to be used as a sample name for VarDict.
+    *
+    * @param sampleName the string that is to be used as a  sample name
+    * @param illegalCharacters the set of characters to be replaced if found, defaults to [[IllegalCharacters]]
+    * @param replacement an optional replacement character, defaulting to '_'; if [[None]] characters are just removed
+    * @return the sample name without illegal characters
+    */
+  private[vc] def replaceWhiteSpace(sampleName: String,
+                                    illegalCharacters: String = IllegalCharacters,
+                                    replacement: Option[Char] = Some('_')): String = replacement match {
+    case None    => sampleName.filter(c => !illegalCharacters.contains(c))
+    case Some(r) => sampleName.map(c => if (illegalCharacters.contains(c)) r else c)
   }
 }
 
@@ -92,7 +108,8 @@ private class VarDictJava(tumorBam: PathToBam,
 
   override def args: Seq[Any] = {
     val buffer   = new ListBuffer[Any]()
-    buffer.appendAll(List(VarDictJava.VarDictJava, "-G", ref, "-N", tumorName, "-b", tumorBam))
+    val tn       = VarDictJava.replaceWhiteSpace(tumorName)
+    buffer.appendAll(List(VarDictJava.VarDictJava, "-G", ref, "-N", tn, "-b", tumorBam))
     if (pileupMode) buffer.append("-p")
     buffer.append("-z", "1") // Set to 1 since we are using a BED as input
     buffer.append("-c", "1") // The column for the chromosome
@@ -119,7 +136,8 @@ private class VarDictJava(tumorBam: PathToBam,
       |
       |Tumor-only single-sample variant calling with VarDictJava: https://github.com/AstraZeneca-NGS/VarDictJava
       |
-      |The output Tumor name will be inferred from the the first read group in the input BAM if not provided.
+      |The output Tumor name will be inferred from the the first read group in the input BAM if not provided.  Any
+      |whitespace will be replaced with underscores if present.
     """",
   group = classOf[Pipelines]
 )
@@ -142,9 +160,8 @@ class VarDictJavaEndToEnd
   // Put these here so that they'll error at construction if missing
   private val biasScript = BinDir.resolve("teststrandbias.R")
   private val vcfScript  = BinDir.resolve("var2vcf_valid.pl")
-
   def build(): Unit = {
-    val tn = tumorName.getOrElse(VarDictJava.extractSampleName(bam=tumorBam))
+    val tn = VarDictJava.replaceWhiteSpace(tumorName.getOrElse(VarDictJava.extractSampleName(bam=tumorBam)))
     val dict = PathUtil.replaceExtension(ref, ".dict")
     def f(ext: String): Path = Io.makeTempFile("vardict.", ext, dir= if (out == Io.StdOut) None else Some(out.getParent))
     val tmpVcf = f(".vcf")
