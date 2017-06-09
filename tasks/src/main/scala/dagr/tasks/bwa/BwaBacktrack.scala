@@ -1,10 +1,10 @@
 package dagr.tasks.bwa
 
-import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{FixedResources, Pipeline, ProcessTask, VariableResources}
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.tasks.DagrDef
 import DagrDef._
+import dagr.core.exec.{Cores, Memory, ResourceSet}
 import dagr.tasks.misc.DeleteFiles
 import dagr.tasks.picard.{MergeBamAlignment, SamToFastq}
 

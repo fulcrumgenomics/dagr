@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016 Fulcrum Genomics LLC
+ * Copyright (c) 2017 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,27 +20,38 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.core.execsystem
+package dagr.core.execsystem2
+
+import java.time.Instant
 
 import dagr.core.UnitSpec
+import dagr.core.tasksystem.{NoOpInJvmTask, Task}
+import org.scalatest.OptionValues
 
-class ResourceSetTest extends UnitSpec {
-  "ResourceSet.isEmpty" should "return true for the empty resource set" in {
-    ResourceSet.empty.isEmpty shouldBe true
+class TaskInfoTest extends UnitSpec with OptionValues {
+  private def task: Task = new NoOpInJvmTask("name")
+  
+  "TaskInfo.submissionDate" should "be the latest instant of Pending" in {
+    val info = new TaskInfo(task=task, initStatus=Queued)
+    val instant = Instant.now()
+    info.update(Pending, instant)
+    info.submissionDate.value shouldBe instant
   }
 
-  "ResourceSet" should "add and subtract resources" in {
-    val original = ResourceSet(10, 10)
-    val middle = ResourceSet(original)
-    var running = original + middle
-    running.cores.value shouldBe 20
-    running.memory.value shouldBe 20
-    running = running - middle
-    running.cores.value shouldBe 10
-    running.memory.value shouldBe 10
-    running = running - Cores(10)
-    running.cores.value shouldBe 0
+  "TaskInfo.startDate" should "be the latest instant of Running" in {
+    val info = new TaskInfo(task=task, initStatus=Queued)
+    val instant = Instant.now()
+    info.update(Running, instant)
+    info.startDate.value shouldBe instant
+  }
+
+  "TaskInfo.endDate" should "be the latest instant of Completed" in {
+    val info = new TaskInfo(task=task, initStatus=Queued)
+    val instant = Instant.now()
+    info.update(SucceededExecution, instant)
+    info.endDate.value shouldBe instant
   }
 }

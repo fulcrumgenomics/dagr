@@ -23,10 +23,12 @@
  */
 package dagr.core.execsystem
 
-import dagr.core.DagrDef._
-import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
-import dagr.core.tasksystem._
 import com.fulcrumgenomics.commons.collection._
+import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
+import dagr.core.DagrDef._
+import dagr.core.exec.{Cores, Memory, Resource, ResourceSet}
+import dagr.core.tasksystem.Task.TaskInfo
+import dagr.core.tasksystem._
 import dagr.core.{TestTags, UnitSpec}
 import org.scalatest._
 
@@ -38,15 +40,15 @@ object TaskManagerTest {
 
   class SucceedOnTheThirdTry extends TryThreeTimesTask with ProcessTask with FixedResources {
     var args: Seq[Any] = Seq("exit", "1")
-    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
-      if (maxNumIterations <= taskInfo.attemptIndex) this.args = Seq("exit", "0")
+    override def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = {
+      if (maxNumIterations <= taskInfo.attempts) this.args = Seq("exit", "0")
       true
     }
   }
 }
 
 trait TestTaskManager extends TaskManager {
-  override def joinOnRunningTasks(millis: Long) = super.joinOnRunningTasks(millis)
+  override def joinOnRunningTasks(millis: Long): Unit = super.joinOnRunningTasks(millis)
 }
 
 class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with BeforeAndAfterAll {
@@ -77,19 +79,19 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
     // add the task
     taskManager.addTask(task)
-    TaskStatus.isTaskDone(taskManager.taskStatusFor(task).get) should be(false)
+    TaskStatus.done(taskManager.taskStatusFor(task).get) should be(false)
 
     // run the task, and do not report failed tasks as completed
     for (i <- 1 to numTimes) {
       logger.debug("running the scheduler the " + i + "th time")
       runSchedulerOnce(taskManager = taskManager, tasksToScheduleContains = List[Task](task), runningTasksContains = Nil, completedTasksContains = Nil, failedAreCompleted = false)
-      TaskStatus.isTaskDone(taskStatus = taskManager.taskStatusFor(task).get, failedIsDone = false) should be(false)
+      TaskStatus.done(taskStatus = taskManager.taskStatusFor(task).get, failedIsDone = false) should be(false)
     }
 
     // run the task a fourth time, but set that any failed tasks should be assumed to be completed
     logger.debug("running the scheduler the last (" + (numTimes + 1) + "th) time")
     runSchedulerOnce(taskManager = taskManager, tasksToScheduleContains = Nil, runningTasksContains = Nil, completedTasksContains = List[Task](task), failedAreCompleted = failedAreCompletedFinally)
-    TaskStatus.isTaskDone(taskStatus = taskManager.taskStatusFor(task).get, failedIsDone = failedAreCompletedFinally) should be(taskIsDoneFinally)
+    TaskStatus.done(taskStatus = taskManager.taskStatusFor(task).get, failedIsDone = failedAreCompletedFinally) should be(taskIsDoneFinally)
   }
 
   "TaskManager" should "not overwrite an existing task when adding a task, or throw an IllegalArgumentException when ignoreExists is false" in {
@@ -170,8 +172,8 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     val taskInfo: TaskExecutionInfo = map.valueFor(task).get
     taskInfo.taskId should be(0)
     taskInfo.task should be(task)
-    taskInfo.status should be(TaskStatus.SUCCEEDED)
-    taskInfo.attemptIndex should be(1)
+    taskInfo.status should be(TaskStatus.SucceededExecution)
+    taskInfo.attempts should be(1)
   }
 
   it should "run a simple task end-to-end" in {
@@ -194,9 +196,9 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds=1)
     taskManager.addTasks(longTask, failedTask)
     taskManager.runToCompletion(failFast=true)
-    taskManager.taskStatusFor(failedTask).value should be(TaskStatus.FAILED_COMMAND)
+    taskManager.taskStatusFor(failedTask).value should be(TaskStatus.FailedExecution)
     taskManager.graphNodeStateFor(failedTask).value should be(GraphNodeState.COMPLETED)
-    taskManager.taskStatusFor(longTask).value should be(TaskStatus.STOPPED)
+    taskManager.taskStatusFor(longTask).value should be(TaskStatus.Stopped)
   }
 
   it should "not schedule and run tasks that have failed dependencies" in {
@@ -205,11 +207,11 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     val tm = getDefaultTaskManager(sleepMilliseconds=1)
     tm.addTasks(a, b, c)
     tm.runToCompletion(failFast=false)
-    tm.taskStatusFor(a).value shouldBe TaskStatus.SUCCEEDED
+    tm.taskStatusFor(a).value shouldBe TaskStatus.SucceededExecution
     tm.graphNodeFor(a).value.state shouldBe GraphNodeState.COMPLETED
-    tm.taskStatusFor(b).value shouldBe TaskStatus.FAILED_COMMAND
+    tm.taskStatusFor(b).value shouldBe TaskStatus.FailedExecution
     tm.graphNodeFor(b).value.state shouldBe GraphNodeState.COMPLETED
-    tm.taskStatusFor(c).value shouldBe TaskStatus.UNKNOWN
+    tm.taskStatusFor(c).value shouldBe TaskStatus.Unknown
     tm.graphNodeFor(c).value.state shouldBe GraphNodeState.PREDECESSORS_AND_UNEXPANDED
   }
 
@@ -219,21 +221,21 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     val tm = getDefaultTaskManager(sleepMilliseconds=1)
     tm.addTasks(a, b, c)
     tm.runToCompletion(failFast=false)
-    tm.taskStatusFor(a).value shouldBe TaskStatus.SUCCEEDED
+    tm.taskStatusFor(a).value shouldBe TaskStatus.SucceededExecution
     tm.graphNodeFor(a).value.state shouldBe GraphNodeState.COMPLETED
-    tm.taskStatusFor(b).value shouldBe TaskStatus.FAILED_COMMAND
+    tm.taskStatusFor(b).value shouldBe TaskStatus.FailedExecution
     tm.graphNodeFor(b).value.state shouldBe GraphNodeState.COMPLETED
-    tm.taskStatusFor(c).value shouldBe TaskStatus.UNKNOWN
+    tm.taskStatusFor(c).value shouldBe TaskStatus.Unknown
     tm.graphNodeFor(c).value.state shouldBe GraphNodeState.PREDECESSORS_AND_UNEXPANDED
 
     // manually succeed b
-    tm.taskExecutionInfoFor(b).foreach(_.status = TaskStatus.MANUALLY_SUCCEEDED)
+    tm.taskExecutionInfoFor(b).foreach(_.status = TaskStatus.ManuallySucceeded)
     tm.runToCompletion(failFast=false)
-    tm.taskStatusFor(a).value shouldBe TaskStatus.SUCCEEDED
+    tm.taskStatusFor(a).value shouldBe TaskStatus.SucceededExecution
     tm.graphNodeFor(a).value.state shouldBe GraphNodeState.COMPLETED
-    tm.taskStatusFor(b).value shouldBe TaskStatus.MANUALLY_SUCCEEDED
+    tm.taskStatusFor(b).value shouldBe TaskStatus.ManuallySucceeded
     tm.graphNodeFor(b).value.state shouldBe GraphNodeState.COMPLETED
-    tm.taskStatusFor(c).value shouldBe TaskStatus.SUCCEEDED
+    tm.taskStatusFor(c).value shouldBe TaskStatus.SucceededExecution
     tm.graphNodeFor(c).value.state   shouldBe GraphNodeState.COMPLETED
   }
 
@@ -251,7 +253,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   }
 
   def doTryAgainRun(original: Task,
-                    originalTaskStatus: TaskStatus.Value,
+                    originalTaskStatus: TaskStatus,
                     originalGraphNodeState: GraphNodeState.Value,
                     taskManager: TestTaskManager): Unit = {
     // run it once, make sure tasks that are failed are not marked as completed
@@ -275,8 +277,8 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
                  taskManager: TestTaskManager) {
 
     val (originalTaskStatus, originalGraphNodeState) = replaceTask match {
-      case true => (TaskStatus.UNKNOWN, GraphNodeState.NO_PREDECESSORS)
-      case false => (TaskStatus.FAILED_COMMAND, GraphNodeState.COMPLETED)
+      case true => (TaskStatus.Unknown, GraphNodeState.NO_PREDECESSORS)
+      case false => (TaskStatus.FailedExecution, GraphNodeState.COMPLETED)
     }
 
     val wf: TestPipeline = new TestPipeline(original)
@@ -300,7 +302,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
     // run and check again
     doTryAgainRun(original = if (replaceTask) replacement else original,
-                  originalTaskStatus = TaskStatus.SUCCEEDED,
+                  originalTaskStatus = TaskStatus.SucceededExecution,
                   originalGraphNodeState = GraphNodeState.COMPLETED,
                   taskManager = taskManager)
   }
@@ -322,7 +324,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   class RetryMutatorTask extends Retry with ProcessTask with FixedResources {
     private var fail = true
     override def args = List("exit", if (fail) "1"  else "0")
-    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
+    override def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = {
       fail = false
       false
     }
@@ -363,7 +365,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
     override def onComplete(exitCode: Int): Boolean = onCompleteValue
 
-    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
+    override def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = {
       onCompleteValue = true
       true
     }
@@ -383,7 +385,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
       previousOnCompleteValue
     }
 
-    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = true
+    override def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = true
   }
 
   // The first time this task is run, it has exit code 1 and fails onComplete.
@@ -405,16 +407,16 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
       previousOnCompleteValue
     }
 
-    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
-      attemptIndex = taskInfo.attemptIndex
+    override def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = {
+      attemptIndex = taskInfo.attempts
       true
     }
   }
 
-  def runTasksMultipleTimes(taskManager: TestTaskManager, task: UnitTask, statuses: List[(TaskStatus.Value, Int, Boolean)]): Unit = {
+  def runTasksMultipleTimes(taskManager: TestTaskManager, task: UnitTask, statuses: List[(TaskStatus, Int, Boolean)]): Unit = {
     // add the task
     taskManager.addTask(task)
-    TaskStatus.isTaskDone(taskManager.taskStatusFor(task).get) should be(false)
+    TaskStatus.done(taskManager.taskStatusFor(task).get) should be(false)
     val taskId: TaskId = taskManager.taskFor(task).value
 
     for ((taskStatus, exitCode, onCompleteSuccessful) <- statuses) {
@@ -440,13 +442,13 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   it should "run a task that fails its onComplete method, is retried, where it modifies the onComplete method return value, and succeeds" in {
     val task: UnitTask = new ShellCommand("exit", "0") with FailOnCompleteTask withName "Dummy"
     val taskManager: TestTaskManager = getDefaultTaskManager()
-    runTasksMultipleTimes(taskManager = taskManager, task = task, statuses = List((TaskStatus.FAILED_ON_COMPLETE, 0, false), (TaskStatus.SUCCEEDED, 0, true)))
+    runTasksMultipleTimes(taskManager = taskManager, task = task, statuses = List((TaskStatus.FailedOnComplete, 0, false), (TaskStatus.SucceededExecution, 0, true)))
   }
 
   it should "run a task that fails its onComplete method, whereby it changes its args to empty, and succeeds" in {
     val task: UnitTask = new FailOnCompleteAndClearArgsTask(name = "Dummy", originalArgs = List("exit", "0"))
     val taskManager: TestTaskManager = getDefaultTaskManager()
-    runTasksMultipleTimes(taskManager = taskManager, task = task, statuses = List((TaskStatus.FAILED_ON_COMPLETE, 0, false), (TaskStatus.SUCCEEDED, 0, true)))
+    runTasksMultipleTimes(taskManager = taskManager, task = task, statuses = List((TaskStatus.FailedOnComplete, 0, false), (TaskStatus.SucceededExecution, 0, true)))
   }
 
   it should "run a task, that its onComplete method mutates its args and return value based on the attempt index" in {
@@ -456,9 +458,9 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     runTasksMultipleTimes(taskManager = taskManager,
       task = task,
       statuses = List(
-        (TaskStatus.FAILED_COMMAND, 1, false),
-        (TaskStatus.FAILED_ON_COMPLETE, 0, false),
-        (TaskStatus.SUCCEEDED, 0, true)
+        (TaskStatus.FailedExecution, 1, false),
+        (TaskStatus.FailedOnComplete, 0, false),
+        (TaskStatus.SucceededExecution, 0, true)
       )
     )
   }
@@ -476,7 +478,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
     override def inJvmMethod(): Int = exitCode
 
-    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
+    override def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = {
       exitCode = 0
       true
     }
@@ -487,7 +489,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
     override def inJvmMethod(): Int = exitCode
 
-    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
+    override def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = {
       true
     }
 
@@ -520,8 +522,8 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
       previousOnCompleteValue
     }
 
-    override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
-      attemptIndex = taskInfo.attemptIndex
+    override def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = {
+      attemptIndex = taskInfo.attempts
       true
     }
   }
@@ -548,9 +550,9 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     runTasksMultipleTimes(taskManager = taskManager,
       task = task,
       statuses = List(
-        (TaskStatus.FAILED_COMMAND, 1, false),
-        (TaskStatus.FAILED_ON_COMPLETE, 0, false),
-        (TaskStatus.SUCCEEDED, 0, true)
+        (TaskStatus.FailedExecution, 1, false),
+        (TaskStatus.FailedOnComplete, 0, false),
+        (TaskStatus.SucceededExecution, 0, true)
       )
     )
   }
@@ -656,7 +658,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTask(task)
     taskManager.stepExecution()
-    taskManager.taskStatusFor(task).value should be(TaskStatus.FAILED_GET_TASKS)
+    taskManager.taskStatusFor(task).value should be(TaskStatus.FailedGetTasks)
   }
 
   // **************************************************
@@ -696,30 +698,30 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     // The predecessor pipeline and its "predecessor" tasks should run, while the successor pipeline should be queued waiting
     // for the predecessor pipeline to finish.
     taskManager.stepExecution()
-    taskManager.taskStatusFor(predecessorWorkflow).value should be(TaskStatus.STARTED)
-    taskManager.taskStatusFor(predecessorWorkflow.firstTask).value should be(TaskStatus.STARTED)
-    taskManager.taskStatusFor(predecessorWorkflow.secondTask).value should be(TaskStatus.STARTED)
+    taskManager.taskStatusFor(predecessorWorkflow).value should be(TaskStatus.Started)
+    taskManager.taskStatusFor(predecessorWorkflow.firstTask).value should be(TaskStatus.Started)
+    taskManager.taskStatusFor(predecessorWorkflow.secondTask).value should be(TaskStatus.Started)
     taskManager.graphNodeStateFor(predecessorWorkflow).value should be(GraphNodeState.ONLY_PREDECESSORS)
     taskManager.graphNodeStateFor(predecessorWorkflow.firstTask).value should be(GraphNodeState.RUNNING)
     taskManager.graphNodeStateFor(predecessorWorkflow.secondTask).value should be(GraphNodeState.RUNNING)
     taskManager.taskStatusFor(successorWorkflow.firstTask) should be('empty)
     taskManager.taskStatusFor(successorWorkflow.secondTask) should be('empty)
-    taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.UNKNOWN)
+    taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.Unknown)
     taskManager.graphNodeStateFor(successorWorkflow).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
 
     // Run the scheduler again
     // The "predecessor" tasks should be complete, and so the successor pipeline and its "successor" tasks should be running.
     taskManager.joinOnRunningTasks(1000)
     taskManager.stepExecution()
-    taskManager.taskStatusFor(predecessorWorkflow).value should be(TaskStatus.SUCCEEDED)
-    taskManager.taskStatusFor(predecessorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
-    taskManager.taskStatusFor(predecessorWorkflow.secondTask).value should be(TaskStatus.SUCCEEDED)
+    taskManager.taskStatusFor(predecessorWorkflow).value should be(TaskStatus.SucceededExecution)
+    taskManager.taskStatusFor(predecessorWorkflow.firstTask).value should be(TaskStatus.SucceededExecution)
+    taskManager.taskStatusFor(predecessorWorkflow.secondTask).value should be(TaskStatus.SucceededExecution)
     taskManager.graphNodeStateFor(predecessorWorkflow).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(predecessorWorkflow.firstTask).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(predecessorWorkflow.secondTask).value should be(GraphNodeState.COMPLETED)
-    taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.STARTED)
-    taskManager.taskStatusFor(successorWorkflow.firstTask).value should be(TaskStatus.STARTED)
-    taskManager.taskStatusFor(successorWorkflow.secondTask).value should be(TaskStatus.STARTED)
+    taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.Started)
+    taskManager.taskStatusFor(successorWorkflow.firstTask).value should be(TaskStatus.Started)
+    taskManager.taskStatusFor(successorWorkflow.secondTask).value should be(TaskStatus.Started)
     taskManager.graphNodeStateFor(successorWorkflow).value should be(GraphNodeState.ONLY_PREDECESSORS)
     taskManager.graphNodeStateFor(successorWorkflow.firstTask).value should be(GraphNodeState.RUNNING)
     taskManager.graphNodeStateFor(successorWorkflow.secondTask).value should be(GraphNodeState.RUNNING)
@@ -728,9 +730,9 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     // The successor pipeline and its "successor" tasks should be complete.
     taskManager.joinOnRunningTasks(1000)
     taskManager.stepExecution()
-    taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.SUCCEEDED)
-    taskManager.taskStatusFor(successorWorkflow.firstTask).value should be(TaskStatus.SUCCEEDED)
-    taskManager.taskStatusFor(successorWorkflow.secondTask).value should be(TaskStatus.SUCCEEDED)
+    taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.SucceededExecution)
+    taskManager.taskStatusFor(successorWorkflow.firstTask).value should be(TaskStatus.SucceededExecution)
+    taskManager.taskStatusFor(successorWorkflow.secondTask).value should be(TaskStatus.SucceededExecution)
     taskManager.graphNodeStateFor(successorWorkflow).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(successorWorkflow.firstTask).value should be(GraphNodeState.COMPLETED)
     taskManager.graphNodeStateFor(successorWorkflow.secondTask).value should be(GraphNodeState.COMPLETED)
@@ -745,7 +747,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
     // Make sure all tasks submitted to the system are completed
     for (taskId <- taskManager.taskIds()) {
-      taskManager.taskStatusFor(taskId).value should be (TaskStatus.SUCCEEDED)
+      taskManager.taskStatusFor(taskId).value should be (TaskStatus.SucceededExecution)
       taskManager.graphNodeStateFor(taskId).value should be(GraphNodeState.COMPLETED)
     }
     taskManager.taskIds() should have size 6
@@ -848,37 +850,47 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     val numTasks = 10000
     val dependencyProbability = 0.1
 
-    class ATask extends ProcessTask {
-      override def args = "exit" :: "0" :: Nil
-
+    trait ZTask extends UnitTask {
       override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = {
         val mem = Memory("1g")
         (8 to 1 by -1).map(c => ResourceSet(Cores(c), mem)).find(rs => availableResources.subset(rs).isDefined)
       }
     }
 
-    // create the tasks
-    val tasks = for (i <- 1 to numTasks) yield new ATask
-
-    // make them depend on previous tasks
-    val randomNumberGenerator = scala.util.Random
-    for (i <- 1 until numTasks) {
-      for (j <- 1 until i) {
-        if (randomNumberGenerator.nextFloat < dependencyProbability) tasks(j) ==> tasks(i)
-      }
+    class ATask extends ProcessTask with ZTask {
+      override def args = "exit" :: "0" :: Nil
     }
 
-    // add the tasks to the task manager
-    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
-    taskManager.addTasks(tasks)
+    class BTask extends SimpleInJvmTask(0) with ZTask {
+      def run(): Unit = Unit
+    }
 
-    // run the tasks
-    taskManager.runToCompletion(failFast=true)
+    // Seq(() => new ATask, () => new BTask).foreach { (toTask: () => Task) =>
+    Seq(() => new BTask).foreach { (toTask: () => Task) =>
 
-    // make sure all tasks have been completed
-    tasks.foreach { task =>
-      taskManager.taskStatusFor(task).value should be(TaskStatus.SUCCEEDED)
-      taskManager.graphNodeStateFor(task).value should be(GraphNodeState.COMPLETED)
+      // create the tasks
+      val tasks = for (i <- 1 to numTasks) yield new ATask withName s"task=$i"
+
+      // make them depend on previous tasks
+      val randomNumberGenerator = scala.util.Random
+      for (i <- 1 until numTasks) {
+        for (j <- 1 until i) {
+          if (randomNumberGenerator.nextFloat < dependencyProbability) tasks(j) ==> tasks(i)
+        }
+      }
+
+      // add the tasks to the task manager
+      val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+      taskManager.addTasks(tasks)
+
+      // run the tasks
+      taskManager.runToCompletion(failFast=true)
+
+      // make sure all tasks have been completed
+      tasks.foreach { task =>
+        taskManager.taskStatusFor(task).value should be(TaskStatus.SucceededExecution)
+        taskManager.graphNodeStateFor(task).value should be(GraphNodeState.COMPLETED)
+      }
     }
   }
 

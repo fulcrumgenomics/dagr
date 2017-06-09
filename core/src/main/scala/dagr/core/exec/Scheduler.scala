@@ -20,8 +20,9 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
-package dagr.core.execsystem
+package dagr.core.exec
 
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
@@ -33,7 +34,7 @@ abstract class Scheduler extends LazyLogging {
     * while running.  Only schedules based on the resources available after subtracting resources from running tasks.
     *
     * @param runningTasks the tasks that are currently running.
-    * @param readyTasks the tasks that should be considered to be schedule.
+    * @param readyTasks the tasks that should be considered to be scheduled.
     * @param systemCores the set of system cores.
     * @param systemMemory the set of system memory.
     * @param jvmMemory the set of JVM memory.

@@ -24,7 +24,7 @@
 package dagr.core.tasksystem
 
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.execsystem.{ResourceSet, Scheduler}
+import dagr.core.exec.{ResourceSet, Scheduler}
 
 /** A task that should be directly executed or scheduled.
  *
@@ -33,7 +33,7 @@ import dagr.core.execsystem.{ResourceSet, Scheduler}
  * - a task extending this class should return only one task in its getTasks method.  See [[Task.getTasks]].
  * - a task can perform any final logic dependent on the resources with which it is scheduled.  See [[Scheduler!.schedule*]].
   *
- * When a unit task gets scheduled, the [[dagr.core.execsystem.Scheduler.schedule]] method will be called to allow any final
+ * When a unit task gets scheduled, the [[Scheduler.schedule]] method will be called to allow any final
  * logic based on the resources this task was scheduled with.  This is in addition to the steps listed in [[Task]].
  */
 trait UnitTask extends Task with LazyLogging with Schedulable {

@@ -28,6 +28,7 @@ import dagr.core.DagrDef._
 import dagr.core.execsystem.TaskManagerLike.BaseGraphNode
 import dagr.core.tasksystem.Task
 import com.fulcrumgenomics.commons.collection.BiMap
+import dagr.core.tasksystem.Task.{TaskStatus => RootTaskStatus}
 
 private[execsystem] object TaskManagerLike {
   abstract class BaseGraphNode
@@ -62,7 +63,7 @@ private[execsystem] trait TaskManagerLike {
     * @param task the task.
     * @return the task status if the task is managed, None otherwise.
     */
-  def taskStatusFor(task: Task): Option[TaskStatus.Value]
+  def taskStatusFor(task: Task): Option[RootTaskStatus]
 
 
   /** Get the task's associated [[TaskStatus]].
@@ -70,7 +71,7 @@ private[execsystem] trait TaskManagerLike {
     * @param id the task identifier.
     * @return the task status if the task is managed, None otherwise.
     */
-  def taskStatusFor(id: TaskId): Option[TaskStatus.Value]
+  def taskStatusFor(id: TaskId): Option[RootTaskStatus]
 
 
   /** Get the task identifier for the given task.
@@ -78,7 +79,10 @@ private[execsystem] trait TaskManagerLike {
     * @param task the task.
     * @return the task identifier, None if the task is not being managed.
     */
-  def taskFor(task: Task): Option[TaskId] = task._taskInfo.map(_.taskId)
+  def taskFor(task: Task): Option[TaskId] = task._taskInfo match {
+    case None => None
+    case _    => Some(task.execsystemTaskInfo.taskId)
+  }
 
   /** Get the task identifiers for all tracked tasks.
     *
@@ -119,15 +123,6 @@ private[execsystem] trait TaskManagerLike {
     * @return the task identifiers.
     */
   def addTasks(tasks: Task*): Seq[TaskId] = tasks map addTask
-
-  /** Resubmit a task for execution.  This will stop the task if it is currently running, and queue
-    * it up for execution.  The number of attempts will be reset to zero.
-    *
-    * @param task the task to resubmit.
-    * @return true if the task was successfully resubmitted, false otherwise.
-    */
-  // Turning it off until `resubmit` is used.
-  //def resubmitTask(task: Task): Boolean
 
   /** Replace the original task with the replacement task and update any internal references.
     *

@@ -26,10 +26,10 @@ package dagr.tasks.gatk
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.{DagrDef, JarTask}
 import DagrDef.{PathToFasta, PathToIntervals}
+import dagr.core.exec.{Cores, Memory}
 
 import scala.collection.mutable.ListBuffer
 

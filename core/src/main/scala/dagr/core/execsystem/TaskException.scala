@@ -23,8 +23,6 @@
  */
 package dagr.core.execsystem
 
-import dagr.core.execsystem.TaskStatus.TaskStatus
-
 /**
   * An exception that can be thrown when there is an error processing tasks, that encapsulates
   * the thrown exception and a failure status to use.

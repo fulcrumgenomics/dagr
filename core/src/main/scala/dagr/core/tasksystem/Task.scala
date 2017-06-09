@@ -23,20 +23,155 @@
  */
 package dagr.core.tasksystem
 
-import com.fulcrumgenomics.commons.CommonsDef.unreachable
+import com.fulcrumgenomics.commons.CommonsDef.{FilePath, unreachable}
+import java.time.{Duration, Instant}
+
+import com.fulcrumgenomics.commons.util.Logger
+import com.fulcrumgenomics.commons.util.TimeUtil.formatElapsedTime
+import dagr.core.DagrDef.TaskId
+import dagr.core.exec.ResourceSet
 import dagr.core.execsystem.TaskExecutionInfo
+import dagr.core.tasksystem.Task.TaskInfo
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.reflect.ClassTag
 import scala.util.control.Breaks._
 
 /** Utility methods to aid in working with a task. */
 object Task {
 
+  /** The status of a task.  Any execution system requiring a custom set of statuses should extend this trait. */
+  trait TaskStatus {
+    /** A brief description of the status. */
+    def description: String
+    /** A unique ordinal for the status, used to prioritize reporting of statuses*/
+    def ordinal: Int
+    /** The name of the status, by default the class' simple name. */
+    def name: String = this.getClass.getSimpleName
+    /** The string representation of the status, by default the definition. */
+    override def toString: String = this.description
+  }
+
+  /** A tuple representing the instant the task was set to the given status. */
+  private[core] case class TimePoint(status: TaskStatus, instant: Instant)
+
+  /** Execution information associated with a task.  Any execution system should extend this class to store
+    * their specific metadata.
+    * @param task the task in question
+    * @param initStatus the initial status
+    * @param id the unique id, if any, of the task.  The id may not be set until execution in some execution systems.
+    * @param attempts the number of execution attempts (one-based)
+    * @param script the path to the execution script for the task, if any
+    * @param log the path to the log file for the task, if any
+    * @param resources the resources that the tasks used during execution or was scheduled with
+    * @param exitCode the exit-code for the task, if any
+    * @param throwable a throwable generated during execution, if any
+    */
+  private[core] abstract class TaskInfo
+  (
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Core info
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    var task: Task,
+    initStatus: TaskStatus,
+    var id: Option[TaskId]               = None,
+    var attempts : Int                   = 1,/** How many times it has been attempted. */
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Execution-Specific Information
+    //
+    // These properties are specific to running things in a local (bash/process) environment.  We may
+    // have other executors that don't have these, and so for now, they are included, but made options.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    var script     : Option[FilePath]    = None,
+    var log        : Option[FilePath]    = None,
+    var resources  : Option[ResourceSet] = None,
+    var exitCode   : Option[Int]         = None,
+    var throwable  : Option[Throwable]   = None
+  ) {
+
+    if (attempts < 1) throw new RuntimeException("attempts must be greater than zero")
+
+    // Update the reference in [[Task]] to this.
+    task._taskInfo = Some(this)
+
+
+    /** The set of time points that contains time points of the instant a status was set. */
+    private val _timePoints: mutable.ArrayBuffer[TimePoint] = new mutable.ArrayBuffer[TimePoint]()
+
+    // set the time the status was initially set to NOW!
+    this._timePoints.append(TimePoint(initStatus, Instant.now))
+
+    /** Updates the instant for the status if the given status different from the current status or the current status
+      * is not set. */
+    private[core] final def update(status: TaskStatus, instant: Instant): Unit = if (status != this.status) {
+      this._timePoints.append(TimePoint(status, instant))
+    }
+
+    /** Gets the latest instant for the status, if any. */
+    private[core] final def apply(status: TaskStatus): Option[Instant] = {
+      // find the last status with the given time point
+      this._timePoints.reverseIterator.find(_.status == status).map(_.instant)
+    }
+
+    /** Gets the latest instant for any status of instance of [[T]]. */
+    private[core] final def latestStatus[T: ClassTag]: Option[Instant] = {
+      this._timePoints.reverseIterator.find { timePoint =>
+        timePoint.status match {
+          case _: T => true
+          case _    => false
+        }
+      }.map(_.instant)
+    }
+
+    /** Sets the current status of the task, as well as the instant for the status. */
+    private[core] def status_=(status: TaskStatus): Instant = {
+      val instant = Instant.now
+      update(status, instant)
+      instant
+    }
+
+    /** The current status of the task. */
+    def status     : TaskStatus = this.timePoints.last.status
+
+    /** The instant the task reached a given status. */
+    final def timePoints :  Traversable[TimePoint] = this._timePoints.toIndexedSeq
+
+    /** The instant the task reached the current status. */
+    final def statusTime : Instant = apply(this.status).get // Break it down (Oh-oh-oh-oh-oh-oh-oh-oh-oh oh-oh) (Oh-oh-oh-oh-oh-oh-oh-oh-oh oh-oh). Stop. Status time
+
+    /** Gets the instant that the task was submitted to the execution system. */
+    protected[core] def submissionDate: Option[Instant]
+
+    /** The instant the task started executing. */
+    protected[core] def startDate: Option[Instant]
+
+    /** The instant that the task finished executing. */
+    protected[core] def endDate: Option[Instant]
+
+    /** Gets the execution and total time. */
+    protected[core] def executionAndTotalTime: (String, String) = (submissionDate, startDate, endDate) match {
+      case (Some(submission), Some(start), Some(end)) =>
+        val sinceSubmission = Duration.between(submission, end)
+        val sinceStart      = Duration.between(start, end)
+        (formatElapsedTime(sinceStart.getSeconds), formatElapsedTime(sinceSubmission.getSeconds))
+      case _ => ("NA", "NA")
+    }
+
+    /** Logs a message for the given task. */
+    private[core] def logTaskMessage(logger: Logger): Unit = {
+      val resourceMessage = this.resources match {
+        case Some(r) => s" with ${r.cores} cores and ${r.memory} memory"
+        case None    => ""
+      }
+      logger.info(s"'${this.task.name}' : ${this.status} on attempt #${this.attempts}" + resourceMessage)
+    }
+  }
+
   /** Helper class for Tarjan's strongly connected components algorithm */
   private class TarjanData {
     var index: Int = 0
-    val stack: mutable.Stack[Task] = new mutable.Stack[Task]()
+    val stack: mutable.Stack[Task] = new mutable.Stack[Task]() // FIXME: mutable.Stack is deprecated in 2.12!
     val onStack: mutable.Set[Task] = new mutable.HashSet[Task]()
     val indexes: mutable.Map[Task, Int] = new mutable.HashMap[Task, Int]()
     val lowLink: mutable.Map[Task, Int] = new mutable.HashMap[Task, Int]()
@@ -114,16 +249,16 @@ object Task {
       if (!data.indexes.contains(w)) {
         // Successor w has not yet been visited; recurse on it
         findStronglyConnectedComponent(w, data)
-        data.lowLink.put(v, math.min(data.lowLink.get(v).get, data.lowLink.get(w).get))
+        data.lowLink.put(v, math.min(data.lowLink(v), data.lowLink(w)))
       }
       else if (data.onStack(w)) {
         // Successor w is in stack S and hence in the current SCC
-        data.lowLink.put(v, math.min(data.lowLink.get(v).get, data.lowLink.get(w).get))
+        data.lowLink.put(v, math.min(data.lowLink(v), data.lowLink(w)))
       }
     }
 
     // If v is a root node, pop the stack and generate an SCC
-    if (data.indexes.get(v).get == data.lowLink.get(v).get) {
+    if (data.indexes(v) == data.lowLink(v)) {
       val component: mutable.Set[Task] = new mutable.HashSet[Task]()
       breakable {
         while (data.stack.nonEmpty) {
@@ -141,20 +276,24 @@ object Task {
 /** Base class for all tasks, multi-tasks, and workflows.
  *
  * Once a task is constructed, it has the following evolution:
- * 1. Any tasks on which it depends are added (see [[==>]]).
- * 2. When all tasks on which it is dependent have completed, the [[getTasks]] method
+ * 1. Any tasks on which it depends are added (see [[Dependable.==>()]]).
+ * 2. When all tasks on which it is dependent have completed, the [[dagr.core.tasksystem.Task#getTasks]] method
  *    is called to create a set of tasks. This task becomes dependent on any task that
  *    is returned that is not itself.
  * 3. When all newly dependent tasks from #2 are complete, as well as this task, the
- *    [[onComplete]] method is called to perform any light-weight modification of this
+ *    [[Task#onComplete]] method is called to perform any light-weight modification of this
  *    task.
- * 4. If a task failed during execution or within [[onComplete]], the [[retry]]
- *    method will be called until the task no longer wishes to retry or succeeds.
  */
 trait Task extends Dependable {
   /** The unique id given to this task by the execution system, or None if not being tracked. */
-  private[core] var _taskInfo : Option[TaskExecutionInfo] = None
-  private[core] def taskInfo : TaskExecutionInfo = _taskInfo.getOrElse(unreachable(s"Task id should be defined for task '$name'"))
+  private[core] var _taskInfo : Option[TaskInfo] = None
+  private[core] def taskInfo: TaskInfo = this._taskInfo.get
+
+  /** Get the task info for dagr.core.execsystem */
+  private[core] def execsystemTaskInfo : TaskExecutionInfo = this._taskInfo.getOrElse(unreachable(s"Task info should be defined for task '$name'")) match {
+    case info: TaskExecutionInfo => info
+    case info => throw new IllegalStateException(s"For task info, expected type 'TaskExecutionInfo' but found '${info.getClass.getSimpleName}")
+  }
 
   /** The name of the task. */
   var name: String = getClass.getSimpleName

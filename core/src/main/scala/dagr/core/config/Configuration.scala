@@ -27,11 +27,11 @@ import java.io.File
 import java.nio.file.{Files, Path}
 import java.time.Duration
 
-import com.typesafe.config.{ConfigParseOptions, ConfigFactory, Config}
+import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
 import com.typesafe.config.ConfigException.Generic
 import com.fulcrumgenomics.commons.io.PathUtil._
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.core.exec.{Cores, Memory}
 
 import scala.collection.SortedSet
 import scala.reflect.runtime.universe.{TypeTag, typeOf}

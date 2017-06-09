@@ -48,7 +48,7 @@ class GraphNode(var task: Task,
   _predecessors ++= predecessorNodes
 
   def taskId: TaskId = taskInfo.taskId
-  def taskInfo: TaskExecutionInfo = task.taskInfo
+  def taskInfo: TaskExecutionInfo = task.execsystemTaskInfo
 
   /** Remove a predecessor from the execution graph.
    *

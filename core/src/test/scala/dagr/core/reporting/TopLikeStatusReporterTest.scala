@@ -20,18 +20,20 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.core.execsystem
+package dagr.core.reporting
 
 import com.fulcrumgenomics.commons.util.{CaptureSystemStreams, LogLevel, Logger}
 import dagr.core.UnitSpec
-import dagr.core.execsystem.Terminal.Dimensions
+import dagr.core.execsystem.{GraphNodeState, SystemResources, TaskManager, TaskManagerReporter}
+import dagr.core.reporting.Terminal.Dimensions
 import dagr.core.tasksystem.{NoOpInJvmTask, SimpleInJvmTask}
 import org.scalatest.BeforeAndAfterAll
 
 /**
-  * Tests for TopLikeStatusReporter
+  * Tests for TopLikeStatusReporter and friends
   */
 class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with BeforeAndAfterAll {
 
@@ -70,7 +72,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
   "TopLikeStatusReporter" should "start and shutdown cleanly when no tasks are being managed" in {
     val taskManager = getDefaultTaskManager()
     val output = new StringBuilder()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = (str: String) => output.append(str)) with TestTerminal
+    val reporter = new PeriodicRefreshingReporter(reporter = new TaskManagerReporter(taskManager=taskManager) with TestTerminal, print = (str: String) => output.append(str))
     reporter.start()
     reporter.shutdown()
     output should not be 'empty
@@ -79,17 +81,18 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
   it should "start and shutdown cleanly when no tasks are being managed with a two line terminal" in {
     val taskManager = getDefaultTaskManager()
     val output = new StringBuilder()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = (str: String) => output.append(str)) with TwoLineTestTerminal
+    val reporter = new PeriodicRefreshingReporter(reporter = new TaskManagerReporter(taskManager=taskManager) with TwoLineTestTerminal, print = (str: String) => output.append(str))
     reporter.start()
     reporter.shutdown()
     output should not be 'empty
+    output.split('\n').length shouldBe 2
     output.toString() should include("with 4 more lines not shown")
   }
 
   it should "start and shutdown cleanly when a single task is being managed" in {
     val taskManager = getDefaultTaskManager()
     val output = new StringBuilder()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = (str: String) => output.append(str)) with TestTerminal
+    val reporter = new PeriodicRefreshingReporter(reporter = new TaskManagerReporter(taskManager=taskManager) with TestTerminal, print = (str: String) => output.append(str))
     reporter.start()
     taskManager.addTask(new NoOpInJvmTask("Exit0Task"))
     taskManager.runToCompletion(failFast=true)
@@ -107,11 +110,11 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     val output = new StringBuilder()
     val printMethod: String => Unit = (str: String) => output.append(str)
     val taskManager = getDefaultTaskManager()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = printMethod) with TestTerminal
+    val reporter = new PeriodicRefreshingReporter(reporter = new TaskManagerReporter(taskManager=taskManager) with TestTerminal, print = printMethod)
 
     taskManager.addTask(taskOne)
     taskManager.runToCompletion(failFast=true)
-    reporter.refresh(print=printMethod)
+    reporter.refresh()
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("0 Running")
@@ -125,7 +128,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     val output = new StringBuilder()
     val printMethod: String => Unit = (str: String) => output.append(str)
     val taskManager = getDefaultTaskManager()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = printMethod) with TestTerminal
+    val reporter = new PeriodicRefreshingReporter(reporter = new TaskManagerReporter(taskManager=taskManager) with TestTerminal, print = printMethod)
 
     taskManager.addTask(taskOne)
     taskManager.stepExecution()
@@ -133,7 +136,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       Thread.sleep(10)
       taskManager.stepExecution()
     }
-    reporter.refresh(print=printMethod)
+    reporter.refresh()
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("1 Running")
@@ -141,7 +144,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     taskOne.completeTask = true
 
     taskManager.runToCompletion(failFast=true)
-    reporter.refresh(print=printMethod)
+    reporter.refresh()
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("0 Running")
@@ -159,7 +162,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       scriptsDirectory = None,
       sleepMilliseconds = 10
     )
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = printMethod) with TestTerminal
+    val reporter = new PeriodicRefreshingReporter(reporter = new TaskManagerReporter(taskManager=taskManager) with TestTerminal, print = printMethod)
 
     // add the first task, which can be scheduled.
     taskManager.addTasks(taskOne, taskTwo)
@@ -168,7 +171,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       Thread.sleep(10)
       taskManager.stepExecution()
     }
-    reporter.refresh(print=printMethod)
+    reporter.refresh()
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("TaskTwo")
@@ -179,7 +182,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     taskTwo.completeTask = true
 
     taskManager.runToCompletion(failFast=true)
-    reporter.refresh(print=printMethod)
+    reporter.refresh()
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("TaskTwo")
@@ -195,7 +198,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     val output = new StringBuilder()
     val printMethod: String => Unit = (str: String) => output.append(str)
     val taskManager = getDefaultTaskManager()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = printMethod) with TestTerminal
+    val reporter = new PeriodicRefreshingReporter(reporter = new TaskManagerReporter(taskManager=taskManager) with TestTerminal, print = printMethod)
 
     // add the first task, which can be scheduled.
     taskManager.addTasks(taskOne, taskTwo)
@@ -204,10 +207,10 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       Thread.sleep(10)
       taskManager.stepExecution()
     }
-    reporter.refresh(print=printMethod)
+    reporter.refresh()
     output should not be 'empty
     output.toString() should include("TaskOne")
-    output.toString() should not include "TaskTwo"
+    output.toString() should include("TaskTwo")
     output.toString() should include("1 Running")
     output.toString() should include("1 Ineligible")
     output.toString() should include("0 Eligible")
@@ -215,7 +218,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     taskTwo.completeTask = true
 
     taskManager.runToCompletion(failFast=true)
-    reporter.refresh(print=printMethod)
+    reporter.refresh()
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("TaskTwo")

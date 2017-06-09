@@ -29,6 +29,10 @@ import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.sopt.util.TermCode
 import com.fulcrumgenomics.commons.util.CaptureSystemStreams
+import com.fulcrumgenomics.commons.util.{CaptureSystemStreams, LogLevel, Logger}
+import dagr.core.cmdline.pipelines.PipelineFour
+import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
+import dagr.core.FutureUnitSpec
 import org.scalatest.BeforeAndAfterAll
 import java.nio.file.{Files, Path}
 
@@ -41,7 +45,7 @@ private class NoOpPipeline extends Pipeline {
   }
 }
 
-class DagrCoreMainTest extends UnitSpec with BeforeAndAfterAll with CaptureSystemStreams {
+class DagrCoreMainTest extends FutureUnitSpec with CaptureSystemStreams with BeforeAndAfterAll {
 
   private val prevPrintColor = TermCode.printColor
 
