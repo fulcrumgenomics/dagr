@@ -30,7 +30,6 @@ import com.fulcrumgenomics.commons.collection.BiMap
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.DagrDef._
 import dagr.core.execsystem.TaskStatus._
-import dagr.core.reporting.ReportingDef.TaskRegister
 import dagr.core.tasksystem.Task
 import dagr.core.tasksystem.Task.{TaskStatus => RootTaskStatus}
 
