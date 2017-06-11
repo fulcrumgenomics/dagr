@@ -108,6 +108,8 @@ class DagrCoreArgs(
   val report: Option[Path] = None,
   @arg(doc = "Provide an top-like interface for tasks with the give delay in seconds. This suppress info logging.")
   var interactive: Boolean = false,
+  @arg(doc = "Use the experimental execution system.")
+  val experimentalExecution: Boolean = false,
   @arg(doc = "Attempt to replay using the provided replay log")
   val replayLog: Option[FilePath] = None
 ) extends LazyLogging {
@@ -157,6 +159,7 @@ class DagrCoreArgs(
       val resources = SystemResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
       this.executor = Some(
         Executor(
+          experimentalExecution = experimentalExecution,
           resources             = resources,
           scriptsDirectory      = scriptsDirectory,
           logDirectory          = logDirectory

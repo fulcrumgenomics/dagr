@@ -34,6 +34,7 @@ import com.fulcrumgenomics.commons.util.TimeUtil._
 import dagr.core.exec.ExecDef.concurrentSet
 import dagr.core.exec.Executor
 import dagr.core.execsystem.{SystemResources, TaskManager}
+import dagr.core.execsystem2.GraphExecutor
 import dagr.core.reporting.ReportingDef.TaskLogger
 import dagr.core.tasksystem.Task.TaskInfo
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
@@ -131,6 +132,12 @@ object TopLikeStatusReporter {
             loggerOut   = Some(loggerOutputStream),
             print       = s => System.out.print(s)
           )
+      case graphExecutor: GraphExecutor[_] =>
+        new dagr.core.execsystem2.TopLikeStatusReporter(
+          systemResources = graphExecutor.resources.getOrElse(throw new IllegalArgumentException("No resource set defined")),
+          loggerOut       = Some(loggerOutputStream),
+          print           = s => System.out.print(s)
+        )
       case _ => throw new IllegalArgumentException(s"Unknown executor: '${executor.getClass.getSimpleName}'")
     }
 
