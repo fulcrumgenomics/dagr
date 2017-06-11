@@ -24,16 +24,16 @@
 
 package dagr.core.cmdline
 
-import dagr.core.cmdline.pipelines.PipelineFour
-import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
-import com.fulcrumgenomics.commons.io.Io
-import com.fulcrumgenomics.sopt.util.TermCode
-import com.fulcrumgenomics.commons.util.CaptureSystemStreams
-import org.scalatest.BeforeAndAfterAll
 import java.nio.file.{Files, Path}
 
-import dagr.core.UnitSpec
+import com.fulcrumgenomics.commons.io.Io
+import com.fulcrumgenomics.commons.util.CaptureSystemStreams
+import com.fulcrumgenomics.sopt.util.TermCode
+import dagr.core.FutureUnitSpec
 import dagr.core.cmdline.DagrScriptManager.DagrScriptManagerException
+import dagr.core.cmdline.pipelines.PipelineFour
+import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
+import org.scalatest.BeforeAndAfterAll
 
 private class NoOpPipeline extends Pipeline {
   override def build(): Unit = {
@@ -41,7 +41,7 @@ private class NoOpPipeline extends Pipeline {
   }
 }
 
-class DagrCoreMainTest extends UnitSpec with BeforeAndAfterAll with CaptureSystemStreams {
+class DagrCoreMainTest extends FutureUnitSpec with CaptureSystemStreams with BeforeAndAfterAll {
 
   private val prevPrintColor = TermCode.printColor
 

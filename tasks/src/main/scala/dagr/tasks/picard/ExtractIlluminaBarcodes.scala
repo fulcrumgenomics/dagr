@@ -27,7 +27,7 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import dagr.core.exec.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.VariableResources
 import dagr.tasks.DagrDef.{DirPath, FilePath, PathPrefix}
 

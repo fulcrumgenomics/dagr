@@ -24,9 +24,8 @@
 package dagr.core.cmdline.pipelines
 
 import com.fulcrumgenomics.sopt._
-import dagr.core.tasksystem.Pipeline
-
 import com.fulcrumgenomics.sopt.cmdline.ClpGroup
+import dagr.core.tasksystem.Pipeline
 
 private class TestGroup extends ClpGroup {
   val name: String = "Testing"

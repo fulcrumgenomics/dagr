@@ -23,7 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.core.execsystem.{Cores, Memory, Resource, ResourceSet}
+import dagr.core.exec.{Cores, Memory, Resource, ResourceSet}
 
 object Schedulable {
 
@@ -70,7 +70,7 @@ object Schedulable {
   */
 trait Schedulable {
   
-  import Schedulable.{EndCores, EndMemory, MemoryPerCore, OneCore, StartMemory, StepMemory}
+  import Schedulable._
   
   /**
     * Given a non-null ResourceSet representing the available resources at this moment in time

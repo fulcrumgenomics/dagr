@@ -27,6 +27,7 @@ package dagr.tasks.picard
 
 import java.text.SimpleDateFormat
 
+import dagr.core.exec.{Cores, Memory, ResourceSet}
 import dagr.core.execsystem._
 import dagr.core.tasksystem.{JvmRanOutOfMemory, VariableResources}
 import dagr.tasks.DagrDef.{DirPath, FilePath}

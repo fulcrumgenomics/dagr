@@ -20,18 +20,23 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.core.execsystem
+package dagr.core.reporting
 
+import java.io.{ByteArrayOutputStream, PrintStream}
+
+import com.fulcrumgenomics.commons.CommonsDef.yieldAndThen
 import com.fulcrumgenomics.commons.util.{CaptureSystemStreams, LogLevel, Logger}
 import dagr.core.UnitSpec
-import dagr.core.execsystem.Terminal.Dimensions
+import dagr.core.execsystem.{GraphNodeState, SystemResources, TaskManager}
+import dagr.core.reporting.Terminal.Dimensions
 import dagr.core.tasksystem.{NoOpInJvmTask, SimpleInJvmTask}
 import org.scalatest.BeforeAndAfterAll
 
 /**
-  * Tests for TopLikeStatusReporter
+  * Tests for TopLikeStatusReporter and friends
   */
 class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with BeforeAndAfterAll {
 
@@ -60,40 +65,72 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
   private def getDefaultTaskManager(sleepMilliseconds: Int = 10): TaskManager = new TaskManager(
     taskManagerResources = SystemResources.infinite,
     scriptsDirectory = None,
-    sleepMilliseconds = sleepMilliseconds
+    sleepMilliseconds = sleepMilliseconds,
+    failFast = true
   )
+
+  private def buildAndAddReporter(taskManager: TaskManager, print: String => Unit) = {
+    val loggerOutputStream: ByteArrayOutputStream = {
+      val outStream = new ByteArrayOutputStream()
+      val printStream = new PrintStream(outStream)
+      Logger.out = printStream
+      outStream
+    }
+
+    val reporter = new dagr.core.execsystem.TopLikeStatusReporter(
+      taskManager = taskManager,
+      loggerOut   = Some(loggerOutputStream),
+      print       = print
+    ) with TestTerminal
+
+    yieldAndThen(reporter)(taskManager.withLogger(reporter))
+  }
+
+  private def buildAndAddTwoLineReporter(taskManager: TaskManager, print: String => Unit) = {
+    val loggerOutputStream: ByteArrayOutputStream = {
+      val outStream = new ByteArrayOutputStream()
+      val printStream = new PrintStream(outStream)
+      Logger.out = printStream
+      outStream
+    }
+
+    val reporter = new dagr.core.execsystem.TopLikeStatusReporter(
+      taskManager = taskManager,
+      loggerOut   = Some(loggerOutputStream),
+      print       = print
+    ) with TwoLineTestTerminal
+
+    yieldAndThen(reporter)(taskManager.withLogger(reporter))
+  }
+
+  private val extendedCode : (Char) => Boolean = (c:Char) => (c <= 32 || c > 127) && c != '\n' && c != ' '
 
   "Terminal" should "support ANSI codes" in {
     Terminal.supportsAnsi shouldBe true
   }
 
-  "TopLikeStatusReporter" should "start and shutdown cleanly when no tasks are being managed" in {
+  "TopLikeStatusReporter" should "not print tasks when no tasks are being managed" in {
     val taskManager = getDefaultTaskManager()
     val output = new StringBuilder()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = (str: String) => output.append(str)) with TestTerminal
-    reporter.start()
-    reporter.shutdown()
+    buildAndAddReporter(taskManager, print = (str: String) => output.append(str.filterNot(extendedCode)))
     output should not be 'empty
+    output.split('\n').length shouldBe 5
   }
 
-  it should "start and shutdown cleanly when no tasks are being managed with a two line terminal" in {
+  it should "not print tasks when no tasks are being managed with a two line terminal" in {
     val taskManager = getDefaultTaskManager()
     val output = new StringBuilder()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = (str: String) => output.append(str)) with TwoLineTestTerminal
-    reporter.start()
-    reporter.shutdown()
+    buildAndAddTwoLineReporter(taskManager, print = (str: String) => output.append(str.filterNot(extendedCode)))
     output should not be 'empty
+    output.split('\n').length shouldBe 2
     output.toString() should include("with 4 more lines not shown")
   }
 
-  it should "start and shutdown cleanly when a single task is being managed" in {
+  it should "print the output when a single task is being managed" in {
     val taskManager = getDefaultTaskManager()
     val output = new StringBuilder()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = (str: String) => output.append(str)) with TestTerminal
-    reporter.start()
-    taskManager.addTask(new NoOpInJvmTask("Exit0Task"))
-    taskManager.runToCompletion(failFast=true)
-    reporter.shutdown()
+    buildAndAddReporter(taskManager, print = (str: String) => output.append(str.filterNot(extendedCode)))
+    taskManager.execute(new NoOpInJvmTask("Exit0Task"))
     output should not be 'empty
     output.toString() should include("Exit0Task")
     output.toString() should include("1 Done")
@@ -105,13 +142,10 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     } withName "TaskOne"
 
     val output = new StringBuilder()
-    val printMethod: String => Unit = (str: String) => output.append(str)
+    val printMethod: String => Unit = (str: String) => output.append(str.filterNot(extendedCode))
     val taskManager = getDefaultTaskManager()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = printMethod) with TestTerminal
-
-    taskManager.addTask(taskOne)
-    taskManager.runToCompletion(failFast=true)
-    reporter.refresh(print=printMethod)
+    buildAndAddReporter(taskManager, print=printMethod)
+    taskManager.execute(taskOne)
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("0 Running")
@@ -123,9 +157,9 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     val taskOne = new WaitForIt withName "TaskOne"
 
     val output = new StringBuilder()
-    val printMethod: String => Unit = (str: String) => output.append(str)
+    val printMethod: String => Unit = (str: String) => output.append(str.filterNot(extendedCode))
     val taskManager = getDefaultTaskManager()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = printMethod) with TestTerminal
+    buildAndAddReporter(taskManager, print=printMethod)
 
     taskManager.addTask(taskOne)
     taskManager.stepExecution()
@@ -133,15 +167,13 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       Thread.sleep(10)
       taskManager.stepExecution()
     }
-    reporter.refresh(print=printMethod)
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("1 Running")
     output.toString() should include("0 Done")
     taskOne.completeTask = true
 
-    taskManager.runToCompletion(failFast=true)
-    reporter.refresh(print=printMethod)
+    taskManager.runToCompletion()
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("0 Running")
@@ -153,13 +185,13 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     val taskTwo = new WaitForIt withName "TaskTwo"
 
     val output = new StringBuilder()
-    val printMethod: String => Unit = (str: String) => output.append(str)
+    val printMethod: String => Unit = (str: String) => output.append(str.filterNot(extendedCode))
     val taskManager = new TaskManager(
       taskManagerResources = SystemResources(1.0, Long.MaxValue, Long.MaxValue), // one task at a time
       scriptsDirectory = None,
       sleepMilliseconds = 10
     )
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = printMethod) with TestTerminal
+    buildAndAddReporter(taskManager, print=printMethod)
 
     // add the first task, which can be scheduled.
     taskManager.addTasks(taskOne, taskTwo)
@@ -168,7 +200,6 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       Thread.sleep(10)
       taskManager.stepExecution()
     }
-    reporter.refresh(print=printMethod)
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("TaskTwo")
@@ -178,8 +209,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     taskOne.completeTask = true
     taskTwo.completeTask = true
 
-    taskManager.runToCompletion(failFast=true)
-    reporter.refresh(print=printMethod)
+    taskManager.runToCompletion()
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("TaskTwo")
@@ -193,9 +223,9 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     taskOne ==> taskTwo
 
     val output = new StringBuilder()
-    val printMethod: String => Unit = (str: String) => output.append(str)
+    val printMethod: String => Unit = (str: String) => output.append(str.filterNot(extendedCode))
     val taskManager = getDefaultTaskManager()
-    val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = printMethod) with TestTerminal
+    buildAndAddReporter(taskManager, print=printMethod)
 
     // add the first task, which can be scheduled.
     taskManager.addTasks(taskOne, taskTwo)
@@ -204,18 +234,16 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       Thread.sleep(10)
       taskManager.stepExecution()
     }
-    reporter.refresh(print=printMethod)
     output should not be 'empty
     output.toString() should include("TaskOne")
-    output.toString() should not include "TaskTwo"
+    output.toString() should include("TaskTwo")
     output.toString() should include("1 Running")
     output.toString() should include("1 Ineligible")
     output.toString() should include("0 Eligible")
     taskOne.completeTask = true
     taskTwo.completeTask = true
 
-    taskManager.runToCompletion(failFast=true)
-    reporter.refresh(print=printMethod)
+    taskManager.runToCompletion()
     output should not be 'empty
     output.toString() should include("TaskOne")
     output.toString() should include("TaskTwo")

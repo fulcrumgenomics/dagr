@@ -23,11 +23,11 @@
  */
 package dagr.tasks.picard
 
-import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFasta}
+import dagr.core.exec.{Cores, Memory}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 import htsjdk.samtools.SamPairUtil.PairOrientation
 
