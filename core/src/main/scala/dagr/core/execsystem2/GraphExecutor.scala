@@ -25,10 +25,9 @@
 
 package dagr.core.execsystem2
 
-import com.fulcrumgenomics.commons.CommonsDef.DirPath
+import com.fulcrumgenomics.commons.CommonsDef.{DirPath, unreachable}
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.exec.{ExecDef, Executor}
-import dagr.core.execsystem.SystemResources
+import dagr.core.exec.{ExecDef, Executor, SystemResources}
 import dagr.core.execsystem2.TaskStatus._
 import dagr.core.tasksystem.Task.{TaskInfo => RootTaskInfo}
 import dagr.core.tasksystem.{Retry, Task}
@@ -37,6 +36,8 @@ import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.util.{Failure, Success}
+
+// TODO: support failFast
 
 /** Coordinates between the dependency graph ([[DependencyGraph]]) and task executor ([[TaskExecutor]]) given a (root)
   * task to execute.
@@ -400,7 +401,7 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
       case thr: Throwable       =>
         fail(task, thr, status)
         Future.failed[A](TaggedException(thr=thr, status=status))
-      case other                => throw new IllegalArgumentException(s"Expected a throwable, found $other")
+      case other                => unreachable(s"Expected a throwable, found $other")
     }
   }
   //def failFutureWithFailedToBuild   [A](task: Task)(future: Future[A]): Future[A] = failFutureWithTaskStatus(task, FailedToBuild   )(future)

@@ -26,11 +26,13 @@ package dagr.core.tasksystem
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.core.UnitSpec
 import dagr.core.exec.{Cores, Memory, ResourceSet}
+import dagr.core.tasksystem.Pipes.PipeWithNoResources
+import org.scalatest.OptionValues
 
 /**
   * Tests for the piping together of tasks
   */
-class PipeTest extends UnitSpec {
+class PipeTest extends UnitSpec with OptionValues {
   val `|`   = Pipes.PipeString
   val `>`   = Pipes.RedirectOverwriteString
   val `>>` = Pipes.RedirectAppendString
@@ -59,6 +61,7 @@ class PipeTest extends UnitSpec {
     override def args: Seq[Any] = "bgzip" :: "--stdout" :: "--threads" :: resources.cores ::  Nil
   }
   case class BgUnzip()  extends Pipe[Binary,Text] with TestResources { def args = "bgzip" :: "--decompress" :: "--stdout" :: Nil  }
+  case class CatNoResources(f: String) extends PipeWithNoResources[Text,Text] { def args = "cat" :: f.toString :: Nil }
 
   "Pipe" should "connect some simple tasks" in {
     val pipe = Cat("foo.txt") | MakeCsv()
@@ -163,5 +166,12 @@ class PipeTest extends UnitSpec {
   "EmptyPipe" should "explode if its arg or pickResources methods are ever called" in {
     an[IllegalStateException] shouldBe thrownBy {Pipes.empty[Any].args }
     an[IllegalStateException] shouldBe thrownBy {Pipes.empty[Any].pickResources(ResourceSet.infinite) }
+  }
+
+  "PipeWithNoResources" should "have no resources" in {
+    val cat = CatNoResources("stuff.csv")
+    cat.resourceSet shouldBe ResourceSet.empty
+    cat.pickResources(ResourceSet.infinite).value shouldBe ResourceSet.empty
+    cat.pickResources(ResourceSet.empty).value shouldBe ResourceSet.empty
   }
 }

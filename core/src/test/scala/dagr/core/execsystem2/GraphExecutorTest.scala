@@ -26,8 +26,7 @@
 package dagr.core.execsystem2
 
 import dagr.core.TestTags
-import dagr.core.exec.{Cores, Memory, ResourceSet}
-import dagr.core.execsystem.SystemResources
+import dagr.core.exec.{Cores, Memory, ResourceSet, SystemResources}
 import dagr.core.execsystem2.TaskStatus._
 import dagr.core.execsystem2.local.LocalTaskExecutor
 import dagr.core.tasksystem.Task.{TaskInfo => RootTaskInfo}
@@ -454,6 +453,12 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
   // - run a task that fails its onComplete method, is retried, where it modifies the onComplete method return value, and succeeds
   // - run a task that fails its onComplete method, whereby it changes its args to empty, and succeeds
   // - run a task, that its onComplete method mutates its args and return value based on the attempt index
-  //
+
+  "GraphExecute.from" should "return the task status from the ordinal" in {
+    val graphExecutor = this.graphExecutor
+    TaskStatus.values.foreach { status =>
+      graphExecutor.from(status.ordinal) shouldBe status
+    }
+  }
 
 }

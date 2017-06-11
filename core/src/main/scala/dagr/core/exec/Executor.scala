@@ -26,10 +26,10 @@
 package dagr.core.exec
 
 import com.fulcrumgenomics.commons.CommonsDef.{DirPath, yieldAndThen}
-import dagr.core.execsystem.{SystemResources, TaskManager}
+import dagr.core.execsystem.TaskManager
 import dagr.core.execsystem2.GraphExecutor
 import dagr.core.execsystem2.local.LocalTaskExecutor
-import dagr.core.reporting.ReportingDef.{TaskLogger, TaskRegister}
+import dagr.core.reporting.ReportingDef.{TaskLogger, TaskRegister, TaskReporter}
 import dagr.core.reporting.{FinalStatusReporter, TaskStatusLogger}
 import dagr.core.tasksystem.Task
 import dagr.core.tasksystem.Task.{TaskInfo, TaskStatus}
@@ -41,14 +41,15 @@ object Executor {
   /** Create a new executor. */
   def apply(experimentalExecution: Boolean,
             resources: SystemResources,
-            scriptsDirectory: Option[DirPath],
-            logDirectory: Option[DirPath]
+            scriptsDirectory: Option[DirPath] = None,
+            logDirectory: Option[DirPath] = None,
+            failFast: Boolean = false
            )(implicit ex: ExecutionContext): Executor = {
     if (experimentalExecution) {
       GraphExecutor(new LocalTaskExecutor(systemResources=resources, scriptsDirectory=scriptsDirectory, logDirectory=logDirectory))
     }
     else {
-      new TaskManager(taskManagerResources=resources, scriptsDirectory=scriptsDirectory, logDirectory=logDirectory)
+      new TaskManager(taskManagerResources=resources, scriptsDirectory=scriptsDirectory, logDirectory=logDirectory, failFast=failFast)
     }
   }
 }
@@ -91,6 +92,13 @@ trait Executor extends FinalStatusReporter {
   final def withTaskCache(taskCache: TaskCache): this.type = yieldAndThen[this.type](this) {
     this.withTaskRegister(taskCache)
     this.taskCaches.append(taskCache)
+  }
+
+  final def withReporter(reporter: TaskReporter): this.type = this.synchronized {
+    reporter match { case l: TaskLogger => withLogger(l); case _ => Unit }
+    reporter match { case r: TaskRegister => withTaskRegister(r); case _ => Unit }
+    reporter match { case c: TaskCache => withTaskCache(c); case _ => Unit }
+    this
   }
 
   /** Start the execution of this task and all tasks that depend on it.  Returns the number of tasks that were not

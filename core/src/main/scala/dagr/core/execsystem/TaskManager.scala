@@ -34,39 +34,6 @@ import dagr.core.DagrDef._
 import dagr.core.exec._
 import dagr.core.tasksystem._
 
-/** The resources needed for the task manager */
-object SystemResources {
-  /** Creates a new SystemResources that is a copy of an existing one. */
-  def apply(that: SystemResources): SystemResources = {
-    new SystemResources(cores = that.cores, systemMemory = that.systemMemory, jvmMemory = that.jvmMemory)
-  }
-
-  /** Creates a new SystemResources with the specified values. */
-  def apply(cores: Double, systemMemory: Long, jvmMemory: Long): SystemResources = {
-    new SystemResources(cores = Cores(cores), systemMemory = Memory(systemMemory), jvmMemory = Memory(jvmMemory))
-  }
-
-  /** Creates a new SystemResources with the cores provided and partitions the memory between system and JVM. */
-  def apply(cores: Option[Cores] = None, totalMemory: Option[Memory] = None) : SystemResources = {
-    val heapSize = Resource.heapSize
-
-    val (system, jvm) = totalMemory match {
-      case Some(memory) => (memory, heapSize)
-      case None         => (Resource.systemMemory - heapSize, heapSize)
-    }
-
-    require(system.bytes > 0, "System memory cannot be <= 0 bytes.")
-
-    new SystemResources(cores.getOrElse(Resource.systemCores), system, jvm)
-  }
-
-  val infinite: SystemResources = SystemResources(Double.MaxValue, Long.MaxValue, Long.MaxValue)
-}
-
-case class SystemResources(cores: Cores, systemMemory: Memory, jvmMemory: Memory) {
-  def systemResources: ResourceSet = ResourceSet(cores, systemMemory)
-}
-
 /** Various defaults for task manager */
 object TaskManagerDefaults extends LazyLogging {
   def defaultTaskManagerResources: SystemResources = {
@@ -616,12 +583,13 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   }
 
   override def _execute(task: Task): Int = {
+    // add the task
     this.addTask(task)
+    // run to completion
     this.runToCompletion()
+    // return those not done
     this.taskToInfoBiMapFor.count { case (_, info) =>
       TaskStatus.notDone(info.status, failedIsDone=false)
     }
   }
-
-  // support TaskCache
 }

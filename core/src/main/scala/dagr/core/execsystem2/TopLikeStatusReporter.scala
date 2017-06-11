@@ -27,7 +27,7 @@ package dagr.core.execsystem2
 
 import java.io.ByteArrayOutputStream
 
-import dagr.core.execsystem.SystemResources
+import dagr.core.exec.SystemResources
 import dagr.core.execsystem2.TaskStatus._
 import dagr.core.reporting.{TopLikeStatusReporter => BaseTopLikeStatusReporter}
 import dagr.core.tasksystem.Task

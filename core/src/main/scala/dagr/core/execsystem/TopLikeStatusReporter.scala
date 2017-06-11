@@ -27,6 +27,7 @@ package dagr.core.execsystem
 
 import java.io.ByteArrayOutputStream
 
+import dagr.core.exec.SystemResources
 import dagr.core.execsystem.GraphNodeState.NO_PREDECESSORS
 import dagr.core.reporting.{TopLikeStatusReporter => BaseTopLikeStatusReporter}
 import dagr.core.tasksystem.Task
