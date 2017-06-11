@@ -26,7 +26,7 @@
 package dagr.core.execsystem2
 
 import com.fulcrumgenomics.commons.CommonsDef.DirPath
-import dagr.core.execsystem.SystemResources
+import dagr.core.exec.SystemResources
 import dagr.core.tasksystem.Task
 
 import scala.concurrent.Future

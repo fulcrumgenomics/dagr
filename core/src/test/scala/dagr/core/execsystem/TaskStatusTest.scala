@@ -23,26 +23,21 @@
  *
  */
 
-package dagr.core.reporting
+package dagr.core.execsystem
 
-import dagr.core.tasksystem.Task
-import dagr.core.tasksystem.Task.TaskInfo
+import dagr.core.UnitSpec
+import dagr.core.execsystem.TaskStatus.Succeeded
 
-object ReportingDef {
-
-  /** Marker trait for all traits and classes that report information about a task. */
-  trait TaskReporter
-
-  /** Base trait for all classes interested in when the task status changes for any task. */
-  trait TaskLogger extends TaskReporter {
-    /** The method that will be called with updated task information. */
-    def record(info: TaskInfo): Unit
+class TaskStatusTest extends UnitSpec {
+  "TaskStatus" should "should have its ordinal set in order of definition" in {
+    TaskStatus.values.zipWithIndex.foreach { case (status: TaskStatus, ordinal: Int) =>
+      status.ordinal shouldBe ordinal
+    }
   }
 
-  /** Base trait for all classes interested in when a new task is built by another task (ex.
-    * [[dagr.core.tasksystem.Pipeline]] */
-  trait TaskRegister extends TaskReporter {
-    /** The method that will be called on the result of `Task.getTasks`. */
-    def register(parent: Task, child: Task*): Unit
+  "TaskStatus" should "return true if it is a successful status" in {
+    TaskStatus.values.zipWithIndex.foreach { case (status: TaskStatus, ordinal: Int) =>
+      status.success shouldBe status.isInstanceOf[Succeeded]
+    }
   }
 }

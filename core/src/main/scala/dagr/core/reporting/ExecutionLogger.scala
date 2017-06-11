@@ -38,6 +38,13 @@ object ExecutionLogger {
 
   val Separator: String = ","
 
+  trait ToStringIsSimpleNameUpperCase extends Product {
+    override def toString: String = {
+      val name = this.getClass.getSimpleName.replaceFirst("[$].*$", "").toUpperCase
+      (Seq(name) ++ this.productIterator.map(_.toString)).mkString(Separator)
+    }
+  }
+
   object Definition {
     val Name: String        = "DEFINITION"
     val Header: Seq[String] = Seq("SIMPLE_NAME", "NAME", "CODE", "PARENT_CODE", "CHILD_NUMBER")
@@ -71,14 +78,11 @@ object ExecutionLogger {
     * @param parentCode a unique number fo the parent's definition
     * @param childNumber the 0-based index of the child relative to all children of the parent
     */
-  case class Definition(simpleName: String, name: String, code: Int, parentCode: Int, childNumber: Int) {
-    override def toString: String = {
-      (Seq(Definition.Name) ++ this.productIterator.map(_.toString)).mkString(Separator)
-    }
+  case class Definition(simpleName: String, name: String, code: Int, parentCode: Int, childNumber: Int) extends ToStringIsSimpleNameUpperCase {
     /** Returns true if the the other definition represents the same task as the this definition.  Assumes that
       * the parents have the same number of child tasks. */
     def equivalent(that: Definition): Boolean = {
-      this.simpleName == that.simpleName && this.childNumber == that.childNumber
+      this.simpleName == that.simpleName && this.parentCode == that.parentCode && this.childNumber == that.childNumber
     }
   }
 
@@ -95,16 +99,13 @@ object ExecutionLogger {
       }
     }
     def apply(parent: Definition, child: Definition): Relationship = {
+      require(child.parentCode == parent.code, s"Expected parent code of child to be '${parent.code}' but found '${child.parentCode}'")
       Relationship(parent.code, child.code)
     }
   }
 
   /** Stores a parent and child relationship between tasks. */
-  case class Relationship(parentCode: Int, childCode: Int) {
-    override def toString: String = {
-      (Seq(Relationship.Name) ++ this.productIterator.map(_.toString)).mkString(Separator)
-    }
-  }
+  case class Relationship(parentCode: Int, childCode: Int) extends ToStringIsSimpleNameUpperCase
 
   object Status {
     val Name: String        = "STATUS"
@@ -124,24 +125,19 @@ object ExecutionLogger {
   }
 
   /** Stores the status of a task at a given point in time. */
-  case class Status(definitionCode: Int, statusName: String, statusOrdinal: Int) {
-    override def toString: String = {
-      (Seq(Status.Name) ++ this.productIterator.map(_.toString)).mkString(Separator)
-    }
-  }
+  case class Status(definitionCode: Int, statusName: String, statusOrdinal: Int) extends ToStringIsSimpleNameUpperCase
 }
 
 /** Logs the status changes of a task. */
-class ExecutionLogger(log: FilePath) extends TaskLogger with TaskRegister {
-  private val writer = Io.toWriter(log)
+class ExecutionLogger(log: FilePath) extends TaskLogger with TaskRegister with AutoCloseable {
   private var registeredRootTask: Boolean = false
-
+  private var closed: Boolean = false
+  private val writer = Io.toWriter(log)
   private val taskToDefinition: mutable.Map[Task, Definition] = new mutable.HashMap[Task, Definition]()
 
   // Close in case of something unexpected
   sys.addShutdownHook({
-    writer.flush()
-    writer.safelyClose()
+    this.close()
   })
 
   writeHeader()
@@ -168,6 +164,12 @@ class ExecutionLogger(log: FilePath) extends TaskLogger with TaskRegister {
 
   /** The method that will be called with updated task information. */
   def record(info: RootTaskInfo): Unit = logStatusChange(info)
+
+  def close(): Unit = if (!this.closed) {
+    this.writer.flush()
+    this.writer.safelyClose()
+    this.closed = true
+  }
 
   /** Writes the given string and flushes the writer. */
   private def write(str: String): Unit = this.synchronized {

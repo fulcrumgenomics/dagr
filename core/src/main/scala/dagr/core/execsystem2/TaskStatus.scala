@@ -28,6 +28,7 @@ package dagr.core.execsystem2
 import dagr.core.execsystem2.TaskStatus.{ManuallySucceeded, SucceededExecution}
 import dagr.core.tasksystem.Task
 import enumeratum.values.{IntEnum, IntEnumEntry}
+import scala.collection.immutable.IndexedSeq
 
 /** The root of all task statuses in [[dagr.core.execsystem2]]. */
 sealed abstract class TaskStatus extends IntEnumEntry with Task.TaskStatus {
@@ -37,7 +38,7 @@ sealed abstract class TaskStatus extends IntEnumEntry with Task.TaskStatus {
 }
 
 case object TaskStatus extends IntEnum[TaskStatus] {
-  val values = findValues
+  override val values: IndexedSeq[TaskStatus] = findValues
 
   /** Trait for all statuses prior to submission for execution */
   sealed trait PreSubmission     extends TaskStatus

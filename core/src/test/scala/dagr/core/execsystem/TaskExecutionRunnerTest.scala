@@ -259,6 +259,8 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val onCompleteSuccesful: Option[Boolean] = taskRunner.onCompleteSuccessful(taskId)
     onCompleteSuccesful should be ('empty)
 
+    taskRunner.running(taskInfo.taskId) shouldBe true
+
     // the rest of the tests after this are just to make sure things work out and that we do not have a zombie process
 
     // terminate it

@@ -135,4 +135,8 @@ class ResourceTest extends UnitSpec {
     mem = Memory(1024.toLong * 2.toLong)
     mem.prettyString shouldBe "2k"
   }
+
+  "Cores.apply" should "copy the value" in {
+    Cores(Cores(1.0)).value shouldBe 1.0
+  }
 }

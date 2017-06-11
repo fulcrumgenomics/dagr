@@ -29,7 +29,7 @@ import java.nio.file.{Files, Paths}
 import com.fulcrumgenomics.commons.CommonsDef._
 import com.fulcrumgenomics.commons.io.Io
 import dagr.core.UnitSpec
-import dagr.core.exec.{Cores, Memory, Resource, ResourceSet}
+import dagr.core.exec._
 import dagr.core.execsystem._
 import org.scalatest.OptionValues
 

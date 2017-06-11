@@ -21,12 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 package dagr.core.execsystem
 
 import dagr.core.execsystem.TaskStatus.{ManuallySucceeded, SucceededExecution}
 import dagr.core.tasksystem.Task
 import dagr.core.tasksystem.Task.{TaskStatus => RootTaskStatus}
 import enumeratum.values.{IntEnum, IntEnumEntry}
+import scala.collection.immutable.IndexedSeq
 
 sealed abstract class TaskStatus extends IntEnumEntry with Task.TaskStatus {
   override def ordinal = this.value
@@ -35,7 +37,7 @@ sealed abstract class TaskStatus extends IntEnumEntry with Task.TaskStatus {
 }
 
 case object TaskStatus extends IntEnum[TaskStatus] {
-  val values = findValues
+  val values: IndexedSeq[TaskStatus] = this.findValues
   
   /** Checks if a task with a given status is done.
     *

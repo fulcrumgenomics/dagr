@@ -32,8 +32,8 @@ import com.fulcrumgenomics.commons.util.Logger
 import com.fulcrumgenomics.commons.util.StringUtil._
 import com.fulcrumgenomics.commons.util.TimeUtil._
 import dagr.core.exec.ExecDef.concurrentSet
-import dagr.core.exec.Executor
-import dagr.core.execsystem.{SystemResources, TaskManager}
+import dagr.core.exec.{Executor, SystemResources}
+import dagr.core.execsystem.TaskManager
 import dagr.core.execsystem2.GraphExecutor
 import dagr.core.reporting.ReportingDef.TaskLogger
 import dagr.core.tasksystem.Task.TaskInfo

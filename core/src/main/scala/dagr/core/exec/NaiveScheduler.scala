@@ -25,6 +25,7 @@
 package dagr.core.exec
 
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, UnitTask}
+import com.fulcrumgenomics.commons.CommonsDef.unreachable
 
 /** Simple scheduler that picks the task that uses the most memory, cores, then disk. */
 class NaiveScheduler extends Scheduler {
@@ -46,12 +47,12 @@ class NaiveScheduler extends Scheduler {
         case task: InJvmTask   => (task, task.pickResources(jvmResourceSet))
       }
       .find { // find the first that returned a resource set
-        case (_, Some(resourceSet)) => true
+        case (_, Some(_)) => true
         case _ => false
       }
       .map { // get the resource set
         case (task, Some(resourceSet)) => (task, resourceSet)
-        case _ => throw new IllegalStateException("BUG")
+        case _ => unreachable("Could not find a task to be executed")
       }
   }
 

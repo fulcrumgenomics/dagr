@@ -28,7 +28,8 @@ import java.nio.file.{Files, Path}
 
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
-import dagr.core.execsystem.{SystemResources, TaskManager}
+import dagr.core.exec.SystemResources
+import dagr.core.execsystem.TaskManager
 import dagr.core.tasksystem.{Pipeline, SimpleInJvmTask}
 import dagr.tasks.ScatterGather.{Partitioner, Scatter}
 import org.scalatest.BeforeAndAfterAll
