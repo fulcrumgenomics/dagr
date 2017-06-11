@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016 Fulcrum Genomics LLC
+ * Copyright (c) 2017 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,23 +20,26 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.tasks.samtools
+package dagr.core.reporting
 
-import dagr.core.exec.{Cores, Memory}
-import dagr.core.tasksystem.FixedResources
-import dagr.tasks.DagrDef.PathToFasta
+import dagr.core.tasksystem.Task
+import dagr.core.tasksystem.Task.TaskInfo
 
-import scala.collection.mutable.ListBuffer
+object ReportingDef {
 
-/**
- * Runs samtools faidx to create an index file for a fasta file
- */
-class SamtoolsFaidx(val ref: PathToFasta) extends SamtoolsTask(command="faidx") with FixedResources {
-  requires(Cores(1), Memory("128m"))
+  /** Base trait for all classes interested in when the task status changes for any task. */
+  trait TaskLogger {
+    /** The method that will be called with updated task information. */
+    def record(info: TaskInfo): Unit
+  }
 
-  override def addSubcommandArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer += ref
+  /** Base trait for all classes interested in when a new task is built by another task (ex.
+    * [[dagr.core.tasksystem.Pipeline]] */
+  trait TaskRegister {
+    /** The method that will be called on the result of `Task.getTasks`. */
+    def register(parent: Task, child: Task*): Unit
   }
 }

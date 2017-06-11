@@ -20,52 +20,69 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.core.execsystem
+package dagr.core.reporting
 
-import com.fulcrumgenomics.commons.collection.BiMap
+import java.time.Instant
+
+import com.fulcrumgenomics.commons.util.SimpleCounter
 import com.fulcrumgenomics.commons.util.StringUtil._
 import com.fulcrumgenomics.commons.util.TimeUtil._
 import dagr.core.tasksystem.Task
+import dagr.core.tasksystem.Task.TaskInfo
 
-import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /** Provides a method to provide an execution report for a task tracker */
 trait FinalStatusReporter {
-  this: TaskTracker =>
+
+  /** The tasks on which we report. */
+  def tasks: Traversable[Task]
 
   /** The header for the report */
   private def reportHeader: List[String] = List(
     "ID", "NAME", "STATUS", "CORES", "MEMORY",
     "SUBMISSION_DATE", "START_DATE", "END_DATE",
     "EXECUTION_TIME", "TOTAL_TIME",
-    "SCRIPT", "LOG", "ATTEMPT_INDEX", "DEBUG_STATE"
+    "SCRIPT", "LOG", "ATTEMPT_INDEX"
   )
 
   /** A row  for the report.  Each row is a given task. */
-  private def reportRow(taskInfo: TaskExecutionInfo): List[String] = {
+  private def reportRow(task: Task): List[String] = {
+    val info = task.taskInfo
+    val id: String = info.id.map(_.toString).getOrElse(task.name)
+    reportRow(info=info, id=id, submissionDate=info.submissionDate, startDate=info.startDate, endDate=info.endDate)
+  }
+
+  /** A row  for the report.  Each row is a given task. */
+  private def reportRow(info: TaskInfo,
+                        id: String,
+                        submissionDate: Option[Instant],
+                        startDate: Option[Instant],
+                        endDate: Option[Instant]): List[String] = {
     // get the total execution time, and total time since submission
-    val (executionTime: String, totalTime: String) = taskInfo.durationSinceStartAndFormat
+    val (executionTime: String, totalTime: String) = info.executionAndTotalTime
+
     // The state of execution
-    val graphNodeState = graphNodeStateFor(taskInfo.taskId).map(_.toString).getOrElse("NA")
     List(
-      taskInfo.taskId.toString(),
-      taskInfo.task.name,
-      taskInfo.status.toString,
-      f"${taskInfo.resources.cores.value}%.2f",
-      taskInfo.resources.memory.prettyString,
-      timestampStringOrNA(taskInfo.submissionDate),
-      timestampStringOrNA(taskInfo.startDate),
-      timestampStringOrNA(taskInfo.endDate),
+      id,
+      info.task.name,
+      info.status.toString,
+      f"${info.resources.map(_.cores.value).getOrElse(0.0)}%.2f",
+      info.resources.map(_.memory.prettyString).getOrElse(""),
+      timestampStringOrNA(submissionDate),
+      timestampStringOrNA(startDate),
+      timestampStringOrNA(endDate),
       executionTime,
       totalTime,
-      taskInfo.script.toFile.getAbsolutePath,
-      taskInfo.logFile.toFile.getAbsolutePath,
-      taskInfo.attemptIndex,
-      graphNodeState).map(_.toString)
+      info.script.map(_.toFile.getAbsolutePath).getOrElse(""),
+      info.log.map(_.toFile.getAbsolutePath).getOrElse(""),
+      info.attempts
+    ).map(_.toString)
   }
+
 
   /** Writes a delimited string of the status of all tasks managed
     *
@@ -73,20 +90,19 @@ trait FinalStatusReporter {
     * @param delimiter the delimiter between entries in a row
     */
   def logReport(loggerMethod: String => Unit, delimiter: String = "  "): Unit = {
-    val taskInfoMap: BiMap[Task, TaskExecutionInfo] = taskToInfoBiMapFor
+    //val taskInfoMap: BiMap[Task, TaskExecutionInfo] = taskToInfoBiMapFor
 
     // Create the task status table
     val taskStatusTable: ListBuffer[List[String]] = new ListBuffer[List[String]]()
     taskStatusTable.append(reportHeader)
-    // Create a map to collect the counts for each task status
-    val taskStatusMap: scala.collection.mutable.Map[TaskStatus.Value, Int] = mutable.HashMap[TaskStatus.Value, Int]()
-    TaskStatus.values.foreach(status => taskStatusMap.put(status, 0))
+    val counter = new SimpleCounter[Task.TaskStatus]()
     // Go through every task
-    for (taskInfo <- taskInfoMap.values.toList.sortBy(taskInfo => taskInfo.taskId)) {
+    tasks.toList.sortBy(task => (task.taskInfo.id.getOrElse(BigInt(-1)), task.name)).foreach { task =>
+      val info = task.taskInfo
       // Make a report row
-      taskStatusTable.append(reportRow(taskInfo))
+      taskStatusTable.append(reportRow(task))
       // Update the task status counts
-      taskStatusMap.put(taskInfo.status, taskStatusMap.get(taskInfo.status).get + 1)
+      counter.count(info.status)
     }
 
     // Write the task status table
@@ -94,9 +110,9 @@ trait FinalStatusReporter {
 
     // Create and write the task status counts
     val taskStatusCountTable = new ListBuffer[List[String]]()
-    val keys = taskStatusMap.keys.toList.filter(status => taskStatusMap.getOrElse(status, 0) > 0)
+    val keys: List[Task.TaskStatus] = counter.map(_._1).toList
     taskStatusCountTable.append(keys.map(_.toString))
-    taskStatusCountTable.append(keys.map(status => taskStatusMap.getOrElse(status, 0).toString))
+    taskStatusCountTable.append(keys.map(status => counter.countOf(status).toString))
     loggerMethod("\n" + columnIt(taskStatusCountTable.toList, delimiter))
   }
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016 Fulcrum Genomics LLC
+ * Copyright (c) 2017 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,23 +20,26 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.tasks.samtools
+package dagr.core
 
-import dagr.core.exec.{Cores, Memory}
-import dagr.core.tasksystem.FixedResources
-import dagr.tasks.DagrDef.PathToFasta
+import java.util.concurrent.Executors
 
-import scala.collection.mutable.ListBuffer
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.time.{Millis, Seconds, Span}
+import org.scalatest.{OptionValues, AsyncFlatSpec => ScalaTestAsyncFlatSpec}
 
-/**
- * Runs samtools faidx to create an index file for a fasta file
- */
-class SamtoolsFaidx(val ref: PathToFasta) extends SamtoolsTask(command="faidx") with FixedResources {
-  requires(Cores(1), Memory("128m"))
+import scala.concurrent.ExecutionContext
 
-  override def addSubcommandArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer += ref
-  }
+object FutureUnitSpec {
+  val nThreads: Int = 1000 // not to be used for cpu bound work
+  val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(nThreads))
+}
+
+class FutureUnitSpec extends UnitSpec with OptionValues with ScalaFutures {
+  implicit val ec: ExecutionContext = FutureUnitSpec.ec
+
+  implicit override val patienceConfig = FutureUnitSpec.this.PatienceConfig(timeout = Span(10, Seconds), interval = Span(20, Millis))
 }

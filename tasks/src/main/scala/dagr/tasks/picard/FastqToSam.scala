@@ -27,7 +27,7 @@ import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.{Fastq, SamOrBam}
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFastq}
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.core.exec.{Cores, Memory}
 import htsjdk.samtools.util.FastqQualityFormat
 
 import scala.collection.mutable.ListBuffer

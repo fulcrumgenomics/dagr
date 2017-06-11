@@ -23,7 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.core.exec.{Cores, Memory}
 
 /** Companion object for SimpleInJvmTask that provides helpful factory methods. */
 object SimpleInJvmTask {

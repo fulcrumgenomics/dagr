@@ -82,6 +82,6 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
     task.tasksDependingOnThisTask.foreach(addChildren)
   }
 
-  /** True if we this pipeline is tracking this direct ancestor task, false otherwise. */
+  /** True if this pipeline is tracking this direct ancestor task, false otherwise. */
   def contains(task: Task): Boolean = tasks.contains(task)
 }

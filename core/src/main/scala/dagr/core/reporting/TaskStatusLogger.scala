@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016 Fulcrum Genomics LLC
+ * Copyright (c) 2017 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,23 +20,21 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.tasks.samtools
+package dagr.core.reporting
 
-import dagr.core.exec.{Cores, Memory}
-import dagr.core.tasksystem.FixedResources
-import dagr.tasks.DagrDef.PathToFasta
+import com.fulcrumgenomics.commons.util.{LazyLogging, Logger}
+import dagr.core.reporting.ReportingDef.TaskLogger
+import dagr.core.tasksystem.Task.{TaskInfo => RootTaskInfo}
 
-import scala.collection.mutable.ListBuffer
-
-/**
- * Runs samtools faidx to create an index file for a fasta file
- */
-class SamtoolsFaidx(val ref: PathToFasta) extends SamtoolsTask(command="faidx") with FixedResources {
-  requires(Cores(1), Memory("128m"))
-
-  override def addSubcommandArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer += ref
+/** A simple logger that delegates to [[dagr.core.tasksystem.Task.TaskInfo#logTaskMessage]]. */
+class TaskStatusLogger extends TaskLogger {
+  // NB: rename this class to set the name on the command line
+  private class Dagr extends LazyLogging {
+    override lazy val logger: Logger = new Logger(getClass)
   }
+  private val logger = new Dagr().logger
+  def record(info: RootTaskInfo): Unit = info.logTaskMessage(this.logger)
 }
