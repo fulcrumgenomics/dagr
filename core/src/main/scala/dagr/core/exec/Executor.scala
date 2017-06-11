@@ -27,6 +27,8 @@ package dagr.core.exec
 
 import com.fulcrumgenomics.commons.CommonsDef.{DirPath, yieldAndThen}
 import dagr.core.execsystem.{SystemResources, TaskManager}
+import dagr.core.execsystem2.GraphExecutor
+import dagr.core.execsystem2.local.LocalTaskExecutor
 import dagr.core.reporting.ReportingDef.{TaskLogger, TaskRegister}
 import dagr.core.reporting.{FinalStatusReporter, TaskStatusLogger}
 import dagr.core.tasksystem.Task
@@ -37,11 +39,17 @@ import scala.concurrent.ExecutionContext
 
 object Executor {
   /** Create a new executor. */
-  def apply(resources: SystemResources,
+  def apply(experimentalExecution: Boolean,
+            resources: SystemResources,
             scriptsDirectory: Option[DirPath],
             logDirectory: Option[DirPath]
            )(implicit ex: ExecutionContext): Executor = {
-    new TaskManager(taskManagerResources=resources, scriptsDirectory=scriptsDirectory, logDirectory=logDirectory)
+    if (experimentalExecution) {
+      GraphExecutor(new LocalTaskExecutor(systemResources=resources, scriptsDirectory=scriptsDirectory, logDirectory=logDirectory))
+    }
+    else {
+      new TaskManager(taskManagerResources=resources, scriptsDirectory=scriptsDirectory, logDirectory=logDirectory)
+    }
   }
 }
 
