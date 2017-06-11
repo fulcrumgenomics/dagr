@@ -85,16 +85,33 @@ class DagrCoreMainTest extends FutureUnitSpec with CaptureSystemStreams with Bef
   }
 
   it should "run a pipeline end-to-end in interactive mode" in {
-    captureLogger(() => {
-      val clp = new DagrCoreArgs(report = Some(Io.DevNull), interactive = true)
-      val pipeline = new NoOpPipeline()
+    Seq(true, false).foreach { experimentalExecution =>
+      Seq(true, false).foreach { withLogAndScriptDir =>
 
-      clp.configure(pipeline)
-      val stdout = captureStdout(() => {
-        clp.execute(pipeline) shouldBe 0
-      })
-      stdout should include("1 Done")
-    })
+        val logAndScriptDir = if (!withLogAndScriptDir) None else {
+          val dir = Files.createTempDirectory("DagrCoreMainTest")
+          dir.toFile.deleteOnExit()
+          Some(dir)
+        }
+
+        captureLogger(() => {
+          val clp = new DagrCoreArgs(
+            report                = Some(Io.DevNull),
+            interactive           = true,
+            scriptDir             = logAndScriptDir,
+            logDir                = logAndScriptDir,
+            experimentalExecution = experimentalExecution
+          )
+          val pipeline  = new NoOpPipeline()
+
+          clp.configure(pipeline)
+          val stdout = captureStdout(() => {
+            clp.execute(pipeline) shouldBe 0
+          })
+          stdout should include("1 Done")
+        })
+      }
+    }
   }
 
   "DagrCoreMain.parse" should "print just the main usage when the path to the main configuration file does not exist" in {
@@ -140,5 +157,4 @@ class DagrCoreMainTest extends FutureUnitSpec with CaptureSystemStreams with Bef
     }
     exception.getMessage should include(s"Compile of $tmpFile failed with")
   }
-
 }

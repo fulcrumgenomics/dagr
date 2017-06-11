@@ -30,7 +30,8 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import com.fulcrumgenomics.commons.CommonsDef.yieldAndThen
 import com.fulcrumgenomics.commons.util.{CaptureSystemStreams, LogLevel, Logger}
 import dagr.core.UnitSpec
-import dagr.core.execsystem.{GraphNodeState, SystemResources, TaskManager}
+import dagr.core.exec.SystemResources
+import dagr.core.execsystem.{GraphNodeState, TaskManager}
 import dagr.core.reporting.Terminal.Dimensions
 import dagr.core.tasksystem.{NoOpInJvmTask, SimpleInJvmTask}
 import org.scalatest.BeforeAndAfterAll

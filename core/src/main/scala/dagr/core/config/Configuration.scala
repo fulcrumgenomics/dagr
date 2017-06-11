@@ -228,11 +228,6 @@ private[config] trait ConfigurationLike extends LazyLogging {
     */
   protected def systemPath : Seq[Path] = config.getString(Configuration.Keys.SystemPath).split(File.pathSeparatorChar).view.map(pathTo(_))
 
-  /** Removes various characters from the simple class name, for scala class names. */
-  private def sanitizeSimpleClassName(className: String): String = {
-    className.replaceFirst("[$].*$", "")
-  }
-
   /** Searches the system path for the executable and return the full path. */
   private def findInPath(executable: String) : Option[Path] = {
     systemPath.map(p => p.resolve(executable)).find(ex => Files.exists(ex))

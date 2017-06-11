@@ -34,28 +34,55 @@ class DependencyGraphTest extends UnitSpec with OptionValues {
   def dependencyGraph: DependencyGraph = DependencyGraph()
   def task: Task = new NoOpInJvmTask("noop")
 
-  "DependencyGraph.add" should "add a task to the graph that has no dependencies" in {
-    val graph = this.dependencyGraph
-    val task = this.task
-     graph.add(task) shouldBe true
+  def addAndCheck(simpleAdd: Boolean, g: DependencyGraph, task: Task, expected: Boolean): Unit = {
+    if (simpleAdd) g.add(task) shouldBe expected
+    else g.maybeAdd(task).value shouldBe expected
   }
 
-  it should "not throw an exception when there are cycles in the graph" in {
-    val graph = this.dependencyGraph
-    val root = this.task withName "root"
-    val child = this.task withName "child"
-    root ==> child ==> root
-    graph.add(root) shouldBe false
-    graph.add(child) shouldBe false
+  def addAndCheck(simpleAdd: Boolean, g: DependencyGraph, task: Task, expected: Option[Boolean]): Unit = expected match {
+    case None =>
+      if (simpleAdd) an[Exception] should be thrownBy g.add(task)
+      else g.maybeAdd(task) shouldBe 'empty
+    case Some(e) =>
+      addAndCheck(simpleAdd, g, task, expected=e)
   }
 
-  it should "add a task that has dependencies" in {
-    val graph = this.dependencyGraph
-    val root = this.task withName "root"
-    val child = this.task withName "child"
-    root ==> child
-    graph.add(root) shouldBe true
-    graph.add(child) shouldBe false
+  Seq(true, false).foreach { simpleAdd =>
+
+    val name = if (simpleAdd) "add" else "maybeAdd"
+
+    s"DependencyGraph.$name" should "add a task to the graph that has no dependencies" in {
+      val graph = this.dependencyGraph
+      val task = this.task
+      addAndCheck(simpleAdd, graph, task, expected=true)
+    }
+
+    it should "not throw an exception when there are cycles in the graph" in {
+      val graph = this.dependencyGraph
+      val root = this.task withName "root"
+      val child = this.task withName "child"
+      root ==> child ==> root
+      addAndCheck(simpleAdd, graph, root, expected=false)
+      addAndCheck(simpleAdd, graph, child, expected=false)
+    }
+
+    it should "add a task that has dependencies" in {
+      val graph = this.dependencyGraph
+      val root = this.task withName "root"
+      val child = this.task withName "child"
+      root ==> child
+      addAndCheck(simpleAdd, graph, root, expected=true)
+      addAndCheck(simpleAdd, graph, child, expected=false)
+    }
+
+    it should "throw an exception if a task is added twice" in {
+      val graph = this.dependencyGraph
+      val root = this.task withName "root"
+      val child = this.task withName "child"
+      root ==> child
+      addAndCheck(simpleAdd, graph, root, expected=true)
+      addAndCheck(simpleAdd, graph, root, None)
+    }
   }
 
   "DependencyGraph.remove" should "throw an exception if the task to be removed still has dependencies" in {

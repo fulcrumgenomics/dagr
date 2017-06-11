@@ -36,8 +36,7 @@ import com.fulcrumgenomics.sopt.parsing.{ArgOptionAndValues, ArgTokenCollator, A
 import com.fulcrumgenomics.sopt.util.TermCode
 import com.fulcrumgenomics.sopt.{Sopt, arg}
 import dagr.core.config.Configuration
-import dagr.core.exec.{Cores, Executor, Memory, TaskCache}
-import dagr.core.execsystem._
+import dagr.core.exec._
 import dagr.core.reporting.{ExecutionLogger, Terminal, TopLikeStatusReporter}
 import dagr.core.tasksystem.Pipeline
 
@@ -209,8 +208,7 @@ class DagrCoreArgs(
         report.getParent.resolve(logName)
       }
       val executionLogger = new ExecutionLogger(log)
-      executor.withLogger(executionLogger)
-      executor.withTaskRegister(executionLogger)
+      executor.withReporter(executionLogger)
     }
 
     // Set up the task cache (in case of replay)
