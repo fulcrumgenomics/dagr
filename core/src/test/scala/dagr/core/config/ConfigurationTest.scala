@@ -27,11 +27,11 @@ import java.io.PrintWriter
 import java.nio.file.{Files, Path, Paths}
 import java.time.Duration
 
-import com.typesafe.config.{Config, ConfigException, ConfigFactory}
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.commons.util.CaptureSystemStreams
+import com.typesafe.config.{Config, ConfigException, ConfigFactory}
 import dagr.core.UnitSpec
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.core.exec.{Cores, Memory}
 
 /**
   * Tests for the Configuration trait.

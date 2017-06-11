@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016 Fulcrum Genomics LLC
+ * Copyright (c) 2017 Fulcrum GenomicsLLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,27 +20,25 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.core.execsystem
+package dagr.core.exec
 
-import dagr.core.UnitSpec
+import scala.collection.mutable
 
-class ResourceSetTest extends UnitSpec {
-  "ResourceSet.isEmpty" should "return true for the empty resource set" in {
-    ResourceSet.empty.isEmpty shouldBe true
+object ExecDef {
+  /** Create a thread-safe mutable map. */
+  def concurrentMap[A,B](): mutable.Map[A,B] = {
+    import scala.collection.convert.decorateAsScala._
+    new java.util.concurrent.ConcurrentHashMap[A, B]().asScala
   }
 
-  "ResourceSet" should "add and subtract resources" in {
-    val original = ResourceSet(10, 10)
-    val middle = ResourceSet(original)
-    var running = original + middle
-    running.cores.value shouldBe 20
-    running.memory.value shouldBe 20
-    running = running - middle
-    running.cores.value shouldBe 10
-    running.memory.value shouldBe 10
-    running = running - Cores(10)
-    running.cores.value shouldBe 0
+  /** Create a thread-safe mutable set. */
+  def concurrentSet[A](): mutable.Set[A] = {
+    import scala.collection.convert.decorateAsScala._
+    val map: java.util.Map[A, java.lang.Boolean] = new java.util.concurrent.ConcurrentHashMap[A, java.lang.Boolean]()
+    val set: java.util.Set[A] = java.util.Collections.newSetFromMap[A](map)
+    set.asScala
   }
 }

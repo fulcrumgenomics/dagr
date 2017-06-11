@@ -20,8 +20,9 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
-package dagr.core.execsystem
+package dagr.core.exec
 
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, UnitTask}
 
@@ -31,10 +32,10 @@ class NaiveScheduler extends Scheduler {
     * Takes the list of tasks that could be scheduled if their resource needs can be met and attempts
     * to schedule a single task for execution.
     */
-  private[execsystem] def scheduleOneTask(readyTasks: Traversable[UnitTask],
-                                          remainingSystemCores: Cores,
-                                          remainingSystemMemory: Memory,
-                                          remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
+  private[exec] def scheduleOneTask(readyTasks: Traversable[UnitTask],
+                                    remainingSystemCores: Cores,
+                                    remainingSystemMemory: Memory,
+                                    remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
     val systemResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingSystemMemory)
     val jvmResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingJvmMemory)
     // Find the first task that can be executed

@@ -23,45 +23,37 @@
  */
 package dagr.core.execsystem
 
-import java.nio.file.Path
 import java.time.{Duration, Instant}
 
+import com.fulcrumgenomics.commons.CommonsDef.FilePath
 import com.fulcrumgenomics.commons.util.TimeUtil._
 import dagr.core.DagrDef._
+import dagr.core.exec.ResourceSet
+import dagr.core.execsystem.TaskStatus.Unknown
 import dagr.core.tasksystem.Task
 
 /** The state of execution of a [[Task]].
- *
- * @param task the task that will be executed.
- * @param status the initial state of the task.
- * @param script the path to the script where the task commands should be stored.
- * @param logFile the path to the log file where the task stderr and stdout should be stored.
- * @param submissionDate the submission date of the task, if any.
- * @param resources the resources that the task was scheduled with.
- * @param startDate the start date of the task, if any.
- * @param endDate the end date of the task, if any.
- * @param attemptIndex the one-based count of attempts to run this task.
  */
-class TaskExecutionInfo(var task: Task,
-                        var taskId: TaskId,
-                        var status: TaskStatus.Value,
-                        var script: Path,
-                        var logFile: Path,
-                        var submissionDate: Option[Instant],
-                        var resources: ResourceSet = ResourceSet(0,0),
-                        var startDate: Option[Instant] = None,
-                        var endDate: Option[Instant] = None,
-                        var attemptIndex: Int = 1 // one-based
-                         ) {
-  if (attemptIndex < 1) throw new RuntimeException("attemptIndex must be greater than zero")
+class TaskExecutionInfo(task: Task,
+                        initId: TaskId,
+                        initStatus: TaskStatus = Unknown,
+                        script: FilePath,
+                        log: FilePath,
+                        resources: Option[ResourceSet] = Some(ResourceSet(0, 0)))
+  extends Task.TaskInfo(task=task, initStatus=initStatus, id=Some(initId), script=Some(script), log=Some(log), resources=resources)
+{
+  protected[core] var submissionDate: Option[Instant] = Some(Instant.now())
+  protected[core] var startDate:      Option[Instant] = None
+  protected[core] var endDate:        Option[Instant] = None
 
-  task._taskInfo = Some(this)
+  def taskId: TaskId = this.id.get
+  def taskId_=(id: TaskId): Unit = this.id = Some(id)
 
   override def toString: String = {
     val na: String = "NA"
     s"STATUS[$status] ID[$taskId] NAME[${task.name}] SUBMITTED[${submissionDate.getOrElse(na)}]" +
-    s" START[${startDate.getOrElse(na)}] END[${endDate.getOrElse(na)}] ATTEMPT[$attemptIndex]" +
-    s" SCRIPT[$script] LOGFILE[$logFile]"
+    s" START[${startDate.getOrElse(na)}] END[${endDate.getOrElse(na)}] ATTEMPT[$attempts]" +
+    s" SCRIPT[$script] LOGFILE[$log]"
   }
 
   /** Gets the total execution time and total time since submission, in seconds, or None if the task has not started and ended.  Formats
