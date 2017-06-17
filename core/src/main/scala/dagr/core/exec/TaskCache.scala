@@ -56,6 +56,40 @@ class SimpleTaskCache(replayLog: FilePath) extends TaskCache with LazyLogging {
     (_definitions, _relationships, _statuses)
   }
 
+  // Validate various properties of the replay log
+  {
+    // Check that a task has one definition
+    this.definitions.groupBy(d => d.code)
+      .find { case (_, ds) => ds.length > 1 }
+      .foreach { case (d, ds) =>
+        throw new IllegalArgumentException(s"Replay log had ${ds.length} definitions for child '$d' in $replayLog")
+    }
+    // Check that a parent and child have only one relationship
+    this.relationships.groupBy(r => (r.parentCode, r.childCode))
+      .find { case (_, rs) => rs.length > 1}
+      .foreach { case ((p, c), rs) =>
+        throw new IllegalArgumentException(s"Replay log had ${rs.length} relationships with parent '$p' and child '$c' in $replayLog")
+      }
+    // Check the parent and child in each relationship have a definition
+    this.relationships.flatMap { r => Seq(r.parentCode, r.childCode) }
+      .find { code => !this.definitions.exists(_.code == code) }
+      .foreach { code =>
+        val aRelationship = this.relationships.find(r => r.parentCode == code || r.childCode == code).getOrElse {
+          unreachable("A relationship should have been found")
+        }
+        throw new IllegalArgumentException(s"Replay log missing a definition for task '$code' for relationship '$aRelationship' in $replayLog")
+      }
+    // Check that a task if is found for each status
+    this.statuses.map { s => s.definitionCode }
+      .find { code => !this.definitions.exists(_.code == code) }
+      .foreach { code =>
+        val status = this.statuses.find(s => s.definitionCode == code).getOrElse {
+          unreachable("A status should have been found")
+        }
+        throw new IllegalArgumentException(s"Replay log missing a definition for task '$code' with status '$status' in $replayLog")
+      }
+  }
+
   /** A mapping from a task to its current definition. */
   private val taskToDefinition: mutable.Map[Task, Definition] = new mutable.HashMap[Task, Definition]()
 
@@ -111,7 +145,8 @@ class SimpleTaskCache(replayLog: FilePath) extends TaskCache with LazyLogging {
 
       // Require the same # of children and that they all have the same simple names (in order)
       val validChildren = {
-        val numChildren = this.relationships.count(_.parentCode == parentReplayDefinition.code)
+        // Go through all known relationships for the parent to a child in the replay log, and ensure that we find the
+        // child, and return the child's simple name
         val simpleNames = this.relationships.filter(_.parentCode == parentReplayDefinition.code).map { relationship =>
           val childDefinition = this.definitions.find {
             _.code == relationship.childCode
@@ -120,7 +155,10 @@ class SimpleTaskCache(replayLog: FilePath) extends TaskCache with LazyLogging {
           }
           childDefinition.simpleName
         }
+        // ensure the simple names of the given children are the same as the names in the replay log
         val sameSimpleNames = child.map(Definition.getSimpleName).zip(simpleNames).forall { case (a, b) => a == b }
+        // get the number of children in the replay log
+        val numChildren     = simpleNames.length
         logger.debug(s"Given ${child.length} children and found $numChildren children in the replay")
         logger.debug(s"Found the same simple names? $sameSimpleNames")
         numChildren == child.length && sameSimpleNames
@@ -135,7 +173,7 @@ class SimpleTaskCache(replayLog: FilePath) extends TaskCache with LazyLogging {
       else {
         // a whole new set of children, execute them
         child.zipWithIndex.foreach { case (_child, childNumber) =>
-          logger.debug(s"Adding task ${_child.name} to execute due to differing child number")
+          logger.debug(s"Adding task ${_child.name} to execute due to differing child number or simple name")
           buildDefinition(_child, parentDefinition.code, childNumber)
           this.tasksToExecute += _child
           this.tasksForcedToExecute += _child
@@ -209,10 +247,11 @@ class SimpleTaskCache(replayLog: FilePath) extends TaskCache with LazyLogging {
         case Seq(childReplayDefinition) =>
           this.definitionMapping(childDefinition) = childReplayDefinition
           maybeSetTaskToExecute(child, childReplayDefinition)
-        case defs => None // either no relationships or more than one relationship!
-          logger.debug(s"Forcing child ${child.name} to execute since ${defs.length} child definition(s) found!")
+        case Seq() => // no relationship or the child's current definition was not equivalent to the definition in the replay log
+          logger.debug(s"Forcing child ${child.name} to execute since either no relationship or equivalent child defintion in the replay log!")
           this.tasksToExecute += child
           this.tasksForcedToExecute += child
+        case _ => throw new IllegalArgumentException("Found multiple relationships between the parent and child")
       }
     }
   }
