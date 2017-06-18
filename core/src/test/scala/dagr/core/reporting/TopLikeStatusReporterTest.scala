@@ -84,7 +84,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       print       = print
     ) with TestTerminal
 
-    yieldAndThen(reporter)(taskManager.withLogger(reporter))
+    yieldAndThen(reporter)(taskManager.withReporter(reporter))
   }
 
   private def buildAndAddTwoLineReporter(taskManager: TaskManager, print: String => Unit) = {
@@ -101,7 +101,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       print       = print
     ) with TwoLineTestTerminal
 
-    yieldAndThen(reporter)(taskManager.withLogger(reporter))
+    yieldAndThen(reporter)(taskManager.withReporter(reporter))
   }
 
   private val extendedCode : (Char) => Boolean = (c:Char) => (c <= 32 || c > 127) && c != '\n' && c != ' '

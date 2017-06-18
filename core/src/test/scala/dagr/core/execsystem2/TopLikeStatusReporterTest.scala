@@ -52,7 +52,7 @@ class TopLikeStatusReporterTest extends FutureUnitSpec {
       print           = s => Unit
     )
 
-    exeecutor.withLogger(reporter)
+    exeecutor.withReporter(reporter)
 
     new TaskInfo(task, Pending)
 

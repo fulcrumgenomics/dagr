@@ -58,6 +58,10 @@ object ExecutionLogger {
       Definition(root, -1, 0)
     }
 
+    def isRootDefinition(definition: Definition): Boolean = {
+      definition.parentCode == -1 && definition.childNumber == 0
+    }
+
     def apply(line: String): Definition = {
       line.split(Separator).toList match {
         case Name :: simpleName :: name  :: code :: parentCode :: childNumber :: Nil =>

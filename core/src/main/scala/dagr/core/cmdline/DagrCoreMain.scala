@@ -191,7 +191,7 @@ class DagrCoreArgs(
     // Set up an interactive logger if desired and supported
     if (this.interactive) {
       if (Terminal.supportsAnsi) {
-        executor.withLogger(TopLikeStatusReporter(executor))
+        executor.withReporter(TopLikeStatusReporter(executor))
       }
       else {
         logger.warning("ANSI codes are not supported in your terminal.  Interactive mode will not be used.")
@@ -213,7 +213,7 @@ class DagrCoreArgs(
 
     // Set up the task cache (in case of replay)
     this.replayLog.foreach { log =>
-      executor.withTaskCache(TaskCache(log))
+      executor.withReporter(TaskCache(log))
     }
 
     // execute
