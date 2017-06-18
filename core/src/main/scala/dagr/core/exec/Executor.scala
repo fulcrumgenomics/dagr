@@ -77,20 +77,19 @@ trait Executor extends FinalStatusReporter {
   }
 
   /** Adds the [[dagr.core.reporting.ReportingDef.TaskLogger]] to the list of loggers to be notified when a task's status is updated. */
-  final def withLogger(logger: TaskLogger): Unit = this.synchronized {
+  private def withLogger(logger: TaskLogger): Unit = this.synchronized {
     if (!this._loggers.contains(logger)) {
       this._loggers.append(logger)
     }
   }
 
   /** Adds the [[TaskRegister]] to the list of registers to be notified when a list of tasks is returned by [[Task.getTasks]] */
-  final def withTaskRegister(register: TaskRegister): this.type = this.synchronized {
+  private def withTaskRegister(register: TaskRegister): this.type = this.synchronized {
     yieldAndThen[this.type](this)(this._registers.append(register))
   }
 
   /** Adds the [[TaskCache]] to the list of caches to use to determine if a task should be manually succeeded. */
-  final def withTaskCache(taskCache: TaskCache): this.type = yieldAndThen[this.type](this) {
-    this.withTaskRegister(taskCache)
+  private def withTaskCache(taskCache: TaskCache): this.type = yieldAndThen[this.type](this) {
     this.taskCaches.append(taskCache)
   }
 
@@ -105,7 +104,7 @@ trait Executor extends FinalStatusReporter {
     * executed.  A given task should only be attempted once. */
   final def execute(task: Task): Int = {
     task._executor = Some(this)
-    this.register(task, task)
+    this.register(task)
     this._execute(task=task)
   }
 

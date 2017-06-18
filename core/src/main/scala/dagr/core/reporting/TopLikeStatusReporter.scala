@@ -142,7 +142,7 @@ object TopLikeStatusReporter {
     }
 
     // Register!
-    yieldAndThen(logger)(executor.withLogger(logger))
+    yieldAndThen(logger)(executor.withReporter(logger))
   }
 }
 

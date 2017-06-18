@@ -27,7 +27,6 @@ package dagr.core.exec
 
 import com.fulcrumgenomics.commons.CommonsDef.{FilePath, unreachable}
 import com.fulcrumgenomics.commons.io.Io
-import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.reporting.ExecutionLogger.{Definition, Relationship, Status}
 import dagr.core.reporting.ReportingDef.TaskRegister
 import dagr.core.tasksystem.Task
@@ -36,20 +35,81 @@ import scala.collection.mutable
 
 /** All implementations that decide if a given task should be executed should implement this. */
 trait TaskCache extends TaskRegister {
+
   /** Returns true if the task should be executed, false otherwise. */
   def execute(task: Task): Boolean
+
+  /** The method that will be called to registered the children of the parent.  If no children are given, then the task
+    * is the root of all tasks.  If there is one child and it is equal to the parent, then it is a unit task and
+    * should have already been registered, and so nothing is done.  Otherwise, the children are individually registered.
+    * */
+  def register(parent: Task, child: Task*): Unit = {
+    if (isRoot(parent, child:_*)) {
+      registerRoot(parent)
+    }
+    else if (isUnit(parent, child:_*)) {
+      // It should have already been registered when its parent generated it!
+      require(registered(parent), s"Task was not previously registered: $parent")
+      if (this.taskSet.size == 1) { // special case: a root task that has no children
+        checkStatusAndExecute(parent)
+        // NB: need to check to see if there are children of the parent in the cache
+        registerChildren(parent, Seq.empty)
+      }
+    }
+    else {
+      // ensure that we know about the parent task!
+      require(registered(parent), s"Parent was not defined when registering its children: $parent")
+      if (this.taskSet.size == 1) checkStatusAndExecute(parent) // special case: a root task that has no children
+      registerChildren(parent, child)
+    }
+  }
+
+  /** Returns the tasks that have been registered. For testing! */
+  private[exec] def tasks: Seq[Task] = this.taskSet.toSeq
+
+  /** Returns the tasks that have been registered. */
+  protected def taskSet: Set[Task]
+
+  /** Returns true if the task is a root task (has never depended on a task).*/
+  protected def isRoot(parent: Task, child: Task*): Boolean = taskSet.isEmpty && child.isEmpty
+
+  /** Returns true if the task does not generate any other tasks. */
+  protected def isUnit(parent: Task, child: Task*): Boolean = child.length == 1 && child.forall(_ == parent)
+
+  /** Returns true if this task builds other tasks. */
+  protected def isBuilder(parent: Task, child: Task*): Boolean = !isRoot(parent, child:_*) && !isUnit(parent, child:_*)
+
+  /** Returns true if the task has been registered, false otherwise. */
+  protected def registered(task: Task): Boolean
+
+  /** Registers the root task, namely a task that has no tasks (and never had any tasks) that depend on it. */
+  protected def registerRoot(root: Task): Unit
+
+  /** Registers the given children of the parent, assuming the children are the task built by the parent (and does not
+    * include the parent itself) */
+  protected def registerChildren(parent: Task, children: Seq[Task]): Unit
+
+  /** Set the task to execute based on its status only. */
+  protected def checkStatusAndExecute(task: Task): Unit
 }
 
 object TaskCache {
-  def apply(replayLog: FilePath): TaskCache = new SimpleTaskCache(replayLog)
+  def apply(replayLog: FilePath): TaskCache = SimpleTaskCache(replayLog)
+}
+
+object SimpleTaskCache {
+  def apply(replayLog: FilePath): SimpleTaskCache = new SimpleTaskCache(Io.readLines(replayLog).toSeq, source=Some(replayLog.toString))
 }
 
 /** A very inefficient class to determine if tasks should be executed upon replay */
-class SimpleTaskCache(replayLog: FilePath) extends TaskCache with LazyLogging {
+class SimpleTaskCache(replayLogLines: Seq[String], source: Option[String] = None) extends TaskCache {
 
+  private val replayLog: String = source.getOrElse("Unknown")
+
+  // TODO: are relationships even needed if we have both the definition of child, who has the parent code?
   /** Definitions, relationships, and statuses in the replay log */
   private val (definitions, relationships, statuses) = {
-    val lines = Io.readLines(replayLog).toSeq
+    val lines = replayLogLines
     val _definitions   = lines.filter(_.startsWith(Definition.Name)).map(Definition(_))
     val _relationships = lines.filter(_.startsWith(Relationship.Name)).map(Relationship(_))
     val _statuses      = lines.filter(_.startsWith(Status.Name)).map(Status(_))
@@ -88,6 +148,20 @@ class SimpleTaskCache(replayLog: FilePath) extends TaskCache with LazyLogging {
         }
         throw new IllegalArgumentException(s"Replay log missing a definition for task '$code' with status '$status' in $replayLog")
       }
+    // Check that the parent definition exists for all definitions except the root
+    this.definitions.filterNot { d => Definition.isRootDefinition(d)}
+      .foreach { d =>
+        this.definitions.find { _.code == d.parentCode }.getOrElse {
+          throw new IllegalArgumentException(s"Parent definition not found for child '$d' in $replayLog")
+        }
+      }
+    // Check that a definition for a single root task is always found
+    this.definitions.filter { d => Definition.isRootDefinition(d) } match {
+      case Seq()  => throw new IllegalArgumentException(s"Did not find a definition for a root task in $replayLog")
+      case Seq(r) => Unit // OK
+      case defs   => throw new IllegalArgumentException(s"Found multiple definitions for a root task (${defs.map(_.code).mkString(", ")} in $replayLog")
+    }
+    // TODO: check that a root task was found
   }
 
   /** A mapping from a task to its current definition. */
@@ -99,160 +173,151 @@ class SimpleTaskCache(replayLog: FilePath) extends TaskCache with LazyLogging {
   /** The set of tasks that should be executed. */
   private val tasksToExecute: mutable.Set[Task] = new mutable.HashSet[Task]()
 
-  /** The set of tasks whose sub-tree should always be executed, since the tasks could not be mapped to a definition in
-    * the replay log. */
-  private val tasksForcedToExecute: mutable.Set[Task] = new mutable.HashSet[Task]()
+  /** The set of tasks whose sub-tree should always be executed, since the task or an ancestor of the task could not be
+    * mapped to a definition in the replay log. */
+  private val missingAncestors: mutable.Set[Task] = new mutable.HashSet[Task]()
 
   /** Returns true if the task should be executed, false otherwise. */
-  def execute(task: Task): Boolean = {
-    logger.debug(s"assessing task '${task.name}': " + (if (tasksToExecute.contains(task)) "execute" else "skip"))
-    tasksToExecute.contains(task)
+  def execute(task: Task): Boolean = this.tasksToExecute.contains(task)
+
+  /** Returns the tasks that have been registered. */
+  protected def taskSet: Set[Task] = this.taskToDefinition.keySet.toSet
+
+  /** Returns true if the task has been registered, false otherwise. */
+  protected def registered(task: Task): Boolean = this.taskToDefinition.contains(task)
+
+  /** Registers the root task, namely a task that has no tasks (and never had any tasks) that depend on it. */
+  protected def registerRoot(root: Task): Unit = {
+    // find the status in the replay log and decide what to do.
+    val rootDefinition = Definition.buildRootDefinition(root)
+    this.taskToDefinition(root) = rootDefinition
+    // NB: the root always has the same parent code!
+    // NB: assumes only one root
+    this.definitions.find { d => d.parentCode == rootDefinition.parentCode } match {
+      case None                   => unreachable(s"Could not find a root task in $replayLog")
+      case Some(replayDefinition) => // make a decision
+        this.definitionMapping(rootDefinition) = replayDefinition
+        // NB: don't determine if it should be executed yet; register should be called again either with the root's
+        // children, or root itself as its own child (a unit task).
+    }
   }
 
-  /** The method that will be called on the result of `Task.getTasks`. */
-  def register(parent: Task, child: Task*): Unit = {
-    if (child.forall(_ == parent)) {
-      // If the task is the root task (has no parents), taskToDefinition should be empty.
-      if (this.taskToDefinition.isEmpty) { // root task
-        // find the status in the replay log and decide what to do.
-        val rootDefinition = Definition.buildRootDefinition(parent)
-        this.taskToDefinition(parent) = rootDefinition
-        // NB: the root always has the same parent code!
-        // NB: assumes only one root
-        this.definitions.find { d => d.parentCode == rootDefinition.parentCode } match {
-          case None                   =>
-            throw new IllegalArgumentException(s"Could not find a root task in $replayLog")
-          case Some(replayDefinition) => // make a decision
-            require(replayDefinition.childNumber == rootDefinition.childNumber,
-              s"Expected child number '${rootDefinition.childNumber}' for root task with definition: '$replayDefinition'")
-            logger.debug(s"Root task found: $replayDefinition")
-            this.definitionMapping(rootDefinition) = replayDefinition
-            maybeSetTaskToExecute(parent, replayDefinition)
-        }
-      }
-      else { // unit task
-        // Otherwise, it should have already been registered as child task of a parent!
-        require(this.taskToDefinition.contains(parent), s"Task was not previously registered: $parent")
-      }
+  /** Registers the given children of the parent, assuming the children are the task built by the parent (and does not
+    * include the parent itself) */
+  protected def registerChildren(parent: Task, currentChildren: Seq[Task]): Unit = {
+    val parentDefinition = currentDefinition(parent)
+
+    // Create definitions for reach child
+    val currentChildDefinitions = currentChildren.zipWithIndex.map { case (child, childNumber) =>
+      buildDefinition(child, parentDefinition.code, childNumber)
+    }.toIndexedSeq
+
+    // Always execute the children if the parent has a missing ancestor (or is the missing ancestor itself).
+    if (hasMissingAncestor(parent)) {
+      setMissingAncestorAndExecute(currentChildren)
     }
     else {
-      // ensure that we know about the parent task!
-      require(this.taskToDefinition.contains(parent), s"Parent was not defined when registering its children: $parent")
+      // Get the children of the parent from the previous execution
+      val previousChildDefinitions = this.previousChildDefinitions(parent)
 
-      // check that we have the same # of children
-      val parentDefinition       = this.taskToDefinition(parent)
-      val parentReplayDefinition = this.definitionMapping(parentDefinition)
-
-      // Require the same # of children and that they all have the same simple names (in order)
-      val validChildren = {
-        // Go through all known relationships for the parent to a child in the replay log, and ensure that we find the
-        // child, and return the child's simple name
-        val simpleNames = this.relationships.filter(_.parentCode == parentReplayDefinition.code).map { relationship =>
-          val childDefinition = this.definitions.find {
-            _.code == relationship.childCode
-          }.getOrElse {
-            throw new IllegalArgumentException(s"No definition for child in relationship: $relationship")
-          }
-          childDefinition.simpleName
-        }
-        // ensure the simple names of the given children are the same as the names in the replay log
-        val sameSimpleNames = child.map(Definition.getSimpleName).zip(simpleNames).forall { case (a, b) => a == b }
-        // get the number of children in the replay log
-        val numChildren     = simpleNames.length
-        logger.debug(s"Given ${child.length} children and found $numChildren children in the replay")
-        logger.debug(s"Found the same simple names? $sameSimpleNames")
-        numChildren == child.length && sameSimpleNames
+      // Check to see if any of the current child definitions are equivalent
+      val equivalentChildren = currentChildDefinitions.exists { left =>
+        currentChildDefinitions.exists { right => left != right && left.equivalent(right) }
       }
 
-      if (validChildren) {
-        // for each child task, try to associate it with a know task
-        child.zipWithIndex.foreach { case (_child, childNumber) =>
-          addExecutionDecision(parent, _child, childNumber)
+      // Check if we find the same # of children in the cache and none of the children are equivalent then test each
+      // child individually
+      if (previousChildDefinitions.length == currentChildren.length && !equivalentChildren) {
+        // For each child, find the potential definitions from the previous execution
+        val potentialDefinitions = currentChildDefinitions.map { currentChildDefinition =>
+          // Find the definitions from the previous execution that could match the given definition from the current execution
+          previousChildDefinitions.filter { previousChildDefinition =>
+            previousChildDefinition.equivalent(currentChildDefinition)
+          }
+        }
+        // If we have a single definition for each child, then we will decide whether or not to execute individually.
+        if (potentialDefinitions.forall(_.length == 1)) {
+          currentChildren.zip(potentialDefinitions.map(_.head))
+            .foreach { case (child, previousChildDefinition) =>
+              maybeSetTaskToExecute(child, previousChildDefinition)
+            }
+        }
+        else {
+          // NB: we assume all must be executed (conservatively)
+          setMissingAncestorAndExecute(parent +: currentChildren)
         }
       }
       else {
-        // a whole new set of children, execute them
-        child.zipWithIndex.foreach { case (_child, childNumber) =>
-          logger.debug(s"Adding task ${_child.name} to execute due to differing child number or simple name")
-          buildDefinition(_child, parentDefinition.code, childNumber)
-          this.tasksToExecute += _child
-          this.tasksForcedToExecute += _child
-        }
+        // NB: we assume all must be executed (conservatively)
+        setMissingAncestorAndExecute(parent +: currentChildren)
       }
     }
-    child.foreach { task =>
-      logger.debug(s"registered task '${task.name}': " + (if (tasksToExecute.contains(task)) "execute" else "skip"))
+  }
+
+  /** Set the task to execute. */
+  protected def setToExecute(task: Task): Unit = this.tasksToExecute += task
+
+  /** Set the task to execute based on its status only. */
+  protected def checkStatusAndExecute(task: Task): Unit = maybeSetTaskToExecute(task, previousDefinition(task))
+
+  /** Returns true if the task already has a definition, false otherwise. */
+  private def defined(definition: Definition): Boolean = this.definitionMapping.contains(definition)
+
+  /** Returns the definition of the task from the current execution. */
+  private def currentDefinition(task: Task): Definition = this.taskToDefinition(task)
+
+  /** Returns the definition of the task from the previous execution. */
+  private def previousDefinition(current: Definition): Definition = this.definitionMapping(current)
+
+  /** Returns the definition of the task from the previous execution. */
+  private def previousDefinition(task: Task): Definition = previousDefinition(currentDefinition(task))
+
+  /** Checks if a task has a ancestor (parent) that was not defined in the previous execution. */
+  private def hasMissingAncestor(task: Task): Boolean = this.missingAncestors.contains(task)
+
+  /** Marks the task as having a missing ancestor. */
+  private def setMissingAncestor(task: Task): Unit = this.missingAncestors += task
+
+  /** Set the tasks to execute and have missing ancestors. */
+  private def setMissingAncestorAndExecute(tasks: Seq[Task]): Unit = {
+    tasks.foreach { task =>
+      setMissingAncestor(task)
+      setToExecute(task)
+    }
+  }
+
+  /** Returns the definitions for all children of the parent from the previous execution */
+  private def previousChildDefinitions(parent: Task): Seq[Definition] = {
+    val previousParentDefinition = previousDefinition(parent)
+    this.relationships
+      .filter(_.parentCode == previousParentDefinition.code)
+      .map { relationship =>
+        this.definitions.find {
+          _.code == relationship.childCode
+        }.getOrElse {
+          unreachable(s"No definition for child in relationship: $relationship") // validation should catch this!
+        }
+      }
+  }
+
+  /** Checks the status of the task in the previous execution, and if not successful, sets it to execute in this execution. */
+  private def maybeSetTaskToExecute(task: Task, previousDefinition: Definition): Unit = {
+    require(task._executor.isDefined, s"Executor not defined for task '${task.name}'")
+    this.statuses.filter { status => status.definitionCode == previousDefinition.code }
+      .sortBy(-_.statusOrdinal)
+      .map(status => task._executor.map(_.from(status.statusOrdinal).success).getOrElse(unreachable(s"Executor not set for task '${task.name}'")))
+      .headOption match {
+      case Some(s) if s => Unit // if it previously succeeded, don't set it to execute!
+      case _            => setToExecute(task)
     }
   }
 
   /** Builds the definition and ensures that has not already been defined. */
   private def buildDefinition(task: Task, parentCode: Int, childNumber: Int): Definition = {
     val definition = Definition(task, parentCode, childNumber)
-    require(!this.taskToDefinition.contains(task), s"Task was previously defined: $definition")
-    require(!this.definitionMapping.contains(definition),  s"Task was previously defined: $definition")
+    require(!registered(task), s"Task was previously defined: $definition")
+    require(!defined(definition), s"Task was previously defined: $definition")
     this.taskToDefinition(task) = definition
     definition
-  }
-
-  /** Updates tasksToExecute if the task should be executed. */
-  private def maybeSetTaskToExecute(task: Task, taskReplayDefinition: Definition): Unit = {
-    require(task._executor.isDefined, s"Executor not defined for task '${task.name}'")
-    val succeededExecution = this.statuses.filter { status => status.definitionCode == taskReplayDefinition.code }
-      .sortBy(-_.statusOrdinal)
-      .map(status => task._executor.map(_.from(status.statusOrdinal).success).getOrElse(unreachable(s"Executor not set for task '${task.name}'")))
-      .headOption
-      .getOrElse(false)
-
-    if (!succeededExecution) {
-      // execute it
-      logger.debug(s"Adding task ${task.name} to execute")
-      this.tasksToExecute += task
-    }
-  }
-
-  private def addExecutionDecision(parent: Task, child: Task, childNumber: Int): Unit = {
-    val parentDefinition = this.taskToDefinition(parent)
-    val childDefinition  = buildDefinition(child, parentDefinition.code, childNumber)
-
-    // Check if the parent was forced to execute, due to not being in the replay log.
-    if (this.tasksForcedToExecute.contains(parent)) {
-      logger.debug(s"Forcing child ${child.name} to execute due to parent")
-      this.tasksToExecute += child
-      this.tasksForcedToExecute += child
-    }
-    else {
-      // NB: this does not exist if the parent was forced to execute!
-      val parentReplayDefinition = this.definitionMapping(parentDefinition)
-      // find the definition of the child in the replay log
-      val childReplayDefinitions = this.relationships
-        .filter { relationship => relationship.parentCode == parentReplayDefinition.code } // find all potential relationships of its parent to a task
-        .flatMap { relationship =>
-          logger.debug(s"Examining relationship $relationship")
-          // find the definition of the child task in this relationship
-          val definition = this.definitions.find(_.code == relationship.childCode).getOrElse {
-            throw new IllegalArgumentException(s"No definition for child in relationship: $relationship")
-          }
-          logger.debug(s"Found definition '$definition' expecting '$childDefinition'")
-          // child number
-          if (definition.equivalent(childDefinition)) {
-            Some(definition)
-          }
-          else {
-            None
-          }
-        }
-
-      // there can be only one!
-      childReplayDefinitions match {
-        case Seq(childReplayDefinition) =>
-          this.definitionMapping(childDefinition) = childReplayDefinition
-          maybeSetTaskToExecute(child, childReplayDefinition)
-        case Seq() => // no relationship or the child's current definition was not equivalent to the definition in the replay log
-          logger.debug(s"Forcing child ${child.name} to execute since either no relationship or equivalent child defintion in the replay log!")
-          this.tasksToExecute += child
-          this.tasksForcedToExecute += child
-        case _ => throw new IllegalArgumentException("Found multiple relationships between the parent and child")
-      }
-    }
   }
 }

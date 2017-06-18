@@ -69,7 +69,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
 
   override def addTask(task: Task): TaskId = {
     task._executor = Some(this)
-    this.register(task, task)
+    this.register(task)
     addTask(task=task, enclosingNode=None, ignoreExists=false)
   }
 
