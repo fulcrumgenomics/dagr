@@ -84,6 +84,4 @@ case object TaskStatus extends IntEnum[TaskStatus] {
   case object FailedOnComplete   extends Failed     { val description: String = "Failed during the onComplete callback";                   val value: Int = 6 }
   case object SucceededExecution extends Succeeded  { val description: String = "has succeeded";                                           val value: Int = 7 }
   case object ManuallySucceeded  extends Succeeded  { val description: String = "has succeeded (manually)";                                val value: Int = 8 }
-
-  val TaskStatuses = Seq(Unknown, Started, Stopped, FailedGetTasks, FailedScheduling, FailedExecution, FailedOnComplete, SucceededExecution, ManuallySucceeded)
 }
