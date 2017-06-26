@@ -31,8 +31,5 @@ object DagrMain {
   protected def getPackageList: List[String] = List[String]("dagr")
 
   /** The main method */
-  def main(args: Array[String]): Unit = {
-    import scala.concurrent.ExecutionContext.Implicits.global
-    System.exit(new DagrCoreMain().makeItSo(args, packageList = getPackageList))
-  }
+  def main(args: Array[String]): Unit = DagrCoreMain.main(args)
 }

@@ -23,18 +23,13 @@
  *
  */
 
-package dagr.core.reporting
+package dagr.webservice
 
-import com.fulcrumgenomics.commons.util.{LazyLogging, Logger}
-import dagr.core.reporting.ReportingDef.TaskLogger
-import dagr.core.tasksystem.Task.{TaskInfoLike, TaskInfo => RootTaskInfo}
+object Configuration extends dagr.core.config.Configuration {
 
-/** A simple logger that delegates to [[dagr.core.tasksystem.Task.TaskInfo#logTaskMessage]]. */
-class TaskStatusLogger extends TaskLogger {
-  // NB: rename this class to set the name on the command line
-  private class Dagr extends LazyLogging {
-    override lazy val logger: Logger = new Logger(getClass)
+  // Keys for configuration values used in dagr webservice
+  object Keys {
+    val WebServiceHost  = "dagr.webservice-host"
+    val WebSErvicePort  = "dagr.webservice-port"
   }
-  private val logger = new Dagr().logger
-  def record(info: TaskInfoLike): Unit = info.logTaskMessage(this.logger)
 }

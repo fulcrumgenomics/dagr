@@ -457,7 +457,7 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
   "GraphExecute.from" should "return the task status from the ordinal" in {
     val graphExecutor = this.graphExecutor
     TaskStatus.values.foreach { status =>
-      graphExecutor.from(status.ordinal) shouldBe status
+      graphExecutor.statusFrom(status.ordinal) shouldBe status
     }
   }
 
