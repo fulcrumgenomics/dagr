@@ -28,7 +28,8 @@ import java.nio.file.Files
 
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.exec.{Memory, SystemResources}
+import dagr.api.models.Memory
+import dagr.core.exec.SystemResources
 import dagr.core.tasksystem.Task.TaskInfo
 
 /** A trait to facilitate retry a task when it has failed. */
@@ -126,7 +127,7 @@ trait JvmRanOutOfMemory extends MemoryRetry {
   /** A list of tokens that are looked for in the log file of a process by the default [[ranOutOfMemory]]. */
   def outOfMemoryTokens: List[String] =  List ("OutOfMemory", "you did not provide enough memory to run this program")
 
-  override protected[core] def ranOutOfMemory(taskInfo: TaskInfo): Boolean = taskInfo.log match {
+  override protected[core] def ranOutOfMemory(taskInfo: TaskInfo): Boolean = taskInfo.logPath match {
     case None => false
     case Some(log) =>
       Files.exists(log) &&

@@ -24,7 +24,7 @@
 
 package dagr.tasks.samtools
 
-import dagr.core.exec.{Cores, Memory}
+import dagr.api.models.{Cores, Memory}
 import dagr.core.tasksystem.FixedResources
 import dagr.tasks.DagrDef.PathToFasta
 

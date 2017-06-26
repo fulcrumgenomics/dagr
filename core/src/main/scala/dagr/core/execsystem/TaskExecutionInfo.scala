@@ -27,8 +27,8 @@ import java.time.{Duration, Instant}
 
 import com.fulcrumgenomics.commons.CommonsDef.FilePath
 import com.fulcrumgenomics.commons.util.TimeUtil._
+import dagr.api.models.ResourceSet
 import dagr.core.DagrDef._
-import dagr.core.exec.ResourceSet
 import dagr.core.execsystem.TaskStatus.Unknown
 import dagr.core.tasksystem.Task
 
@@ -40,7 +40,7 @@ class TaskExecutionInfo(task: Task,
                         script: FilePath,
                         log: FilePath,
                         resources: Option[ResourceSet] = Some(ResourceSet(0, 0)))
-  extends Task.TaskInfo(task=task, initStatus=initStatus, id=Some(initId), script=Some(script), log=Some(log), resources=resources)
+  extends Task.TaskInfo(task=task, initStatus=initStatus, id=Some(initId), script=Some(script.toString), log=Some(log.toString), resources=resources)
 {
   protected[core] var submissionDate: Option[Instant] = Some(Instant.now())
   protected[core] var startDate:      Option[Instant] = None

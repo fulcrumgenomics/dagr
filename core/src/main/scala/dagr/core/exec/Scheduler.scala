@@ -25,6 +25,7 @@
 package dagr.core.exec
 
 import com.fulcrumgenomics.commons.util.LazyLogging
+import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
 
 /** Scheduler of [[Task]] tasks */
@@ -41,10 +42,10 @@ abstract class Scheduler extends LazyLogging {
     * @return a map of tasks should be scheduled and their allocate resources.
     * */
   final def schedule(runningTasks: Map[UnitTask, ResourceSet],
-               readyTasks: Traversable[UnitTask],
-               systemCores: Cores,
-               systemMemory: Memory,
-               jvmMemory: Memory): Map[UnitTask, ResourceSet] =  {
+                     readyTasks: Traversable[UnitTask],
+                     systemCores: Cores,
+                     systemMemory: Memory,
+                     jvmMemory: Memory): Map[UnitTask, ResourceSet] =  {
 
     // Make sure we either have tasks that inherit from ProcessTask or InJvmTask.
     runningTasks.keys.foreach(task => {

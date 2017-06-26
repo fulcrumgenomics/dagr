@@ -27,7 +27,7 @@ package dagr.tasks.fgbio
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.core.exec.{Cores, Memory}
+import dagr.api.models.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.JarTask
 

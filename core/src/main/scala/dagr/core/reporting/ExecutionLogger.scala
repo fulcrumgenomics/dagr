@@ -30,7 +30,8 @@ import com.fulcrumgenomics.commons.io.Io
 import dagr.core.reporting.ExecutionLogger.{Definition, Relationship, Status}
 import dagr.core.reporting.ReportingDef._
 import dagr.core.tasksystem.Task
-import dagr.core.tasksystem.Task.{TaskStatus, TaskInfo => RootTaskInfo}
+import dagr.api.models.TaskStatus
+import dagr.core.tasksystem.Task.TaskInfoLike
 
 import scala.collection.mutable
 
@@ -167,7 +168,7 @@ class ExecutionLogger(log: FilePath) extends TaskLogger with TaskRegister with A
   }
 
   /** The method that will be called with updated task information. */
-  def record(info: RootTaskInfo): Unit = logStatusChange(info)
+  def record(info: TaskInfoLike): Unit = logStatusChange(info)
 
   def close(): Unit = if (!this.closed) {
     this.writer.flush()
@@ -203,7 +204,7 @@ class ExecutionLogger(log: FilePath) extends TaskLogger with TaskRegister with A
   }
 
   /** Logs the a status update for the task. */
-  private def logStatusChange(rootInfo: RootTaskInfo): Unit = {
+  private def logStatusChange(rootInfo: TaskInfoLike): Unit = {
     val definition = this.taskToDefinition(rootInfo.task)
     write(Status(rootInfo.status, definition).toString + "\n")
   }

@@ -30,6 +30,7 @@ import java.time.Instant
 import com.fulcrumgenomics.commons.util.SimpleCounter
 import com.fulcrumgenomics.commons.util.StringUtil._
 import com.fulcrumgenomics.commons.util.TimeUtil._
+import dagr.api.models.TaskStatus
 import dagr.core.tasksystem.Task
 import dagr.core.tasksystem.Task.TaskInfo
 
@@ -77,8 +78,8 @@ trait FinalStatusReporter {
       timestampStringOrNA(endDate),
       executionTime,
       totalTime,
-      info.script.map(_.toFile.getAbsolutePath).getOrElse(""),
-      info.log.map(_.toFile.getAbsolutePath).getOrElse(""),
+      info.scriptPath.map(_.toFile.getAbsolutePath).getOrElse(""),
+      info.logPath.map(_.toFile.getAbsolutePath).getOrElse(""),
       info.attempts
     ).map(_.toString)
   }
@@ -95,7 +96,7 @@ trait FinalStatusReporter {
     // Create the task status table
     val taskStatusTable: ListBuffer[List[String]] = new ListBuffer[List[String]]()
     taskStatusTable.append(reportHeader)
-    val counter = new SimpleCounter[Task.TaskStatus]()
+    val counter = new SimpleCounter[TaskStatus]()
     // Go through every task
     tasks.toList.sortBy(task => (task.taskInfo.id.getOrElse(BigInt(-1)), task.name)).foreach { task =>
       val info = task.taskInfo
@@ -110,7 +111,7 @@ trait FinalStatusReporter {
 
     // Create and write the task status counts
     val taskStatusCountTable = new ListBuffer[List[String]]()
-    val keys: List[Task.TaskStatus] = counter.map(_._1).toList
+    val keys: List[TaskStatus] = counter.map(_._1).toList
     taskStatusCountTable.append(keys.map(_.toString))
     taskStatusCountTable.append(keys.map(status => counter.countOf(status).toString))
     loggerMethod("\n" + columnIt(taskStatusCountTable.toList, delimiter))

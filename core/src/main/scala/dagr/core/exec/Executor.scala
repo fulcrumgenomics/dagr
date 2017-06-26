@@ -32,7 +32,8 @@ import dagr.core.execsystem2.local.LocalTaskExecutor
 import dagr.core.reporting.ReportingDef.{TaskLogger, TaskRegister, TaskReporter}
 import dagr.core.reporting.{FinalStatusReporter, TaskStatusLogger}
 import dagr.core.tasksystem.Task
-import dagr.core.tasksystem.Task.{TaskInfo, TaskStatus}
+import dagr.core.tasksystem.Task.TaskInfo
+import dagr.api.models.TaskStatus
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContext
@@ -109,7 +110,10 @@ trait Executor extends FinalStatusReporter {
   }
 
   /** Returns the task status by ordinal */
-  def from(ordinal: Int): TaskStatus
+  def statusFrom(ordinal: Int): TaskStatus
+
+  /** The list of statuses ordered by ordinal */
+  def statuses: Seq[TaskStatus]
 
   /** Returns the log directory. */
   def logDir: DirPath

@@ -29,7 +29,7 @@ import dagr.core.DagrDef._
 import dagr.core.exec.Executor
 import dagr.core.execsystem.TaskManagerLike.BaseGraphNode
 import dagr.core.tasksystem.Task
-import dagr.core.tasksystem.Task.{TaskStatus => RootTaskStatus}
+import dagr.api.models.{TaskStatus => RootTaskStatus}
 
 private[execsystem] object TaskManagerLike {
   abstract class BaseGraphNode
@@ -162,5 +162,8 @@ private[execsystem] trait TaskManagerLike extends Executor {
   def stepExecution(): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task])
 
   /** Returns the task status by ordinal */
-  final def from(ordinal: Int): TaskStatus = TaskStatus.withValue(ordinal)
+  final def statusFrom(ordinal: Int): TaskStatus = TaskStatus.withValue(ordinal)
+
+  /** The list of statuses ordered by ordinal */
+  def statuses: Seq[TaskStatus] = TaskStatus.values
 }

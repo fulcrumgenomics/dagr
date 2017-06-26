@@ -28,7 +28,7 @@ import com.fulcrumgenomics.commons.io.Io
 import dagr.tasks.DataTypes.{Fastq, Sam}
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFasta, PathToFastq}
-import dagr.core.exec.{Cores, Memory, ResourceSet}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 
 import scala.collection.mutable.ListBuffer
 

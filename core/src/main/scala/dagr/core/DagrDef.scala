@@ -34,4 +34,10 @@ package dagr.core
 object DagrDef {
   /** The type of identifier used to uniquely identify tasks tracked by the execution system. */
   type TaskId = BigInt
+
+  /** Companion methods for TaskId */
+  object TaskId {
+    /** The apply method for TaskId */
+    def apply(value: Int): TaskId = BigInt(value)
+  }
 }

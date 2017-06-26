@@ -32,7 +32,7 @@ import dagr.tasks.DagrDef
 import DagrDef._
 import dagr.core.tasksystem.{Linker, NoOpInJvmTask, Pipeline, SimpleInJvmTask}
 import com.fulcrumgenomics.commons.io.Io
-import dagr.core.exec.{Cores, Memory}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.tasks.jeanluc.FilterBam
 import dagr.tasks.picard.{CollectHsMetrics, DownsampleSam, DownsamplingStrategy}
 import htsjdk.samtools.metrics.MetricsFile

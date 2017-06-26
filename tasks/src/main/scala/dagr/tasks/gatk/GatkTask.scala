@@ -29,7 +29,7 @@ import dagr.core.config.Configuration
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.{DagrDef, JarTask}
 import DagrDef.{PathToFasta, PathToIntervals}
-import dagr.core.exec.{Cores, Memory}
+import dagr.api.models.{Cores, Memory}
 
 import scala.collection.mutable.ListBuffer
 

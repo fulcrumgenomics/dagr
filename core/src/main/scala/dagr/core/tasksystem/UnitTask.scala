@@ -24,12 +24,13 @@
 package dagr.core.tasksystem
 
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.exec.{ResourceSet, Scheduler}
+import dagr.api.models.ResourceSet
+import dagr.core.exec.Scheduler
 
 /** A task that should be directly executed or scheduled.
  *
  * A few things about unit tasks:
- * - a task can depend on data from tasks on which it is dependent.  See [[Callbacks]].
+ * - a task can depend on data from tasks on which it is dependent.  See [[Linker]].
  * - a task extending this class should return only one task in its getTasks method.  See [[Task.getTasks]].
  * - a task can perform any final logic dependent on the resources with which it is scheduled.  See [[Scheduler!.schedule*]].
   *

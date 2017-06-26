@@ -23,7 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.core.exec.{Cores, Memory}
+import dagr.api.models.{Cores, Memory}
 
 /** Companion object to provide a couple of helper constructors for ShellCommand. */
 object ShellCommand {
