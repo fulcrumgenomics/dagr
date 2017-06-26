@@ -305,7 +305,7 @@ class SimpleTaskCache(replayLogLines: Seq[String], source: Option[String] = None
     require(task._executor.isDefined, s"Executor not defined for task '${task.name}'")
     this.statuses.filter { status => status.definitionCode == previousDefinition.code }
       .sortBy(-_.statusOrdinal)
-      .map(status => task._executor.map(_.from(status.statusOrdinal).success).getOrElse(unreachable(s"Executor not set for task '${task.name}'")))
+      .map(status => task._executor.map(_.statusFrom(status.statusOrdinal).success).getOrElse(unreachable(s"Executor not set for task '${task.name}'")))
       .headOption match {
       case Some(s) if s => Unit // if it previously succeeded, don't set it to execute!
       case _            => setToExecute(task)

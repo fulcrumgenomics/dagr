@@ -55,8 +55,59 @@ object Task {
     override def toString: String = this.description
   }
 
+  /** The execution information for a task.  Used for extrenal read-only access to [[TaskInfo]]. Any execution system
+    * should extend [[TaskInfo]] instead class to store their specific metadata. */
+  trait TaskInfoLike extends Ordered[TaskInfoLike] {
+    def task       : Task
+    def id         : Option[TaskId]
+    def attempts   : Int
+    def script     : Option[FilePath]
+    def log        : Option[FilePath]
+    def resources  : Option[ResourceSet]
+    def exitCode   : Option[Int]
+    def throwable  : Option[Throwable]
+
+    /** The current status of the task. */
+    def status     : TaskStatus
+
+    /** The instant the task reached a given status. */
+    def timePoints :  Traversable[TimePoint]
+
+    /** The instant the task reached the current status. */
+    def statusTime : Instant
+
+    private[core] def logTaskMessage(logger: Logger)
+
+    def compare(that: TaskInfoLike): Int = {
+      (this.id, that.id) match {
+        case (Some(_), None)    => -1
+        case (None, Some(_))    => 1
+        case (None, None)       => this.status.ordinal - that.status.ordinal
+        case (Some(l), Some(r)) => (l - r).toInt
+      }
+    }
+  }
+
+  object TimePoint {
+    def parse(s: String, f: Int => TaskStatus): TimePoint = {
+      s.split(',').toList match {
+        case _ :: ordinal :: instant :: _ =>
+          TimePoint(
+            status = f(ordinal.toInt),
+            instant = Instant.parse(instant)
+          )
+        case _ =>
+          throw new IllegalArgumentException(s"Could not parse TimePoint '$s'")
+      }
+    }
+  }
+
   /** A tuple representing the instant the task was set to the given status. */
-  private[core] case class TimePoint(status: TaskStatus, instant: Instant)
+  case class TimePoint(status: TaskStatus, instant: Instant) {
+    override def toString: String = {
+      s"${this.status.name},${this.status.ordinal},${this.instant.toString},${this.status.description}"
+    }
+  }
 
   /** Execution information associated with a task.  Any execution system should extend this class to store
     * their specific metadata.
@@ -90,7 +141,7 @@ object Task {
     var resources  : Option[ResourceSet] = None,
     var exitCode   : Option[Int]         = None,
     var throwable  : Option[Throwable]   = None
-  ) {
+  ) extends TaskInfoLike {
 
     if (attempts < 1) throw new RuntimeException("attempts must be greater than zero")
 
@@ -295,7 +346,7 @@ trait Task extends Dependable {
 
   /** The execution information about this task, or None if not being executed. */
   private[core] var _taskInfo : Option[TaskInfo] = None
-  private[core] def taskInfo  : TaskInfo = this._taskInfo.get
+  private[dagr] def taskInfo  : TaskInfo = this._taskInfo.get
   private[core] def taskInfo_=(info: TaskInfo) = {
     this._taskInfo = Some(info)
     this._executor.foreach(_.record(info))
@@ -316,10 +367,10 @@ trait Task extends Dependable {
   private val dependedOnByTasks = new ListBuffer[Task]()
 
   /** Gets the sequence of tasks that this task depends on.. */
-  protected[core] def tasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
+  protected[dagr] def tasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
 
   /** Gets the sequence of tasks that depend on this task. */
-  protected[core] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
+  protected[dagr] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
 
   /** Must be implemented to handle the addition of a dependent. */
   override def addDependent(dependent: Dependable): Unit = dependent.headTasks.foreach(t => {

@@ -109,7 +109,7 @@ trait Executor extends FinalStatusReporter {
   }
 
   /** Returns the task status by ordinal */
-  def from(ordinal: Int): TaskStatus
+  def statusFrom(ordinal: Int): TaskStatus
 
   /** Returns the log directory. */
   def logDir: DirPath

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2017 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,21 +20,24 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- *
  */
 
-package dagr.core.reporting
+package dagr.webservice
 
-import com.fulcrumgenomics.commons.util.{LazyLogging, Logger}
-import dagr.core.reporting.ReportingDef.TaskLogger
-import dagr.core.tasksystem.Task.{TaskInfoLike, TaskInfo => RootTaskInfo}
+import dagr.core.tasksystem.Task.TaskInfoLike
+import dagr.tasks.DagrDef.FilePath
 
-/** A simple logger that delegates to [[dagr.core.tasksystem.Task.TaskInfo#logTaskMessage]]. */
-class TaskStatusLogger extends TaskLogger {
-  // NB: rename this class to set the name on the command line
-  private class Dagr extends LazyLogging {
-    override lazy val logger: Logger = new Logger(getClass)
-  }
-  private val logger = new Dagr().logger
-  def record(info: TaskInfoLike): Unit = info.logTaskMessage(this.logger)
-}
+/** Stores the data to be returned by an end-point. Make sure that there exists a protocol and any custom JSON
+  * handling specified in [[DagrApiJsonSupport]].
+  */
+sealed abstract class DagrResponse
+
+case class DagrVersionResponse(id: String) extends DagrResponse
+
+case class DagrStatusResponse(infos: Iterable[TaskInfoLike]) extends DagrResponse
+
+case class DagrTaskScriptResponse(script: Option[FilePath]) extends DagrResponse
+
+case class DagrTaskLogResponse(log: Option[FilePath]) extends DagrResponse
+
+case class DagrTaskInfoResponse(info: TaskInfoLike) extends DagrResponse
