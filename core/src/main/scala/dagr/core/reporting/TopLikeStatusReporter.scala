@@ -36,7 +36,7 @@ import dagr.core.exec.{Executor, SystemResources}
 import dagr.core.execsystem.TaskManager
 import dagr.core.execsystem2.GraphExecutor
 import dagr.core.reporting.ReportingDef.TaskLogger
-import dagr.core.tasksystem.Task.TaskInfo
+import dagr.core.tasksystem.Task.{TaskInfo, TaskInfoLike}
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
 
 import scala.collection.mutable
@@ -318,7 +318,7 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
   }
 
   /** This method is called when any info about a task is updated. */
-  final def record(info: TaskInfo): Unit = {
+  final def record(info: TaskInfoLike): Unit = {
     // add the task to the set of known tasks
     this._tasks += info.task
     // refresh the screen

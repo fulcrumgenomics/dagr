@@ -123,7 +123,7 @@ lazy val core = Project(id="dagr-core", base=file("core"))
       "com.fulcrumgenomics" %%  "commons"           %  "0.2.0-SNAPSHOT",
       "com.fulcrumgenomics" %%  "sopt"              %  "0.2.0-SNAPSHOT",
       "com.github.dblock"   %   "oshi-core"         %  "3.3",
-	  "com.beachape"        %%  "enumeratum"        %  "1.5.12",
+      "com.beachape"        %%  "enumeratum"        %  "1.5.12",
       "org.scala-lang"      %   "scala-reflect"     %  scalaVersion.value,
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
       "org.reflections"     %   "reflections"       %  "0.9.10",
@@ -165,6 +165,29 @@ lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
   .dependsOn(tasks, core)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+// webservice project
+////////////////////////////////////////////////////////////////////////////////////////////////
+val akkaV = "2.3.9" 
+val sprayV = "1.3.3" 
+lazy val webservice = Project(id="dagr-webservice", base=file("webservice"))
+  .settings(commonSettings: _*)
+  .settings(unidocSettings: _*)
+  .settings(assemblySettings: _*)
+  .settings(description := "A tool to execute tasks in directed acyclic graphs.")
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka"  %%  "akka-actor"      % akkaV,
+      "io.spray"           %%  "spray-can"       % sprayV,
+      "io.spray"           %%  "spray-routing"   % sprayV,
+      "io.spray"           %%  "spray-client"    % sprayV,
+      "io.spray"           %%  "spray-http"      % sprayV,
+      "io.spray"           %%  "spray-json"      % sprayV
+    )
+  )
+  .aggregate(core, tasks, pipelines)
+  .dependsOn(core, tasks, pipelines)
+
+////////////////////////////////////////////////////////////////////////////////////////////////
 // root (dagr) project
 ////////////////////////////////////////////////////////////////////////////////////////////////
 lazy val assemblySettings = Seq(
@@ -176,8 +199,8 @@ lazy val root = Project(id="dagr", base=file("."))
   .settings(unidocSettings: _*)
   .settings(assemblySettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
-  .aggregate(core, tasks, pipelines)
-  .dependsOn(core, tasks, pipelines)
+  .aggregate(core, tasks, pipelines, webservice) // FIXME: should not depend on webservice
+  .dependsOn(core, tasks, pipelines, webservice)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Merge strategy for assembly

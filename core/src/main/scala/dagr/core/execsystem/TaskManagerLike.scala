@@ -162,5 +162,5 @@ private[execsystem] trait TaskManagerLike extends Executor {
   def stepExecution(): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task])
 
   /** Returns the task status by ordinal */
-  final def from(ordinal: Int): TaskStatus = TaskStatus.withValue(ordinal)
+  final def statusFrom(ordinal: Int): TaskStatus = TaskStatus.withValue(ordinal)
 }
