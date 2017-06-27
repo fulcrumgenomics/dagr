@@ -28,7 +28,7 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.util.Timeout
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.DagrDef._
-import dagr.core.tasksystem.Task.TaskInfoLike
+import dagr.core.tasksystem.Task.{TaskInfoLike, TaskStatus}
 import dagr.webservice.PerRequest.RequestComplete
 import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
@@ -43,10 +43,11 @@ object DagrApiHandler {
 
   sealed trait DagrRequest
   final case class DagrVersionRequest() extends DagrRequest
-  final case class DagrStatusRequest() extends DagrRequest
+  final case class DagrTaskInfoRequest(id: TaskId) extends DagrRequest
+  final case class DagrTaskInfosRequest(status: Option[TaskStatus] = None) extends DagrRequest
+  final case class DagrTaskInfoQueryRequest(query: TaskInfoQuery) extends DagrRequest
   final case class DagrTaskScriptRequest(id: TaskId) extends DagrRequest
   final case class DagrTaskLogRequest(id: TaskId) extends DagrRequest
-  final case class DagrTaskInfoRequest(id: TaskId) extends DagrRequest
 }
 
 /** Receives a request, performs the appropriate logic, and sends back a response */
@@ -58,16 +59,18 @@ class DagrApiHandler(val taskInfoTracker: TaskInfoTracker) extends Actor with Da
   implicit val system: ActorSystem = context.system
 
   override def receive: PartialFunction[Any, Unit] = {
-    case DagrVersionRequest()      =>
+    case DagrVersionRequest()            =>
       context.parent ! RequestComplete(StatusCodes.OK, DagrVersionResponse(DagrApiService.version))
-    case DagrStatusRequest()       =>
-      context.parent ! RequestComplete(StatusCodes.OK, DagrStatusResponse(taskInfoTracker.infos))
-    case DagrTaskScriptRequest(id) =>
-      applyTaskInfo(id, info => context.parent ! RequestComplete(StatusCodes.OK, DagrTaskScriptResponse(info.script)))
-    case DagrTaskLogRequest(id)    =>
-      applyTaskInfo(id, info => context.parent ! RequestComplete(StatusCodes.OK, DagrTaskLogResponse(info.log)))
-    case DagrTaskInfoRequest(id)   =>
+    case DagrTaskInfoRequest(id)         =>
       applyTaskInfo(id, info => context.parent ! RequestComplete(StatusCodes.OK, DagrTaskInfoResponse(info)))
+    case DagrTaskInfosRequest(status)    =>
+      context.parent ! RequestComplete(StatusCodes.OK, DagrTaskInfosResponse(getInfos(status)))
+    case DagrTaskInfoQueryRequest(query) =>
+      context.parent ! RequestComplete(StatusCodes.OK, DagrTaskInfosResponse(query.get(taskInfoTracker.infos)))
+    case DagrTaskScriptRequest(id)       =>
+      applyTaskInfo(id, info => context.parent ! RequestComplete(StatusCodes.OK, DagrTaskScriptResponse(info.script)))
+    case DagrTaskLogRequest(id)          =>
+      applyTaskInfo(id, info => context.parent ! RequestComplete(StatusCodes.OK, DagrTaskLogResponse(info.log)))
   }
 
   /** Handles the case that the specific task identifier does not exist and sends back a bad request message, otherwise,
@@ -77,6 +80,13 @@ class DagrApiHandler(val taskInfoTracker: TaskInfoTracker) extends Actor with Da
     taskInfoTracker.info(id) match {
       case Some(info) => f(info)
       case None => context.parent ! RequestComplete(StatusCodes.NotFound, s"Task with id '$id' not found")
+    }
+  }
+
+  private def getInfos(status: Option[TaskStatus] = None): Iterable[TaskInfoLike] = {
+    status match {
+      case None     => taskInfoTracker.infos
+      case Some(st) => taskInfoTracker.infos.filter { info => info.status == st }
     }
   }
 }

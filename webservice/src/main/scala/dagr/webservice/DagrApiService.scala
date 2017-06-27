@@ -27,11 +27,11 @@ package dagr.webservice
 import akka.actor.{Actor, ActorContext, Props}
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.DagrDef.TaskId
-import spray.http.StatusCodes
+import spray.http._
 import spray.http.StatusCodes._
 import spray.routing._
 import spray.util.LoggingContext
-
+import spray.json._
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
@@ -67,13 +67,35 @@ class DagrApiServiceActor(taskInfoTracker: TaskInfoTracker) extends HttpServiceA
     }
 }
 
+/** A simple trait to set CORS headers. Mix this in and wrap your routes with [[CORSDirectives.respondWithCORSHeaders()]] */
+trait CORSDirectives {
+  this: HttpService =>
+
+  def respondWithCORSHeaders(origin: AllowedOrigins): Directive0 = respondWithHeaders(HttpHeaders.`Access-Control-Allow-Origin`(origin))
+
+  def corsFilter(origin: String)(route: Route): Route = {
+    if (origin == "*") {
+      respondWithCORSHeaders(AllOrigins)(route)
+    }
+    else {
+      optionalHeaderValueByName("Origin") {
+        case None => route
+        case Some(clientOrigin) if origin == clientOrigin =>
+          respondWithCORSHeaders(SomeOrigins(Seq(HttpOrigin(origin))))(route)
+        case Some(_) =>
+          complete(Forbidden, Nil, "Invalid origin") // Maybe, a Rejection will fit better
+      }
+    }
+  }
+}
+
 object DagrApiService {
   val version: String = "v1" // TODO: match versions
   val root: String    = "service"
 }
 
 /** Defines the possible routes for the Dagr service */
-abstract class DagrApiService(taskInfoTracker: TaskInfoTracker) extends HttpService with PerRequestCreator {
+abstract class DagrApiService(val taskInfoTracker: TaskInfoTracker) extends HttpService with PerRequestCreator with DagrApiJsonSupport {
   import DagrApiService._
 
   def routes: Route = versionRoute ~ taskScriptRoute ~ taskLogRoute ~ infoRoute
@@ -116,7 +138,14 @@ abstract class DagrApiService(taskInfoTracker: TaskInfoTracker) extends HttpServ
     pathPrefix(root / version / "info") {
       pathEnd {
         get {
-          requestContext => perRequest(requestContext, DagrApiHandler.props(taskInfoTracker), DagrApiHandler.DagrStatusRequest())
+          requestContext => perRequest(requestContext, DagrApiHandler.props(taskInfoTracker), DagrApiHandler.DagrTaskInfosRequest())
+        }
+      } ~
+      pathEnd {
+        post {
+          entity(as[TaskInfoQuery]) { query =>
+            requestContext => perRequest(requestContext, DagrApiHandler.props(taskInfoTracker), DagrApiHandler.DagrTaskInfoQueryRequest(query))
+          }
         }
       } ~
       pathPrefix(IntNumber) { (id) =>
@@ -128,6 +157,9 @@ abstract class DagrApiService(taskInfoTracker: TaskInfoTracker) extends HttpServ
           }
         }
       }
+
     }
   }
+
+  def rawJson = extract { _.request.entity.asString}
 }

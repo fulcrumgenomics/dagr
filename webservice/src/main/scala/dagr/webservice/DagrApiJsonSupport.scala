@@ -31,17 +31,18 @@ import com.sun.xml.internal.ws.encoding.soap.DeserializationException
 import dagr.core.DagrDef._
 import dagr.core.exec.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.Task.{TaskInfoLike, TaskStatus, TimePoint}
+import spray.httpx.SprayJsonSupport
 import spray.json._
 
 import scala.language.implicitConversions
 
 /** Methods for formatting custom types in JSON. */
-trait DagrApiJsonSupport extends DefaultJsonProtocol {
-  implicit val dagrVersionResponseProtocol: RootJsonFormat[DagrVersionResponse]       = jsonFormat1(DagrVersionResponse)
-  implicit val dagrStatusResponseProtocol: RootJsonFormat[DagrStatusResponse]         = jsonFormat1(DagrStatusResponse)
-  implicit val dagrTaskScriptResponseProtocol: RootJsonFormat[DagrTaskScriptResponse] = jsonFormat1(DagrTaskScriptResponse)
-  implicit val dagrTaskLogResponseProtocol: RootJsonFormat[DagrTaskLogResponse]       = jsonFormat1(DagrTaskLogResponse)
-  implicit val dagrTaskInfoResponseProtocol: RootJsonFormat[DagrTaskInfoResponse]     = jsonFormat1(DagrTaskInfoResponse)
+trait DagrApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
+  implicit val dagrVersionResponseProtocol: RootJsonFormat[DagrVersionResponse]        = jsonFormat1(DagrVersionResponse)
+  implicit val dagrTaskInfoResponseProtocol: RootJsonFormat[DagrTaskInfoResponse]      = jsonFormat1(DagrTaskInfoResponse)
+  implicit val dagrInfosResponseProtocol: RootJsonFormat[DagrTaskInfosResponse]        = jsonFormat1(DagrTaskInfosResponse)
+  implicit val dagrTaskScriptResponseProtocol: RootJsonFormat[DagrTaskScriptResponse]  = jsonFormat1(DagrTaskScriptResponse)
+  implicit val dagrTaskLogResponseProtocol: RootJsonFormat[DagrTaskLogResponse]        = jsonFormat1(DagrTaskLogResponse)
 
   def taskInfoTracker: TaskInfoTracker
 
@@ -147,6 +148,42 @@ trait DagrApiJsonSupport extends DefaultJsonProtocol {
       if (info.task.name.compareTo(name) != 0) throw new IllegalStateException(s"Task names differ! '$name' != '${info.task.name}'")
 
       info
+    }
+  }
+
+  implicit object TaskInfoQueryFormat extends RootJsonFormat[TaskInfoQuery] {
+    override def write(query: TaskInfoQuery): JsObject = {
+      var map = Map.empty[String, JsValue]
+
+      map += ("name"     -> query.name.toList.toJson)
+      map += ("status"   -> query.status.toList.toJson)
+      map += ("id"       -> query.id.toList.toJson)
+      map += ("attempts" -> query.attempts.toList.toJson)
+      query.minResources.foreach { r => map += ("min_resources" -> r.toJson) }
+      query.maxResources.foreach { r => map += ("max_resources" -> r.toJson) }
+      query.since.foreach { s => map += "since" -> s.toJson }
+      query.until.foreach { u => map += "until" -> u.toJson}
+      map += ("depends_on" -> query.dependsOn.toList.toJson)
+      map += ("dependents" -> query.dependents.toList.toJson)
+
+      JsObject(map)
+    }
+
+    override def read(json: JsValue): TaskInfoQuery = {
+      val jsObject = json.asJsObject
+
+      TaskInfoQuery(
+        name         = if (jsObject.getFields("name").isEmpty) Seq.empty else jsObject.fields("name").convertTo[List[String]],
+        status       = if (jsObject.getFields("status").isEmpty) Seq.empty else jsObject.fields("status").convertTo[List[String]],
+        id           = if (jsObject.getFields("id").isEmpty) Seq.empty else jsObject.fields("id").convertTo[List[Int]].map(BigInt(_)),
+        attempts     = if (jsObject.getFields("attempts").isEmpty) Seq.empty else jsObject.fields("attempts").convertTo[List[Int]],
+        minResources = if (jsObject.getFields("min_resources").isEmpty) None else jsObject.fields("min_resources").convertTo[Option[ResourceSet]],
+        maxResources = if (jsObject.getFields("max_resources").isEmpty) None else jsObject.fields("max_resources").convertTo[Option[ResourceSet]],
+        since        = if (jsObject.getFields("since").isEmpty) None else jsObject.fields("since").convertTo[Option[Instant]],
+        until        = if (jsObject.getFields("until").isEmpty) None else jsObject.fields("until").convertTo[Option[Instant]],
+        dependsOn    = if (jsObject.getFields("depends_on").isEmpty) Seq.empty else jsObject.fields("depends_on").convertTo[List[Int]].map(BigInt(_)),
+        dependents   = if (jsObject.getFields("dependents").isEmpty) Seq.empty else jsObject.fields("dependents").convertTo[List[Int]].map(BigInt(_))
+      )
     }
   }
 
