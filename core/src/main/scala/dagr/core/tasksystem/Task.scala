@@ -76,7 +76,7 @@ object Task {
     /** The instant the task reached the current status. */
     def statusTime : Instant
 
-    private[core] def logTaskMessage(logger: Logger)
+    protected[dagr] def logTaskMessage(logger: Logger)
 
     def compare(that: TaskInfoLike): Int = {
       (this.id, that.id) match {
@@ -215,7 +215,7 @@ object Task {
     }
 
     /** Logs a message for the given task. */
-    private[core] def logTaskMessage(logger: Logger): Unit = {
+    protected[dagr] def logTaskMessage(logger: Logger): Unit = {
       val resourceMessage = this.resources match {
         case Some(r) => s" with ${r.cores} cores and ${r.memory} memory"
         case None    => ""
@@ -342,7 +342,7 @@ object Task {
  */
 trait Task extends Dependable {
   /** The executor that is responsible for executing this task, None if not set. */
-  private[core] var _executor : Option[Executor] = None
+  private[dagr] var _executor : Option[Executor] = None
 
   /** The execution information about this task, or None if not being executed. */
   private[core] var _taskInfo : Option[TaskInfo] = None

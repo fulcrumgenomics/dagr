@@ -32,20 +32,22 @@ import dagr.core.DagrDef._
 import dagr.core.exec.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.Task.{TaskInfoLike, TaskStatus, TimePoint}
 import spray.httpx.SprayJsonSupport
+import dagr.core.tasksystem.Task.TaskInfoLike
+import dagr.core.util.TaskInfo
 import spray.json._
-
 import scala.language.implicitConversions
 
 /** Methods for formatting custom types in JSON. */
-trait DagrApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
+object DagrApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
   implicit val dagrVersionResponseProtocol: RootJsonFormat[DagrVersionResponse]        = jsonFormat1(DagrVersionResponse)
   implicit val dagrTaskInfoResponseProtocol: RootJsonFormat[DagrTaskInfoResponse]      = jsonFormat1(DagrTaskInfoResponse)
   implicit val dagrInfosResponseProtocol: RootJsonFormat[DagrTaskInfosResponse]        = jsonFormat1(DagrTaskInfosResponse)
   implicit val dagrTaskScriptResponseProtocol: RootJsonFormat[DagrTaskScriptResponse]  = jsonFormat1(DagrTaskScriptResponse)
   implicit val dagrTaskLogResponseProtocol: RootJsonFormat[DagrTaskLogResponse]        = jsonFormat1(DagrTaskLogResponse)
 
-  def taskInfoTracker: TaskInfoTracker
+  //def taskInfoTracker: TaskInfoTracker
 
+  /*
   implicit object TaskStatusFormat extends RootJsonFormat[TaskStatus] {
     override def write(status: TaskStatus) = JsString(status.ordinal.toString)
 
@@ -54,6 +56,7 @@ trait DagrApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
       case _ => throw new DeserializationException("only string supported")
     }
   }
+  */
 
   implicit object PathFormat extends RootJsonFormat[Path] {
     override def write(path: Path) = JsString(path.toString)
@@ -90,6 +93,7 @@ trait DagrApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
     }
   }
 
+  /*
   implicit object TimePointFormat extends RootJsonFormat[TimePoint] {
     override def write(timePoint: TimePoint) = JsString(timePoint.toString)
 
@@ -98,58 +102,20 @@ trait DagrApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
       case _ => throw new DeserializationException("only string supported")
     }
   }
+  */
 
+  /*
   implicit object TaskInfoLikeFormat extends RootJsonFormat[TaskInfoLike] {
     override def write(info: TaskInfoLike): JsObject = {
-      var map = Map.empty[String, JsValue]
-      val dependsOn = info.task.tasksDependedOn.map { d =>
-        s"${d.taskInfo.id.getOrElse("None")},${d.name},${d.taskInfo.status.name},${d.taskInfo.status.description}"
-      }
-      val dependents = info.task.tasksDependingOnThisTask.map { d =>
-        s"${d.taskInfo.id.getOrElse("None")},${d.name},${d.taskInfo.status.name},${d.taskInfo.status.description}"
-      }
-
-      map += ("name" -> JsString(info.task.name))
-      info.id.foreach { id => map += ("id" -> id.toJson) }
-      map += ("attempts" -> info.attempts.toJson)
-      info.script.foreach { script => map += ("script" -> script.toJson) }
-      info.log.foreach { log => map += ("log" -> log.toJson) }
-      info.resources.foreach { r => map += ("resources" -> r.toJson) }
-      info.exitCode.foreach { e => map += ("exit_code" -> e.toJson) }
-      info.throwable.foreach { t => map += ("throwable" -> t.getMessage.toJson) }
-      map += ("status" -> info.status.ordinal.toJson)
-      map += ("time_points" -> info.timePoints.toList.toJson)
-      map += ("depends_on" -> dependsOn.toList.toJson)
-      map += ("dependents" -> dependents.toList.toJson)
-
-      JsObject(map)
+      JsObject(("info", JsString(TaskInfo.toString(info))))
     }
 
     override def read(json: JsValue): TaskInfoLike = {
       val jsObject = json.asJsObject
-
-      val name = jsObject.fields("name").convertTo[String]
-      val taskId = jsObject.fields("id").convertTo[TaskId]
-      /*
-      val attempts = jsObject.fields("attempts").convertTo[Int]
-      val script = pathOrNone(jsObject, "script")
-      val log = pathOrNone(jsObject, "log")
-      val resources = jsObject.fields("resources").convertTo[ResourceSet]
-      val exitCode = jsObject.fields("exit_code").convertTo[Int]
-      val throwable = new Throwable(jsObject.fields("throwable").convertTo[String]) // TODO: get the original class?
-      val status = jsObject.fields("status").convertTo[Int] // NB: the ordinal
-      val timePoints = jsObject.fields("time_points").convertTo[Traversable[TimePoint]]
-      */
-
-      val info = taskInfoTracker.info(taskId).getOrElse {
-        throw new IllegalArgumentException(s"Could not retrieve task with id '$taskId'")
-      }
-
-      if (info.task.name.compareTo(name) != 0) throw new IllegalStateException(s"Task names differ! '$name' != '${info.task.name}'")
-
-      info
+      TaskInfo.parse(jsObject.fields("info").convertTo[String])
     }
   }
+  */
 
   implicit object TaskInfoQueryFormat extends RootJsonFormat[TaskInfoQuery] {
     override def write(query: TaskInfoQuery): JsObject = {
@@ -192,8 +158,24 @@ trait DagrApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
   }
 
   /*
+  private def stringOrNone(json: JsObject, key: String): Option[String] = {
+    if (json.getFields(key).nonEmpty) json.fields(key).convertTo[Option[String]] else None
+  }
+
+  private def intOrNone(json: JsObject, key: String): Option[Int] = {
+    if (json.getFields(key).nonEmpty) json.fields(key).convertTo[Option[Int]] else None
+  }
+
+  private def resourceSetOrNone(json: JsObject, key: String): Option[ResourceSet] = {
+    if (json.getFields(key).nonEmpty) json.fields(key).convertTo[Option[ResourceSet]] else None
+  }
+
+  private def taskIdOrNone(json: JsObject, key: String): Option[TaskId] = {
+    if (json.getFields(key).nonEmpty) json.fields(key).convertTo[Option[TaskId]] else None
+  }
+
   private def pathOrNone(json: JsObject, key: String): Option[FilePath] = {
-    if (json.getFields(key).nonEmpty) json.fields(key).convertTo[Option[FilePath]] else None
+    if (json.getFields(key).nonEmpty) json.fields(key).convertTo[Option[String]].map(PathUtil.pathTo(_)) else None
   }
 
   private def instantOrNone(json: JsObject, key: String): Option[Instant] = {

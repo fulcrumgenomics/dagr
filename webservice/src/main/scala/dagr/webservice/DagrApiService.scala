@@ -27,9 +27,13 @@ package dagr.webservice
 import akka.actor.{Actor, ActorContext, Props}
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.DagrDef.TaskId
+
+import spray.http.HttpHeaders.RawHeader
 import spray.http._
 import spray.http.StatusCodes._
+import spray.httpx.marshalling.Marshaller
 import spray.routing._
+import spray.routing.directives.RouteDirectives
 import spray.util.LoggingContext
 import spray.json._
 import scala.concurrent.ExecutionContextExecutor
@@ -67,7 +71,7 @@ class DagrApiServiceActor(taskInfoTracker: TaskInfoTracker) extends HttpServiceA
     }
 }
 
-/** A simple trait to set CORS headers. Mix this in and wrap your routes with [[CORSDirectives.respondWithCORSHeaders()]] */
+/** A simple trait to set CORS headers. Mix this in and wrap your routes with `respondWithCORSHeaders`. */
 trait CORSDirectives {
   this: HttpService =>
 
@@ -95,10 +99,11 @@ object DagrApiService {
 }
 
 /** Defines the possible routes for the Dagr service */
-abstract class DagrApiService(val taskInfoTracker: TaskInfoTracker) extends HttpService with PerRequestCreator with DagrApiJsonSupport {
+abstract class DagrApiService(val taskInfoTracker: TaskInfoTracker) extends HttpService with PerRequestCreator with DagrApiJsonSupport with CORSDirectives {
   import DagrApiService._
 
-  def routes: Route = versionRoute ~ taskScriptRoute ~ taskLogRoute ~ infoRoute
+  // FIXME: we don not want all origins!!!
+  def routes: Route = corsFilter("*") { versionRoute ~ taskScriptRoute ~ taskLogRoute ~ infoRoute }
 
   def versionRoute: Route = {
     path(root / "version") {

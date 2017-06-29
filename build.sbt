@@ -80,7 +80,7 @@ val docScalacOptions = Seq("-groups", "-implicits")
 // Common settings for all projects
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-lazy val commonSettings = Seq(
+lazy val commonSettingsNoFork = Seq(
   organization         := "com.fulcrumgenomics",
   organizationName     := "Fulcrum Genomics LLC",
   organizationHomepage := Some(url("http://www.fulcrumgenomics.com")),
@@ -96,7 +96,6 @@ lazy val commonSettings = Seq(
   testOptions in Test  += Tests.Argument("-l", "LongRunningTest"), // ignores long running tests
   // uncomment for full stack traces
   testOptions in Test  += Tests.Argument("-oDF"),
-  fork in Test         := true,
   resolvers            += Resolver.jcenterRepo,
   resolvers            += Resolver.sonatypeRepo("public"),
   resolvers            += Resolver.mavenLocal,
@@ -111,6 +110,10 @@ lazy val commonSettings = Seq(
   javaOptions in Test += "-Xmx1G",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
 ) ++ Defaults.coreDefaultSettings
+
+lazy val commonSettings = Seq(
+  fork in Test         := true
+) ++ commonSettingsNoFork
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // core project
@@ -128,7 +131,8 @@ lazy val core = Project(id="dagr-core", base=file("core"))
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
       "org.reflections"     %   "reflections"       %  "0.9.10",
       "com.typesafe"        %   "config"            %  "1.3.1",
-      "javax.servlet"       %   "javax.servlet-api" %  "3.1.0"
+      "javax.servlet"       %   "javax.servlet-api" %  "3.1.0",
+	  "com.lihaoyi"         %%  "upickle"           %  "0.4.3"
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
@@ -188,6 +192,34 @@ lazy val webservice = Project(id="dagr-webservice", base=file("webservice"))
   .dependsOn(core, tasks, pipelines)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+// ui project
+////////////////////////////////////////////////////////////////////////////////////////////////
+lazy val ui = Project(id="dagr-ui", base=file("ui"))
+  .settings(commonSettingsNoFork: _*)
+  .settings(unidocSettings: _*)
+  .settings(assemblySettings: _*)
+  .settings(description := "A tool to execute tasks in directed acyclic graphs.")
+  .settings(
+    scalaJSUseMainModuleInitializer := true,
+    skip in packageJSDependencies := false
+  )
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scala-js" %%% "scalajs-dom"    % "0.9.1",
+      "be.doeraene"  %%% "scalajs-jquery" % "0.9.1",
+	  "com.lihaoyi"  %%% "upickle"        % "0.4.3"
+    ),
+    jsDependencies ++= Seq(
+	  //RuntimeDOM,
+      "org.webjars"  %   "jquery"         % "2.1.4" / "2.1.4/jquery.js"
+    )
+  )
+  .enablePlugins(ScalaJSPlugin)
+  .dependsOn(core, webservice)
+  //.aggregate(core, tasks, pipelines, webservice) // FIXME: should not depend on webservice 
+  //.dependsOn(core, tasks, pipelines, webservice)
+
+////////////////////////////////////////////////////////////////////////////////////////////////
 // root (dagr) project
 ////////////////////////////////////////////////////////////////////////////////////////////////
 lazy val assemblySettings = Seq(
@@ -199,8 +231,8 @@ lazy val root = Project(id="dagr", base=file("."))
   .settings(unidocSettings: _*)
   .settings(assemblySettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
-  .aggregate(core, tasks, pipelines, webservice) // FIXME: should not depend on webservice
-  .dependsOn(core, tasks, pipelines, webservice)
+  .aggregate(core, tasks, pipelines, webservice, ui) // FIXME: should not depend on webservice and ui
+  .dependsOn(core, tasks, pipelines, webservice, ui)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Merge strategy for assembly
