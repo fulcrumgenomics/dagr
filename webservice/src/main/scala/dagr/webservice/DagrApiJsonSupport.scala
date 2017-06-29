@@ -165,6 +165,8 @@ trait DagrApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
       query.until.foreach { u => map += "until" -> u.toJson}
       map += ("depends_on" -> query.dependsOn.toList.toJson)
       map += ("dependents" -> query.dependents.toList.toJson)
+      query.parent.foreach { p => map += ("parent" -> p.toJson) }
+      map += ("children" -> query.children.toList.toJson)
 
       JsObject(map)
     }
@@ -182,7 +184,9 @@ trait DagrApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
         since        = if (jsObject.getFields("since").isEmpty) None else jsObject.fields("since").convertTo[Option[Instant]],
         until        = if (jsObject.getFields("until").isEmpty) None else jsObject.fields("until").convertTo[Option[Instant]],
         dependsOn    = if (jsObject.getFields("depends_on").isEmpty) Seq.empty else jsObject.fields("depends_on").convertTo[List[Int]].map(BigInt(_)),
-        dependents   = if (jsObject.getFields("dependents").isEmpty) Seq.empty else jsObject.fields("dependents").convertTo[List[Int]].map(BigInt(_))
+        dependents   = if (jsObject.getFields("dependents").isEmpty) Seq.empty else jsObject.fields("dependents").convertTo[List[Int]].map(BigInt(_)),
+        parent       = if (jsObject.getFields("parent").isEmpty) None else jsObject.fields("parent").convertTo[Option[TaskId]],
+        children     = if (jsObject.getFields("children").isEmpty) Seq.empty else jsObject.fields("children").convertTo[List[Int]].map(BigInt(_))
       )
     }
   }

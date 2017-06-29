@@ -59,27 +59,31 @@ case class TaskInfoQuery
   since: Option[Instant] = None, // since using statusTime
   until: Option[Instant] = None, // until using statusTime,
   dependsOn: Seq[TaskId] = Seq.empty,
-  dependents: Seq[TaskId] = Seq.empty
+  dependents: Seq[TaskId] = Seq.empty,
+  parent: Option[TaskId] = None, // TODO: include this in the response
+  children: Seq[TaskId] = Seq.empty
 ) {
   // TODO: filter out regexes that match the same stuff?
   private val nameRegexes: Seq[Regex] = this.name.map(_.r)
 
-  def get(infos: Iterable[TaskInfoLike]): Iterable[TaskInfoLike] = infos
-    .filter { info => this.nameRegexes.isEmpty || this.nameRegexes.exists(_.findFirstIn(info.task.name).isDefined) }
-    .filter { info => this.status.isEmpty || this.status.contains(info.status.name)}
-    .filter { info => this.id.isEmpty || info.id.forall(this.id.contains(_)) }
-    .filter { info => this.attempts.isEmpty || this.attempts.contains(info.attempts) }
-    .filter { info => leq(this.minResources, info.resources) }
-    .filter { info => geq(this.maxResources, info.resources) }
-    .filter { info => this.since.forall(s => s.compareTo(info.statusTime) <= 0) }
-    .filter { info => this.until.forall(u => u.compareTo(info.statusTime) <= 0) }
-    .filter { info => this.dependsOn.isEmpty || intersects(this.dependsOn, info.task.tasksDependedOn.flatMap(_.taskInfo.id).toSeq) }
-    .filter { info => this.dependents.isEmpty || intersects(this.dependents, info.task.tasksDependingOnThisTask.flatMap(_.taskInfo.id).toSeq) }
+  def get(infos: Iterable[TaskInfoTracker.Info]): Iterable[TaskInfoLike] = infos
+    .filter { info => this.nameRegexes.isEmpty || this.nameRegexes.exists(_.findFirstIn(info.info.task.name).isDefined) }
+    .filter { info => this.status.isEmpty || this.status.contains(info.info.status.name)}
+    .filter { info => this.id.isEmpty || info.info.id.forall(this.id.contains(_)) }
+    .filter { info => this.attempts.isEmpty || this.attempts.contains(info.info.attempts) }
+    .filter { info => leq(this.minResources,info.info.resources) }
+    .filter { info => geq(this.maxResources,info.info.resources) }
+    .filter { info => this.since.forall(s => s.compareTo(info.info.statusTime) <= 0) }
+    .filter { info => this.until.forall(u => u.compareTo(info.info.statusTime) <= 0) }
+    .filter { info => this.dependsOn.isEmpty || intersects(this.dependsOn,info.info.task.tasksDependedOn.flatMap(_.taskInfo.id).toSeq) }
+    .filter { info => this.dependents.isEmpty || intersects(this.dependents,info.info.task.tasksDependingOnThisTask.flatMap(_.taskInfo.id).toSeq) }
+    .filter { info => this.parent.forall(pid =>info.parent.id.contains(pid)) }
+    .filter { info => this.children.isEmpty || intersects(this.children, info.children.flatMap(_.id)) }
+    .map    { info => info.info }
 
   private def intersects(left: Seq[TaskId], right: Seq[TaskId]): Boolean = {
     left.exists { l => right.contains(l) }
   }
-
 
   /** Returns true left is not defined, or if left and right are defined and left is <= right in both cores and memory,
     * false otherwise. */

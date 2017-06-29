@@ -32,7 +32,8 @@ import akka.util.Timeout
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.DagrDef.TaskId
 import dagr.core.exec.Executor
-import dagr.core.reporting.ReportingDef.TaskLogger
+import dagr.core.reporting.ReportingDef.{TaskLogger, TaskRegister}
+import dagr.core.tasksystem.Task
 import dagr.core.tasksystem.Task.{TaskInfoLike, TaskStatus}
 import spray.can.Http
 
@@ -41,11 +42,16 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Try
 
+object TaskInfoTracker {
+  case class Info(info: TaskInfoLike, parent: TaskInfoLike, children: Seq[TaskInfoLike])
+}
 
 /** A little class to store all the infos created by the execution system. */
-class TaskInfoTracker(executor: Executor) extends TaskLogger {
+class TaskInfoTracker(executor: Executor) extends TaskLogger with TaskRegister {
   private val _infos = mutable.TreeSet[TaskInfoLike]()
   private val _idToInfo = mutable.HashMap[TaskId,TaskInfoLike]()
+  private val _toParent = mutable.HashMap[TaskInfoLike,TaskInfoLike]() // child -> parent
+  private val _toChildren = mutable.HashMap[TaskInfoLike,Seq[TaskInfoLike]]()
 
   /** Returns the task status by ordinal */
   def statusFrom(ordinal: Int): TaskStatus = executor.statusFrom(ordinal)
@@ -59,9 +65,29 @@ class TaskInfoTracker(executor: Executor) extends TaskLogger {
     }
   }
 
+  def register(parent: Task, child: Task*): Unit = {
+    if (!child.forall(_ == parent)) {
+      child.foreach {
+        c => _toParent(c.taskInfo) = parent.taskInfo
+      }
+      _toChildren(parent.taskInfo) = child.map(_.taskInfo)
+    }
+  }
+
   def info(id: TaskId): Option[TaskInfoLike] = this._idToInfo.get(id)
 
   def infos: Iterable[TaskInfoLike] = this._infos
+
+  // FIXME: rename
+  def fullInfo: Iterable[TaskInfoTracker.Info] = {
+    this._infos.map { info =>
+      TaskInfoTracker.Info(
+        info = info,
+        parent = _toParent(info),
+        children = _toChildren(info)
+      )
+    }
+  }
 
   // TODO: different methods of getting the info...
 }
