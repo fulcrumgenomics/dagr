@@ -23,15 +23,34 @@
  *
  */
 
-package dagr.webservice
+package dagr.api.models
 
-object Configuration extends dagr.core.config.Configuration {
+import upickle.Js
+import upickle.default.{Reader, Writer}
 
-  // Keys for configuration values used in dagr webservice
-  object Keys {
-    val WebServiceHost    = "dagr.webservice.host"
-    val WebServicePort    = "dagr.webservice.port"
-    val WebServiceVersion = "dagr.webservice.version"
-    val WebServiceRoot    = "dagr.webservice.root"
+case class TaskInfoResponse(infos: Seq[TaskInfo])
+
+object TaskInfoResponse {
+  implicit class InfoId(info: TaskInfo) {
+    def idStr: String = info.id.map(_.toString).getOrElse("None")
+  }
+
+  implicit val query2Writer: Writer[TaskInfoResponse] = Writer[TaskInfoResponse] {
+    response: TaskInfoResponse =>
+      val tuples = response.infos.map { info =>
+        (info.idStr, TaskInfo.query2Writer.write(info))
+      }
+      Js.Obj(tuples:_*)
+  }
+
+  implicit val query2Reader: Reader[TaskInfoResponse] = Reader[TaskInfoResponse] {
+    case obj: Js.Obj =>
+      val infos = obj.value.map { case (id, value) =>
+        val info = TaskInfo.query2Reader.read(value)
+        if (info.idStr != id) throw upickle.Invalid.Data(value, s"Task ids did not match ('$id' != '${info.idStr}'")
+        info
+      }
+      TaskInfoResponse(infos=infos)
   }
 }
+

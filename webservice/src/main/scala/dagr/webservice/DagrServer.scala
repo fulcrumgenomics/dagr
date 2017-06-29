@@ -25,9 +25,8 @@
 package dagr.webservice
 
 import akka.actor.ActorSystem
-import akka.io.IO
-import akka.io.Tcp.CommandFailed
-import akka.pattern._
+import akka.http.scaladsl.Http
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.DagrDef.TaskId
@@ -35,12 +34,11 @@ import dagr.core.exec.Executor
 import dagr.core.reporting.ReportingDef.{TaskLogger, TaskRegister}
 import dagr.core.tasksystem.Task
 import dagr.core.tasksystem.Task.{TaskInfoLike, TaskStatus}
-import spray.can.Http
 
 import scala.collection.mutable
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object TaskInfoTracker {
   case class Info(info: TaskInfoLike, parent: TaskInfoLike, children: Seq[TaskInfoLike])
@@ -50,8 +48,8 @@ object TaskInfoTracker {
 class TaskInfoTracker(executor: Executor) extends TaskLogger with TaskRegister {
   private val _infos = mutable.TreeSet[TaskInfoLike]()
   private val _idToInfo = mutable.HashMap[TaskId,TaskInfoLike]()
-  private val _toParent = mutable.HashMap[TaskInfoLike,TaskInfoLike]() // child -> parent
-  private val _toChildren = mutable.HashMap[TaskInfoLike,Seq[TaskInfoLike]]()
+  private val _toParent = mutable.HashMap[Task,Task]() // child -> parent
+  private val _toChildren = mutable.HashMap[Task,Seq[Task]]()
 
   /** Returns the task status by ordinal */
   def statusFrom(ordinal: Int): TaskStatus = executor.statusFrom(ordinal)
@@ -68,9 +66,9 @@ class TaskInfoTracker(executor: Executor) extends TaskLogger with TaskRegister {
   def register(parent: Task, child: Task*): Unit = {
     if (!child.forall(_ == parent)) {
       child.foreach {
-        c => _toParent(c.taskInfo) = parent.taskInfo
+        c => _toParent(c) = parent
       }
-      _toChildren(parent.taskInfo) = child.map(_.taskInfo)
+      _toChildren(parent) = child.toSeq
     }
   }
 
@@ -81,20 +79,40 @@ class TaskInfoTracker(executor: Executor) extends TaskLogger with TaskRegister {
   // FIXME: rename
   def fullInfo: Iterable[TaskInfoTracker.Info] = {
     this._infos.map { info =>
+      _toChildren(info.task).map { child =>
+        child._taskInfo.getOrElse {
+          import dagr.api.models.TaskInfo
+          new TaskInfo(
+            task       = child,
+            name       = child.name,
+            id         = None,
+            attempts   = -1,
+            script     = None,
+            log        = None,
+            resources  = None,
+            exitCode   = None,
+            throwable  = None,
+            status     = null, // FIXME
+            timePoints = Seq.empty,
+            statusTime = null // FIXME
+          )
+        }
+        null
+      }
+
       TaskInfoTracker.Info(
-        info = info,
-        parent = _toParent(info),
-        children = _toChildren(info)
+        info     = info,
+        parent   = _toParent(info.task).taskInfo,
+        children = _toChildren(info.task).map(_.taskInfo) // _.taskInfo may not be defined yet!!!
       )
     }
   }
-
-  // TODO: different methods of getting the info...
 }
 
 /** Dagr web service */
-class DagrServer(executor: Executor, host: Option[String], port: Option[Int]) extends dagr.core.config.Configuration with LazyLogging {
-  implicit val actorSystem = ActorSystem("dagr")
+class DagrServer(executor: Executor, host: Option[String], port: Option[Int])(implicit ex: ExecutionContext) extends dagr.core.config.Configuration with LazyLogging {
+  implicit val actorSystem: ActorSystem        = ActorSystem("dagr-server")
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   private val taskInfoTracker = new TaskInfoTracker(executor)
 
@@ -103,8 +121,10 @@ class DagrServer(executor: Executor, host: Option[String], port: Option[Int]) ex
   }
 
   private val _port = port.getOrElse {
-    optionallyConfigure[String](Configuration.Keys.WebSErvicePort).getOrElse("8080").toInt
+    optionallyConfigure[String](Configuration.Keys.WebServicePort).getOrElse("8080").toInt
   }
+
+  private val service = new DagrApiService(taskInfoTracker)
 
   /** The logger to track all the task infos. */
   def taskLogger: TaskLogger = this.taskInfoTracker
@@ -119,18 +139,18 @@ class DagrServer(executor: Executor, host: Option[String], port: Option[Int]) ex
 
   private def startWebServiceActors() = {
     implicit val bindTimeout: Timeout = 120.seconds
-    val service = actorSystem.actorOf(DagrApiServiceActor.props(taskInfoTracker), "dagr-actor")
-    Await.result(IO(Http) ? Http.Bind(service, interface = this._host, port = this._port), bindTimeout.duration) match {
-      case CommandFailed(b: Http.Bind) =>
+    Await.ready(Http().bindAndHandle(service.routes, interface=this._host, port=this._port), bindTimeout.duration) onComplete {
+      case Success(_) =>
+        logger.info("Actor system started.")
+      case Failure(_) =>
         logger.error(s"Unable to bind to port ${this._port} on interface ${this._host}")
-        actorSystem.shutdown()
+        Await.result(actorSystem.terminate(), 60.seconds)
         stopAndExit()
-      case _ => logger.info("Actor system started.")
     }
   }
 
-  private def stopWebServiceActors() {
-    IO(Http) ! Http.CloseAll
+  private def stopWebServiceActors(): Unit = {
+    Await.result(Http().shutdownAllConnectionPools(), 120.seconds)
   }
 
   private def stopAndExit() {

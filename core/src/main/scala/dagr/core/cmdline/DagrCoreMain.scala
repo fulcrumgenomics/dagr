@@ -180,7 +180,7 @@ class DagrCoreArgs(
     }
   }
 
-  protected def executeSetup(executor: Executor, report: FilePath): Unit = {
+  protected def executeSetup(executor: Executor, report: FilePath)(implicit ex: ExecutionContext): Unit = {
     // Set up an interactive logger if desired and supported
     if (this.interactive) {
       if (Terminal.supportsAnsi) {

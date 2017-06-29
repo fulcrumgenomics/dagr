@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016 Fulcrum Genomics LLC
+ * Copyright (c) 2016-2017 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,147 +24,103 @@
 
 package dagr.webservice
 
-import akka.actor.{Actor, ActorContext, Props}
-import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.DagrDef.TaskId
+import akka.actor.ActorSystem
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.headers.HttpOriginRange
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.{Route, _}
+import akka.stream.ActorMaterializer
+import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
+import dagr.api.DagrApi
+import upickle.Js
+import upickle.Js.Value
+import upickle.default.{Reader, Writer}
 
-import spray.http.HttpHeaders.RawHeader
-import spray.http._
-import spray.http.StatusCodes._
-import spray.httpx.marshalling.Marshaller
-import spray.routing._
-import spray.routing.directives.RouteDirectives
-import spray.util.LoggingContext
-import spray.json._
-import scala.concurrent.ExecutionContextExecutor
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
 
-object DagrApiServiceActor {
-  def props(taskInfoTracker: TaskInfoTracker): Props = Props(classOf[DagrApiServiceActor], taskInfoTracker)
-}
 
-/** The main actor for the API service */
-class DagrApiServiceActor(taskInfoTracker: TaskInfoTracker) extends HttpServiceActor with LazyLogging {
-  implicit val executionContext: ExecutionContextExecutor = actorRefFactory.dispatcher
+/** A simple trait to set CORS headers. Mix this in and wrap your routes with `corsFilter`. */
+trait CorsDirectirves {
+  import ch.megard.akka.http.cors.scaladsl.CorsDirectives._
 
-  trait ActorRefFactoryContext {
-    def actorRefFactory: ActorContext = context
+  // FIXME: we don not want all origins!!!
+  private  val corsSettings: CorsSettings = CorsSettings.defaultSettings.copy(allowedOrigins = HttpOriginRange.*)
+
+  private val rejectionHandler: RejectionHandler = corsRejectionHandler withFallback RejectionHandler.default
+
+  // Your exception handler
+  private val exceptionHandler: ExceptionHandler = ExceptionHandler {
+    case e: NoSuchElementException => complete(StatusCodes.NotFound -> e.getMessage)
   }
-  override def actorRefFactory: ActorContext = context
 
-  val dagrService: DagrApiService = new DagrApiService(taskInfoTracker) with ActorRefFactoryContext
-  val possibleRoutes: Route = options{ complete(OK) } ~ dagrService.routes
+  // Combining the two handlers only for convenience
+  private val handleErrors: Directive[Unit] = handleRejections(rejectionHandler) & handleExceptions(exceptionHandler)
 
-  def receive: Actor.Receive = runRoute(possibleRoutes)
-
-  implicit def routeExceptionHandler(implicit log: LoggingContext) =
-    ExceptionHandler {
-      case e: IllegalArgumentException => complete(BadRequest, e.getMessage)
-      case ex: Throwable =>
-        logger.error(ex.getMessage)
-        complete(InternalServerError, s"Something went wrong, but the error is unspecified.")
-    }
-
-  implicit val routeRejectionHandler =
-    RejectionHandler {
-      case MalformedRequestContentRejection(message, cause) :: _ => complete(BadRequest, message)
-    }
-}
-
-/** A simple trait to set CORS headers. Mix this in and wrap your routes with `respondWithCORSHeaders`. */
-trait CORSDirectives {
-  this: HttpService =>
-
-  def respondWithCORSHeaders(origin: AllowedOrigins): Directive0 = respondWithHeaders(HttpHeaders.`Access-Control-Allow-Origin`(origin))
-
-  def corsFilter(origin: String)(route: Route): Route = {
-    if (origin == "*") {
-      respondWithCORSHeaders(AllOrigins)(route)
-    }
-    else {
-      optionalHeaderValueByName("Origin") {
-        case None => route
-        case Some(clientOrigin) if origin == clientOrigin =>
-          respondWithCORSHeaders(SomeOrigins(Seq(HttpOrigin(origin))))(route)
-        case Some(_) =>
-          complete(Forbidden, Nil, "Invalid origin") // Maybe, a Rejection will fit better
+  def corsFilter(route: Route): Route = {
+    // NB: rejections and exceptions are handled *before* the CORS directive (in the inner route) so that the correct
+    // CORS headers in the response even when an error occurs
+    cors(corsSettings) {
+      handleErrors {
+        route
       }
     }
   }
+
 }
 
-object DagrApiService {
-  val version: String = "v1" // TODO: match versions
-  val root: String    = "service"
+object DagrApiService extends dagr.core.config.Configuration {
+  val _version: String = optionallyConfigure[String](Configuration.Keys.WebServiceVersion).getOrElse("v1")
+  val _root: String    =  optionallyConfigure[String](Configuration.Keys.WebServiceRoot).getOrElse("service")
 }
 
 /** Defines the possible routes for the Dagr service */
-abstract class DagrApiService(val taskInfoTracker: TaskInfoTracker) extends HttpService with PerRequestCreator with DagrApiJsonSupport with CORSDirectives {
+class DagrApiService(val taskInfoTracker: TaskInfoTracker)
+                             (implicit val system: ActorSystem,
+                              implicit val materializer: ActorMaterializer,
+                              implicit val executionContext: ExecutionContext)
+                              //implicit val executionContextExecutor: ExecutionContextExecutor)
+    extends CorsDirectirves
+    with DagrApiServerImpl
+    with autowire.Server[Js.Value, upickle.default.Reader, upickle.default.Writer] {
   import DagrApiService._
 
-  // FIXME: we don not want all origins!!!
-  def routes: Route = corsFilter("*") { versionRoute ~ taskScriptRoute ~ taskLogRoute ~ infoRoute }
+  override def write[Result](r: Result)(implicit writer: Writer[Result]): Js.Value = {
+    upickle.default.writeJs[Result](r)
+  }
+
+  override def read[Result](p: Value)(implicit reader: Reader[Result]): Result = {
+    upickle.default.readJs[Result](p)
+  }
+
+  val routes: Route = corsFilter(versionRoute ~ queryRoute)
+
+  private val prefixSegments = List("dagr", "api", "DagrApi")
+
 
   def versionRoute: Route = {
-    path(root / "version") {
+    path(_root / "version") {
       pathEnd {
         get {
-          requestContext => perRequest(requestContext, DagrApiHandler.props(taskInfoTracker), DagrApiHandler.DagrVersionRequest())
+          complete(_version)
         }
       }
     }
   }
 
-  def taskScriptRoute: Route = {
-    path(root / version / "script" / IntNumber) { (id) =>
-      get {
-        Try(TaskId(id)) match {
-          case Success(taskId) =>
-            requestContext => perRequest(requestContext, DagrApiHandler.props(taskInfoTracker), DagrApiHandler.DagrTaskScriptRequest(taskId))
-          case Failure(ex) => complete(StatusCodes.BadRequest)
+  def queryRoute: Route = {
+    pathPrefix(_root / _version / Segments) { segments =>
+      post {
+        entity(as[String]) { inputJson =>
+          println(s"segments are: ${segments}")
+          val request = autowire.Core.Request.apply(
+            segments,
+            upickle.json.read(inputJson).asInstanceOf[Js.Obj].value.toMap
+          )
+          println(s"request: $request")
+          val result: Future[String] = this.route[DagrApi](this)(request).map(upickle.default.write(_))
+          onSuccess(result) { str: String => complete(str) }
         }
       }
     }
   }
-
-  def taskLogRoute: Route = {
-    path(root / version / "log" / IntNumber) { (id) =>
-      get {
-        Try(TaskId(id)) match {
-          case Success(taskId) =>
-            requestContext => perRequest(requestContext, DagrApiHandler.props(taskInfoTracker), DagrApiHandler.DagrTaskLogRequest(taskId))
-          case Failure(ex) => complete(StatusCodes.BadRequest)
-        }
-      }
-    }
-  }
-
-  def infoRoute: Route = {
-    pathPrefix(root / version / "info") {
-      pathEnd {
-        get {
-          requestContext => perRequest(requestContext, DagrApiHandler.props(taskInfoTracker), DagrApiHandler.DagrTaskInfosRequest())
-        }
-      } ~
-      pathEnd {
-        post {
-          entity(as[TaskInfoQuery]) { query =>
-            requestContext => perRequest(requestContext, DagrApiHandler.props(taskInfoTracker), DagrApiHandler.DagrTaskInfoQueryRequest(query))
-          }
-        }
-      } ~
-      pathPrefix(IntNumber) { (id) =>
-        get {
-          Try(TaskId(id)) match {
-            case Success(taskId) =>
-              requestContext => perRequest(requestContext, DagrApiHandler.props(taskInfoTracker), DagrApiHandler.DagrTaskInfoRequest(taskId))
-            case Failure(ex) => complete(StatusCodes.BadRequest)
-          }
-        }
-      }
-
-    }
-  }
-
-  def rawJson = extract { _.request.entity.asString}
 }

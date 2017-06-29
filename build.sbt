@@ -86,7 +86,7 @@ lazy val commonSettingsNoFork = Seq(
   organizationHomepage := Some(url("http://www.fulcrumgenomics.com")),
   homepage             := Some(url("http://github.com/fulcrumgenomics/dagr")),
   startYear            := Some(2015),
-  scalaVersion         := "2.11.11",
+  scalaVersion         := "2.12.2",
   crossScalaVersions   := Seq("2.11.11", "2.12.2"),
   scalacOptions        += "-target:jvm-1.8",
   scalacOptions in (Compile, doc) ++= docScalacOptions,
@@ -131,8 +131,7 @@ lazy val core = Project(id="dagr-core", base=file("core"))
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
       "org.reflections"     %   "reflections"       %  "0.9.10",
       "com.typesafe"        %   "config"            %  "1.3.1",
-      "javax.servlet"       %   "javax.servlet-api" %  "3.1.0",
-	  "com.lihaoyi"         %%  "upickle"           %  "0.4.3"
+      "javax.servlet"       %   "javax.servlet-api" %  "3.1.0"
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
@@ -169,31 +168,54 @@ lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
   .dependsOn(tasks, core)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+// api project
+////////////////////////////////////////////////////////////////////////////////////////////////
+lazy val upickleV = "0.4.4"
+lazy val api = Project(id="dagr-api", base=file("api"))
+  .settings(commonSettings: _*)
+  .settings(unidocSettings: _*)
+  .settings(assemblySettings: _*)
+  .settings(description := "An API for dagr.")
+  .settings(
+      libraryDependencies ++= Seq(
+          "com.lihaoyi"       %% "upickle"           % upickleV,
+          "com.lihaoyi"       %% "autowire"          % "0.2.6"
+      )
+  )
+  .aggregate(core, tasks, pipelines)
+  .dependsOn(core, tasks, pipelines)
+
+////////////////////////////////////////////////////////////////////////////////////////////////
 // webservice project
 ////////////////////////////////////////////////////////////////////////////////////////////////
-val akkaV = "2.3.9" 
-val sprayV = "1.3.3" 
+lazy val akkaV= "2.4.19"
+lazy val akkaHttpV = "10.0.9"
 lazy val webservice = Project(id="dagr-webservice", base=file("webservice"))
   .settings(commonSettings: _*)
   .settings(unidocSettings: _*)
   .settings(assemblySettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
   .settings(
-    libraryDependencies ++= Seq(
-      "com.typesafe.akka"  %%  "akka-actor"      % akkaV,
-      "io.spray"           %%  "spray-can"       % sprayV,
-      "io.spray"           %%  "spray-routing"   % sprayV,
-      "io.spray"           %%  "spray-client"    % sprayV,
-      "io.spray"           %%  "spray-http"      % sprayV,
-      "io.spray"           %%  "spray-json"      % sprayV
+      libraryDependencies ++= Seq(
+        "com.lihaoyi"       %% "autowire"             % "0.2.6",
+        "com.lihaoyi"       %% "upickle"              % upickleV,
+        "com.lihaoyi"       %% "scalatags"            % "0.6.5",
+        "com.typesafe.akka" %% "akka-actor"           % akkaV,
+        "com.typesafe.akka" %% "akka-http"            % akkaHttpV,
+        "com.typesafe.akka" %% "akka-http-core"       % akkaHttpV,
+        "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpV,
+        "ch.megard"         %% "akka-http-cors"       % "0.2.1",
+        "com.typesafe.akka" %% "akka-testkit"         % "2.5.3" % Test,
+        "com.typesafe.akka" %% "akka-http-testkit"    % "10.0.9" % Test
     )
   )
-  .aggregate(core, tasks, pipelines)
-  .dependsOn(core, tasks, pipelines)
+  .aggregate(core, tasks, pipelines, api)
+  .dependsOn(core, tasks, pipelines, api)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // ui project
 ////////////////////////////////////////////////////////////////////////////////////////////////
+/*
 lazy val ui = Project(id="dagr-ui", base=file("ui"))
   .settings(commonSettingsNoFork: _*)
   .settings(unidocSettings: _*)
@@ -207,10 +229,10 @@ lazy val ui = Project(id="dagr-ui", base=file("ui"))
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-dom"    % "0.9.1",
       "be.doeraene"  %%% "scalajs-jquery" % "0.9.1",
-	  "com.lihaoyi"  %%% "upickle"        % "0.4.3"
+      "com.lihaoyi"  %%% "upickle"        % "0.4.3"
     ),
     jsDependencies ++= Seq(
-	  //RuntimeDOM,
+      //RuntimeDOM,
       "org.webjars"  %   "jquery"         % "2.1.4" / "2.1.4/jquery.js"
     )
   )
@@ -218,6 +240,7 @@ lazy val ui = Project(id="dagr-ui", base=file("ui"))
   .dependsOn(core, webservice)
   //.aggregate(core, tasks, pipelines, webservice) // FIXME: should not depend on webservice 
   //.dependsOn(core, tasks, pipelines, webservice)
+  */
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // root (dagr) project
@@ -231,8 +254,8 @@ lazy val root = Project(id="dagr", base=file("."))
   .settings(unidocSettings: _*)
   .settings(assemblySettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
-  .aggregate(core, tasks, pipelines, webservice, ui) // FIXME: should not depend on webservice and ui
-  .dependsOn(core, tasks, pipelines, webservice, ui)
+  .aggregate(core, tasks, pipelines, webservice) // FIXME: should not depend on webservice and ui
+  .dependsOn(core, tasks, pipelines, webservice)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Merge strategy for assembly

@@ -41,6 +41,24 @@ import scala.util.control.Breaks._
 /** Utility methods to aid in working with a task. */
 object Task {
 
+  object TaskStatus {
+    /** Builds a [[TaskStatus]] from the string.  The returned status will be an anonymous sub-class. */
+    def parse(s: String): TaskStatus = {
+      s.split(",", 4).toList match {
+        case _name :: _ordinal :: _success :: _description :: Nil=>
+          new TaskStatus {
+            override val name: String        = _name
+            override val ordinal: Int        = _ordinal.toInt
+            override val success: Boolean    = _success.toBoolean
+            override val description: String = _description
+          }
+        case _ =>
+          throw new IllegalArgumentException(s"Could not parse TaskStatus '$s'")
+      }
+    }
+  }
+
+
   /** The status of a task.  Any execution system requiring a custom set of statuses should extend this trait. */
   trait TaskStatus {
     /** A brief description of the status. */
@@ -90,10 +108,22 @@ object Task {
 
   object TimePoint {
     def parse(s: String, f: Int => TaskStatus): TimePoint = {
-      s.split(',').toList match {
-        case _ :: ordinal :: instant :: _ =>
+      s.split(",", 5).toList match {
+        case instant :: name :: ordinal :: success :: description =>
           TimePoint(
             status = f(ordinal.toInt),
+            instant = Instant.parse(instant)
+          )
+        case _ =>
+          throw new IllegalArgumentException(s"Could not parse TimePoint '$s'")
+      }
+    }
+
+    def parse(s: String): TimePoint = {
+      s.split(",", 1).toList match {
+        case instant :: status :: Nil =>
+          TimePoint(
+            status  = TaskStatus.parse(status),
             instant = Instant.parse(instant)
           )
         case _ =>
@@ -105,7 +135,7 @@ object Task {
   /** A tuple representing the instant the task was set to the given status. */
   case class TimePoint(status: TaskStatus, instant: Instant) {
     override def toString: String = {
-      s"${this.status.name},${this.status.ordinal},${this.instant.toString},${this.status.description}"
+      s"${this.instant},${this.status.name},${this.status.ordinal},${this.status.success},${this.status.description}"
     }
   }
 
@@ -345,7 +375,7 @@ trait Task extends Dependable {
   private[dagr] var _executor : Option[Executor] = None
 
   /** The execution information about this task, or None if not being executed. */
-  private[core] var _taskInfo : Option[TaskInfo] = None
+  private[dagr] var _taskInfo : Option[TaskInfo] = None
   private[dagr] def taskInfo  : TaskInfo = this._taskInfo.get
   private[core] def taskInfo_=(info: TaskInfo) = {
     this._taskInfo = Some(info)

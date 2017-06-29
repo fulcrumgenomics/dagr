@@ -91,7 +91,7 @@ class DagrServerArgs(
     super.configure(pipeline, commandLine)
   }
 
-  override protected def executeSetup(executor: Executor, report: FilePath): Unit = {
+  override protected def executeSetup(executor: Executor, report: FilePath)(implicit ex: ExecutionContext): Unit = {
     super.executeSetup(executor, report)
 
     // Set up the web service

@@ -23,15 +23,13 @@
  *
  */
 
-package dagr.webservice
+package dagr.api
 
-object Configuration extends dagr.core.config.Configuration {
+import dagr.api.models.{TaskInfoQuery, TaskInfoResponse}
 
-  // Keys for configuration values used in dagr webservice
-  object Keys {
-    val WebServiceHost    = "dagr.webservice.host"
-    val WebServicePort    = "dagr.webservice.port"
-    val WebServiceVersion = "dagr.webservice.version"
-    val WebServiceRoot    = "dagr.webservice.root"
-  }
+trait DagrApi {
+
+  def version(): String
+
+  def query(query: TaskInfoQuery): TaskInfoResponse
 }
