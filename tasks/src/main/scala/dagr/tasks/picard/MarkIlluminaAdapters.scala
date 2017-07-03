@@ -29,7 +29,7 @@ import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.DagrDef
 import DagrDef.PathToBam
-import dagr.core.exec.{Cores, Memory}
+import dagr.api.models.{Cores, Memory}
 
 import scala.collection.mutable.ListBuffer
 

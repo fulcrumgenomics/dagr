@@ -8,7 +8,7 @@ import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.tasks.DataTypes.{Fastq, Sam, SamOrBam}
 import dagr.tasks.DagrDef
 import DagrDef._
-import dagr.core.exec.{Cores, Memory}
+import dagr.api.models.{Cores, Memory}
 import dagr.tasks.picard.{FifoBuffer, MergeBamAlignment, SamToFastq}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 import htsjdk.samtools.SamPairUtil.PairOrientation

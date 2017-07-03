@@ -30,6 +30,7 @@ import com.fulcrumgenomics.commons.CommonsDef.DirPath
 import com.fulcrumgenomics.commons.collection.BiMap
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.commons.util.LazyLogging
+import dagr.api.models.ResourceSet
 import dagr.core.DagrDef._
 import dagr.core.exec._
 import dagr.core.tasksystem._
@@ -235,7 +236,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private[execsystem] def processCompletedTask(taskId: TaskId, doRetry: Boolean = true): Unit = {
     val node      = this(taskId)
     val taskInfo  = node.taskInfo
-    taskInfo.logTaskMessage(this.logger)
+    this.logger.info(taskInfo.infoString)
     val updateNodeToCompleted: Boolean = if (TaskStatus.failed(taskStatus = taskInfo.status) && doRetry) {
       val retryTask = taskInfo.task match {
         case retry: Retry => retry.retry(this.getTaskManagerResources, taskInfo)
@@ -244,10 +245,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       if (retryTask) {
         // retry it
         logger.debug("task [" + taskInfo.task.name + "] is being retried")
-        node.state = NO_PREDECESSORS
-        taskInfo.attempts += 1
-        taskInfo.script  = Some(scriptPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts))
-        taskInfo.log = Some(logPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts))
+        node.state          = NO_PREDECESSORS
+        taskInfo.attempts   += 1
+        taskInfo.scriptPath = scriptPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts)
+        taskInfo.logPath    = logPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts)
         false // do not update the node to completed
       }
       else {
@@ -456,7 +457,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       else {
         completeGraphNode(node, Some(taskInfo))
       }
-      taskInfo.logTaskMessage(this.logger)
+      this.logger.info(taskInfo.infoString)
     }
   }
 

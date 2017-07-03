@@ -26,7 +26,7 @@ package dagr.core.tasksystem
 import java.nio.file.Path
 
 import com.fulcrumgenomics.commons.io.Io
-import dagr.core.exec.{Cores, Memory, ResourceSet}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.Pipes.{RedirectErrorToFile, RedirectToFile}
 import com.fulcrumgenomics.commons.CommonsDef.unreachable
 

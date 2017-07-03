@@ -25,16 +25,20 @@
 
 package dagr.core.execsystem2
 
-import dagr.core.execsystem2.TaskStatus.{ManuallySucceeded, SucceededExecution}
-import dagr.core.tasksystem.Task
+import dagr.api.models.{TaskStatus => RootTaskStatus}
 import enumeratum.values.{IntEnum, IntEnumEntry}
+
 import scala.collection.immutable.IndexedSeq
 
 /** The root of all task statuses in [[dagr.core.execsystem2]]. */
-sealed abstract class TaskStatus extends IntEnumEntry with Task.TaskStatus {
+sealed abstract class TaskStatus extends IntEnumEntry with RootTaskStatus {
   override def ordinal = this.value
   /** Returns true if this status indicates any type of success, false otherwise. */
-  def success: Boolean = this.ordinal == SucceededExecution.ordinal || this.ordinal == ManuallySucceeded.ordinal
+  def success: Boolean = this.isInstanceOf[TaskStatus.Succeeded]
+  /** Returns true if this status indicates any type of failure, false otherwise. */
+  def failure: Boolean = this.isInstanceOf[TaskStatus.Failed]
+  /** Returns true if this status indicates the task is executing, false otherwise. */
+  def executing: Boolean = this == TaskStatus.Running
 }
 
 case object TaskStatus extends IntEnum[TaskStatus] {

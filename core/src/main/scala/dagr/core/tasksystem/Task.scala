@@ -26,10 +26,11 @@ package dagr.core.tasksystem
 import java.time.{Duration, Instant}
 
 import com.fulcrumgenomics.commons.CommonsDef.{FilePath, unreachable}
-import com.fulcrumgenomics.commons.util.Logger
+import com.fulcrumgenomics.commons.io.PathUtil
 import com.fulcrumgenomics.commons.util.TimeUtil.formatElapsedTime
+import dagr.api.models.{ResourceSet, TaskStatus, TimePoint}
 import dagr.core.DagrDef.TaskId
-import dagr.core.exec.{Executor, ResourceSet}
+import dagr.core.exec.Executor
 import dagr.core.execsystem.TaskExecutionInfo
 import dagr.core.tasksystem.Task.TaskInfo
 
@@ -41,22 +42,24 @@ import scala.util.control.Breaks._
 /** Utility methods to aid in working with a task. */
 object Task {
 
-  /** The status of a task.  Any execution system requiring a custom set of statuses should extend this trait. */
-  trait TaskStatus {
-    /** A brief description of the status. */
-    def description: String
-    /** A unique ordinal for the status, used to prioritize reporting of statuses*/
-    def ordinal: Int
-    /** The name of the status, by default the class' simple name (sanitized). */
-    def name: String = this.getClass.getSimpleName.replaceFirst("[$].*$", "")
-    /** Returns true if this status indicates any type of success, false otherwise. */
-    def success: Boolean
-    /** The string representation of the status, by default the definition. */
-    override def toString: String = this.description
-  }
+  trait TaskInfoLike extends dagr.api.models.TaskInfoLike with Ordered[TaskInfoLike] {
+    /** Gets the associated task. */
+    def task: Task
 
-  /** A tuple representing the instant the task was set to the given status. */
-  private[core] case class TimePoint(status: TaskStatus, instant: Instant)
+    def compare(that: TaskInfoLike): Int = {
+      (this.id, that.id) match {
+        case (Some(_), None)    => -1
+        case (None, Some(_))    => 1
+        case (None, None)       => this.status.ordinal - that.status.ordinal
+        case (Some(l), Some(r)) => (l - r).toInt
+      }
+    }
+
+    def scriptPath: Option[FilePath] = this.script.map(PathUtil.pathTo(_))
+    def logPath: Option[FilePath]    = this.script.map(PathUtil.pathTo(_))
+
+
+  }
 
   /** Execution information associated with a task.  Any execution system should extend this class to store
     * their specific metadata.
@@ -70,7 +73,7 @@ object Task {
     * @param exitCode the exit-code for the task, if any
     * @param throwable a throwable generated during execution, if any
     */
-  private[core] abstract class TaskInfo
+  private[dagr] abstract class TaskInfo
   (
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     // Core info
@@ -85,12 +88,12 @@ object Task {
     // These properties are specific to running things in a local (bash/process) environment.  We may
     // have other executors that don't have these, and so for now, they are included, but made options.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    var script     : Option[FilePath]    = None,
-    var log        : Option[FilePath]    = None,
+    var script     : Option[String]      = None,
+    var log        : Option[String]      = None,
     var resources  : Option[ResourceSet] = None,
     var exitCode   : Option[Int]         = None,
     var throwable  : Option[Throwable]   = None
-  ) {
+  ) extends TaskInfoLike {
 
     if (attempts < 1) throw new RuntimeException("attempts must be greater than zero")
 
@@ -136,11 +139,24 @@ object Task {
       instant
     }
 
+    /** Sets the path to the script. */
+    def scriptPath_=(path: FilePath): Unit = {
+      this.script = Some(path.toString)
+    }
+
+    /** Sets the path to the log. */
+    def logPath_=(path: FilePath): Unit = {
+      this.log = Some(path.toString)
+    }
+
+    /** Gets the name of the task. */
+    def name : String = this.task.name
+
     /** The current status of the task. */
-    def status     : TaskStatus = this.timePoints.last.status
+    def status : TaskStatus = this.timePoints.last.status
 
     /** The instant the task reached a given status. */
-    final def timePoints :  Traversable[TimePoint] = this._timePoints.toIndexedSeq
+    final def timePoints : Traversable[TimePoint] = this._timePoints.toIndexedSeq
 
     /** The instant the task reached the current status. */
     final def statusTime : Instant = apply(this.status).get // Break it down (Oh-oh-oh-oh-oh-oh-oh-oh-oh oh-oh) (Oh-oh-oh-oh-oh-oh-oh-oh-oh oh-oh). Stop. Status time
@@ -161,15 +177,6 @@ object Task {
         val sinceStart      = Duration.between(start, end)
         (formatElapsedTime(sinceStart.getSeconds), formatElapsedTime(sinceSubmission.getSeconds))
       case _ => ("NA", "NA")
-    }
-
-    /** Logs a message for the given task. */
-    private[core] def logTaskMessage(logger: Logger): Unit = {
-      val resourceMessage = this.resources match {
-        case Some(r) => s" with ${r.cores} cores and ${r.memory} memory"
-        case None    => ""
-      }
-      logger.info(s"'${this.task.name}' : ${this.status} on attempt #${this.attempts}" + resourceMessage)
     }
   }
 
@@ -291,11 +298,11 @@ object Task {
  */
 trait Task extends Dependable {
   /** The executor that is responsible for executing this task, None if not set. */
-  private[core] var _executor : Option[Executor] = None
+  private[dagr] var _executor : Option[Executor] = None
 
   /** The execution information about this task, or None if not being executed. */
-  private[core] var _taskInfo : Option[TaskInfo] = None
-  private[core] def taskInfo  : TaskInfo = this._taskInfo.get
+  private[dagr] var _taskInfo : Option[TaskInfo] = None
+  private[dagr] def taskInfo  : TaskInfo = this._taskInfo.get
   private[core] def taskInfo_=(info: TaskInfo) = {
     this._taskInfo = Some(info)
     this._executor.foreach(_.record(info))
@@ -316,10 +323,10 @@ trait Task extends Dependable {
   private val dependedOnByTasks = new ListBuffer[Task]()
 
   /** Gets the sequence of tasks that this task depends on.. */
-  protected[core] def tasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
+  protected[dagr] def tasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
 
   /** Gets the sequence of tasks that depend on this task. */
-  protected[core] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
+  protected[dagr] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
 
   /** Must be implemented to handle the addition of a dependent. */
   override def addDependent(dependent: Dependable): Unit = dependent.headTasks.foreach(t => {

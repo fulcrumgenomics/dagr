@@ -39,10 +39,14 @@ import dagr.core.config.Configuration
 import dagr.core.exec._
 import dagr.core.reporting.{ExecutionLogger, Terminal, TopLikeStatusReporter}
 import dagr.core.tasksystem.Pipeline
+import dagr.api.models.{Cores, Memory}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContext
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe.TypeTag
 import scala.util.Success
+
 
 object DagrCoreMain extends Configuration {
   /** The packages we wish to include in our command line **/
@@ -52,9 +56,8 @@ object DagrCoreMain extends Configuration {
   }
 
   /** The main method */
-  /** The main method */
   def main(args: Array[String]): Unit = {
-    new DagrCoreMain().makeItSoAndExit(args)
+    new DagrCoreMain[DagrCoreArgs]().makeItSoAndExit(args)
   }
 
   /** Provide a command line validation error message */
@@ -132,7 +135,7 @@ class DagrCoreArgs(
   }
 
   // Invoked by DagrCommandLineParser after the pipeline has also been instantiated
-  private[cmdline] def configure(pipeline: Pipeline, commandLine: Option[String] = None)(implicit ex: ExecutionContext) : Unit = {
+  protected[dagr] def configure(pipeline: Pipeline, commandLine: Option[String] = None)(implicit ex: ExecutionContext) : Unit = {
     try {
       val config = new Configuration { }
 
@@ -178,16 +181,7 @@ class DagrCoreArgs(
     }
   }
 
-  /**
-    * Attempts to setup the various directories needed to executed the pipeline, execute it, and generate
-    * an execution report.
-    */
-  protected[cmdline] def execute(pipeline : Pipeline)(implicit ex: ExecutionContext): Int = {
-    val report = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
-
-    // Get the executor
-    val executor = this.executor.getOrElse(throw new IllegalStateException("Executor was not configured, did you all configure()"))
-
+  protected def executeSetup(executor: Executor, report: FilePath)(implicit ex: ExecutionContext): Unit = {
     // Set up an interactive logger if desired and supported
     if (this.interactive) {
       if (Terminal.supportsAnsi) {
@@ -215,10 +209,9 @@ class DagrCoreArgs(
     this.replayLog.foreach { log =>
       executor.withReporter(TaskCache(log))
     }
+  }
 
-    // execute
-    val exitCode = executor.execute(pipeline)
-
+  protected def executeFinish(executor: Executor, report: FilePath): Unit = {
     // Write out the execution report
     if (!interactive || Io.StdOut != report) {
       val pw = new PrintWriter(Io.toWriter(report))
@@ -226,11 +219,32 @@ class DagrCoreArgs(
       pw.close()
     }
 
+  }
+
+  /**
+    * Attempts to setup the various directories needed to executed the pipeline, execute it, and generate
+    * an execution report.
+    */
+  protected[cmdline] def execute(pipeline : Pipeline)(implicit ex: ExecutionContext): Int = {
+    val report = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
+
+    // Get the executor
+    val executor = this.executor.getOrElse(throw new IllegalStateException("Executor was not configured, did you all configure()"))
+
+    // Set up any task prior to execution
+    executeSetup(executor, report)
+
+    // execute
+    val exitCode = executor.execute(pipeline)
+
+    // complete any shutdown tasks after execution
+    executeFinish(executor, report)
+
     exitCode
   }
 }
 
-class DagrCoreMain extends LazyLogging {
+class DagrCoreMain[Args<:DagrCoreArgs:TypeTag:ClassTag] extends LazyLogging {
   protected def name: String = "dagr"
 
   /** A main method that invokes System.exit with the exit code. */
@@ -250,7 +264,7 @@ class DagrCoreMain extends LazyLogging {
 
     val startTime = System.currentTimeMillis()
     val packages = Sopt.find[Pipeline](packageList, includeHidden=includeHidden)
-    val exit      = Sopt.parseCommandAndSubCommand[DagrCoreArgs,Pipeline](name, args, packages) match {
+    val exit      = Sopt.parseCommandAndSubCommand[Args,Pipeline](name, args, packages) match {
       case Sopt.Failure(usage) =>
         System.err.print(usage())
         1

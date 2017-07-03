@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.fulcrumgenomics.commons.CommonsDef.DirPath
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.commons.util.LazyLogging
+import dagr.api.models.ResourceSet
 import dagr.core.DagrDef.TaskId
 import dagr.core.exec._
 import dagr.core.execsystem._
@@ -173,9 +174,9 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
 
     // Set some basic task info directly on the task
     val taskId = nextTaskId.getAndIncrement()
-    task.taskInfo.id     = Some(taskId)
-    task.taskInfo.script = Some(scriptPathFor(task, taskId, task.taskInfo.attempts))
-    task.taskInfo.log    = Some(logPathFor(task, taskId, task.taskInfo.attempts))
+    task.taskInfo.id         = Some(taskId)
+    task.taskInfo.scriptPath = scriptPathFor(task, taskId, task.taskInfo.attempts)
+    task.taskInfo.logPath    = logPathFor(task, taskId, task.taskInfo.attempts)
     val taskRunner = LocalTaskRunner(task=task)
 
     // Create a future that waits until the task is scheduled for execution (the latch reaches zero).  It returusn the

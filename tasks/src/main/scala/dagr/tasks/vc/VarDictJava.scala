@@ -34,7 +34,7 @@ import dagr.core.config.Configuration
 import dagr.core.tasksystem.Pipes.PipeWithNoResources
 import dagr.core.tasksystem._
 import com.fulcrumgenomics.sopt.{arg, clp}
-import dagr.core.exec.{Cores, Memory, ResourceSet}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.tasks.DagrDef._
 import dagr.tasks.DataTypes.Vcf
 import dagr.tasks.misc.DeleteFiles

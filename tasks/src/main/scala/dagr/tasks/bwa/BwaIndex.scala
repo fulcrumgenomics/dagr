@@ -24,7 +24,7 @@
 
 package dagr.tasks.bwa
 
-import dagr.core.exec.{Cores, Memory}
+import dagr.api.models.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.DagrDef.PathToFasta
 

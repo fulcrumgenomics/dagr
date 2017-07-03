@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015-6 Fulcrum Genomics LLC
+ * Copyright (c) 2017 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,9 +22,8 @@
  * THE SOFTWARE.
  *
  */
-package dagr.core.exec
 
-import dagr.core.exec
+package dagr.api.models
 
 object ResourceSet {
   def apply(that: ResourceSet): ResourceSet = new ResourceSet(cores = Cores(that.cores.value), memory = Memory(that.memory.value))
@@ -71,7 +70,7 @@ case class ResourceSet(cores: Cores = Cores.none, memory: Memory = Memory.none) 
   }
 
   /**
-    * Returns a [[exec.ResourceSet]] with the remaining resources after subtracting `other`
+    * Returns a [[ResourceSet]] with the remaining resources after subtracting `other`
     * if doing so would not generate negative resources. Otherwise returns `None`.
     */
   def minusOption(other: ResourceSet) : Option[ResourceSet] = if (subsettable(other)) Some(this - other) else None

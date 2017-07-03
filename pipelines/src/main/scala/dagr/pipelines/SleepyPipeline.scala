@@ -28,7 +28,7 @@ package dagr.pipelines
 import dagr.core.cmdline.Pipelines
 import dagr.core.tasksystem._
 import com.fulcrumgenomics.sopt.{arg, clp}
-import dagr.core.exec.{Cores, Memory, ResourceSet}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 
 private trait GreedyResourcePicking extends UnitTask {
   override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = {
@@ -42,7 +42,11 @@ private class SleepProcessTask(seconds: Int = 1) extends ProcessTask with Greedy
 }
 
 private class SleepInJvmTask(seconds: Int = 1) extends SimpleInJvmTask with GreedyResourcePicking {
-  def run(): Unit = Thread.sleep(seconds * 1000)
+  def run(): Unit = {
+    logger.info(s"Sleeping for $seconds")
+    Thread.sleep(seconds * 1000)
+    logger.info(s"I'm awake!")
+  }
 }
 
 /**
@@ -53,24 +57,42 @@ class SleepyPipeline
 ( @arg(flag='j', doc="Use JVM tasks") val jvmTask: Boolean = false,
   @arg(flag='n', doc="The number of tasks to create") val numTasks: Int = 100,
   @arg(flag='p', doc="The probability of creating a dependency") val dependencyProbability: Double = 0.1,
-  @arg(flag='s', doc="The seed for the random number generator") val seed: Option[Long] = None
+  @arg(flag='s', doc="The seed for the random number generator") val seed: Option[Long] = None,
+  @arg(flag='S', doc="The time for each task to sleep in seconds") val sleepSeconds: Int = 1,
+  @arg(flag='f', doc="The failure rate of tasks") val failureRate: Double = 0.0
 ) extends Pipeline {
+  val randomNumberGenerator = seed match {
+    case Some(s) => new scala.util.Random(s)
+    case None    => scala.util.Random
+  }
 
-  private def toATask: () => SleepProcessTask = () => new SleepProcessTask
-  private def toBTask: () => SleepInJvmTask = () => new SleepInJvmTask
+  private def toATask: (Int) => Task = (s) => {
+    if (randomNumberGenerator.nextFloat() < failureRate) {
+      ShellCommand("exit", "1")
+    }
+    else {
+      new SleepProcessTask(s)
+    }
+  }
+  private def toBTask: (Int) => Task = (s) => {
+    if (randomNumberGenerator.nextFloat() < failureRate) {
+      SimpleInJvmTask.apply(name = "Name", f = { if (true) throw new IllegalArgumentException("failed") else Unit })
+    }
+    else {
+      new SleepInJvmTask(s)
+    }
+  }
   private val toTask   = if (jvmTask) toBTask else toATask
   private val taskType = if (jvmTask) "JVM" else "Shell"
 
+
   override def build(): Unit = {
     // create the tasks
-    val tasks: Seq[Task] = for (i <- 0 to numTasks) yield toTask() withName s"task-$i"
+    val tasks: Seq[Task] = for (i <- 0 to numTasks) yield toTask(this.sleepSeconds) withName s"task-$i"
 
     // make them depend on previous tasks
     var rootTasks = Seq.range(start=0, numTasks).toSet
-    val randomNumberGenerator = seed match {
-      case Some(s) => new scala.util.Random(s)
-      case None    => scala.util.Random
-    }
+
     for (i <- 0 until numTasks) {
       for (j <- 0 until i) {
         if (randomNumberGenerator.nextFloat < dependencyProbability) {

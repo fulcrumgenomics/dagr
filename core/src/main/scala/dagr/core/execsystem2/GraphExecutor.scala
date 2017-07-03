@@ -55,7 +55,10 @@ trait GraphExecutor[T<:Task] extends Executor {
   def resources: Option[SystemResources] = Some(this.taskExecutor.resources)
 
   /** Returns the task status by ordinal */
-  final def from(ordinal: Int): TaskStatus = TaskStatus.withValue(ordinal)
+  final def statusFrom(ordinal: Int): TaskStatus = TaskStatus.withValue(ordinal)
+
+  /** The list of statuses ordered by ordinal */
+  def statuses: Seq[TaskStatus] = TaskStatus.values
 
   /** Returns the executor that execute tasks. */
   protected def taskExecutor: TaskExecutor[T]

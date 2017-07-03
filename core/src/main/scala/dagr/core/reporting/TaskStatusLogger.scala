@@ -27,7 +27,7 @@ package dagr.core.reporting
 
 import com.fulcrumgenomics.commons.util.{LazyLogging, Logger}
 import dagr.core.reporting.ReportingDef.TaskLogger
-import dagr.core.tasksystem.Task.{TaskInfo => RootTaskInfo}
+import dagr.core.tasksystem.Task.TaskInfoLike
 
 /** A simple logger that delegates to [[dagr.core.tasksystem.Task.TaskInfo#logTaskMessage]]. */
 class TaskStatusLogger extends TaskLogger {
@@ -36,5 +36,5 @@ class TaskStatusLogger extends TaskLogger {
     override lazy val logger: Logger = new Logger(getClass)
   }
   private val logger = new Dagr().logger
-  def record(info: RootTaskInfo): Unit = info.logTaskMessage(this.logger)
+  def record(info: TaskInfoLike): Unit = this.logger.info(info.infoString)
 }

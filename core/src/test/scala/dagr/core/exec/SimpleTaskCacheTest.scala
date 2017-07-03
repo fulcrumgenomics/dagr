@@ -43,10 +43,10 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
   private val executor: Executor = Executor(experimentalExecution=true, resources=SystemResources.infinite)
 
   /** The status with the lowest ordinal that does not represent a successful execution status. */
-  private val failStatus: TaskStatus = Stream.from(0).map(i => executor.from(i)).find(!_.success).getOrElse(unreachable("No unsuccessful status found"))
+  private val failStatus: TaskStatus = Stream.from(0).map(i => executor.statusFrom(i)).find(!_.success).getOrElse(unreachable("No unsuccessful status found"))
 
   /** The status with the lowest ordinal that represents a successful execution status. */
-  private val successfulStatus: TaskStatus  = Stream.from(0).map(i => executor.from(i)).find(_.success).getOrElse(unreachable("No successful status found"))
+  private val successfulStatus: TaskStatus  = Stream.from(0).map(i => executor.statusFrom(i)).find(_.success).getOrElse(unreachable("No successful status found"))
 
   /** A simple implicit to set the default executor */
   implicit private class WithExecutor[T <: Task](task: T) {
@@ -95,7 +95,7 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
 
   it should "fail if a task definition is not found for a status" in {
     val definition = Definition.buildRootDefinition(new NoOpTask)
-    val status     = Status(executor.from(0), definition)
+    val status     = Status(executor.statusFrom(0), definition)
     val lines      = Seq(status).map(_.toString)
     val exception  = intercept[Exception] { new SimpleTaskCache(lines) }
     exception.getMessage should include (s"missing a definition for task '${definition.code}' with status '$status'")
