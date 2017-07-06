@@ -58,6 +58,12 @@ private[core] trait TaskExecutionRunnerApi {
     */
   def runningTaskIds: Iterable[TaskId]
 
+  /** Get the running tasks.
+    *
+    * @return true if the task is running, false otherwise
+    */
+  def running(taskId: TaskId): Boolean
+
   // NB: does the underlying process.destroy work?
   /** Attempts to terminate a task's underlying process.
     *
@@ -162,7 +168,7 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
       taskInfos.remove(taskId).isDefined
   }
 
-  /** Start running a task.  Call [[TaskExecutionRunner.completedTasks]] to see if subsequently completes.
+  /** Start running a task.  Call [[TaskExecutionRunner.completedTasks]] to see if it subsequently completes.
    *
    * @param taskInfo the info associated with this task.
    * @param simulate true if we are to simulate to run a task, false otherwise.
@@ -171,11 +177,11 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
   override def runTask(taskInfo: TaskExecutionInfo, simulate: Boolean = false): Boolean = taskInfo.task match {
     case unitTask: UnitTask =>
       try {
-        unitTask.applyResources(taskInfo.resources)
+        unitTask.applyResources(taskInfo.resources.get)
         val taskRunner: TaskRunnable = (simulate, unitTask) match {
           case (true,  t: UnitTask)    => new SimulatedTaskExecutionRunner(task = t)
-          case (false, t: InJvmTask)   => new InJvmTaskExecutionRunner(task = t, script = taskInfo.script, logFile = taskInfo.logFile)
-          case (false, t: ProcessTask) => new ProcessTaskExecutionRunner(task = t, script = taskInfo.script, logFile = taskInfo.logFile)
+          case (false, t: InJvmTask)   => new InJvmTaskExecutionRunner(task = t, script = taskInfo.scriptPath.get, logFile = taskInfo.logPath.get)
+          case (false, t: ProcessTask) => new ProcessTaskExecutionRunner(task = t, script = taskInfo.scriptPath.get, logFile = taskInfo.logPath.get)
           case _                       => throw new RuntimeException("Could not run a unknown type of task")
         }
         val thread = new Thread(taskRunner)
@@ -183,14 +189,14 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
         taskRunners.put(taskInfo.taskId, taskRunner)
         taskInfos.put(taskInfo.taskId, taskInfo)
         thread.start()
-        taskInfo.status = TaskStatus.STARTED
+        taskInfo.status = TaskStatus.Started
         taskInfo.startDate = Some(Instant.now())
         true
       }
       catch {
         case e: Exception =>
           logger.exception(e, s"Failed schedule for [${unitTask.name}]: ")
-          taskInfo.status = TaskStatus.FAILED_SCHEDULING
+          taskInfo.status = TaskStatus.FailedScheduling
           false
       }
     case _ => throw new RuntimeException("Cannot call runTask on tasks that are not 'UnitTask's")
@@ -205,13 +211,15 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
 
 
     // In case it has previously been stopped
-    if (TaskStatus.isTaskNotDone(taskInfo.status, failedIsDone=failedAreCompleted)) {
-      taskInfo.endDate = Some(Instant.now())
-      taskInfo.status = {
-        if ((0 == exitCode && onCompleteSuccessful) || failedAreCompleted) TaskStatus.SUCCEEDED
-        else if (0 != exitCode) TaskStatus.FAILED_COMMAND
-        else TaskStatus.FAILED_ON_COMPLETE // implied !onCompleteSuccessful
+    if (TaskStatus.notDone(taskInfo.status, failedIsDone=failedAreCompleted)) {
+      taskInfo.endDate   = Some(Instant.now())
+      taskInfo.status    = {
+        if ((0 == exitCode && onCompleteSuccessful) || failedAreCompleted) TaskStatus.SucceededExecution
+        else if (0 != exitCode) TaskStatus.FailedExecution
+        else TaskStatus.FailedOnComplete // implied !onCompleteSuccessful
       }
+      taskInfo.exitCode  = Some(exitCode)
+      taskInfo.throwable = throwable
     }
     throwable.foreach { thr =>
         logger.error(
@@ -248,6 +256,8 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
     completedTasks.toMap
   }
 
+  override def running(taskId: TaskId): Boolean = taskInfos.contains(taskId)
+
   override def runningTaskIds: Iterable[TaskId] = {
     processes.keys
   }
@@ -262,7 +272,7 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
             // if it is alive, interrupt it
             thread.interrupt()
             thread.join(100) // just give it 0.1 of second
-            taskInfo.status = TaskStatus.STOPPED
+            taskInfo.status = TaskStatus.Stopped
           }
           taskInfo.endDate = Some(Instant.now())
           !thread.isAlive // thread is still alive WTF

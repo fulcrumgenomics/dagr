@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015-2016 Fulcrum Genomics LLC
+ * Copyright (c) 2017 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,24 +20,29 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.core
+package dagr.core.reporting
 
-/**
-  * Object that is designed to be imported with `import DagrDef._` in any/all classes
-  * much like the way that scala.PreDef is imported in all files automatically.
-  *
-  * New methods, types and objects should not be added to this class lightly as they
-  * will pollute the namespace of any classes which import it.
-  */
-object DagrDef {
-  /** The type of identifier used to uniquely identify tasks tracked by the execution system. */
-  type TaskId = BigInt
+import dagr.core.tasksystem.Task
+import dagr.core.tasksystem.Task.TaskInfoLike
 
-  /** Companion methods for TaskId */
-  object TaskId {
-    /** The apply method for TaskId */
-    def apply(value: Int): TaskId = BigInt(value)
+object ReportingDef {
+
+  /** Marker trait for all traits and classes that report information about a task. */
+  trait TaskReporter
+
+  /** Base trait for all classes interested in when the task status changes for any task. */
+  trait TaskLogger extends TaskReporter {
+    /** The method that will be called with updated task information. */
+    def record(info: TaskInfoLike): Unit
+  }
+
+  /** Base trait for all classes interested in when a new task is built by another task (ex.
+    * [[dagr.core.tasksystem.Pipeline]] */
+  trait TaskRegister extends TaskReporter {
+    /** The method that will be called on the result of `Task.getTasks`. */
+    def register(parent: Task, child: Task*): Unit
   }
 }

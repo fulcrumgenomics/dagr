@@ -24,16 +24,17 @@
 package dagr.core.tasksystem
 
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.execsystem.{ResourceSet, Scheduler}
+import dagr.api.models.ResourceSet
+import dagr.core.exec.Scheduler
 
 /** A task that should be directly executed or scheduled.
  *
  * A few things about unit tasks:
- * - a task can depend on data from tasks on which it is dependent.  See [[Callbacks]].
+ * - a task can depend on data from tasks on which it is dependent.  See [[Linker]].
  * - a task extending this class should return only one task in its getTasks method.  See [[Task.getTasks]].
  * - a task can perform any final logic dependent on the resources with which it is scheduled.  See [[Scheduler!.schedule*]].
   *
- * When a unit task gets scheduled, the [[dagr.core.execsystem.Scheduler.schedule]] method will be called to allow any final
+ * When a unit task gets scheduled, the [[Scheduler.schedule]] method will be called to allow any final
  * logic based on the resources this task was scheduled with.  This is in addition to the steps listed in [[Task]].
  */
 trait UnitTask extends Task with LazyLogging with Schedulable {

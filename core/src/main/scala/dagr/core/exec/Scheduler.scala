@@ -20,10 +20,12 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
-package dagr.core.execsystem
+package dagr.core.exec
 
 import com.fulcrumgenomics.commons.util.LazyLogging
+import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
 
 /** Scheduler of [[Task]] tasks */
@@ -33,17 +35,17 @@ abstract class Scheduler extends LazyLogging {
     * while running.  Only schedules based on the resources available after subtracting resources from running tasks.
     *
     * @param runningTasks the tasks that are currently running.
-    * @param readyTasks the tasks that should be considered to be schedule.
+    * @param readyTasks the tasks that should be considered to be scheduled.
     * @param systemCores the set of system cores.
     * @param systemMemory the set of system memory.
     * @param jvmMemory the set of JVM memory.
     * @return a map of tasks should be scheduled and their allocate resources.
     * */
   final def schedule(runningTasks: Map[UnitTask, ResourceSet],
-               readyTasks: Traversable[UnitTask],
-               systemCores: Cores,
-               systemMemory: Memory,
-               jvmMemory: Memory): Map[UnitTask, ResourceSet] =  {
+                     readyTasks: Traversable[UnitTask],
+                     systemCores: Cores,
+                     systemMemory: Memory,
+                     jvmMemory: Memory): Map[UnitTask, ResourceSet] =  {
 
     // Make sure we either have tasks that inherit from ProcessTask or InJvmTask.
     runningTasks.keys.foreach(task => {

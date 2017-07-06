@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015-2016 Fulcrum Genomics LLC
+ * Copyright (c) 2017 Fulcrum GenomicsLLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,24 +20,25 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.core
+package dagr.core.exec
 
-/**
-  * Object that is designed to be imported with `import DagrDef._` in any/all classes
-  * much like the way that scala.PreDef is imported in all files automatically.
-  *
-  * New methods, types and objects should not be added to this class lightly as they
-  * will pollute the namespace of any classes which import it.
-  */
-object DagrDef {
-  /** The type of identifier used to uniquely identify tasks tracked by the execution system. */
-  type TaskId = BigInt
+import scala.collection.mutable
 
-  /** Companion methods for TaskId */
-  object TaskId {
-    /** The apply method for TaskId */
-    def apply(value: Int): TaskId = BigInt(value)
+object ExecDef {
+  /** Create a thread-safe mutable map. */
+  def concurrentMap[A,B](): mutable.Map[A,B] = {
+    import scala.collection.convert.decorateAsScala._
+    new java.util.concurrent.ConcurrentHashMap[A, B]().asScala
+  }
+
+  /** Create a thread-safe mutable set. */
+  def concurrentSet[A](): mutable.Set[A] = {
+    import scala.collection.convert.decorateAsScala._
+    val map: java.util.Map[A, java.lang.Boolean] = new java.util.concurrent.ConcurrentHashMap[A, java.lang.Boolean]()
+    val set: java.util.Set[A] = java.util.Collections.newSetFromMap[A](map)
+    set.asScala
   }
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015-6 Fulcrum Genomics LLC
+ * Copyright (c) 2015-2017 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,28 +20,13 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
-package dagr.core.execsystem
 
-import oshi.SystemInfo
-import oshi.hardware.platform.mac.MacHardwareAbstractionLayer
+package dagr.api.models
 
 /** Manipulates system resources */
-object Resource {
-  private val hal = new SystemInfo().getHardware
-
-  /** Total number of cores in the system */
-  val systemCores : Cores =
-    if (hal.isInstanceOf[MacHardwareAbstractionLayer])
-      Cores(this.hal.getProcessor.getPhysicalProcessorCount)
-    else
-      Cores(this.hal.getProcessor.getLogicalProcessorCount)
-
-  /** The total amount of memory in the system. */
-  val systemMemory: Memory = new Memory(this.hal.getMemory.getTotal)
-
-  /** The heap size of the JVM. */
-  val heapSize: Memory = new Memory(Runtime.getRuntime.maxMemory)
+trait ResourceParsing {
 
   /** Get the number of bytes.
     *
@@ -86,6 +71,8 @@ object Resource {
   }
 }
 
+object Resource extends ResourceParsing
+
 /**
   * Sealed base class that Resources must extend. Requires that resources have a single numeric
   * value, and then provides useful arithmetic and relational operators on that value.
@@ -95,7 +82,7 @@ object Resource {
   * @tparam R self-referential type required to make all the operators work nicely
   */
 sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit numeric :Numeric[T]) {
-  if (numeric.toDouble(value) <  0) {
+  if (numeric.toDouble(value) < 0) {
     throw new IllegalArgumentException(s"Cannot have negative resource. ${getClass.getSimpleName}=" + value)
   }
 
@@ -149,7 +136,6 @@ object Memory {
 
 /** A resource representing a number of cores (including partial cores). */
 case class Cores(override val value: Double) extends Resource[Double, Cores](value=value) {
-  if (value < 0) throw new IllegalArgumentException("Cannot have negative cores. Cores=" + value)
 
   /** Round the number of cores to the nearest integer value. */
   def toInt: Int = Math.round(value).toInt
