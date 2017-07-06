@@ -23,7 +23,7 @@
  */
 package dagr.tasks.picard
 
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.api.models.{Cores, Memory}
 import dagr.tasks.DagrDef._
 import htsjdk.samtools.SAMFileHeader.SortOrder
 

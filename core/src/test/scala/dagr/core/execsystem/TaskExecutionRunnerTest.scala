@@ -25,10 +25,11 @@ package dagr.core.execsystem
 
 import java.nio.file.{Files, Path}
 
+import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
 import dagr.core.DagrDef._
-import com.fulcrumgenomics.commons.util.{LogLevel, LazyLogging, Logger}
-import dagr.core.tasksystem._
 import dagr.core.UnitSpec
+import dagr.core.exec.ResourceSet
+import dagr.core.tasksystem._
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
 
 class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndAfterAll with LazyLogging {
@@ -46,14 +47,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val logFile: Path = Files.createTempFile("TaskRunnerTest", ".log")
     val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
       task = task,
-      taskId = taskId,
-      status = TaskStatus.UNKNOWN,
-      submissionDate = None,
-      startDate = None,
-      endDate = None,
-      attemptIndex = 1,
+      initId = taskId,
       script = script,
-      logFile = logFile)
+      log = logFile)
     (taskId, taskInfo)
   }
 
@@ -64,14 +60,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val task: UnitTask = new ShellCommand(argv:_*).withName(argv.mkString(" ")).getTasks.head
     val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
       task = task,
-      taskId = taskId,
-      status = TaskStatus.UNKNOWN,
-      submissionDate = None,
-      startDate = None,
-      endDate = None,
-      attemptIndex = 1,
+      initId = taskId,
       script = script,
-      logFile = logFile)
+      log = logFile)
     (task, taskId, taskInfo)
   }
 
@@ -86,14 +77,9 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val task: UnitTask = new TrivialInJvmTask(exitCode = exitCode).getTasks.head
     val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
       task = task,
-      taskId = taskId,
-      status = TaskStatus.UNKNOWN,
-      submissionDate = None,
-      startDate = None,
-      endDate = None,
-      attemptIndex = 1,
+      initId = taskId,
       script = script,
-      logFile = logFile)
+      log = logFile)
     (task, taskId, taskInfo)
   }
 
@@ -104,18 +90,13 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val newTask = task.getTasks.head
     val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
       task = newTask,
-      taskId = taskId,
-      status = TaskStatus.UNKNOWN,
-      submissionDate = None,
-      startDate = None,
-      endDate = None,
-      attemptIndex = 1,
+      initId = taskId,
       script = script,
-      logFile = logFile)
+      log = logFile)
     (newTask, taskId, taskInfo)
   }
 
-  private def getCompletedTask(taskRunner: TaskExecutionRunner, task: UnitTask, taskId: TaskId, taskInfo: TaskExecutionInfo, taskStatus: TaskStatus.Value, exitCode: Int = 0, onCompleteSuccessful: Boolean = true, failedAreCompleted: Boolean = true): Unit = {
+  private def getCompletedTask(taskRunner: TaskExecutionRunner, task: UnitTask, taskId: TaskId, taskInfo: TaskExecutionInfo, taskStatus: TaskStatus, exitCode: Int = 0, onCompleteSuccessful: Boolean = true, failedAreCompleted: Boolean = true): Unit = {
     // get the completed task
     val completedTasks: Map[TaskId, (Int, Boolean)] = taskRunner.completedTasks(failedAreCompleted = failedAreCompleted)
     completedTasks should have size 1 // only one task right?
@@ -128,7 +109,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
   private def runTaskAndComplete(task: UnitTask,
                                  taskId: TaskId,
                                  taskInfo: TaskExecutionInfo,
-                                 taskStatus: TaskStatus.Value,
+                                 taskStatus: TaskStatus,
                                  exitCode: Int = 0,
                                  onCompleteSuccessful: Boolean = true,
                                  failedAreCompleted: Boolean = true): Unit = {
@@ -146,7 +127,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
   "TaskRunner" should "run a simple echo command" in {
     val (task, taskId, taskInfo) = setupTaskList(List[String]("echo", "Hello world"), 1)
 
-    runTaskAndComplete(task = task, taskId = taskId, taskInfo = taskInfo, taskStatus = TaskStatus.SUCCEEDED, exitCode = 0, onCompleteSuccessful = true)
+    runTaskAndComplete(task = task, taskId = taskId, taskInfo = taskInfo, taskStatus = TaskStatus.SucceededExecution, exitCode = 0, onCompleteSuccessful = true)
   }
 
   def runSimpleExitTest(inJvmTask: Boolean, exitSuccessfully: Boolean, onCompleteSuccessful: Boolean, failedAreCompleted: Boolean) {
@@ -158,10 +139,10 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       setupTaskList(List[String]("exit", exitCode.toString), taskId = 1)
     }
 
-    val expectedStatus: TaskStatus.Value = (exitSuccessfully, failedAreCompleted) match {
-      case (true, _) => TaskStatus.SUCCEEDED
-      case (false, true) => TaskStatus.SUCCEEDED
-      case (false, false) => TaskStatus.FAILED_COMMAND
+    val expectedStatus: TaskStatus = (exitSuccessfully, failedAreCompleted) match {
+      case (true, _) => TaskStatus.SucceededExecution
+      case (false, true) => TaskStatus.SucceededExecution
+      case (false, false) => TaskStatus.FailedExecution
     }
 
     runTaskAndComplete(task = task, taskId = taskId, taskInfo = taskInfo, taskStatus = expectedStatus, exitCode = exitCode, onCompleteSuccessful = onCompleteSuccessful, failedAreCompleted = failedAreCompleted)
@@ -203,7 +184,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       task                 = task,
       taskId               = taskId,
       taskInfo             = taskInfo,
-      taskStatus           = TaskStatus.STOPPED,
+      taskStatus           = TaskStatus.Stopped,
       exitCode             = TaskExecutionRunner.InterruptedExitCode,
       onCompleteSuccessful = true,
       failedAreCompleted   = false
@@ -219,9 +200,8 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     taskRunner.runTask(taskInfo = taskInfo)
     taskRunner.runningTaskIds should have size (1) // there should be a running task
 
-    while (!hasRun) {
-      Thread.sleep(10)
-    }
+    // wait for it to complete
+    taskRunner.joinAll()
 
     // terminate it
     taskRunner.terminateTask(taskId = taskId) should be (true)
@@ -232,7 +212,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       task                 = task,
       taskId               = taskId,
       taskInfo             = taskInfo,
-      taskStatus           = TaskStatus.SUCCEEDED,
+      taskStatus           = TaskStatus.SucceededExecution,
       exitCode             = 0,
       onCompleteSuccessful = true,
       failedAreCompleted   = false
@@ -255,16 +235,16 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val (taskOne, taskOneId, taskOneInfo) = setupTask(task = new ShellCommand("exit", "0")  with FailOnCompleteTask withName "Dummy One", taskId = 1)
     val (taskTwo, taskTwoId, taskTwoInfo) = setupTask(task = new ShellCommand("exit", "1") with FailOnCompleteTask withName "Dummy Two", taskId = 2)
 
-    runTaskAndComplete(task = taskOne, taskId = taskOneId, taskInfo = taskOneInfo, taskStatus = TaskStatus.FAILED_ON_COMPLETE, exitCode = 0, onCompleteSuccessful = false, failedAreCompleted = false)
-    runTaskAndComplete(task = taskTwo, taskId = taskTwoId, taskInfo = taskTwoInfo, taskStatus = TaskStatus.FAILED_COMMAND, exitCode = 1, onCompleteSuccessful = false, failedAreCompleted = false)
+    runTaskAndComplete(task = taskOne, taskId = taskOneId, taskInfo = taskOneInfo, taskStatus = TaskStatus.FailedOnComplete, exitCode = 0, onCompleteSuccessful = false, failedAreCompleted = false)
+    runTaskAndComplete(task = taskTwo, taskId = taskTwoId, taskInfo = taskTwoInfo, taskStatus = TaskStatus.FailedExecution, exitCode = 1, onCompleteSuccessful = false, failedAreCompleted = false)
   }
 
   it should "have a task that fails its onComplete method if the exit code is zero" in {
     val (taskOne, taskOneId, taskOneInfo) = setupTask(task = new ShellCommand("exit", "0") with OnCompleteIsOppositeExitCodeTask withName "Dummy One", taskId = 1)
     val (taskTwo, taskTwoId, taskTwoInfo) = setupTask(task = new ShellCommand("exit", "1") with OnCompleteIsOppositeExitCodeTask withName "Dummy Two", taskId = 2)
 
-    runTaskAndComplete(task = taskOne, taskId = taskOneId, taskInfo = taskOneInfo, taskStatus = TaskStatus.FAILED_ON_COMPLETE, exitCode = 0, onCompleteSuccessful = false, failedAreCompleted = false)
-    runTaskAndComplete(task = taskTwo, taskId = taskTwoId, taskInfo = taskTwoInfo, taskStatus = TaskStatus.FAILED_COMMAND, exitCode = 1, onCompleteSuccessful = true, failedAreCompleted = false)
+    runTaskAndComplete(task = taskOne, taskId = taskOneId, taskInfo = taskOneInfo, taskStatus = TaskStatus.FailedOnComplete, exitCode = 0, onCompleteSuccessful = false, failedAreCompleted = false)
+    runTaskAndComplete(task = taskTwo, taskId = taskTwoId, taskInfo = taskTwoInfo, taskStatus = TaskStatus.FailedExecution, exitCode = 1, onCompleteSuccessful = true, failedAreCompleted = false)
   }
 
   it should "have None for onCompleteSuccessful before the task has finished" in {
@@ -275,9 +255,11 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val runningTasks: List[TaskId] = taskRunner.runningTaskIds.toList
     runningTasks should have size 1 // there should be a running task
     runningTasks.head should be (taskId)
-    taskInfo.status should be (TaskStatus.STARTED)
+    taskInfo.status should be (TaskStatus.Started)
     val onCompleteSuccesful: Option[Boolean] = taskRunner.onCompleteSuccessful(taskId)
     onCompleteSuccesful should be ('empty)
+
+    taskRunner.running(taskInfo.taskId) shouldBe true
 
     // the rest of the tests after this are just to make sure things work out and that we do not have a zombie process
 
@@ -290,7 +272,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       task                 = task,
       taskId               = taskId,
       taskInfo             = taskInfo,
-      taskStatus           = TaskStatus.STOPPED,
+      taskStatus           = TaskStatus.Stopped,
       exitCode             = TaskExecutionRunner.InterruptedExitCode,
       onCompleteSuccessful = true,
       failedAreCompleted   = false
@@ -316,17 +298,12 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val task: ProcessBuilderExceptionTask = new ProcessBuilderExceptionTask()
     val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
       task = task,
-      taskId = 1,
-      status = TaskStatus.UNKNOWN,
-      submissionDate = None,
-      startDate = None,
-      resources = ResourceSet.empty,
-      endDate = None,
-      attemptIndex = 1,
+      initId = 1,
       script = null,
-      logFile = null)
+      log = null)
+    taskInfo.resources = Some(ResourceSet.empty)
     taskRunner.runTask(taskInfo)
-    taskInfo.status should be(TaskStatus.STARTED)
+    taskInfo.status should be(TaskStatus.Started)
     taskRunner.joinAll(1000)
     val completedTasks: Map[TaskId, (Int, Boolean)] = taskRunner.completedTasks()
     completedTasks.get(1).value._1 should be(1) // exit code
@@ -340,15 +317,10 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     }
     val taskInfo = new TaskExecutionInfo(
       task = task,
-      taskId = 1,
-      status = TaskStatus.UNKNOWN,
-      submissionDate = None,
-      startDate = None,
-      resources = ResourceSet.empty,
-      endDate = None,
-      attemptIndex = 1,
+      initId = 1,
+      resources = Some(ResourceSet.empty),
       script = null,
-      logFile = null
+      log = null
     )
     taskRunner.runTask(taskInfo=taskInfo, simulate=false) shouldBe false
   }
@@ -360,15 +332,10 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     }
     val taskInfo = new TaskExecutionInfo(
       task = task,
-      taskId = 1,
-      status = TaskStatus.UNKNOWN,
-      submissionDate = None,
-      startDate = None,
-      resources = ResourceSet.empty,
-      endDate = None,
-      attemptIndex = 1,
+      initId = 1,
+      resources = Some(ResourceSet.empty),
       script = null,
-      logFile = null
+      log = null
     )
     an[RuntimeException] should be thrownBy taskRunner.runTask(taskInfo=taskInfo, simulate=false)
   }
@@ -382,15 +349,10 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     val task = new InJvmExceptionTask()
     val taskInfo = new TaskExecutionInfo(
       task = task,
-      taskId = 1,
-      status = TaskStatus.UNKNOWN,
-      submissionDate = None,
-      startDate = None,
-      resources = ResourceSet.empty,
-      endDate = None,
-      attemptIndex = 1,
+      initId = 1,
+      resources = Some(ResourceSet.empty),
       script = null,
-      logFile = null
+      log = null
     )
     taskRunner.runTask(taskInfo=taskInfo, simulate=false) shouldBe true
     taskRunner.joinAll(2000)

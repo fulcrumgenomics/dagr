@@ -23,12 +23,12 @@
  */
 package dagr.tasks.bwa
 
-import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{Pipe, ProcessTask, VariableResources}
 import com.fulcrumgenomics.commons.io.Io
 import dagr.tasks.DataTypes.{Fastq, Sam}
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFasta, PathToFastq}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 
 import scala.collection.mutable.ListBuffer
 

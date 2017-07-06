@@ -31,7 +31,5 @@ object DagrMain {
   protected def getPackageList: List[String] = List[String]("dagr")
 
   /** The main method */
-  def main(args: Array[String]): Unit = {
-    System.exit(new DagrCoreMain().makeItSo(args, packageList = getPackageList))
-  }
+  def main(args: Array[String]): Unit = DagrCoreMain.main(args)
 }

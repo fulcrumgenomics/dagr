@@ -1,14 +1,14 @@
 package dagr.tasks.bwa
 
-import java.nio.file.{Path, Files}
+import java.nio.file.{Files, Path}
 
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{Pipe, Pipes}
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.tasks.DataTypes.{Fastq, Sam, SamOrBam}
 import dagr.tasks.DagrDef
 import DagrDef._
+import dagr.api.models.{Cores, Memory}
 import dagr.tasks.picard.{FifoBuffer, MergeBamAlignment, SamToFastq}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 import htsjdk.samtools.SamPairUtil.PairOrientation
