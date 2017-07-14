@@ -42,7 +42,7 @@ import collection.JavaConversions._
   * that have been requested so that they can be reported later if desired.
   */
 object Configuration extends ConfigurationLike {
-  private[config] val RequestedKeys = collection.mutable.TreeSet[String]()
+  private[config] val RequestedKeys = new java.util.concurrent.ConcurrentSkipListSet[String]()
 
   // Keys for configuration values used in dagr core
   object Keys {
@@ -84,11 +84,7 @@ object Configuration extends ConfigurationLike {
   }
 
   /** Returns a sorted set of all keys that have been requested up to this point in time. */
-  def requestedKeys: SortedSet[String] = {
-    var keys = collection.immutable.TreeSet[String]()
-    keys ++= RequestedKeys
-    keys
-  }
+  def requestedKeys: SortedSet[String] = collection.immutable.TreeSet[String](RequestedKeys.toSeq:_*)
 
   /** Allows initialization with a custom configuration. */
   protected def initialize(customConfig: Config): Unit = this._config = customConfig
