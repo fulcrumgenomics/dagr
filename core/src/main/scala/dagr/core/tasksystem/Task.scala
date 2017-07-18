@@ -56,8 +56,7 @@ object Task {
     }
 
     def scriptPath: Option[FilePath] = this.script.map(PathUtil.pathTo(_))
-    def logPath: Option[FilePath]    = this.script.map(PathUtil.pathTo(_))
-
+    def logPath: Option[FilePath]    = this.log.map(PathUtil.pathTo(_))
 
   }
 
