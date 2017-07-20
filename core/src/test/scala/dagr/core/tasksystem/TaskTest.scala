@@ -29,7 +29,7 @@ import java.time.Instant
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.DagrDef._
 import dagr.core.UnitSpec
-import dagr.core.exec.{Cores, Memory, ResourceSet}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.execsystem._
 import org.scalatest.OptionValues
 
@@ -418,7 +418,7 @@ class TaskTest extends UnitSpec with LazyLogging with OptionValues {
     }
   }
 
-  private class TestingInfo(task: Task, initStatus: Task.TaskStatus) extends Task.TaskInfo(task=task, initStatus=initStatus) {
+  private class TestingInfo(task: Task, initStatus: TaskStatus) extends Task.TaskInfo(task=task, initStatus=initStatus) {
     override protected[core] def startDate = None
     override protected[core] def submissionDate = None
     override protected[core] def endDate = None

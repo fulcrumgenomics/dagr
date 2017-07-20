@@ -25,7 +25,7 @@ package dagr.core.tasksystem
 
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.core.UnitSpec
-import dagr.core.exec.{Cores, Memory, ResourceSet}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.Pipes.PipeWithNoResources
 import org.scalatest.OptionValues
 

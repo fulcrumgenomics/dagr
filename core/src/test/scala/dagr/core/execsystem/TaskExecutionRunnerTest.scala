@@ -28,7 +28,7 @@ import java.nio.file.{Files, Path}
 import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
 import dagr.core.DagrDef._
 import dagr.core.UnitSpec
-import dagr.core.exec.ResourceSet
+import dagr.api.models.ResourceSet
 import dagr.core.tasksystem._
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
 

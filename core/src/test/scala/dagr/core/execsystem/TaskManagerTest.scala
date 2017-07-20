@@ -25,6 +25,7 @@ package dagr.core.execsystem
 
 import com.fulcrumgenomics.commons.collection._
 import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.DagrDef._
 import dagr.core.exec._
 import dagr.core.tasksystem.Task.TaskInfo

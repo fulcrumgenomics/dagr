@@ -26,7 +26,7 @@
 package dagr.core.tasksystem
 
 import dagr.core.UnitSpec
-import dagr.core.exec.{Cores, Memory, ResourceSet}
+import dagr.api.models.{Cores, Memory, ResourceSet}
 import org.scalatest.OptionValues
 
 class SchedulableTest extends UnitSpec with OptionValues {

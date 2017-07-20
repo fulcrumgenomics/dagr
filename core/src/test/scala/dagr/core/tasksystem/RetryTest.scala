@@ -32,6 +32,7 @@ import dagr.core.UnitSpec
 import dagr.core.exec._
 import dagr.core.execsystem._
 import org.scalatest.OptionValues
+import dagr.api.models.{Cores, Memory, ResourceSet}
 
 /** Tests for MemoryRetry */
 class RetryTest extends UnitSpec with OptionValues {
