@@ -35,7 +35,6 @@ import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.api.models.ResourceSet
 import dagr.core.DagrDef.TaskId
 import dagr.core.exec._
-import dagr.core.execsystem._
 import dagr.core.execsystem2.TaskExecutor
 import dagr.core.execsystem2.util.InterruptableFuture
 import dagr.core.execsystem2.util.InterruptableFuture.Interruptable
@@ -69,14 +68,12 @@ object LocalTaskExecutor {
     * @param submitFuture the future that will complete once the task is scheduled.
     * @param executeFuture the future that will complete once the task has finished executing.  None if it has not
     *                      started executing.
-    * @param resources the resources that the task was scheduled with, None if not scheduled.
     */
   protected case class TaskInfo
   (taskRunner: LocalTaskRunner,
    latch: CountDownLatch,
    submitFuture: InterruptableFuture[LocalTaskRunner],
-   executeFuture: Option[InterruptableFuture[UnitTask]] = None,
-   resources: Option[ResourceSet] = None
+   executeFuture: Option[InterruptableFuture[UnitTask]] = None
   )
 }
 
@@ -120,14 +117,14 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
   /** Returns true if the task is running, false if not running or not tracked */
   def running(task: UnitTask): Boolean = {
     val info = this.taskInfo(task)
-    info.resources.isDefined && info.executeFuture.isDefined
+    task.taskInfo.resources.isDefined && info.executeFuture.isDefined
   }
 
   // true if the task has been scheduled for execution or is executing.
   //def scheduled(task: UnitTask): Boolean = this.taskInfo(task).resources.isDefined
 
   /** Returns true if the task has been submitted (i.e. is ready to execute) but has not been scheduled, false otherwise */
-  def waiting(task: UnitTask): Boolean = this.taskInfo(task).resources.isEmpty
+  def waiting(task: UnitTask): Boolean = task.taskInfo.resources.isEmpty
 
   /** Returns true if we know about this task, false otherwise */
   def contains(task: UnitTask): Boolean = this.taskInfo.contains(task)
@@ -241,13 +238,13 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
   /** Gets all tasks that have been submitted for execution but have not been scheduled. */
   private def toScheduleTasks: Set[UnitTask] = {
     this.taskInfo.flatMap { case (task, info) =>
-      if (info.resources.isEmpty) Some(task) else None
+      if (task.taskInfo.resources.isEmpty) Some(task) else None
     }.toSet
   }
 
   /** Gets a map from task to the resources it was scheduled with or None if not scheduled. */
   private def runningTasks: Map[UnitTask, ResourceSet] = this.taskInfo.flatMap { case (task, info) =>
-    info.resources match {
+    task.taskInfo.resources match {
       case Some(resources) => Some(task -> resources)
       case None            => None
     }
@@ -321,10 +318,8 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
     )
 
     tasksToSchedule.foreach { case (task, resources) =>
-      task.applyResources(resources)
-      val info = this.taskInfo(task)
-      this.taskInfo.update(task, info.copy(resources=Some(resources)))
-      info.latch.countDown() // release them from pre-submission
+      task.scheduleResources(resources)
+      this.taskInfo(task).latch.countDown() // release them from pre-submission
     }
 
     tasksToSchedule.nonEmpty

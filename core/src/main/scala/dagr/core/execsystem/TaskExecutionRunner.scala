@@ -177,7 +177,7 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
   override def runTask(taskInfo: TaskExecutionInfo, simulate: Boolean = false): Boolean = taskInfo.task match {
     case unitTask: UnitTask =>
       try {
-        unitTask.applyResources(taskInfo.resources.get)
+        unitTask.scheduleResources(taskInfo.resources.get)
         val taskRunner: TaskRunnable = (simulate, unitTask) match {
           case (true,  t: UnitTask)    => new SimulatedTaskExecutionRunner(task = t)
           case (false, t: InJvmTask)   => new InJvmTaskExecutionRunner(task = t, script = taskInfo.scriptPath.get, logFile = taskInfo.logPath.get)

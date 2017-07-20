@@ -450,7 +450,6 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     for ((task, taskResourceSet) <- tasksToSchedule) {
       val taskInfo = task.execsystemTaskInfo
       val node     = this(taskInfo.taskId)
-      taskInfo.resources = Some(taskResourceSet) // update the resource set that was used when scheduling the task
       if (taskExecutionRunner.runTask(taskInfo, simulate)) {
         node.state = RUNNING
       }

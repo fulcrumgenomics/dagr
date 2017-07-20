@@ -201,7 +201,7 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
       Column.Name           -> info.task.name,
       Column.Status         -> info.status.toString,
       Column.Cores          -> f"${info.resources.map(_.cores.value).getOrElse(0.0)}%.2f",
-      Column.Memory         -> info.resources.map(_.memory.prettyString).getOrElse(""),
+      Column.Memory         -> info.resources.map(_.memory.prettyString).getOrElse("NA"),
       Column.SubmissionDate -> timestampStringOrNA(info.submissionDate),
       Column.StartDate      -> timestampStringOrNA(info.startDate),
       Column.EndDate        -> timestampStringOrNA(info.endDate),
