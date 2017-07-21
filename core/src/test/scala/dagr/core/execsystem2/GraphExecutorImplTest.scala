@@ -64,14 +64,9 @@ private object GraphExecutorImplTest extends PrivateMethodTester {
     graphExecutor invokePrivate executeMultiTaskDecorate(task, childTasks)
   }
 
-  private val submissionFutureDecorate = PrivateMethod[Future[Future[UnitTask]]]('submissionFuture)
-  def submissionFuture(graphExecutor: GraphExecutorImpl[UnitTask], task: Task): Future[Future[UnitTask]] = {
-    graphExecutor invokePrivate submissionFutureDecorate(task)
-  }
-
-  private val executionFutureDecorate = PrivateMethod[Future[UnitTask]]('executionFuture)
-  def executionFuture(graphExecutor: GraphExecutorImpl[UnitTask], task: Task, subFuture: Future[Future[UnitTask]]): Future[UnitTask] = {
-    graphExecutor invokePrivate executionFutureDecorate(task, subFuture)
+  private val submitAndExecuteFutureDecorate = PrivateMethod[Future[Future[UnitTask]]]('submitAndExecuteFuture)
+  def submitAndExecuteFuture(graphExecutor: GraphExecutorImpl[UnitTask], task: Task): Future[Future[UnitTask]] = {
+    graphExecutor invokePrivate submitAndExecuteFutureDecorate(task)
   }
 
   private val onCompleteFutureDecorate = PrivateMethod[Future[UnitTask]]('onCompleteFuture)
@@ -598,10 +593,10 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
     val graphExecutor = this.graphExecutor
     val task = infiniteResourcesTask
 
-    an[NoSuchElementException] should be thrownBy submissionFuture(graphExecutor, task)
+    an[NoSuchElementException] should be thrownBy submitAndExecuteFuture(graphExecutor, task)
 
     updateMetadata(graphExecutor, task, Pending).status shouldBe Pending
-    an[IllegalArgumentException] should be thrownBy submissionFuture(graphExecutor, task)
+    an[IllegalArgumentException] should be thrownBy submitAndExecuteFuture(graphExecutor, task)
   }
 
   it should "fail if TaskExecutor.execute throws an exception" in {
@@ -610,7 +605,7 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
     val task = infiniteDurationTask
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    whenReady(submissionFuture(graphExecutor, task).failed) { thr: Throwable =>
+    whenReady(submitAndExecuteFuture(graphExecutor, task).failed) { thr: Throwable =>
       checkTaggedException[IllegalArgumentException](thr, FailedSubmission)
     }
   }
@@ -622,7 +617,7 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
     val task = infiniteDurationTask
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    whenReady(submissionFuture(graphExecutor, task).failed) { thr: Throwable =>
+    whenReady(submitAndExecuteFuture(graphExecutor, task).failed) { thr: Throwable =>
       checkTaggedException[IllegalArgumentException](thr, FailedSubmission)
     }
   }
@@ -634,20 +629,20 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
 
     updateMetadata(graphExecutor, root, Queued).status shouldBe Queued
 
-    whenReady(submissionFuture(graphExecutor, root).failed) { thr: Throwable =>
+    whenReady(submitAndExecuteFuture(graphExecutor, root).failed) { thr: Throwable =>
       checkTaggedException[IllegalArgumentException](thr, FailedSubmission)
     }
   }
 
   it should "have status FailedExecution when the task fails execution" in {
     val graphExecutor = graphExecutorFailedExecution
-    val task = infiniteResourcesTask // NB: infinite resources, cannot be scheduled
+    val task = infiniteDurationTask
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    whenReady(submissionFuture(graphExecutor, task)) { execFuture =>
-      checkStatus(graphExecutor, task, Submitted)
+    whenReady(submitAndExecuteFuture(graphExecutor, task)) { execFuture =>
+      checkSomeStatus(graphExecutor, task, Set(Submitted, FailedExecution))
       whenReady(execFuture.failed) { thr =>
-        checkStatus(graphExecutor, task, Submitted)
+        checkStatus(graphExecutor, task, FailedExecution)
       }
     }
   }
@@ -657,31 +652,35 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
     val task = infiniteResourcesTask // NB: infinite resources
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    whenReady(submissionFuture(graphExecutor, task).failed) { thr =>
+    whenReady(submitAndExecuteFuture(graphExecutor, task).failed) { thr =>
       checkTaggedException[IllegalArgumentException](thr=thr, status=FailedSubmission)
       checkStatus(graphExecutor, task, FailedSubmission)
     }
   }
 
-  it should "have status Submitted when the task can be scheduled (but not yet running)" in {
-    val graphExecutor = this.graphExecutor
-    val task = infiniteDurationTask // NB: no resources
-    updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
+  it should "have status Queued when the task cannot be scheduled (but not yet running)" in {
+    val graphExecutor = this.graphExecutorSingleCore
+    val blockingTask  = new PromiseTask(Duration.Inf, ResourceSet(1,0)) // NB: one core, infinite duration
+    val waitingTask   = new PromiseTask(Duration.Inf, ResourceSet(1,0)) // NB: one core, infinite duration
 
-    whenReady(submissionFuture(graphExecutor, task)) { execFuture =>
-      execFuture.isCompleted shouldBe false
-      checkStatus(graphExecutor, task, Submitted)
+    updateMetadata(graphExecutor, blockingTask, Queued).status shouldBe Queued
+    updateMetadata(graphExecutor, waitingTask, Queued).status shouldBe Queued
+
+    whenReady(submitAndExecuteFuture(graphExecutor, blockingTask)) { blockingExecFuture =>
+      blockingExecFuture.isCompleted shouldBe false
+      checkStatus(graphExecutor, blockingTask, Running)
+      checkStatus(graphExecutor, waitingTask, Queued)
     }
   }
 
-  "GraphExecutorImpl.executionFuture" should "return a failure if the submission future failed" in {
-    // A task executor that fails the inner future execute method
+  "GraphExecutorImpl.submissionFuture.flatten" should "return a failure if the submission future failed" in {
+    // A task executor that fails the outer future execute method
     val graphExecutor = graphExecutorFailedSubmission
-    val task = infiniteDurationTask
+    val task = infiniteResourcesTask
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    val subFuture = submissionFuture(graphExecutor, task)
-    val execFuture = executionFuture(graphExecutor, task, subFuture)
+    val subFuture  = submitAndExecuteFuture(graphExecutor, task)
+    val execFuture = subFuture.flatten
 
     whenReady(execFuture.failed) { thr: Throwable =>
       checkTaggedException[IllegalArgumentException](thr, FailedSubmission)
@@ -689,44 +688,26 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
   }
 
   it should "return a failure if the execution future failed" in {
-    // A task executor that fails the outer future execute method
+    // A task executor that fails the inner future execute method
     val graphExecutor = graphExecutorFailedExecution
     val task = infiniteDurationTask
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    val subFuture = submissionFuture(graphExecutor, task)
-    val execFuture = executionFuture(graphExecutor, task, subFuture)
+    val subFuture  = submitAndExecuteFuture(graphExecutor, task)
+    val execFuture = subFuture.flatten
 
     whenReady(execFuture.failed) { thr: Throwable =>
       checkTaggedException[IllegalArgumentException](thr, FailedExecution)
     }
   }
 
-  it should "throw an exception if the status was not Submitted" in {
-    val graphExecutor = this.graphExecutor
-    val task = infiniteDurationTask // scheduled immediately
-    updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
-
-    val subFuture = submissionFuture(graphExecutor, task)
-
-    whenReady(subFuture) { _ =>
-      // Update to Queued
-      updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
-    }
-    val execFuture = executionFuture(graphExecutor, task, subFuture)
-
-    an[IllegalArgumentException] should be thrownBy {
-      Await.result(execFuture, Duration("1s"))
-    }
-  }
-
   it should "have status Running while running" in {
     val graphExecutor = this.graphExecutor
-    val task = infiniteDurationTask // scheduled immediately
+    val task = infiniteDurationTask
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    val subFuture = submissionFuture(graphExecutor, task)
-    val execFuture = executionFuture(graphExecutor, task, subFuture)
+    val subFuture  = submitAndExecuteFuture(graphExecutor, task)
+    val execFuture = subFuture.flatten
 
     // wait until it is scheduled
     whenReady(subFuture) { _ => }
@@ -741,12 +722,12 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
     val task = successfulTask // scheduled and run immediately
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    val subFuture = submissionFuture(graphExecutor, task)
+    val subFuture = submitAndExecuteFuture(graphExecutor, task)
 
     // wait until it is scheduled
     whenReady(subFuture) { _ =>
-      checkStatus(graphExecutor, task, Submitted)
-      val execFuture = executionFuture(graphExecutor, task, subFuture)
+      checkSomeStatus(graphExecutor, task, Set(Submitted, Running))
+      val execFuture = subFuture.flatten
       whenReady(execFuture) { t =>
         checkStatus(graphExecutor, t, Running)
       }
@@ -758,8 +739,8 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
     val task = successfulTask // scheduled and run immediately
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    val subFuture = submissionFuture(graphExecutor, task)
-    val execFuture = executionFuture(graphExecutor, task, subFuture)
+    val subFuture  = submitAndExecuteFuture(graphExecutor, task)
+    val execFuture = subFuture.flatten
 
     whenReady(execFuture) { _ =>
       updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
@@ -779,8 +760,8 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
 
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    val subFuture = submissionFuture(graphExecutor, task)
-    val execFuture = executionFuture(graphExecutor, task, subFuture)
+    val subFuture = submitAndExecuteFuture(graphExecutor, task)
+    val execFuture = subFuture.flatten
     val onComplFuture = onCompleteFuture(graphExecutor, task, execFuture=execFuture)
 
     whenReady(onComplFuture.failed) { thr: Throwable =>
@@ -811,8 +792,8 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
     val task = successfulTask
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
 
-    val subFuture = submissionFuture(graphExecutor, task)
-    val execFuture = executionFuture(graphExecutor, task, subFuture)
+    val subFuture = submitAndExecuteFuture(graphExecutor, task)
+    val execFuture = subFuture.flatten
     val onComplFuture = onCompleteFuture(graphExecutor, task, execFuture=execFuture)
 
     whenReady(onComplFuture) { t =>
@@ -824,7 +805,7 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
     val graphExecutor = {
       // an executor that adds the task info back in before returning the future from execute()
       val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory)) {
-        override def execute(task: UnitTask): Future[Future[UnitTask]] = {
+        override def execute(task: UnitTask, f: => Unit = () => Unit): Future[Future[UnitTask]] = {
           val future = super.execute(task)
           val info = this.taskInfo(task)
           // add the task info back in before completing!
@@ -839,8 +820,8 @@ class GraphExecutorImplTest extends GraphExecutorUnitSpec with PrivateMethodTest
     // scheduled and runs immediately
     val task = successfulTask
     updateMetadata(graphExecutor, task, Queued).status shouldBe Queued
-    val subFuture = submissionFuture(graphExecutor, task)
-    val execFuture = executionFuture(graphExecutor, task, subFuture)
+    val subFuture = submitAndExecuteFuture(graphExecutor, task)
+    val execFuture = subFuture.flatten
     val onComplFuture = onCompleteFuture(graphExecutor, task, execFuture=execFuture)
 
     whenReady(completedTaskFuture(graphExecutor, task, onComplFuture=onComplFuture).failed) { thr: Throwable =>

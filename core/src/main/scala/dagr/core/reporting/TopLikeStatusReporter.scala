@@ -31,6 +31,7 @@ import com.fulcrumgenomics.commons.CommonsDef.yieldAndThen
 import com.fulcrumgenomics.commons.util.Logger
 import com.fulcrumgenomics.commons.util.StringUtil._
 import com.fulcrumgenomics.commons.util.TimeUtil._
+import dagr.api.models.ResourceSet
 import dagr.core.exec.ExecDef.concurrentSet
 import dagr.core.exec.{Executor, SystemResources}
 import dagr.core.execsystem.TaskManager
@@ -270,10 +271,14 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
     val tableTasks: ListBuffer[Task] = new ListBuffer[Task]()
 
     // Gets a list of tasks to add to the table of tasks.  Uses the filter predicate to select only
-    // a particular set of tasks.
+    // a particular set of tasks.  Tasks will be sorted by those having resources first, then secondly by
+    // the task id (infinite if none assigned)
     def filterTasks(filter: Task => Boolean): Seq[Task] = {
       if (tableTasks.size < numLinesLeft) {
-        val moreTasks = tasks.filter(filter).toSeq.sortBy(_.taskInfo.id.getOrElse(BigInt(-1)))
+        val moreTasks = tasks.filter(filter).toSeq
+          .sortBy { info =>
+            (info.taskInfo.resources.isEmpty, info.taskInfo.id.getOrElse(BigInt(Int.MaxValue)))
+          }
         if (moreTasks.size + tableTasks.size <= numLinesLeft) moreTasks
         else moreTasks.slice(0, numLinesLeft - tableTasks.size)
       }
@@ -284,8 +289,10 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
 
     if (0 < numLinesLeft) { print("\n"); numLinesLeft -= 1 }
 
-    // Get tasks that have no unmet dependencies or are running
-    tableTasks ++= tasks.filter { task => queued(task) || running(task) }
+    // Get tasks that are running
+    tableTasks ++= filterTasks(running)
+    // Get tasks that have no unmet dependencies
+    tableTasks ++= filterTasks(queued)
     // Add those that failed if we have more lines
     tableTasks ++= filterTasks(failed)
     // Add those that completed if we have more lines
@@ -300,7 +307,6 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
     // tasks
     taskStatusTable ++= tableTasks
       .map(_.taskInfo)
-      .sortBy { info => (info.status.ordinal, info.id.getOrElse(BigInt(-1))) }
       .map { taskInfo =>
         val rowInfo = taskInfoLine(taskInfo)
         Column.values.toList.map { field =>

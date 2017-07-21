@@ -59,7 +59,7 @@ class DagrCoreMainTest extends FutureUnitSpec with CaptureSystemStreams with Bef
     var exitCode: Option[Int] = None
     val (stderr, stdout, log) = captureItAll(() => {
       val argsWithReport = Array[String]("--report", reportPath.toAbsolutePath.toString) ++ args
-      exitCode = Some(new DagrCoreMain().makeItSo(args=argsWithReport, packageList=List(packageName), includeHidden=true))
+      exitCode = Some(new DagrCoreMain[DagrCoreArgs]().makeItSo(args=argsWithReport, packageList=List(packageName), includeHidden=true))
     })
     (exitCode, stderr, stdout, log)
   }

@@ -150,8 +150,10 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
 
   /** Schedule and execute at task.  The outer future will complete once the task has been scheduled, while the inner
     * future will complete once the task has completed execution.
+    *
+    * A method `f` may be given, and will execute immediately prior to the task executing.
     */
-  def execute(task: UnitTask): Future[Future[UnitTask]] = {
+  def execute(task: UnitTask, f: => Unit = () => Unit): Future[Future[UnitTask]] = {
     throwableIfCanNeverBeScheduled(task) match {
       case Some(throwable) => Future.failed[Future[UnitTask]](throwable)
       case None =>
@@ -160,7 +162,12 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
         // Run the scheduler just in case it can be run immediately.
         this.schedule()
         // Execute it once it has been scheduled.
-        submitFuture.future map { taskRunner => blocking { executeTaskRunner(taskRunner) } }
+        submitFuture.future map { taskRunner =>
+          blocking {
+            f
+            executeTaskRunner(taskRunner)
+          }
+        }
     }
   }
 
@@ -174,9 +181,10 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
     task.taskInfo.id         = Some(taskId)
     task.taskInfo.scriptPath = scriptPathFor(task, taskId, task.taskInfo.attempts)
     task.taskInfo.logPath    = logPathFor(task, taskId, task.taskInfo.attempts)
+    task.taskInfo.resources  = None // reset resources in case we are retrying
     val taskRunner = LocalTaskRunner(task=task)
 
-    // Create a future that waits until the task is scheduled for execution (the latch reaches zero).  It returusn the
+    // Create a future that waits until the task is scheduled for execution (the latch reaches zero).  It returns the
     // task runner that executes the task.
     val latch = new CountDownLatch(1)
     val submitFuture = Future {
@@ -319,6 +327,7 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
 
     tasksToSchedule.foreach { case (task, resources) =>
       task.scheduleResources(resources)
+      logger.debug("countdown task: " + task.name)
       this.taskInfo(task).latch.countDown() // release them from pre-submission
     }
 

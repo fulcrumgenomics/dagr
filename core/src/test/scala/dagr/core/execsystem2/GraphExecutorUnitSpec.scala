@@ -30,9 +30,9 @@ import java.time.Instant
 
 import com.fulcrumgenomics.commons.CommonsDef.DirPath
 import dagr.core.FutureUnitSpec
-import dagr.api.models.{ResourceSet, TimePoint}
+import dagr.api.models.{Cores, ResourceSet, TimePoint, TaskStatus => RootTaskStatus}
 import dagr.core.execsystem2.TaskStatus._
-import dagr.core.execsystem2.local.LocalTaskExecutor
+import dagr.core.execsystem2.local.{LocalTaskExecutor, LocalTaskExecutorDefaults}
 import dagr.core.tasksystem.Task.{TaskInfo => RootTaskInfo}
 import dagr.core.tasksystem.{Pipeline, ShellCommand, Task, UnitTask}
 
@@ -63,23 +63,29 @@ private[execsystem2] trait GraphExecutorUnitSpec extends FutureUnitSpec {
     new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
   }
 
+  protected def graphExecutorSingleCore: GraphExecutorImpl[UnitTask] = {
+    val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory),
+      systemResources=LocalTaskExecutorDefaults.defaultSystemResources.copy(cores=Cores(1)))
+    new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
+  }
+
   protected def graphExecutorSubmissionException: GraphExecutorImpl[UnitTask] = {
     val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory)) {
-      override def execute(task: UnitTask): Future[Future[UnitTask]] = throw new IllegalArgumentException
+      override def execute(task: UnitTask, f: => Unit = () => Unit): Future[Future[UnitTask]] = throw new IllegalArgumentException
     }
     new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
   }
 
   protected def graphExecutorFailedSubmission: GraphExecutorImpl[UnitTask] = {
     val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory)) {
-      override def execute(task: UnitTask): Future[Future[UnitTask]] = Future.failed(new IllegalArgumentException)
+      override def execute(task: UnitTask, f: => Unit = () => Unit): Future[Future[UnitTask]] = Future.failed(new IllegalArgumentException)
     }
     new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
   }
 
   protected def graphExecutorFailedExecution: GraphExecutorImpl[UnitTask] = {
     val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory)) {
-      override def execute(task: UnitTask): Future[Future[UnitTask]] = Future { Future.failed(new IllegalArgumentException) }
+      override def execute(task: UnitTask, f: => Unit = () => Unit): Future[Future[UnitTask]] = Future { Future.failed(new IllegalArgumentException) }
     }
     new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
   }
@@ -100,7 +106,7 @@ private[execsystem2] trait GraphExecutorUnitSpec extends FutureUnitSpec {
   protected def successfulTask: UnitTask = new PromiseTask(Duration.Zero, ResourceSet.empty) with UnitTask withName "successful-task"
 
   /** Creates a task that has an infinite amount of resources. */
-  protected def infiniteResourcesTask: UnitTask = new PromiseTask(Duration.Inf, ResourceSet.Inf) with UnitTask withName "infinite-resources-task"
+  protected def infiniteResourcesTask: UnitTask = new PromiseTask(Duration.Zero, ResourceSet.Inf) with UnitTask withName "infinite-resources-task"
 
   /** Creates a task that requires no resources but never halts. */
   protected def infiniteDurationTask: UnitTask = new PromiseTask(Duration.Inf, ResourceSet.empty) with UnitTask withName "infinite-duration-task"
@@ -144,6 +150,13 @@ private[execsystem2] trait GraphExecutorUnitSpec extends FutureUnitSpec {
     graphExecutor.contains(task) shouldBe true
     val info = task.taskInfo
     info.status shouldBe status
+    info
+  }
+
+  protected def checkSomeStatus(graphExecutor: GraphExecutor[UnitTask], task: Task, statuses: Set[RootTaskStatus]): RootTaskInfo = {
+    graphExecutor.contains(task) shouldBe true
+    val info = task.taskInfo
+    statuses.contains(info.status) shouldBe true
     info
   }
 

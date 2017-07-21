@@ -33,14 +33,16 @@ import dagr.core.execsystem.TaskStatus.Unknown
 import dagr.core.tasksystem.Task
 
 /** The state of execution of a [[Task]].
- */
+  */
 class TaskExecutionInfo(task: Task,
                         initId: TaskId,
                         initStatus: TaskStatus = Unknown,
                         script: FilePath,
                         log: FilePath,
-                        resources: Option[ResourceSet] = Some(ResourceSet(0, 0)))
-  extends Task.TaskInfo(task=task, initStatus=initStatus, id=Some(initId), script=Some(script.toString), log=Some(log.toString), resources=resources)
+                        resources: Option[ResourceSet] = Some(ResourceSet.empty))
+  extends Task.TaskInfo(task=task, initStatus=initStatus, id=Some(initId),
+    script=Option(script).map(_.toString), log=Option(log).map(_.toString),
+    resources=resources)
 {
   protected[core] var submissionDate: Option[Instant] = Some(Instant.now())
   protected[core] var startDate:      Option[Instant] = None

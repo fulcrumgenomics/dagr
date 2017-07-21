@@ -242,10 +242,9 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
   /** Submits and executes a task vai the task executor. */
   private def executeWithTaskExecutor(task: Task): Future[T] = {
     Future { task.asInstanceOf[T] } flatMap { t: T =>
-      val subFuture     = submissionFuture   (t)
-      val execFuture    = executionFuture    (t, subFuture=subFuture)
-      val onComplFuture = onCompleteFuture   (t, execFuture=execFuture)
-      val complFuture   = completedTaskFuture(t, onComplFuture=onComplFuture)
+      val subFuture     = submitAndExecuteFuture(t)
+      val onComplFuture = onCompleteFuture      (t, execFuture=subFuture.flatten)
+      val complFuture   = completedTaskFuture   (t, onComplFuture=onComplFuture)
       complFuture
     }
   }
@@ -254,7 +253,7 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
     * can start executing, due to any reason (ex. scheduling or assigning resources, locality, etc.).  The inner future
     * completes after the task has successfully executed. Returns a future that is wrapped so
     * that any failure is tagged as [[FailedSubmission]].  */
-  private def submissionFuture(task: T): Future[Future[T]] = failFutureWithFailedSubmission(task) {
+  private def submitAndExecuteFuture(task: T): Future[Future[T]] = failFutureWithFailedSubmission(task) {
     // Update the task to be submitted ot the task executor
     requireTaskStatus(task, Queued)
     updateMetadata(task, Submitted)
@@ -264,23 +263,20 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
       // This future completes when the task has started execution.  A delay may occur to scheduling, resourcing, or any
       // other multitude of reasons.
       // TODO: partial functions here
-      this.taskExecutor.execute(t)
+
+      this.taskExecutor.execute(t, f = updateToRunning(task)).map { execFuture: Future[T] =>
+        // Wrap the execution future so that we can update the status in case of failure
+        failFutureWithFailedExecution(t)(execFuture)
+      }
       // TODO: could have a status for 'Scheduled' (eg. Submitted -> Scheduled -> Running)
     }
   }
 
-  /** Update the task status to [[Running]] when the task can start executing (when the outer future completes).
-    * Wraps the future that completes when the execution completes so that any failure is tagged as [[FailedExecution]].
+  /** Update the task status to [[Running]].
     * */
-  private def executionFuture(task: T, subFuture: Future[Future[T]]): Future[T] = {
-    subFuture flatMap { execFuture: Future[T] =>
-      // NB: the future we return has already been created (by the task executor), but we need to update the task
-      // status after it starts executing and before it completes.
-      requireTaskStatus(task, Submitted)
-      // The task is now running, so wait for it to finish running
-      updateMetadata(task, Running)
-      failFutureWithFailedExecution(task) { execFuture }
-    }
+  private def updateToRunning(task: T): Unit = {
+    requireTaskStatus(task, Submitted)
+    updateMetadata(task, Running)
   }
 
   /** Run the task's [[Task.onComplete]] method once it has executed successfully.  Returns a future that is wrapped so
@@ -316,6 +312,11 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
       } recoverWith {
         // retry only if we failed when running
         case taggedException: TaggedException if taggedException.status == FailedExecution =>
+          task match {
+            case r: Retry =>
+              println("Retry task: will retry: " + r.retry(resources=taskExecutor.resources, task.taskInfo))
+            case _ => Unit
+          }
           task match {
             case r: Retry if r.retry(resources=taskExecutor.resources, task.taskInfo) =>
               // Queue and execute it again

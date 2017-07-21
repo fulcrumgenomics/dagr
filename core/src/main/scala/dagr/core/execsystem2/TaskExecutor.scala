@@ -43,8 +43,10 @@ trait TaskExecutor[T<:Task] {
   /** Execute a task. The first outer returned completes when a task is eligible for execution. It may delay, for
     * example, if there are not enough system resources to run.  The inner future completes when the task has completed
     * executing.  If the task can never by run, a failure should return immediately.
+    *
+    * A method `f` may be given, and will execute immediately prior to the task executing.
     */
-  def execute(task: T): Future[Future[T]]
+  def execute(task: T, f: => Unit = () => Unit): Future[Future[T]]
 
   /** terminate a task, returns true if successful, false otherwise, None if it knows nothing about the task. */
   def kill(task: T, duration: Duration = Duration.Zero): Option[Boolean]

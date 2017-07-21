@@ -325,7 +325,7 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
     val graphExecutor = this.graphExecutor
     val task = new SimpleInJvmTask with Retry {
       var attempt = 0
-      def run(): Unit = { attempt += 1; require(attempt > 1) }
+      def run(): Unit = { attempt += 1; println(s"run attempt $attempt"); require(attempt > 1) }
       override def retry(resources: SystemResources, taskInfo: RootTaskInfo): Boolean = attempt < 2
     } withName "retry-task"
 

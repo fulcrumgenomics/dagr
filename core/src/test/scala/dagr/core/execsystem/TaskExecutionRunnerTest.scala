@@ -293,19 +293,23 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     override def args = List.empty
   }
 
+  private def script = Files.createTempFile("tmp.", ".sh")
+  private def log = Files.createTempFile("tmp.", ".log")
+
   it should "get a non-zero exit code for a task that fails during getProcessBuilder by throwing an exception" in {
     val taskRunner: TaskExecutionRunner = new TaskExecutionRunner()
     val task: ProcessBuilderExceptionTask = new ProcessBuilderExceptionTask()
     val taskInfo: TaskExecutionInfo = new TaskExecutionInfo(
       task = task,
       initId = 1,
-      script = null,
-      log = null)
-    taskInfo.resources = Some(ResourceSet.empty)
+      script = script,
+      log = log
+    )
     taskRunner.runTask(taskInfo)
     taskInfo.status should be(TaskStatus.Started)
     taskRunner.joinAll(1000)
     val completedTasks: Map[TaskId, (Int, Boolean)] = taskRunner.completedTasks()
+    taskInfo.status should be(TaskStatus.FailedExecution)
     completedTasks.get(1).value._1 should be(1) // exit code
     completedTasks.get(1).value._2 should be(false) // on complete
   }
@@ -319,8 +323,8 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       task = task,
       initId = 1,
       resources = Some(ResourceSet.empty),
-      script = null,
-      log = null
+      script = script,
+      log = log
     )
     taskRunner.runTask(taskInfo=taskInfo, simulate=false) shouldBe false
   }
@@ -334,8 +338,8 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       task = task,
       initId = 1,
       resources = Some(ResourceSet.empty),
-      script = null,
-      log = null
+      script = script,
+      log = log
     )
     an[RuntimeException] should be thrownBy taskRunner.runTask(taskInfo=taskInfo, simulate=false)
   }
@@ -351,8 +355,8 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
       task = task,
       initId = 1,
       resources = Some(ResourceSet.empty),
-      script = null,
-      log = null
+      script = script,
+      log = log
     )
     taskRunner.runTask(taskInfo=taskInfo, simulate=false) shouldBe true
     taskRunner.joinAll(2000)
