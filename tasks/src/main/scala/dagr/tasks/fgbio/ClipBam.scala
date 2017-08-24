@@ -32,24 +32,24 @@ import scala.collection.mutable.ListBuffer
 class ClipBam(val input: PathToBam,
               val output: PathToBam,
               val ref: PathToFasta,
-              val softClip: Boolean = false,
-              val autoClipAttributes: Boolean = false,
-              val readOneFivePrime: Int  = 0,
-              val readOneThreePrime: Int = 0,
-              val readTwoFivePrime: Int  = 0,
-              val readTwoThreePrime: Int = 0
+              val softClip: Option[Boolean] = None,
+              val autoClipAttributes: Option[Boolean] = None,
+              val readOneFivePrime: Option[Int] = None,
+              val readOneThreePrime: Option[Int] = None,
+              val readTwoFivePrime: Option[Int] = None,
+              val readTwoThreePrime: Option[Int] = None
              ) extends FgBioTask {
 
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", input)
     buffer.append("-o", output)
     buffer.append("-r", ref)
-    buffer.append("-s", softClip)
-    buffer.append("-a", autoClipAttributes)
-    buffer.append("-b", readOneFivePrime)
-    buffer.append("-c", readOneThreePrime)
-    buffer.append("-d", readTwoFivePrime)
-    buffer.append("-e", readTwoThreePrime)
+    softClip.foreach          (s => buffer.append("-s", s))
+    autoClipAttributes.foreach(a => buffer.append("-a", a))
+    readOneFivePrime.foreach  (b => buffer.append("-b", b))
+    readOneThreePrime.foreach (c => buffer.append("-c", c))
+    readTwoFivePrime.foreach  (d => buffer.append("-d", d))
+    readTwoThreePrime.foreach (e => buffer.append("-e", e))
   }
 }
 
