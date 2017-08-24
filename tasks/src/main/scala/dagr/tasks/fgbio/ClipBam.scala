@@ -46,10 +46,10 @@ class ClipBam(val input: PathToBam,
     buffer.append("-r", ref)
     softClip.foreach          (s => buffer.append("-s", s))
     autoClipAttributes.foreach(a => buffer.append("-a", a))
-    readOneFivePrime.foreach  (b => buffer.append("-b", b))
-    readOneThreePrime.foreach (c => buffer.append("-c", c))
-    readTwoFivePrime.foreach  (d => buffer.append("-d", d))
-    readTwoThreePrime.foreach (e => buffer.append("-e", e))
+    readOneFivePrime.foreach  (b => buffer.append("--read-one-five-prime", b))
+    readOneThreePrime.foreach (c => buffer.append("--read-one-three-prime", c))
+    readTwoFivePrime.foreach  (d => buffer.append("--read-two-five-prime", d))
+    readTwoThreePrime.foreach (e => buffer.append("--read-two-three-prime", e))
   }
 }
 
