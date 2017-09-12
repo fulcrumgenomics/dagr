@@ -47,7 +47,7 @@ import org.scalatest.BeforeAndAfterAll
 class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAll {
   override def beforeAll(): Unit = Logger.level = LogLevel.Fatal
   override def afterAll(): Unit = Logger.level = LogLevel.Info
-  def buildTaskManager: TaskManager = new TaskManager(taskManagerResources = SystemResources.infinite, scriptsDirectory = None, sleepMilliseconds=1, failFast=true)
+  def buildTaskManager: TaskManager = new TaskManager(taskManagerResources = SystemResources.infinite, sleepMilliseconds=1, failFast=true)
 
   def tmp(): Path = {
     val path = Files.createTempFile("testScatterGather.", ".txt")

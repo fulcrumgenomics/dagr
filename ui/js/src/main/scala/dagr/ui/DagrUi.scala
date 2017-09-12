@@ -26,8 +26,9 @@
 package dagr.ui
 
 import autowire._
-import dagr.api.models.{TaskInfo, TaskInfoResponse, TaskStatus}
-import dagr.api.{DagrApi, DagrApiConfiguration}
+import dagr.api.DagrStatusApi.{StatusResponse, TaskStatusResponse}
+import dagr.api.models.tasksystem.TaskStatus
+import dagr.api.{DagrApi, DagrStatusApi}
 import org.querki.jsext.{JSOptionBuilder, OptMap, noOpts}
 import org.scalajs.dom
 import org.scalajs.dom.html.Table
@@ -48,9 +49,9 @@ import scala.collection.mutable
 import js.Dynamic.{global => g}
 import scala.concurrent.duration.Duration
 
-object Client extends autowire.Client[Js.Value, Reader, Writer] with DagrApiConfiguration {
+object Client extends autowire.Client[Js.Value, Reader, Writer] with DagrApi {
   override def doCall(req: Request): Future[Js.Value] = {
-    val path = Seq("http://0.0.0.0:8080", root, version) ++ req.path.drop(DagrApi.prefixSegments.length)
+    val path = Seq("http://0.0.0.0:8080", Root, Version) ++ req.path.drop(DagrStatusApi.FullyQualifiedPath.length)
     dom.ext.Ajax.post(
       url  = path.mkString("/"),
       data = upickle.json.write(Js.Obj(req.args.toSeq:_*))
@@ -124,7 +125,7 @@ object DagrUi extends js.JSApp {
   val ToHide = Set("Script", "Log", "Depends On", "Dependents", "Parent", "Children")
 
 
-  def taskNamesAndIdsToHTMLElement(namesAndIds: Seq[(String, BigInt)]): HTMLElement = {
+  def taskNamesAndIdsToHTMLElement(namesAndIds: Seq[(String, Int)]): HTMLElement = {
     table(
       cls:=TableClasses,
       thead(
@@ -134,7 +135,7 @@ object DagrUi extends js.JSApp {
         )
       ),
       tbody(
-        namesAndIds.map { case ((n: String, i: BigInt)) =>
+        namesAndIds.map { case ((n: String, i: Int)) =>
           tr(
             td(n),
             td(i.toString)
@@ -153,7 +154,7 @@ object DagrUi extends js.JSApp {
     else ""
   }
 
-  private def updateProgressBar(infos: Seq[TaskInfo]): Unit = {
+  private def updateProgressBar(infos: Seq[TaskStatusResponse]): Unit = {
     val length    = if (infos.isEmpty) Double.MaxValue else infos.length
     val successes = 100 * infos.count(_.status.success) / length.toDouble
     val executing = 100 * infos.count(_.status.executing) / length.toDouble
@@ -243,7 +244,7 @@ object DagrUi extends js.JSApp {
     taskTableBox.appendChild(taskTable).render
 
     def updateOutput() = {
-      Client[DagrApi].query(script = true, log = true, report = true).call().foreach { response: TaskInfoResponse =>
+      Client[DagrStatusApi].status(script = true, log = true, report = true).call().foreach { response: StatusResponse =>
 
         // Update the progress bar
         updateProgressBar(response.infos)
@@ -254,7 +255,7 @@ object DagrUi extends js.JSApp {
         }.toMap
 
         /** Formats the list of ids in an html table if present, otherwise gives the missing message in a paragraph. */
-        def toNames(ids: Seq[BigInt], missingMsg: String): HTMLElement = {
+        def toNames(ids: Seq[Int], missingMsg: String): HTMLElement = {
           if (ids.isEmpty) p(missingMsg).render
           else {
             val namesAndIds = ids.map { id =>
@@ -316,7 +317,7 @@ object DagrUi extends js.JSApp {
                   td(info.status.description),
                   td(info.attempts),
                   td(info.statusTime.toString),
-                  td(cls:="hidden", pre(code(formatFileContents(info.script, info.scriptContents))).render),
+                  td(cls:="hidden", pre(code(formatFileContents(info.script.map(_.toString), info.scriptContents))).render),
                   td(cls:="hidden", pre(code(formatFileContents(info.log, info.logContents))).render),
                   td(cls:="hidden", toNames(info.dependsOn, missingMsg="Did not depend on any tasks")),
                   td(cls:="hidden", toNames(info.dependents, missingMsg="No tasks depended on this task")),

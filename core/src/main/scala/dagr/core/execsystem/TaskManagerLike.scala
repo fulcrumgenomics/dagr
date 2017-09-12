@@ -25,11 +25,11 @@
 package dagr.core.execsystem
 
 import com.fulcrumgenomics.commons.collection.BiMap
-import dagr.core.DagrDef._
+import dagr.api.DagrApi.TaskId
+import dagr.api.models.tasksystem
 import dagr.core.exec.Executor
 import dagr.core.execsystem.TaskManagerLike.BaseGraphNode
 import dagr.core.tasksystem.Task
-import dagr.api.models.{TaskStatus => RootTaskStatus}
 
 private[execsystem] object TaskManagerLike {
   abstract class BaseGraphNode
@@ -64,7 +64,7 @@ private[execsystem] trait TaskManagerLike extends Executor {
     * @param task the task.
     * @return the task status if the task is managed, None otherwise.
     */
-  def taskStatusFor(task: Task): Option[RootTaskStatus]
+  def taskStatusFor(task: Task): Option[tasksystem.TaskStatus]
 
 
   /** Get the task's associated [[TaskStatus]].
@@ -72,7 +72,7 @@ private[execsystem] trait TaskManagerLike extends Executor {
     * @param id the task identifier.
     * @return the task status if the task is managed, None otherwise.
     */
-  def taskStatusFor(id: TaskId): Option[RootTaskStatus]
+  def taskStatusFor(id: TaskId): Option[tasksystem.TaskStatus]
 
 
   /** Get the task identifier for the given task.
@@ -160,10 +160,4 @@ private[execsystem] trait TaskManagerLike extends Executor {
     *         (4) the tasks that have completed prior to scheduling.
     */
   def stepExecution(): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task])
-
-  /** Returns the task status by ordinal */
-  final def statusFrom(ordinal: Int): TaskStatus = TaskStatus.withValue(ordinal)
-
-  /** The list of statuses ordered by ordinal */
-  def statuses: Seq[TaskStatus] = TaskStatus.values
 }

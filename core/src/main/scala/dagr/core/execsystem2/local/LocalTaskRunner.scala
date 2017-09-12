@@ -45,10 +45,10 @@ sealed trait LocalTaskRunner {
   def task: UnitTask
 
   /** The path to the script where the commands are stored. */
-  def script: FilePath = task.taskInfo.scriptPath.getOrElse(throw new IllegalArgumentException(s"Task '${task.name}' does not have a script file"))
+  def script: FilePath = task.taskInfo.script.getOrElse(throw new IllegalArgumentException(s"Task '${task.name}' does not have a script file"))
 
   /** THe path to the log file where logging information are stored. */
-  def log: FilePath = task.taskInfo.logPath.getOrElse(throw new IllegalArgumentException(s"Task '${task.name}' does not have a log file"))
+  def log: FilePath = task.taskInfo.log.getOrElse(throw new IllegalArgumentException(s"Task '${task.name}' does not have a log file"))
 
   /** The exit code from executing the task, if the task has completed, None otherwise. A non-zero exit code indicates
     * a failure. */
@@ -60,7 +60,7 @@ sealed trait LocalTaskRunner {
   /** The method to execute the underlying task.  Completes when the underlying task completes. */
   final def execute()(implicit ex: ExecutionContext): Future[UnitTask] = {
     val future = blocking { _execute() } interruptable()
-    interruptibleFuture = Some(future)
+    this.interruptibleFuture = Some(future)
     future.future
   }
 

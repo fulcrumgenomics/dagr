@@ -23,7 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.api.models.{Cores, Memory, ResourceSet}
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 import dagr.core.exec.Resource
 
 object Schedulable {

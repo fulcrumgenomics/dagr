@@ -26,62 +26,65 @@
 package dagr.core.exec
 
 import com.fulcrumgenomics.commons.CommonsDef.{DirPath, yieldAndThen}
+import com.fulcrumgenomics.commons.io.Io
+import dagr.api.models.tasksystem.TaskStatus
+import dagr.api.models.exec.{Executor => RootExecutor}
 import dagr.core.execsystem.TaskManager
-import dagr.core.execsystem2.GraphExecutor
+import dagr.core.execsystem2.{Executor => Executor2}
 import dagr.core.execsystem2.local.LocalTaskExecutor
 import dagr.core.reporting.ReportingDef.{TaskLogger, TaskRegister, TaskReporter}
 import dagr.core.reporting.{FinalStatusReporter, TaskStatusLogger}
 import dagr.core.tasksystem.Task
 import dagr.core.tasksystem.Task.TaskInfo
-import dagr.api.models.TaskStatus
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{Buffer, ListBuffer}
 import scala.concurrent.ExecutionContext
 
 object Executor {
   /** Create a new executor. */
   def apply(experimentalExecution: Boolean,
             resources: SystemResources,
-            scriptsDirectory: Option[DirPath] = None,
-            logDirectory: Option[DirPath] = None,
+            scriptDirectory: DirPath = Io.makeTempDir("scripts"),
+            logDirectory: DirPath = Io.makeTempDir("logs"),
             failFast: Boolean = false
            )(implicit ex: ExecutionContext): Executor = {
     if (experimentalExecution) {
-      GraphExecutor(new LocalTaskExecutor(systemResources=resources, scriptsDirectory=scriptsDirectory, logDirectory=logDirectory))
+      Executor2(new LocalTaskExecutor(systemResources=resources, scriptDirectory=scriptDirectory, logDirectory=logDirectory))
     }
     else {
-      new TaskManager(taskManagerResources=resources, scriptsDirectory=scriptsDirectory, logDirectory=logDirectory, failFast=failFast)
+      new TaskManager(taskManagerResources=resources, scriptDirectory=scriptDirectory, logDirectory=logDirectory, failFast=failFast)
     }
   }
 }
 
 /** All executors of tasks should extend this trait. */
-trait Executor extends FinalStatusReporter {
+trait Executor extends FinalStatusReporter with RootExecutor[Task] {
 
   /** A list of [[TaskCache]] to use to determine if a task should be manually succeeded. */
-  protected val taskCaches: ListBuffer[TaskCache] = ListBuffer[TaskCache]()
+  protected val taskCaches: Buffer[TaskCache] = ListBuffer[TaskCache]()
 
   /** The loggers to be notified when a task's status is updated. */
-  private val _loggers: ListBuffer[TaskLogger] = ListBuffer[TaskLogger](new TaskStatusLogger)
+  private val _loggers: Buffer[TaskLogger] = ListBuffer[TaskLogger](new TaskStatusLogger)
 
-  /** The loggers to be notified when a task's status is updated. */
-  private val _registers: ListBuffer[TaskRegister] = ListBuffer[TaskRegister]()
+  /** The registers to be notified when a task is built. */
+  private val _registers: Buffer[TaskRegister] = ListBuffer[TaskRegister]()
 
   /** Record that the task information has changed for a task. */
   final def record(info: TaskInfo): Unit = this.synchronized {
     this._loggers.foreach(_.record(info=info))
   }
 
-  /** The method that will be called on the result of `Task.getTasks`. */
+  /** Registers that the parent built the given children. */
   final def register(parent: Task, child: Task*): Unit = this.synchronized {
     this._registers.foreach(_.register(parent, child:_*))
   }
 
   /** Adds the [[dagr.core.reporting.ReportingDef.TaskLogger]] to the list of loggers to be notified when a task's status is updated. */
-  private def withLogger(logger: TaskLogger): Unit = this.synchronized {
+  private def withLogger(logger: TaskLogger): this.type = this.synchronized {
     if (!this._loggers.contains(logger)) {
       this._loggers.append(logger)
     }
+    this
   }
 
   /** Adds the [[TaskRegister]] to the list of registers to be notified when a list of tasks is returned by [[Task.getTasks]] */
@@ -94,6 +97,7 @@ trait Executor extends FinalStatusReporter {
     this.taskCaches.append(taskCache)
   }
 
+  /** Adds teh [[TaskReporter]] to the list of reports to be notified depending on their type ([[TaskLogger]], [[TaskRegister]], or [[TaskCache]]). */
   final def withReporter(reporter: TaskReporter): this.type = this.synchronized {
     reporter match { case l: TaskLogger => withLogger(l); case _ => Unit }
     reporter match { case r: TaskRegister => withTaskRegister(r); case _ => Unit }
@@ -118,7 +122,7 @@ trait Executor extends FinalStatusReporter {
   /** Returns the log directory. */
   def logDir: DirPath
 
-  /** Start the execution of this task and all tasks that depend on it.  Returns the number of tasks that were not
+  /** Execute the given task and all tasks that depend on it.  Returns the number of tasks that were not
     * executed.  A given task should only be attempted once.  All executors should implement this method. */
   protected def _execute(task: Task): Int
 }

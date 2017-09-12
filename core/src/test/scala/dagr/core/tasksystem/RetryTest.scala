@@ -28,11 +28,11 @@ import java.nio.file.{Files, Paths}
 
 import com.fulcrumgenomics.commons.CommonsDef._
 import com.fulcrumgenomics.commons.io.Io
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 import dagr.core.UnitSpec
 import dagr.core.exec._
 import dagr.core.execsystem._
 import org.scalatest.OptionValues
-import dagr.api.models.{Cores, Memory, ResourceSet}
 
 /** Tests for MemoryRetry */
 class RetryTest extends UnitSpec with OptionValues {

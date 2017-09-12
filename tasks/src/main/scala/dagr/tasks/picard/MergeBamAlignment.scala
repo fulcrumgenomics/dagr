@@ -27,7 +27,7 @@ import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFasta}
-import dagr.api.models.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 import htsjdk.samtools.SamPairUtil.PairOrientation
 

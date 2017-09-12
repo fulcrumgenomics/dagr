@@ -32,8 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.fulcrumgenomics.commons.CommonsDef.DirPath
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.api.models.ResourceSet
-import dagr.core.DagrDef.TaskId
+import dagr.api.DagrApi.TaskId
+import dagr.api.models.util.ResourceSet
 import dagr.core.exec._
 import dagr.core.execsystem2.TaskExecutor
 import dagr.core.execsystem2.util.InterruptableFuture
@@ -64,7 +64,8 @@ object LocalTaskExecutor {
   /** A class to facilitate scheduling and executing a task.
     *
     * @param taskRunner the task runner used to execute the task
-    * @param latch the latch that will be zero when the task is scheduled to execute.
+    * @param latch the latch that will be zero when the task is scheduled to execute.  The task may not be immediately
+    *              scheduled if there are not enough resources.
     * @param submitFuture the future that will complete once the task is scheduled.
     * @param executeFuture the future that will complete once the task has finished executing.  None if it has not
     *                      started executing.
@@ -80,14 +81,14 @@ object LocalTaskExecutor {
 /**
   *
   * @param systemResources the system (JVM and Process) resources to use
-  * @param scriptsDirectory the directory to which to write script files (mainly for [[ProcessTask]]s).
+  * @param scriptDirectory the directory to which to write script files (mainly for [[ProcessTask]]s).
   * @param logDirectory the directory to which to write log files (mainly for [[ProcessTask]]s).
   * @param scheduler the scheduler to use to allocate resources to tasks and decided in which order they should execute.
   * @param ex the execution context.
   */
 class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefaults.defaultSystemResources,
-                        scriptsDirectory: Option[Path] = None,
-                        logDirectory: Option[Path] = None,
+                        scriptDirectory: DirPath = Io.makeTempDir("scripts"),
+                        logDirectory: DirPath = Io.makeTempDir("logs"),
                         scheduler: Scheduler = LocalTaskExecutorDefaults.defaultScheduler
                        )(implicit ex: ExecutionContext) extends TaskExecutor[UnitTask] with LazyLogging {
   import LocalTaskExecutor.TaskInfo
@@ -95,27 +96,21 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
   /** Provides a unique identifier for tasks. */
   private val nextTaskId = new AtomicInteger(1)
 
-  /** The actual directory for script files. */
-  private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
-
-  /** The actual directory for log files. */
-  private val actualLogsDirectory = logDirectory getOrElse Io.makeTempDir("logs")
-
   /** The map between the tasks and information about their scheduling and execution. */
   protected val taskInfo: mutable.Map[UnitTask, TaskInfo] = ExecDef.concurrentMap()
 
   logger.debug(s"Executing with ${systemResources.cores} cores and ${systemResources.systemMemory.prettyString} system memory.")
-  logger.debug("Script files will be written to: " + actualScriptsDirectory)
-  logger.debug("Logs will be written to: " + actualLogsDirectory)
+  logger.debug("Script files will be written to: " + scriptDirectory)
+  logger.debug("Logs will be written to: " + logDirectory)
 
   /** The system resources used by this executor */
-  def resources: SystemResources = this.systemResources
+  override def resources: SystemResources = this.systemResources
 
   /** Returns the log directory. */
-  override def logDir: DirPath = actualLogsDirectory
+  override def logDir: DirPath = logDirectory
 
   /** Returns true if the task is running, false if not running or not tracked */
-  def running(task: UnitTask): Boolean = {
+  override def running(task: UnitTask): Boolean = {
     val info = this.taskInfo(task)
     task.taskInfo.resources.isDefined && info.executeFuture.isDefined
   }
@@ -124,16 +119,16 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
   //def scheduled(task: UnitTask): Boolean = this.taskInfo(task).resources.isDefined
 
   /** Returns true if the task has been submitted (i.e. is ready to execute) but has not been scheduled, false otherwise */
-  def waiting(task: UnitTask): Boolean = task.taskInfo.resources.isEmpty
+  override def waiting(task: UnitTask): Boolean = task.taskInfo.resources.isEmpty
 
   /** Returns true if we know about this task, false otherwise */
-  def contains(task: UnitTask): Boolean = this.taskInfo.contains(task)
+  override def contains(task: UnitTask): Boolean = this.taskInfo.contains(task)
 
   /** Kill the underlying task.  Returns None if the task is not being tracked.  Returns true if the task was explicitly
     * stopped.  Returns false if either if the task has not been started. or if the task could
     * not be stopped.
     */
-  def kill(task: UnitTask, duration: Duration = Duration.Zero): Option[Boolean] = this.synchronized {
+  override def kill(task: UnitTask, duration: Duration = Duration.Zero): Option[Boolean] = this.synchronized {
     this.taskInfo.get(task) match {
       case None => None
       case Some(info) =>
@@ -178,10 +173,10 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
 
     // Set some basic task info directly on the task
     val taskId = nextTaskId.getAndIncrement()
-    task.taskInfo.id         = Some(taskId)
-    task.taskInfo.scriptPath = scriptPathFor(task, taskId, task.taskInfo.attempts)
-    task.taskInfo.logPath    = logPathFor(task, taskId, task.taskInfo.attempts)
-    task.taskInfo.resources  = None // reset resources in case we are retrying
+    task.taskInfo.id        = Some(taskId)
+    task.taskInfo.script    = Some(scriptPathFor(task, taskId, task.taskInfo.attempts))
+    task.taskInfo.log       = Some(logPathFor(task, taskId, task.taskInfo.attempts))
+    task.taskInfo.resources = None // reset resources in case we are retrying
     val taskRunner = LocalTaskRunner(task=task)
 
     // Create a future that waits until the task is scheduled for execution (the latch reaches zero).  It returns the
@@ -237,11 +232,11 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
 
   /** Gets the path to a task specific script file. */
   private def scriptPathFor(task: UnitTask, taskId: TaskId, attemptIndex: Int): Path =
-    pathFor(task, taskId, attemptIndex, actualScriptsDirectory, "sh")
+    pathFor(task, taskId, attemptIndex, scriptDirectory, "sh")
 
   /** Gets the path to a task specific log file. */
   private def logPathFor(task: UnitTask, taskId: TaskId, attemptIndex: Int): Path =
-    pathFor(task, taskId, attemptIndex, actualLogsDirectory, "log")
+    pathFor(task, taskId, attemptIndex, logDirectory, "log")
 
   /** Gets all tasks that have been submitted for execution but have not been scheduled. */
   private def toScheduleTasks: Set[UnitTask] = {

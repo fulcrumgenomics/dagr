@@ -26,9 +26,9 @@ package dagr.core.tasksystem
 import java.nio.file.Path
 
 import com.fulcrumgenomics.commons.io.Io
-import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.Pipes.{RedirectErrorToFile, RedirectToFile}
 import com.fulcrumgenomics.commons.CommonsDef.unreachable
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Section: General traits related to piping

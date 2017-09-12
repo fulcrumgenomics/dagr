@@ -29,8 +29,9 @@ import java.nio.file.Files
 import java.time.Instant
 
 import com.fulcrumgenomics.commons.CommonsDef.DirPath
+import dagr.api.models.util.{Cores, ResourceSet, TimePoint}
 import dagr.core.FutureUnitSpec
-import dagr.api.models.{Cores, ResourceSet, TimePoint, TaskStatus => RootTaskStatus}
+import dagr.api.models.tasksystem
 import dagr.core.execsystem2.TaskStatus._
 import dagr.core.execsystem2.local.{LocalTaskExecutor, LocalTaskExecutorDefaults}
 import dagr.core.tasksystem.Task.{TaskInfo => RootTaskInfo}
@@ -39,80 +40,74 @@ import dagr.core.tasksystem.{Pipeline, ShellCommand, Task, UnitTask}
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
-/** Various methods to help test [[GraphExecutor]].  The various methods use [[UnitTask]] and [[Pipeline]] and were
+/** Various methods to help test [[Executor]].  The various methods use [[UnitTask]] and [[Pipeline]] and were
   * written with a [[LocalTaskExecutor]] in mind. */
-private[execsystem2] trait GraphExecutorUnitSpec extends FutureUnitSpec {
+private[execsystem2] trait ExecutorUnitSpec extends FutureUnitSpec {
 
-  protected def scriptsDirectory: DirPath = {
-    val dir = Files.createTempDirectory("GraphExecutorTest.scripts")
+  protected def scriptDirectory: DirPath = {
+    val dir = Files.createTempDirectory("executorTest.scripts")
     dir.toFile.deleteOnExit()
     dir
   }
 
   protected def logDirectory: DirPath = {
-    val dir = Files.createTempDirectory("GraphExecutorTest.scripts")
+    val dir = Files.createTempDirectory("executorTest.scripts")
     dir.toFile.deleteOnExit()
     dir
   }
 
-  protected def taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory)) {
+  protected def taskExecutor = new LocalTaskExecutor(scriptDirectory=scriptDirectory, logDirectory=logDirectory) {
     //override def checkTaskCanBeScheduled(task: UnitTask): Option[Future[Future[UnitTask]]] = None
   }
 
-  protected def graphExecutor: GraphExecutorImpl[UnitTask] = {
-    new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
+  protected def defaultExecutor: ExecutorImpl[UnitTask] = {
+    new ExecutorImpl(taskExecutor=taskExecutor)
   }
 
-  protected def graphExecutorSingleCore: GraphExecutorImpl[UnitTask] = {
-    val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory),
+  protected def defaultExecutorSingleCore: ExecutorImpl[UnitTask] = {
+    val taskExecutor = new LocalTaskExecutor(scriptDirectory=scriptDirectory, logDirectory=logDirectory,
       systemResources=LocalTaskExecutorDefaults.defaultSystemResources.copy(cores=Cores(1)))
-    new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
+    new ExecutorImpl(taskExecutor=taskExecutor)
   }
 
-  protected def graphExecutorSubmissionException: GraphExecutorImpl[UnitTask] = {
-    val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory)) {
+  protected def defaultExecutorSubmissionException: ExecutorImpl[UnitTask] = {
+    val taskExecutor = new LocalTaskExecutor(scriptDirectory=scriptDirectory, logDirectory=logDirectory) {
       override def execute(task: UnitTask, f: => Unit = () => Unit): Future[Future[UnitTask]] = throw new IllegalArgumentException
     }
-    new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
+    new ExecutorImpl(taskExecutor=taskExecutor)
   }
 
-  protected def graphExecutorFailedSubmission: GraphExecutorImpl[UnitTask] = {
-    val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory)) {
+  protected def defaultExecutorFailedSubmission: ExecutorImpl[UnitTask] = {
+    val taskExecutor = new LocalTaskExecutor(scriptDirectory=scriptDirectory, logDirectory=logDirectory) {
       override def execute(task: UnitTask, f: => Unit = () => Unit): Future[Future[UnitTask]] = Future.failed(new IllegalArgumentException)
     }
-    new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
+    new ExecutorImpl(taskExecutor=taskExecutor)
   }
 
-  protected def graphExecutorFailedExecution: GraphExecutorImpl[UnitTask] = {
-    val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory)) {
+  protected def defaultExecutorFailedExecution: ExecutorImpl[UnitTask] = {
+    val taskExecutor = new LocalTaskExecutor(scriptDirectory=scriptDirectory, logDirectory=logDirectory) {
       override def execute(task: UnitTask, f: => Unit = () => Unit): Future[Future[UnitTask]] = Future { Future.failed(new IllegalArgumentException) }
     }
-    new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
+    new ExecutorImpl(taskExecutor=taskExecutor)
   }
 
-  protected def graphExecutorWithDependencyGraph(dependencyGraph: DependencyGraph): GraphExecutorImpl[UnitTask] = {
-    new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=dependencyGraph)
-  }
-
-  protected def graphAndExecutor(task: Task): (DependencyGraph, GraphExecutorImpl[UnitTask]) = {
-    val dependencyGraph = DependencyGraph()
-    val graphExecutor = graphExecutorWithDependencyGraph(dependencyGraph=dependencyGraph)
-    require(dependencyGraph.add(task), "Task was already added: WTF")
-    GraphExecutorImplTest.updateMetadata(graphExecutor, task, Pending)
-    (dependencyGraph, graphExecutor)
+  protected def defaultExecutorWithTask(task: Task): ExecutorImpl[UnitTask] = {
+    val executor = this.defaultExecutor
+    ExecutorImplTest.updateMetadata(executor, task, Pending)
+    executor
   }
 
   /** Creates a task that requires no resources and completes immediately. */
   protected def successfulTask: UnitTask = new PromiseTask(Duration.Zero, ResourceSet.empty) with UnitTask withName "successful-task"
 
   /** Creates a task that has an infinite amount of resources. */
-  protected def infiniteResourcesTask: UnitTask = new PromiseTask(Duration.Zero, ResourceSet.Inf) with UnitTask withName "infinite-resources-task"
+  protected def infiniteResourcesTask: UnitTask = new PromiseTask(Duration.Zero, ResourceSet.infinite) with UnitTask withName "infinite-resources-task"
 
   /** Creates a task that requires no resources but never halts. */
   protected def infiniteDurationTask: UnitTask = new PromiseTask(Duration.Inf, ResourceSet.empty) with UnitTask withName "infinite-duration-task"
 
   /** Creates a task that has an infinite amount of resources and never halts. */
-  protected def failureTask: UnitTask = new PromiseTask(Duration.Inf, ResourceSet.Inf) with UnitTask withName "failure-task"
+  protected def failureTask: UnitTask = new PromiseTask(Duration.Inf, ResourceSet.infinite) with UnitTask withName "failure-task"
 
   /** A simple pipeline with 1 ==> (2 :: 3) ==> 4. */
   protected def pipeline: Pipeline = new Pipeline() {
@@ -146,55 +141,55 @@ private[execsystem2] trait GraphExecutorUnitSpec extends FutureUnitSpec {
     }
   }
 
-  protected def checkStatus(graphExecutor: GraphExecutor[UnitTask], task: Task, status: TaskStatus): RootTaskInfo = {
-    graphExecutor.contains(task) shouldBe true
+  protected def checkStatus(executor: Executor[UnitTask], task: Task, status: TaskStatus): RootTaskInfo = {
+    executor.contains(task) shouldBe true
     val info = task.taskInfo
     info.status shouldBe status
     info
   }
 
-  protected def checkSomeStatus(graphExecutor: GraphExecutor[UnitTask], task: Task, statuses: Set[RootTaskStatus]): RootTaskInfo = {
-    graphExecutor.contains(task) shouldBe true
+  protected def checkSomeStatus(executor: Executor[UnitTask], task: Task, statuses: Set[tasksystem.TaskStatus]): RootTaskInfo = {
+    executor.contains(task) shouldBe true
     val info = task.taskInfo
     statuses.contains(info.status) shouldBe true
     info
   }
 
-  protected def checkInfo(graphExecutor: GraphExecutor[UnitTask], task: Task, statuses: Seq[TaskStatus], attempts: Int = 1): Unit = {
-    val info = checkStatus(graphExecutor, task, statuses.last)
+  protected def checkInfo(executor: Executor[UnitTask], task: Task, statuses: Seq[TaskStatus], attempts: Int = 1): Unit = {
+    val info = checkStatus(executor, task, statuses.last)
     checkTimePoints(timePoints=info.timePoints, statuses=statuses)
     info.attempts shouldBe attempts
   }
 
-  protected def checkPipelineFailure(pipeline: PipelineFailureTrait, graphExecutor: GraphExecutor[UnitTask]): Unit = {
+  protected def checkPipelineFailure(pipeline: PipelineFailureTrait, executor: Executor[UnitTask]): Unit = {
 
     // root
     {
-      checkInfo(graphExecutor=graphExecutor, task=pipeline, statuses=Seq(Pending, Queued, Running, FailedExecution))
+      checkInfo(executor=executor, task=pipeline, statuses=Seq(Pending, Queued, Running, FailedExecution))
     }
 
     // task1
     {
       val task = pipeline.okTasks.head
-      checkInfo(graphExecutor=graphExecutor, task=task, statuses=Seq(Pending, Queued, Submitted, Running, SucceededExecution))
+      checkInfo(executor=executor, task=task, statuses=Seq(Pending, Queued, Submitted, Running, SucceededExecution))
     }
 
     // task2
     {
       val task = pipeline.okTasks(1)
-      checkInfo(graphExecutor=graphExecutor, task=task, statuses=Seq(Pending, Queued, Submitted, Running, SucceededExecution))
+      checkInfo(executor=executor, task=task, statuses=Seq(Pending, Queued, Submitted, Running, SucceededExecution))
     }
 
     // task3
     {
       val task = pipeline.okTasks.last
-      checkInfo(graphExecutor=graphExecutor, task=task, statuses=Seq(Pending))
+      checkInfo(executor=executor, task=task, statuses=Seq(Pending))
     }
 
     // failTask
     {
       val task = pipeline.failTask
-      checkInfo(graphExecutor=graphExecutor, task=task, statuses=Seq(Pending, Queued, Submitted, Running, FailedExecution))
+      checkInfo(executor=executor, task=task, statuses=Seq(Pending, Queued, Submitted, Running, FailedExecution))
     }
   }
 

@@ -26,7 +26,7 @@
 package dagr.core.reporting
 
 import dagr.core.tasksystem.Task
-import dagr.core.tasksystem.Task.TaskInfoLike
+import dagr.core.tasksystem.Task.TaskInfo
 
 object ReportingDef {
 
@@ -36,7 +36,7 @@ object ReportingDef {
   /** Base trait for all classes interested in when the task status changes for any task. */
   trait TaskLogger extends TaskReporter {
     /** The method that will be called with updated task information. */
-    def record(info: TaskInfoLike): Unit
+    def record(info: TaskInfo): Unit
   }
 
   /** Base trait for all classes interested in when a new task is built by another task (ex.

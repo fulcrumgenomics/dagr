@@ -66,7 +66,4 @@ object DagrDef {
 
   /** A String that represents the prefix or basename of a filename. */
   type FilenamePrefix = String
-
-  /** Implicit that will convert an Option[Dependable] to a Dependable when needed. */
-  implicit def optionDependableToDependable(maybe: Option[Dependable]): Dependable = EmptyDependable.optionDependableToDependable(maybe)
 }

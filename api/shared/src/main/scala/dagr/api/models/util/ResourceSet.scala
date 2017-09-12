@@ -23,15 +23,13 @@
  *
  */
 
-package dagr.api.models
+package dagr.api.models.util
 
 object ResourceSet {
   def apply(that: ResourceSet): ResourceSet = new ResourceSet(cores = Cores(that.cores.value), memory = Memory(that.memory.value))
   def apply(cores: Double, memory: Long): ResourceSet = new ResourceSet(Cores(cores), Memory(memory))
 
   val empty = ResourceSet(0, 0)
-  val Inf = ResourceSet(Double.MaxValue, Long.MaxValue)
-  @deprecated("use `Inf` instead", since="0.1.3")
   val infinite = ResourceSet(Double.MaxValue, Long.MaxValue)
 }
 

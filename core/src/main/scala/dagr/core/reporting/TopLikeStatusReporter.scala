@@ -31,13 +31,12 @@ import com.fulcrumgenomics.commons.CommonsDef.yieldAndThen
 import com.fulcrumgenomics.commons.util.Logger
 import com.fulcrumgenomics.commons.util.StringUtil._
 import com.fulcrumgenomics.commons.util.TimeUtil._
-import dagr.api.models.ResourceSet
 import dagr.core.exec.ExecDef.concurrentSet
 import dagr.core.exec.{Executor, SystemResources}
 import dagr.core.execsystem.TaskManager
-import dagr.core.execsystem2.GraphExecutor
+import dagr.core.execsystem2.{Executor => Executor2}
 import dagr.core.reporting.ReportingDef.TaskLogger
-import dagr.core.tasksystem.Task.TaskInfoLike
+import dagr.core.tasksystem.Task.TaskInfo
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
 
 import scala.collection.mutable
@@ -117,7 +116,7 @@ object TopLikeStatusReporter {
   }
 
   /** Creates a new [[TopLikeStatusReporter]] specific to the given executor.  Will add itself to the list of loggers to
-    * be notified by a change in status in [[TaskInfoLike]]. */
+    * be notified by a change in status in [[dagr.core.tasksystem.Task.TaskInfo]]. */
   def apply(executor: Executor): TopLikeStatusReporter = {
     val loggerOutputStream: ByteArrayOutputStream = {
       val outStream = new ByteArrayOutputStream()
@@ -126,32 +125,34 @@ object TopLikeStatusReporter {
       outStream
     }
 
-    val logger = executor match {
+    val systemResources = executor match {
       case taskManager: TaskManager      =>
-          new dagr.core.execsystem.TopLikeStatusReporter(
-            taskManager = taskManager,
-            loggerOut   = Some(loggerOutputStream),
-            print       = s => System.out.print(s)
-          )
-      case graphExecutor: GraphExecutor[_] =>
-        new dagr.core.execsystem2.TopLikeStatusReporter(
-          systemResources = graphExecutor.resources.getOrElse(throw new IllegalArgumentException("No resource set defined")),
-          loggerOut       = Some(loggerOutputStream),
-          print           = s => System.out.print(s)
-        )
+        taskManager.getTaskManagerResources
+      case executor2: Executor2[_] =>
+        executor2.resources.getOrElse(throw new IllegalArgumentException("No resource set defined"))
       case _ => throw new IllegalArgumentException(s"Unknown executor: '${executor.getClass.getSimpleName}'")
     }
+
+    val logger = new TopLikeStatusReporter(
+      executor        = executor,
+      systemResources = systemResources,
+      loggerOut       = Some(loggerOutputStream),
+      print           = s => System.out.print(s)
+    )
 
     // Register!
     yieldAndThen(logger)(executor.withReporter(logger))
   }
 }
 
-
 /** A top-like status reporter that prints execution information to the terminal. The
   * [[TopLikeStatusReporter#refresh()]] method is used to refresh the terminal.  Currently
   * only displays tasks the extend [[UnitTask]]. */
-trait TopLikeStatusReporter extends TaskLogger with Terminal {
+class TopLikeStatusReporter(val executor: Executor,
+                            protected val systemResources: SystemResources,
+                            protected val loggerOut: Option[ByteArrayOutputStream] = None,
+                            protected val print: String => Unit = print)
+  extends TaskLogger with Terminal {
   import TopLikeStatusReporter.Column.{Column => Field}
   import TopLikeStatusReporter.{Column, _}
 
@@ -163,33 +164,6 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
 
   /** The set of all tests about which are currently known */
   protected def tasks: Traversable[Task] = _tasks
-
-  /** A stream from which to read log messages. */
-  protected def loggerOut: Option[ByteArrayOutputStream]
-
-  /** The method use to print the status. */
-  protected def print: String => Unit
-
-  /** the total system resources */
-  protected def systemResources: SystemResources
-
-  /** True if the task is running, false otherwise. */
-  protected def running(task: Task): Boolean
-
-  /** True if the task is ready for execution (no dependencies), false otherwise. */
-  protected def queued(task: Task): Boolean
-
-  /** True if the task has failed, false otherwise. */
-  protected def failed(task: Task): Boolean
-
-  /** True if the task has succeeded, false otherwise. */
-  protected def succeeded(task: Task): Boolean
-
-  /** True if the task has completed regardless of status, false otherwise. */
-  protected def completed(task: Task): Boolean
-
-  /** True if the task has unmet dependencies, false otherwise. */
-  protected def pending(task: Task): Boolean
 
   /** The information for a single task.  See [[TopLikeStatusReporter.Column]] for the list of
     * information being returned. */
@@ -235,7 +209,7 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
     val header = new mutable.StringBuilder()
 
     val unitTasks: Seq[UnitTask]    = tasks.toSeq.collect { case t: UnitTask => t }
-    val runningTasks: Seq[UnitTask] = unitTasks.filter(running)
+    val runningTasks: Seq[UnitTask] = unitTasks.filter(executor.running)
 
     def sumCores(tasks: Traversable[Task]): Double = tasks.flatMap(_.taskInfo.resources).map(_.cores.value).sum
     def sumMemory(tasks: Traversable[Task]): Long = tasks.flatMap(_.taskInfo.resources).map(_.memory.value).sum
@@ -246,10 +220,10 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
 
     // NB: only considers unit tasks
     val numRunning    = runningTasks.size
-    val numEligible   = tasks.count(queued)
-    val numFailed     = unitTasks.count(failed)
-    val numDone       = unitTasks.count(succeeded)
-    val numIneligible = unitTasks.count(pending)
+    val numEligible   = tasks.count(executor.queued)
+    val numFailed     = unitTasks.count(executor.failed)
+    val numDone       = unitTasks.count(executor.succeeded)
+    val numIneligible = unitTasks.count(executor.pending)
 
     // Basic info about the total resources being used
     header.append(f"Cores:         ${systemResources.cores.value}%6.1f, $systemCoresPct%.1f%% Used\n")
@@ -277,7 +251,7 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
       if (tableTasks.size < numLinesLeft) {
         val moreTasks = tasks.filter(filter).toSeq
           .sortBy { info =>
-            (info.taskInfo.resources.isEmpty, info.taskInfo.id.getOrElse(BigInt(Int.MaxValue)))
+            (info.taskInfo.resources.isEmpty, info.taskInfo.id.getOrElse(Int.MaxValue))
           }
         if (moreTasks.size + tableTasks.size <= numLinesLeft) moreTasks
         else moreTasks.slice(0, numLinesLeft - tableTasks.size)
@@ -290,15 +264,15 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
     if (0 < numLinesLeft) { print("\n"); numLinesLeft -= 1 }
 
     // Get tasks that are running
-    tableTasks ++= filterTasks(running)
+    tableTasks ++= filterTasks(executor.running)
     // Get tasks that have no unmet dependencies
-    tableTasks ++= filterTasks(queued)
+    tableTasks ++= filterTasks(executor.queued)
     // Add those that failed if we have more lines
-    tableTasks ++= filterTasks(failed)
+    tableTasks ++= filterTasks(executor.failed)
     // Add those that completed if we have more lines
-    tableTasks ++= filterTasks(completed)
+    tableTasks ++= filterTasks(executor.completed)
     // Add those that have unmet dependencies if we have more lines
-    tableTasks ++= filterTasks(pending)
+    tableTasks ++= filterTasks(executor.pending)
 
     // Now generate a row (line) per task info
     val taskStatusTable: ListBuffer[List[String]] = new ListBuffer[List[String]]()
@@ -324,7 +298,7 @@ trait TopLikeStatusReporter extends TaskLogger with Terminal {
   }
 
   /** This method is called when any info about a task is updated. */
-  final def record(info: TaskInfoLike): Unit = {
+  final def record(info: TaskInfo): Unit = {
     // add the task to the set of known tasks
     this._tasks += info.task
     // refresh the screen

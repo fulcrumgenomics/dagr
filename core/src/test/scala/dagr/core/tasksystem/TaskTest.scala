@@ -27,9 +27,9 @@ import java.nio.file.{Files, Path}
 import java.time.Instant
 
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.DagrDef._
+import dagr.api.DagrApi.TaskId
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 import dagr.core.UnitSpec
-import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.execsystem._
 import org.scalatest.OptionValues
 
@@ -429,24 +429,24 @@ class TaskTest extends UnitSpec with LazyLogging with OptionValues {
     val info = new TestingInfo(task=task, initStatus=TaskStatus.Unknown)
 
     info.timePoints.size shouldBe 1
-    val instant = info(TaskStatus.Unknown).value
+    val instant = info.get(TaskStatus.Unknown).value
 
     info(TaskStatus.Unknown) = Instant.now()
     info.timePoints.size shouldBe 1
-    info(TaskStatus.Unknown).value shouldBe instant
+    info.get(TaskStatus.Unknown).value shouldBe instant
 
     val startInstant = Instant.now()
     info(TaskStatus.Started) = startInstant
     info.timePoints.size shouldBe 2
-    info(TaskStatus.Unknown).value shouldBe instant
-    info(TaskStatus.Started).value shouldBe startInstant
+    info.get(TaskStatus.Unknown).value shouldBe instant
+    info.get(TaskStatus.Started).value shouldBe startInstant
   }
 
   "TaskInfo.latestStatus" should "get the latest instant of the given type of status" in {
     val task = new NoOpInJvmTask("no-op")
     val info = new TestingInfo(task=task, initStatus=TaskStatus.Unknown)
 
-    info.latestStatus[TaskStatus.Unknown.type].value shouldBe info(TaskStatus.Unknown).value
+    info.latestStatus[TaskStatus.Unknown.type].value shouldBe info.get(TaskStatus.Unknown).value
 
     val startInstant = Instant.now()
     info(TaskStatus.Started) = startInstant
@@ -467,7 +467,7 @@ class TaskTest extends UnitSpec with LazyLogging with OptionValues {
     val task = new NoOpInJvmTask("no-op")
     val info = new TestingInfo(task=task, initStatus=TaskStatus.Unknown)
 
-    info.statusTime shouldBe info(TaskStatus.Unknown).value
+    info.statusTime shouldBe info.get(TaskStatus.Unknown).value
 
     val startInstant = Instant.now()
     info(TaskStatus.Started) = startInstant

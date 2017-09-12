@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 package dagr.core.tasksystem
 
 /**
@@ -34,7 +35,7 @@ trait Dependable {
     case (d, EmptyDependable) => d
     case _ =>
       addDependent(other)
-      new DependencyChain(this, other)
+      DependencyChain(this, other)
   }
 
   /** Optionally creates a dependency between this dependable and another dependable if one is provided. */
@@ -72,9 +73,14 @@ trait Dependable {
   def allTasks: Traversable[Task]
 }
 
+object Dependable {
+  /** Implicit that will convert an Option[Dependable] to a Dependable when needed. */
+  implicit def optionDependableToDependable(maybe: Option[Dependable]): Dependable = EmptyDependable.optionDependableToDependable(maybe)
+}
+
 /** An object that can be implicitly converted to from a None when using Option[Dependable]. */
 object EmptyDependable extends Dependable {
-  /** Converts an Option[Dependable] to a Dependable when needed. Linked to from [[dagr.core.DagrDef]] to accessibility. */
+  /** Converts an Option[Dependable] to a Dependable when needed. */
   implicit def optionDependableToDependable(maybe: Option[Dependable]): Dependable = maybe match {
     case Some(d) => d
     case None    => EmptyDependable

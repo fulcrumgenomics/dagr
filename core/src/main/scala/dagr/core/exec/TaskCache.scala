@@ -27,7 +27,7 @@ package dagr.core.exec
 
 import com.fulcrumgenomics.commons.CommonsDef.{FilePath, unreachable}
 import com.fulcrumgenomics.commons.io.Io
-import dagr.core.reporting.ExecutionLogger.{Definition, Relationship, Status}
+import dagr.core.reporting.ReplayLogger.{Definition, Status}
 import dagr.core.reporting.ReportingDef.TaskRegister
 import dagr.core.tasksystem.Task
 
@@ -108,12 +108,11 @@ class SimpleTaskCache(replayLogLines: Seq[String], source: Option[String] = None
 
   // TODO: are relationships even needed if we have both the definition of child, who has the parent code?
   /** Definitions, relationships, and statuses in the replay log */
-  private val (definitions, relationships, statuses) = {
+  private val (definitions, statuses) = {
     val lines = replayLogLines
     val _definitions   = lines.filter(_.startsWith(Definition.Name)).map(Definition(_))
-    val _relationships = lines.filter(_.startsWith(Relationship.Name)).map(Relationship(_))
     val _statuses      = lines.filter(_.startsWith(Status.Name)).map(Status(_))
-    (_definitions, _relationships, _statuses)
+    (_definitions, _statuses)
   }
 
   // Validate various properties of the replay log
@@ -124,21 +123,6 @@ class SimpleTaskCache(replayLogLines: Seq[String], source: Option[String] = None
       .foreach { case (d, ds) =>
         throw new IllegalArgumentException(s"Replay log had ${ds.length} definitions for child '$d' in $replayLog")
     }
-    // Check that a parent and child have only one relationship
-    this.relationships.groupBy(r => (r.parentCode, r.childCode))
-      .find { case (_, rs) => rs.length > 1}
-      .foreach { case ((p, c), rs) =>
-        throw new IllegalArgumentException(s"Replay log had ${rs.length} relationships with parent '$p' and child '$c' in $replayLog")
-      }
-    // Check the parent and child in each relationship have a definition
-    this.relationships.flatMap { r => Seq(r.parentCode, r.childCode) }
-      .find { code => !this.definitions.exists(_.code == code) }
-      .foreach { code =>
-        val aRelationship = this.relationships.find(r => r.parentCode == code || r.childCode == code).getOrElse {
-          unreachable("A relationship should have been found")
-        }
-        throw new IllegalArgumentException(s"Replay log missing a definition for task '$code' for relationship '$aRelationship' in $replayLog")
-      }
     // Check that a task if is found for each status
     this.statuses.map { s => s.definitionCode }
       .find { code => !this.definitions.exists(_.code == code) }
@@ -289,15 +273,7 @@ class SimpleTaskCache(replayLogLines: Seq[String], source: Option[String] = None
   /** Returns the definitions for all children of the parent from the previous execution */
   private def previousChildDefinitions(parent: Task): Seq[Definition] = {
     val previousParentDefinition = previousDefinition(parent)
-    this.relationships
-      .filter(_.parentCode == previousParentDefinition.code)
-      .map { relationship =>
-        this.definitions.find {
-          _.code == relationship.childCode
-        }.getOrElse {
-          unreachable(s"No definition for child in relationship: $relationship") // validation should catch this!
-        }
-      }
+    this.definitions.filter(_.parentCode == previousParentDefinition.code)
   }
 
   /** Checks the status of the task in the previous execution, and if not successful, sets it to execute in this execution. */

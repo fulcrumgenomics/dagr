@@ -25,7 +25,7 @@
 
 package dagr.core.execsystem2
 
-import dagr.api.models.ResourceSet
+import dagr.api.models.util.ResourceSet
 import dagr.core.tasksystem.SimpleInJvmTask
 
 import scala.concurrent.duration.Duration
@@ -33,7 +33,7 @@ import scala.concurrent.{Await, ExecutionContext, Promise, TimeoutException}
 
 object PromiseTask {
   def apply(duration: Duration = Duration.Inf,
-            resourceSet: ResourceSet = ResourceSet.Inf)
+            resourceSet: ResourceSet = ResourceSet.infinite)
            (implicit ex: ExecutionContext): PromiseTask = {
     new PromiseTask(duration=duration, resourceSet=resourceSet)
   }
@@ -41,7 +41,7 @@ object PromiseTask {
 
 /** A task that does not complete until the promise is completed. */
 class PromiseTask(duration: Duration = Duration.Inf,
-                  resourceSet: ResourceSet = ResourceSet.Inf)
+                  resourceSet: ResourceSet = ResourceSet.infinite)
                  (implicit ex: ExecutionContext) extends SimpleInJvmTask {
   val promise: Promise[Int] = Promise[Int]()
   requires(resourceSet)

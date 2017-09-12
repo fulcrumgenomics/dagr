@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015-2016 Fulcrum Genomics LLC
+ * Copyright (c) 2017 Fulcrum Genomics
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,24 +20,14 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.core
+package dagr.api.models.util
 
-/**
-  * Object that is designed to be imported with `import DagrDef._` in any/all classes
-  * much like the way that scala.PreDef is imported in all files automatically.
-  *
-  * New methods, types and objects should not be added to this class lightly as they
-  * will pollute the namespace of any classes which import it.
-  */
-object DagrDef {
-  /** The type of identifier used to uniquely identify tasks tracked by the execution system. */
-  type TaskId = BigInt
+import java.time.Instant
 
-  /** Companion methods for TaskId */
-  object TaskId {
-    /** The apply method for TaskId */
-    def apply(value: Int): TaskId = BigInt(value)
-  }
-}
+import dagr.api.models.tasksystem.TaskStatus
+
+/** A tuple representing the instant the task was set to the given status. */
+case class TimePoint(status: TaskStatus, instant: Instant)

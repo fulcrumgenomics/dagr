@@ -23,46 +23,23 @@
  *
  */
 
-package dagr.api.models
+package dagr.api.models.tasksystem
 
-import java.time.Instant
+/** Base class for all tasks, multi-tasks, and workflows. */
+trait Task[T] {
 
-object TimePoint {
-  /*
-  def parse(s: String, f: Int => TaskStatus): TimePoint = {
-    s.split(",", 1).toList match {
-      case instant :: status =>
-        val status = TaskStatus.parse(status)
-        TimePoint(
-          status = f(status.ordinal),
-          instant = instant
-        )
-      case _ =>
-        throw new IllegalArgumentException(s"Could not parse TimePoint '$s'")
-    }
-  }
-  */
+  /** The name of the task. */
+  var name: String = getClass.getSimpleName
 
-  /*
-  def parse(s: String): TimePoint = {
-    s.split(",", 1).toList match {
-      case instant :: status :: Nil =>
-        TimePoint(
-          status  = TaskStatus.parse(status),
-          instant = Instant.parse(instant) // FIXME: does not work in scala-js
-        )
-      case _ =>
-        throw new IllegalArgumentException(s"Could not parse TimePoint '$s'")
-    }
-  }
-  */
-}
+  /** Sets the name of this task. */
+  def withName(name: String) : this.type = { this.name = name; this }
 
-/** A tuple representing the instant the task was set to the given status. */
-case class TimePoint(status: TaskStatus, instant: Instant) {
-  /*
-  override def toString: String = {
-    s"${this.instant},${this.status.name},${this.status.ordinal},${this.status.success},${this.status.description}"
-  }
-  */
+  /** Gets the sequence of tasks that this task depends on.. */
+  def tasksDependedOn: Traversable[Task[T]]
+
+  /** Gets the sequence of tasks that depend on this task. */
+  def tasksDependingOnThisTask: Traversable[Task[T]]
+
+  /** Gets the execution information for the task, if available. */
+  def info: Option[TaskInfo[T]]
 }

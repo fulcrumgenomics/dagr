@@ -27,15 +27,16 @@ package dagr.api.models
 
 import java.time.Instant
 
+import dagr.api.models.util.Cores
+import dagr.api.models.tasksystem.TaskStatus
+import dagr.api.models.util.{Cores, Memory, ResourceSet, TimePoint}
 import upickle.Js
 
-object DagrApiDef {
+/** Methods for pickling objects that will be sent or received via JSON. */
+object DagrJsConversions {
 
-  val MissingValue: String = ""
-
-  implicit class WithMissing(str: Option[Any]) {
-    def withMissing: String = str.map(_.toString).getOrElse(MissingValue)
-  }
+  /** The value when an [[Option]] is [[None]]. */
+  private val MissingValue: String = ""
 
   def fromResourceSet(resources: Option[ResourceSet]): Js.Value = resources match {
     case None    => Js.Str(MissingValue)
@@ -100,8 +101,6 @@ object DagrApiDef {
   }
 
   def fromTimePoint(timePoint: TimePoint): Js.Value = {
-    val seconds = timePoint.instant.getEpochSecond
-    val nano    = timePoint.instant.getNano
     Js.Obj(
       ("status", fromTaskStatus(timePoint.status)),
       ("instant", fromInstant(timePoint.instant))

@@ -18,7 +18,24 @@ import scoverage.ScoverageKeys._
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Project organization
-// TODO!
+//
+// - api: the main API for Dagr, used for dagr-api and dagr-api-js
+// - dagr-api-js the main API compiled for scala-js
+// - dagr-api: the main API compiled for JVM projects (not scala-js)
+// - dagr-core: the implementation of the task and execution systems
+// - dagr-tasks: the common bioinformatic tasks
+// - dagr-pipelines: the common bioinformatic pipelines
+// - dagr-server: an implementation of a server exposing a REST-API
+// - dagr-ui-js: the web-based REST-API-using scala-js user interface
+// - root: the root of the project, omitting the user interface
+//
+// To compile the root:
+// - sbt assembly
+//
+// To compile the UI:
+// - sbt
+// - project dagr-ui-js
+// - fastOptJS
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,20 +161,12 @@ lazy val api = crossProject.in(file("api"))
       "com.lihaoyi"       %%% "scalatags"            % scalaTagsV
     )
   )
-  /*
-  .jvmSettings(
-    libraryDependencies ++= Seq(
-		// FIXME
-    )
-  )
-  */
   .jvmSettings(commonSettings: _*)
   .jsSettings(
     libraryDependencies ++= Seq(
 	  "org.scala-js" %%% "scalajs-java-time" % "0.2.2"
     ),
     jsDependencies ++= Seq(
-		// FIXME
 	)
   )
   .jsSettings(commonSettingsNoFork: _*)

@@ -26,7 +26,7 @@ package dagr.core.exec
 
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, UnitTask}
 import com.fulcrumgenomics.commons.CommonsDef.unreachable
-import dagr.api.models.{Cores, Memory, ResourceSet}
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 
 /** Simple scheduler that picks the task that uses the most memory, cores, then disk. */
 class NaiveScheduler extends Scheduler {

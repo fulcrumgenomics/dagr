@@ -31,7 +31,7 @@ import com.fulcrumgenomics.commons.io.PathUtil._
 import com.fulcrumgenomics.commons.util.LazyLogging
 import com.typesafe.config.ConfigException.Generic
 import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
-import dagr.api.models.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 
 import scala.collection.JavaConversions._
 import scala.collection.SortedSet

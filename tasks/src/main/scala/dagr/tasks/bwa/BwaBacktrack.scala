@@ -4,7 +4,7 @@ import dagr.core.tasksystem.{FixedResources, Pipeline, ProcessTask, VariableReso
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.tasks.DagrDef
 import DagrDef._
-import dagr.api.models.{Cores, Memory, ResourceSet}
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 import dagr.tasks.misc.DeleteFiles
 import dagr.tasks.picard.{MergeBamAlignment, SamToFastq}
 

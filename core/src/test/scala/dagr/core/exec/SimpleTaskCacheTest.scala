@@ -29,13 +29,14 @@ import java.io.{OutputStream, PrintStream}
 import java.nio.file.Files
 
 import dagr.core.FutureUnitSpec
-import dagr.core.reporting.ExecutionLogger.{Definition, Relationship, Status}
+import dagr.core.reporting.ReplayLogger.{Definition, Status}
 import dagr.core.tasksystem._
 import com.fulcrumgenomics.commons.CommonsDef.unreachable
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.Logger
-import dagr.api.models.{Cores, Memory, ResourceSet, TaskStatus}
-import dagr.core.reporting.ExecutionLogger
+import dagr.api.models.tasksystem.TaskStatus
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
+import dagr.core.reporting.ReplayLogger
 
 class SimpleTaskCacheTest extends FutureUnitSpec {
 
@@ -62,35 +63,6 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
     val lines      = Seq(definition, definition).map(_.toString)
     val exception  = intercept[Exception] { new SimpleTaskCache(lines) }
     exception.getMessage should include ("had 2 definitions")
-  }
-
-  it should "fail if a parent and child have more than one relationship defined" in {
-    val parent       = Definition.buildRootDefinition(new NoOpTask)
-    val child        = Definition(new NoOpTask, parent.code, 0)
-    val relationship = Relationship(parent, child)
-    val lines        = Seq(relationship, relationship, parent, child).map(_.toString)
-    val exception    = intercept[Exception] { new SimpleTaskCache(lines) }
-    exception.getMessage should include ("had 2 relationships")
-  }
-
-  it should "fail if a parent or child definition is missing given a relationship between the two" in {
-    val parent       = Definition.buildRootDefinition(new NoOpTask)
-    val child        = Definition(new NoOpTask, parent.code, 0)
-    val relationship = Relationship(parent, child)
-
-    // Missing parent
-    {
-      val lines        = Seq(child, relationship).map(_.toString)
-      val exception    = intercept[Exception] { new SimpleTaskCache(lines) }
-      exception.getMessage should include (s"missing a definition for task '${parent.code}' for relationship '$relationship'")
-    }
-
-    // Missing child
-    {
-      val lines        = Seq(parent, relationship).map(_.toString)
-      val exception    = intercept[Exception] { new SimpleTaskCache(lines) }
-      exception.getMessage should include (s"missing a definition for task '${child.code}' for relationship '$relationship'")
-    }
   }
 
   it should "fail if a task definition is not found for a status" in {
@@ -151,7 +123,7 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
       val child      = task
       val childDef   = Definition(child, rootDef.code, 0)
       val rootStatus = Status(execStatus, rootDef)
-      val lines      = Seq(rootDef, childDef, rootStatus, Relationship(rootDef, childDef)).map(_.toString)
+      val lines      = Seq(rootDef, childDef, rootStatus).map(_.toString)
       val cache = new SimpleTaskCache(lines)
       cache.register(root) // root
       cache.register(root, child)
@@ -164,7 +136,7 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
     val parentDef = Definition.buildRootDefinition(parent)
     val child     = task
     val childDef  = Definition(child, parentDef.code, 0)
-    val lines     = Seq(parentDef, childDef, Relationship(parentDef, childDef)).map(_.toString)
+    val lines     = Seq(parentDef, childDef).map(_.toString)
     val cache     = new SimpleTaskCache(lines)
 
     // Unit task
@@ -185,7 +157,7 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
     val rootDef  = Definition.buildRootDefinition(root)
     val child    = task
     val childDef = Definition(child, rootDef.code, 0)
-    val lines    = Seq(rootDef, childDef, Relationship(rootDef, childDef)).map(_.toString)
+    val lines    = Seq(rootDef, childDef).map(_.toString)
 
     // Just the root
     {
@@ -215,12 +187,10 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
     val childDef          = Definition(child, rootDef.code, 0)
     val extraChild        = anonTask
     val extraChildDef     = Definition(extraChild, rootDef.code, 1)
-    val relationship      = Relationship(rootDef, childDef)
-    val extraRelationship = Relationship(rootDef, extraChildDef)
 
     // current has zero, replay log has one, the previous status was success
     {
-      val lines = Seq(rootDef, childDef, relationship, Status(successfulStatus, rootDef)).map(_.toString)
+      val lines = Seq(rootDef, childDef, Status(successfulStatus, rootDef)).map(_.toString)
       val cache = new SimpleTaskCache(lines)
       cache.register(root) // register the root task
       cache.register(root, root) // register the root task as a unit task!
@@ -240,7 +210,7 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
 
     // current has one, replay log has two
     {
-      val lines = Seq(rootDef, childDef, extraChildDef, relationship, extraRelationship, Status(successfulStatus, rootDef)).map(_.toString)
+      val lines = Seq(rootDef, childDef, extraChildDef, Status(successfulStatus, rootDef)).map(_.toString)
       val cache = new SimpleTaskCache(lines)
       cache.register(root) // register the root task
       cache.register(root, child)
@@ -250,7 +220,7 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
 
     // current has two, replay log has one
     {
-      val lines = Seq(rootDef, childDef, relationship, Status(successfulStatus, rootDef)).map(_.toString)
+      val lines = Seq(rootDef, childDef, Status(successfulStatus, rootDef)).map(_.toString)
       val cache = new SimpleTaskCache(lines)
       cache.register(root) // register the root task
       cache.register(root, child, extraChild)
@@ -264,9 +234,8 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
     val rootDef        = Definition.buildRootDefinition(root)
     val child          = task
     val replayChildDef = Definition(child, rootDef.code, 0).copy(simpleName="None")
-    val relationship   = Relationship(rootDef, replayChildDef)
 
-    val lines = Seq(rootDef, replayChildDef, relationship, Status(successfulStatus, rootDef)).map(_.toString)
+    val lines = Seq(rootDef, replayChildDef, Status(successfulStatus, rootDef)).map(_.toString)
     val cache = new SimpleTaskCache(lines)
     cache.register(root) // register the root task
     cache.register(root, child)
@@ -281,10 +250,8 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
     val childDef          = Definition(child, rootDef.code, 0)
     val extraChild        = anonTask
     val extraChildDef     = Definition(extraChild, rootDef.code, 1)
-    val relationship      = Relationship(rootDef, childDef)
-    val extraRelationship = Relationship(rootDef, extraChildDef)
 
-    val lines = Seq(rootDef, childDef, extraChildDef, relationship, extraRelationship, Status(successfulStatus, rootDef)).map(_.toString)
+    val lines = Seq(rootDef, childDef, extraChildDef, Status(successfulStatus, rootDef)).map(_.toString)
     val cache = new SimpleTaskCache(lines)
     cache.register(root) // register the root task
     cache.register(root, extraChild, child) // children in a different order!
@@ -301,10 +268,9 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
     val child             = task
     val childDef          = Definition(child, rootDef.code, 0)
     val extraChild        = anonTask
-    val relationship      = Relationship(rootDef, childDef)
 
     // child is in the replay log, but is replaced by extraChild
-    val lines = Seq(rootDef, childDef, relationship, Status(successfulStatus, rootDef)).map(_.toString)
+    val lines = Seq(rootDef, childDef, Status(successfulStatus, rootDef)).map(_.toString)
     val cache = new SimpleTaskCache(lines)
     cache.register(root) // register the root task
     cache.register(root, extraChild) // children in a different order!
@@ -398,7 +364,7 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
     // Execute the pipeline the first time.  If `failTaskIndex` has any values, those tasks will fail.
     val executor1 = Executor(experimentalExecution=true, resources=SystemResources.infinite)
     val pipeline1 = new SleepyPipeline(failTaskIndex=failTaskIndex, shouldFail=true)
-    executor1.withReporter(new ExecutionLogger(replayLog))
+    executor1.withReporter(new ReplayLogger(replayLog))
     if (failTaskIndex.nonEmpty) executor1.execute(pipeline1) should be > 0
     else executor1.execute(pipeline1) shouldBe 0
 
@@ -452,9 +418,11 @@ class SimpleTaskCacheTest extends FutureUnitSpec {
     Seq.range(0, 100).foreach { failTaskIndex =>
       val executor = Executor(experimentalExecution=true, resources=SystemResources.infinite)
       val pipeline = new SleepyPipeline(failTaskIndex=Set(failTaskIndex), shouldFail=true)
-      executor.withReporter(new ExecutionLogger(reportLog))
+      val replayLogger = new ReplayLogger(reportLog)
+      executor.withReporter(replayLogger)
       if (0 < failTaskIndex) executor.withReporter(TaskCache(replayLog))
       executor.execute(pipeline) should be > 0
+      replayLogger.close() // make sure to close the underlying log!
       // swap the replay and report log
       val tmp   = replayLog
       replayLog = reportLog

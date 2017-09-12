@@ -27,7 +27,7 @@ import java.nio.file.Path
 import java.time.Instant
 
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.DagrDef._
+import dagr.api.DagrApi.TaskId
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, UnitTask}
 
 import scala.collection.mutable
@@ -180,8 +180,8 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
         unitTask.scheduleResources(taskInfo.resources.get)
         val taskRunner: TaskRunnable = (simulate, unitTask) match {
           case (true,  t: UnitTask)    => new SimulatedTaskExecutionRunner(task = t)
-          case (false, t: InJvmTask)   => new InJvmTaskExecutionRunner(task = t, script = taskInfo.scriptPath.get, logFile = taskInfo.logPath.get)
-          case (false, t: ProcessTask) => new ProcessTaskExecutionRunner(task = t, script = taskInfo.scriptPath.get, logFile = taskInfo.logPath.get)
+          case (false, t: InJvmTask)   => new InJvmTaskExecutionRunner(task = t, script = taskInfo.script.get, logFile = taskInfo.log.get)
+          case (false, t: ProcessTask) => new ProcessTaskExecutionRunner(task = t, script = taskInfo.script.get, logFile = taskInfo.log.get)
           case _                       => throw new RuntimeException("Could not run a unknown type of task")
         }
         val thread = new Thread(taskRunner)

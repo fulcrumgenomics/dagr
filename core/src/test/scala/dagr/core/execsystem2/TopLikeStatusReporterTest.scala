@@ -31,6 +31,7 @@ import com.fulcrumgenomics.commons.util.Logger
 import dagr.core.FutureUnitSpec
 import dagr.core.execsystem2.TaskStatus._
 import dagr.core.execsystem2.local.LocalTaskExecutor
+import dagr.core.reporting.TopLikeStatusReporter
 import dagr.core.tasksystem.NoOpInJvmTask
 
 class TopLikeStatusReporterTest extends FutureUnitSpec {
@@ -45,59 +46,60 @@ class TopLikeStatusReporterTest extends FutureUnitSpec {
   "TopLikeStatusReporter" should "have predicates for the task statuses" in {
     val task = new NoOpInJvmTask("name")
     val taskExecutor = new LocalTaskExecutor()
-    val exeecutor = GraphExecutor(taskExecutor)
+    val executor = Executor(taskExecutor)
     val reporter = new TopLikeStatusReporter(
+      executor        = executor,
       systemResources = taskExecutor.resources,
       loggerOut       = Some(toLoggerOutputStream),
       print           = s => Unit
     )
 
-    exeecutor.withReporter(reporter)
+    executor.withReporter(reporter)
 
     new TaskInfo(task, Pending)
 
     // running
     task.taskInfo.status = Running
-    reporter.running(task) shouldBe true
+    executor.running(task) shouldBe true
     task.taskInfo.status = FailedExecution
-    reporter.running(task) shouldBe false
+    executor.running(task) shouldBe false
 
     // queued
     Seq(Queued, Submitted).foreach { status =>
       task.taskInfo.status = status
-      reporter.queued(task) shouldBe true
+      executor.queued(task) shouldBe true
     }
     task.taskInfo.status = FailedExecution
-    reporter.running(task) shouldBe false
+    executor.running(task) shouldBe false
 
     // failed + completed
     Seq(FailedToBuild, FailedSubmission, FailedExecution, FailedOnComplete, FailedUnknown).foreach { status =>
       task.taskInfo.status = status
-      reporter.failed(task) shouldBe true
-      reporter.completed(task) shouldBe true
+      executor.failed(task) shouldBe true
+      executor.completed(task) shouldBe true
     }
     task.taskInfo.status = Pending
-    reporter.failed(task) shouldBe false
-    reporter.completed(task) shouldBe false
+    executor.failed(task) shouldBe false
+    executor.completed(task) shouldBe false
 
     // succeeded
     task.taskInfo.status = SucceededExecution
-    reporter.succeeded(task) shouldBe true
+    executor.succeeded(task) shouldBe true
     task.taskInfo.status = Pending
-    reporter.succeeded(task) shouldBe false
+    executor.succeeded(task) shouldBe false
 
     // completed
     Seq(SucceededExecution, ManuallySucceeded).foreach { status =>
       task.taskInfo.status = status
-      reporter.completed(task) shouldBe true
+      executor.completed(task) shouldBe true
     }
     task.taskInfo.status = Pending
-    reporter.completed(task) shouldBe false
+    executor.completed(task) shouldBe false
 
     // pending
     task.taskInfo.status = Pending
-    reporter.pending(task) shouldBe true
+    executor.pending(task) shouldBe true
     task.taskInfo.status = SucceededExecution
-    reporter.pending(task) shouldBe false
+    executor.pending(task) shouldBe false
   }
 }

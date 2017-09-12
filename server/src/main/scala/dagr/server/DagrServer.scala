@@ -29,31 +29,31 @@ import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.api.DagrApiConfiguration
-import dagr.core.DagrDef.TaskId
+import dagr.api.DagrApi
+import dagr.api.DagrApi.TaskId
+import dagr.api.models.tasksystem.TaskStatus
 import dagr.core.config.Configuration
 import dagr.core.exec.Executor
 import dagr.core.reporting.ReportingDef.{TaskLogger, TaskRegister}
 import dagr.core.tasksystem.Task
-import dagr.api.models.TaskStatus
-import dagr.core.tasksystem.Task.TaskInfoLike
+import dagr.core.tasksystem.Task.TaskInfo
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.{Failure, Success, Try}
 
 object TaskInfoTracker {
-  case class Info(info: TaskInfoLike, parent: TaskInfoLike, children: Seq[dagr.api.models.TaskInfo])
+  case class Info(info: TaskInfo, parent: TaskInfo, children: Seq[dagr.api.DagrStatusApi.TaskStatusResponse])
 }
 
 /** A little class to store all the infos created by the execution system. */
 class TaskInfoTracker(executor: Executor) extends TaskLogger with TaskRegister {
   import DagrApiConversions.toTaskInfo
 
-  private val _infos      = mutable.TreeSet[TaskInfoLike]()
-  private val _idToInfo   = mutable.HashMap[TaskId,TaskInfoLike]()
+  private val _infos      = mutable.TreeSet[TaskInfo]()
+  private val _idToInfo   = mutable.HashMap[TaskId,TaskInfo]()
   private val _toParent   = mutable.HashMap[Task,Task]() // child -> parent
   private val _toChildren = mutable.HashMap[Task,Seq[Task]]()
   private val _report      = ListBuffer[String]()
@@ -63,7 +63,7 @@ class TaskInfoTracker(executor: Executor) extends TaskLogger with TaskRegister {
   /** Returns the task status by ordinal */
   def statusFrom(ordinal: Int): TaskStatus = executor.statusFrom(ordinal)
 
-  def record(info: TaskInfoLike): Unit = {
+  def record(info: TaskInfo): Unit = {
     _report += info.infoString
     // Add the info (only once)
     if (!_infos.contains(info)) _infos += info
@@ -83,17 +83,17 @@ class TaskInfoTracker(executor: Executor) extends TaskLogger with TaskRegister {
 
   def report: Seq[String] = this._report.toList
 
-  def info(id: TaskId): Option[TaskInfoLike] = this._idToInfo.get(id)
+  def info(id: TaskId): Option[TaskInfo] = this._idToInfo.get(id)
 
-  def infos: Iterable[TaskInfoLike] = this._infos
+  def infos: Iterable[TaskInfo] = this._infos
 
   // FIXME: rename
   def fullInfo: Iterable[TaskInfoTracker.Info] = {
-    this._infos.map { info: TaskInfoLike =>
-      val children: Seq[dagr.api.models.TaskInfo] = _toChildren.get(info.task) match {
+    this._infos.map { info: TaskInfo =>
+      val children: Seq[dagr.api.DagrStatusApi.TaskStatusResponse] = _toChildren.get(info.task) match {
         case Some(_children) => _children.map { child: Task =>
           child._taskInfo.map(i => toTaskInfo(i)).getOrElse {
-            new dagr.api.models.TaskInfo(
+            new dagr.api.DagrStatusApi.TaskStatusResponse(
               name           = child.name,
               id             = None,
               attempts       = -1,
@@ -132,7 +132,7 @@ object DagrServer extends Configuration {
 
 /** Dagr web service */
 class DagrServer(executor: Executor, host: Option[String], port: Option[Int])(implicit ex: ExecutionContext)
-  extends DagrApiConfiguration with LazyLogging {
+  extends DagrApi with LazyLogging {
 
   implicit val actorSystem: ActorSystem        = ActorSystem("dagr-server")
   implicit val materializer: ActorMaterializer = ActorMaterializer()

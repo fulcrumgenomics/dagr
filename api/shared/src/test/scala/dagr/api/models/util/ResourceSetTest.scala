@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016 Fulcrum Genomics LLC
+ * Copyright (c) 2015 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,23 +20,28 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.tasks.samtools
+package dagr.api.models.util
 
-import dagr.api.models.util.{Cores, Memory}
-import dagr.core.tasksystem.FixedResources
-import dagr.tasks.DagrDef.PathToFasta
+import dagr.api.models.UnitSpec
 
-import scala.collection.mutable.ListBuffer
+class ResourceSetTest extends UnitSpec {
+  "ResourceSet.isEmpty" should "return true for the empty resource set" in {
+    ResourceSet.empty.isEmpty shouldBe true
+  }
 
-/**
- * Runs samtools faidx to create an index file for a fasta file
- */
-class SamtoolsFaidx(val ref: PathToFasta) extends SamtoolsTask(command="faidx") with FixedResources {
-  requires(Cores(1), Memory("128m"))
-
-  override def addSubcommandArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer += ref
+  "ResourceSet" should "add and subtract resources" in {
+    val original = ResourceSet(10, 10)
+    val middle = ResourceSet(original)
+    var running = original + middle
+    running.cores.value shouldBe 20
+    running.memory.value shouldBe 20
+    running = running - middle
+    running.cores.value shouldBe 10
+    running.memory.value shouldBe 10
+    running = running - Cores(10)
+    running.cores.value shouldBe 0
   }
 }

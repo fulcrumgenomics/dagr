@@ -27,31 +27,33 @@ package dagr.server
 
 import java.nio.file.{Files, Path}
 
-import com.fulcrumgenomics.commons.io.Io
-import dagr.api.DagrApi
+import dagr.api.DagrApi.TaskId
+import dagr.api.DagrStatusApi
+import dagr.api.DagrStatusApi.{StatusResponse, TaskStatusResponse}
 import dagr.api.models._
-import dagr.core.DagrDef.TaskId
-import dagr.core.tasksystem.Task.TaskInfoLike
+import dagr.api.models.tasksystem.TaskStatus
+import dagr.api.models.util.ResourceSet
+import dagr.core.tasksystem.Task.{TaskInfo => TaskSystemTaskInfo}
 
 import scala.util.matching.Regex
 
 object DagrApiConversions {
   // NB: does not copy parents/children/dependsOn/dependents
-  implicit def toTaskInfo(info: TaskInfoLike, script: Boolean = false, log: Boolean = false): TaskInfo = {
-    TaskInfo(
+  implicit def toTaskInfo(info: TaskSystemTaskInfo, script: Boolean = false, log: Boolean = false): TaskStatusResponse = {
+    TaskStatusResponse(
       name           = info.task.name,
       id             = info.id,
       attempts       = info.attempts,
       script         = info.script,
       log            = info.log,
-      resources      = info.resources.map(r     => dagr.api.models.ResourceSet(r.cores.value, r.memory.value)),
+      resources      = info.resources.map(r => ResourceSet(r.cores.value, r.memory.value)),
       exitCode       = info.exitCode,
       throwable      = info.throwable,
       status         = info.status,
       timePoints     = info.timePoints,
       statusTime     = info.statusTime,
-      scriptContents = if (script) toContents(info.scriptPath) else None,
-      logContents    = if (log) toContents(info.logPath) else None
+      scriptContents = if (script) toContents(info.script) else None,
+      logContents    = if (log) toContents(info.log) else None
     )
   }
 
@@ -69,8 +71,8 @@ object DagrApiConversions {
     }
   }
 
-  implicit def toTaskStatus(in: TaskStatus): dagr.api.models.TaskStatus = {
-    new dagr.api.models.TaskStatus {
+  implicit def toTaskStatus(in: TaskStatus): TaskStatus = {
+    new TaskStatus {
       override val name: String        = in.name
       override val ordinal: Int        = in.ordinal
       override val success: Boolean    = in.success
@@ -81,20 +83,20 @@ object DagrApiConversions {
   }
 }
 
-trait DagrApiServerImpl extends DagrApi {
+trait DagrApiServerImpl extends DagrStatusApi {
   import DagrApiConversions._
 
   def taskInfoTracker: TaskInfoTracker
 
-  def log(id: dagr.api.DagrApi.TaskId): String = {
+  def log(id: TaskId): String = {
     taskInfoTracker.info(id)
-      .flatMap(info => toContents(info.logPath))
+      .flatMap(info => toContents(info.log))
       .getOrElse { s"No log defined for task with id '$id'"}
   }
 
-  def script(id: dagr.api.DagrApi.TaskId): String = {
+  def script(id: TaskId): String = {
     taskInfoTracker.info(id)
-      .flatMap(info => toContents(info.scriptPath))
+      .flatMap(info => toContents(info.script))
       .getOrElse { s"No script defined for task with id '$id'"}
   }
 
@@ -102,30 +104,30 @@ trait DagrApiServerImpl extends DagrApi {
 
   def statuses(): Seq[TaskStatus] = taskInfoTracker.statuses.map(DagrApiConversions.toTaskStatus)
 
-  protected def _query(name: Seq[String] = Seq.empty, // any name pattern
-                       status: Seq[String] = Seq.empty, // name
-                       id: Seq[TaskId] = Seq.empty, // any task ids
-                       attempts: Seq[Int] = Seq.empty, // any attempt #
-                       minResources: Option[ResourceSet] = None,
-                       maxResources: Option[ResourceSet] = None,
-                       since: Option[String] = None, // since using statusTime
-                       until: Option[String] = None, // until using statusTime,
-                       dependsOn: Seq[TaskId] = Seq.empty,
-                       dependents: Seq[TaskId] = Seq.empty,
-                       parent: Option[TaskId] = None, // TODO: include this in the response
-                       children: Seq[TaskId] = Seq.empty,
-                       script: Boolean = false,
-                       log: Boolean = false,
-                       report: Boolean = false): TaskInfoResponse = {
+  def status(name: Seq[String] = Seq.empty, // any name pattern
+             status: Seq[String] = Seq.empty, // name
+             id: Seq[TaskId] = Seq.empty, // any task ids
+             attempts: Seq[Int] = Seq.empty, // any attempt #
+             minResources: Option[ResourceSet] = None,
+             maxResources: Option[ResourceSet] = None,
+             since: Option[String] = None, // since using statusTime
+             until: Option[String] = None, // until using statusTime,
+             dependsOn: Seq[TaskId] = Seq.empty,
+             dependents: Seq[TaskId] = Seq.empty,
+             parent: Option[TaskId] = None, // TODO: include this in the response
+             children: Seq[TaskId] = Seq.empty,
+             script: Boolean = false,
+             log: Boolean = false,
+             report: Boolean = false): StatusResponse = {
     val nameRegexes: Seq[Regex] = name.map(_.r)
-    val infos: Seq[TaskInfo] = taskInfoTracker.fullInfo
+    val infos: Seq[TaskStatusResponse] = taskInfoTracker.fullInfo
       .filter { info => nameRegexes.isEmpty || nameRegexes.exists(_.findFirstIn(info.info.task.name).isDefined) }
       .filter { info => status.isEmpty || status.contains(info.info.status.name)}
       .filter { info => id.isEmpty || info.info.id.forall(id.contains(_)) }
       .filter { info => attempts.isEmpty || attempts.contains(info.info.attempts) }
+      .filter { info => leq(minResources, info.info.resources) }
+      .filter { info => geq(maxResources, info.info.resources) }
       // FIXME
-      //.filter { info => leq(minResources,info.info.resources) }
-      //.filter { info => geq(maxResources,info.info.resources) }
       //.filter { info => since.forall(s => s.compareTo(info.info.statusTime) <= 0) }
       //.filter { info => until.forall(u => u.compareTo(info.info.statusTime) <= 0) }
       .filter { info => dependsOn.isEmpty || intersects(dependsOn,info.info.task.tasksDependedOn.flatMap(_.taskInfo.id).toSeq) }
@@ -141,7 +143,7 @@ trait DagrApiServerImpl extends DagrApi {
         )
       }
       .toSeq
-    TaskInfoResponse(infos=infos, report = if (report) Some(this.report()) else None)
+    StatusResponse(infos=infos, report = if (report) Some(this.report()) else None)
   }
 
   private def intersects(left: Seq[TaskId], right: Seq[TaskId]): Boolean = {

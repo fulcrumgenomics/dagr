@@ -35,10 +35,10 @@ class TaskInfo(task: Task, initStatus: TaskStatus)
   extends Task.TaskInfo(task=task, initStatus=initStatus) {
 
   /** Gets the instant that the task was submitted to the execution system. */
-  override protected[core] def submissionDate: Option[Instant] = this(Pending)
+  override protected[core] def submissionDate: Option[Instant] = this.get(Pending)
 
   /** The instant the task started executing. */
-  override protected[core] def startDate: Option[Instant]      = this(Running)
+  override protected[core] def startDate: Option[Instant]      = this.get(Running)
 
   /** The instant that the task finished executing. */
   override protected[core] def endDate: Option[Instant]        = latestStatus[Completed]

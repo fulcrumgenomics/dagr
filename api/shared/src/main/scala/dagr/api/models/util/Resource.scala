@@ -23,9 +23,9 @@
  *
  */
 
-package dagr.api.models
+package dagr.api.models.util
 
-/** Manipulates system resources */
+/** Methods to help parse bytes from a string and create a string from bytes. in pretty formats. */
 trait ResourceParsing {
 
   /** Get the number of bytes.

@@ -24,13 +24,13 @@
 
 package dagr.core.execsystem
 
+import dagr.api.models.tasksystem
 import dagr.core.tasksystem.Task
-import dagr.api.models.{TaskStatus => RootTaskStatus}
 import enumeratum.values.{IntEnum, IntEnumEntry}
 
 import scala.collection.immutable.IndexedSeq
 
-sealed abstract class TaskStatus extends IntEnumEntry with RootTaskStatus {
+sealed abstract class TaskStatus extends IntEnumEntry with tasksystem.TaskStatus {
   override def ordinal = this.value
   /** Returns true if this status indicates any type of success, false otherwise. */
   def success: Boolean = this.isInstanceOf[TaskStatus.Succeeded]
@@ -49,7 +49,8 @@ case object TaskStatus extends IntEnum[TaskStatus] {
     * @param failedIsDone true if we are to treat a failure as done
     * @return true if the task is done, false otherwise
     */
-  def done(taskStatus: RootTaskStatus, failedIsDone: Boolean = true): Boolean = {
+  def done(taskStatus: tasksystem.TaskStatus, failedIsDone: Boolean = true): Boolean = {
+    requireTaskStatusType(taskStatus)
     val completed = taskStatus.isInstanceOf[Completed]
     if (failedIsDone) completed else !failed(taskStatus) && completed
   }
@@ -60,7 +61,8 @@ case object TaskStatus extends IntEnum[TaskStatus] {
     * @param failedIsDone true if we are to treat failuer as done
     * @return true if the task is not done, false otherwise
     */
-  def notDone(taskStatus: RootTaskStatus, failedIsDone: Boolean = true): Boolean = {
+  def notDone(taskStatus: tasksystem.TaskStatus, failedIsDone: Boolean = true): Boolean = {
+    // NB: not checking the type of taskStatus, since the "done" method will do so.
     !done(taskStatus, failedIsDone=failedIsDone)
   }
 
@@ -69,7 +71,15 @@ case object TaskStatus extends IntEnum[TaskStatus] {
     * @param taskStatus the status of the task
     * @return true if the task has failed, false otherwise
     */
-  def failed(taskStatus: RootTaskStatus): Boolean = taskStatus.isInstanceOf[Failed]
+  def failed(taskStatus: tasksystem.TaskStatus): Boolean = {
+    requireTaskStatusType(taskStatus)
+    taskStatus.isInstanceOf[Failed]
+  }
+
+  private def requireTaskStatusType(taskStatus: tasksystem.TaskStatus): Unit = {
+    require(taskStatus.isInstanceOf[TaskStatus],
+      s"Wrong type of task status, expected '${TaskStatus.getClass.getCanonicalName}', found '${taskStatus.getClass.getCanonicalName}'")
+  }
 
   // Groups of statuses
   sealed trait Completed         extends TaskStatus

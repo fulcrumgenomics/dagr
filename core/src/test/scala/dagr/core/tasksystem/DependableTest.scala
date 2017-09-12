@@ -20,6 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
 package dagr.core.tasksystem
@@ -27,7 +28,8 @@ package dagr.core.tasksystem
 import dagr.core.UnitSpec
 
 class DependableTest extends UnitSpec {
-  import EmptyDependable.optionDependableToDependable // import the implicit
+
+  import dagr.core.tasksystem.Dependable.optionDependableToDependable
 
   case class TrivialTask(x: String) extends UnitTask with FixedResources { override def toString: String = x }
   val A = TrivialTask("A")
@@ -127,7 +129,7 @@ class DependableTest extends UnitSpec {
 
   "Pipeline.root" should "return the same things as Pipeline from the *tasks methods" in {
     val pipeline = new Pipeline() {
-      override def build() = root ==> (A :: B :: C) ==> (X :: Y :: Z)
+      override def build(): Unit = root ==> (A :: B :: C) ==> (X :: Y :: Z)
     }
 
     pipeline.root.headTasks shouldBe pipeline.headTasks

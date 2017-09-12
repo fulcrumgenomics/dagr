@@ -27,8 +27,8 @@ package dagr.tasks.vc
 import java.nio.file.Path
 
 import com.fulcrumgenomics.commons.util.LazyLogging
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 import dagr.core.config.Configuration
-import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{Pipeline, ProcessTask, ShellCommand, VariableResources}
 import dagr.tasks.DagrDef._
 import dagr.tasks.misc.DeleteFiles

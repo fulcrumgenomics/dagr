@@ -31,7 +31,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Route, _}
 import akka.stream.ActorMaterializer
 import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
-import dagr.api.{DagrApi, DagrApiConfiguration}
+import dagr.api.{DagrStatusApi, DagrApi}
 import upickle.Js
 import upickle.Js.Value
 import upickle.default.{Reader, Writer}
@@ -73,11 +73,11 @@ class DagrApiService(val taskInfoTracker: TaskInfoTracker)
                      implicit val materializer: ActorMaterializer,
                      implicit val executionContext: ExecutionContext)
   extends CorsDirectirves
-    with DagrApiConfiguration
+    with DagrApi
     with DagrApiServerImpl
     with autowire.Server[Js.Value, upickle.default.Reader, upickle.default.Writer] {
 
-  import dagr.api.models.TaskInfoResponse._
+  import dagr.api.DagrStatusApi.StatusResponse._
 
   override def write[Result](r: Result)(implicit writer: Writer[Result]): Js.Value = {
     upickle.default.writeJs[Result](r)
@@ -92,24 +92,24 @@ class DagrApiService(val taskInfoTracker: TaskInfoTracker)
   // TODO: exception handlers
 
   def versionRoute: Route = {
-    path(root / "version") {
+    path(Root / "version") {
       pathEnd {
         get {
-          complete(version)
+          complete(Version)
         }
       }
     }
   }
 
   def queryRoute: Route = {
-    pathPrefix(root / version / Segments) { segments =>
+    pathPrefix(Root / Version / Segments) { segments =>
       post {
         entity(as[String]) { inputJson =>
           val request = autowire.Core.Request.apply(
-            DagrApi.prefixSegments ++ segments,
+            DagrStatusApi.FullyQualifiedPath ++ segments,
             upickle.json.read(inputJson).asInstanceOf[Js.Obj].value.toMap
           )
-          val result: Future[String] = this.route[DagrApi](this)(request).map(upickle.default.write(_))
+          val result: Future[String] = this.route[DagrStatusApi](this)(request).map(upickle.default.write(_))
           onSuccess(result) { str: String => complete(HttpEntity(ContentTypes.`application/json`, str)) }
         }
       }

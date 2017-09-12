@@ -29,7 +29,7 @@ import java.nio.file.Files
 
 import com.fulcrumgenomics.commons.CommonsDef.DirPath
 import dagr.core.FutureUnitSpec
-import dagr.api.models.{Cores, Memory, ResourceSet}
+import dagr.api.models.util.{Cores, ResourceSet}
 import dagr.core.execsystem2.TaskStatus._
 import dagr.core.execsystem2._
 import dagr.core.tasksystem._
@@ -39,7 +39,7 @@ import scala.concurrent.{CancellationException, Future}
 
 class LocalTaskExecutorTest extends FutureUnitSpec {
 
-  private def scriptsDirectory: DirPath = {
+  private def scriptDirectory: DirPath = {
     val dir = Files.createTempDirectory("LocalTaskExecutorTest.scripts")
     dir.toFile.deleteOnExit()
     dir
@@ -51,7 +51,7 @@ class LocalTaskExecutorTest extends FutureUnitSpec {
     dir
   }
 
-  private def executor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory))
+  private def executor = new LocalTaskExecutor(scriptDirectory=scriptDirectory, logDirectory=logDirectory)
 
   private def info(task: UnitTask): task.type = {
     new TaskInfo(task=task, initStatus=Queued)
@@ -251,7 +251,7 @@ class LocalTaskExecutorTest extends FutureUnitSpec {
 
     val resources = SystemResources(systemCores, Resource.parseSizeToBytes("8g").toLong, 0.toLong)
 
-    val executor = new LocalTaskExecutor(systemResources=resources, scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory))
+    val executor = new LocalTaskExecutor(systemResources=resources, scriptDirectory=Some(scriptDirectory), logDirectory=Some(logDirectory))
 
     Seq(new HungryTask, new HungryTask, new HungryTask).map { task =>
       executor.execute(task.asInstanceOf[UnitTask])

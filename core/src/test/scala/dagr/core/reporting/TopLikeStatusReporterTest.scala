@@ -65,7 +65,6 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
 
   private def getDefaultTaskManager(sleepMilliseconds: Int = 10): TaskManager = new TaskManager(
     taskManagerResources = SystemResources.infinite,
-    scriptsDirectory = None,
     sleepMilliseconds = sleepMilliseconds,
     failFast = true
   )
@@ -78,10 +77,11 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       outStream
     }
 
-    val reporter = new dagr.core.execsystem.TopLikeStatusReporter(
-      taskManager = taskManager,
-      loggerOut   = Some(loggerOutputStream),
-      print       = print
+    val reporter = new TopLikeStatusReporter(
+      executor        = taskManager,
+      systemResources = taskManager.getTaskManagerResources,
+      loggerOut       = Some(loggerOutputStream),
+      print           = print
     ) with TestTerminal
 
     yieldAndThen(reporter)(taskManager.withReporter(reporter))
@@ -95,10 +95,11 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       outStream
     }
 
-    val reporter = new dagr.core.execsystem.TopLikeStatusReporter(
-      taskManager = taskManager,
-      loggerOut   = Some(loggerOutputStream),
-      print       = print
+    val reporter = new TopLikeStatusReporter(
+      executor        = taskManager,
+      systemResources = taskManager.getTaskManagerResources,
+      loggerOut       = Some(loggerOutputStream),
+      print           = print
     ) with TwoLineTestTerminal
 
     yieldAndThen(reporter)(taskManager.withReporter(reporter))
@@ -189,7 +190,6 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     val printMethod: String => Unit = (str: String) => output.append(str.filterNot(extendedCode))
     val taskManager = new TaskManager(
       taskManagerResources = SystemResources(1.0, Long.MaxValue, Long.MaxValue), // one task at a time
-      scriptsDirectory = None,
       sleepMilliseconds = 10
     )
     buildAndAddReporter(taskManager, print=printMethod)

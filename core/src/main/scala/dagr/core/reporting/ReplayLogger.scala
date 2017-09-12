@@ -27,15 +27,15 @@ package dagr.core.reporting
 
 import com.fulcrumgenomics.commons.CommonsDef.{FilePath, SafelyClosable}
 import com.fulcrumgenomics.commons.io.Io
-import dagr.core.reporting.ExecutionLogger.{Definition, Relationship, Status}
+import dagr.api.models.tasksystem.TaskStatus
+import dagr.core.reporting.ReplayLogger.{Definition, Status}
 import dagr.core.reporting.ReportingDef._
 import dagr.core.tasksystem.Task
-import dagr.api.models.TaskStatus
-import dagr.core.tasksystem.Task.TaskInfoLike
+import dagr.core.tasksystem.Task.TaskInfo
 
 import scala.collection.mutable
 
-object ExecutionLogger {
+object ReplayLogger {
 
   val Separator: String = ","
 
@@ -91,27 +91,6 @@ object ExecutionLogger {
     }
   }
 
-  object Relationship {
-    val Name: String        = "RELATIONSHIP"
-    val Header: Seq[String] = Seq("PARENT_CODE", "CHILD_CODE")
-
-    def apply(line: String): Relationship = {
-      line.split(Separator).toList match {
-        case Name :: parentCode :: childCode :: Nil =>
-          Relationship(parentCode.toInt, childCode.toInt)
-        case _ =>
-          throw new IllegalArgumentException(s"Could not parse line: $line")
-      }
-    }
-    def apply(parent: Definition, child: Definition): Relationship = {
-      require(child.parentCode == parent.code, s"Expected parent code of child to be '${parent.code}' but found '${child.parentCode}'")
-      Relationship(parent.code, child.code)
-    }
-  }
-
-  /** Stores a parent and child relationship between tasks. */
-  case class Relationship(parentCode: Int, childCode: Int) extends ToStringIsSimpleNameUpperCase
-
   object Status {
     val Name: String        = "STATUS"
     val Header: Seq[String] = Seq("TASK_CODE", "STATUS_NAME", "STATUS_ORDINAL")
@@ -134,7 +113,7 @@ object ExecutionLogger {
 }
 
 /** Logs the status changes of a task. */
-class ExecutionLogger(log: FilePath) extends TaskLogger with TaskRegister with AutoCloseable {
+class ReplayLogger(log: FilePath) extends TaskLogger with TaskRegister with AutoCloseable {
   private var registeredRootTask: Boolean = false
   private var closed: Boolean = false
   private val writer = Io.toWriter(log)
@@ -161,14 +140,12 @@ class ExecutionLogger(log: FilePath) extends TaskLogger with TaskRegister with A
       child.zipWithIndex.foreach { case (_child, childNumber) =>
         // log the definition of each child task
         logTaskDefinition(_child, parentDefinition.code, childNumber)
-        // log the relationship between the parent and its child/children
-        logParentChildRelationship(parent, _child)
       }
     }
   }
 
   /** The method that will be called with updated task information. */
-  def record(info: TaskInfoLike): Unit = logStatusChange(info)
+  def record(info: TaskInfo): Unit = logStatusChange(info)
 
   def close(): Unit = if (!this.closed) {
     this.writer.flush()
@@ -185,7 +162,6 @@ class ExecutionLogger(log: FilePath) extends TaskLogger with TaskRegister with A
   /** Writes some debug information to the top of the log. */
   private def writeHeader(): Unit = {
     write((Seq(s"#${Definition.Name}") ++ Definition.Header).mkString(",") + "\n")
-    write((Seq(s"#${Relationship.Name}") ++ Relationship.Header).mkString(",") + "\n")
     write((Seq(s"#${Status.Name}") ++ Status.Header).mkString(",") + "\n")
   }
 
@@ -196,15 +172,8 @@ class ExecutionLogger(log: FilePath) extends TaskLogger with TaskRegister with A
     write(definition.toString + "\n")
   }
 
-  /** Logs the parent and child relationship. */
-  private def logParentChildRelationship(parent: Task, child: Task): Unit = {
-    val parentDefinition = this.taskToDefinition(parent)
-    val childDefinition  = this.taskToDefinition(child)
-    write(Relationship(parentDefinition, childDefinition).toString + "\n")
-  }
-
   /** Logs the a status update for the task. */
-  private def logStatusChange(rootInfo: TaskInfoLike): Unit = {
+  private def logStatusChange(rootInfo: TaskInfo): Unit = {
     val definition = this.taskToDefinition(rootInfo.task)
     write(Status(rootInfo.status, definition).toString + "\n")
   }

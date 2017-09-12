@@ -23,7 +23,9 @@
  *
  */
 
-package dagr.api.models
+package dagr.api.models.util
+
+import dagr.api.models.UnitSpec
 
 class ResourceTest extends UnitSpec {
 

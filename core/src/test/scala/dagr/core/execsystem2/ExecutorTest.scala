@@ -25,8 +25,8 @@
 
 package dagr.core.execsystem2
 
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 import dagr.core.TestTags
-import dagr.api.models.{Cores, Memory, ResourceSet}
 import dagr.core.exec.SystemResources
 import dagr.core.execsystem2.TaskStatus._
 import dagr.core.execsystem2.local.LocalTaskExecutor
@@ -38,40 +38,40 @@ import org.scalatest.time.{Seconds, Span}
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
-class GraphExecutorTest extends GraphExecutorUnitSpec {
+class ExecutorTest extends ExecutorUnitSpec {
 
   ////////////////////////////////////////////////////////////////////////////////
   // Basic tests
   ////////////////////////////////////////////////////////////////////////////////
 
-  "GraphExecutor" should "run a single task end-to-end with success" in {
-    val graphExecutor = this.graphExecutor
+  "executor" should "run a single task end-to-end with success" in {
+    val executor = this.defaultExecutor
     val root = successfulTask withName "p1"
-    graphExecutor.execute(root) shouldBe 0
-    checkStatus(graphExecutor, root, SucceededExecution)
+    executor.execute(root) shouldBe 0
+    checkStatus(executor, root, SucceededExecution)
   }
 
   it should "run a single task end-to-end with failure" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val root = new ShellCommand("exit", "1") withName "exit 1"
-    graphExecutor.execute(root) shouldBe 1
-    checkStatus(graphExecutor, root, FailedExecution)
+    executor.execute(root) shouldBe 1
+    checkStatus(executor, root, FailedExecution)
   }
 
   it should "run two tasks end-to-end with success" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val root = successfulTask withName "p1"
     val child = successfulTask withName "p2"
 
     root ==> child
 
-    graphExecutor.execute(root) shouldBe 0
-    checkStatus(graphExecutor, root, SucceededExecution)
-    checkStatus(graphExecutor, child, SucceededExecution)
+    executor.execute(root) shouldBe 0
+    checkStatus(executor, root, SucceededExecution)
+    checkStatus(executor, child, SucceededExecution)
   }
 
   it should "run a few tasks end-to-end with success" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val root = successfulTask withName "root"
     val left = successfulTask withName "left"
     val right = successfulTask withName "right"
@@ -79,65 +79,65 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
 
     root ==> (left :: right) ==> leaf
 
-    graphExecutor.execute(root) shouldBe 0
-    Seq(root, left, right, leaf).foreach { t => checkStatus(graphExecutor, t, SucceededExecution) }
+    executor.execute(root) shouldBe 0
+    Seq(root, left, right, leaf).foreach { t => checkStatus(executor, t, SucceededExecution) }
   }
 
   it should "run a pipeline end-to-end with success" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val pipeline = this.pipeline
-    graphExecutor.execute(pipeline) shouldBe 0
-    checkStatus(graphExecutor, pipeline, SucceededExecution)
+    executor.execute(pipeline) shouldBe 0
+    checkStatus(executor, pipeline, SucceededExecution)
   }
 
   it should "run a pipeline end-to-end with failure" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val pipeline = this.pipelineFailure // pipeline ==> (okTasks(0) ==> (failTask :: okTasks(1)) ==> okTasks(2))
-    graphExecutor.execute(pipeline) shouldBe 3
-    checkPipelineFailure(pipeline, graphExecutor)
+    executor.execute(pipeline) shouldBe 3
+    checkPipelineFailure(pipeline, executor)
   }
 
   it should "fails when the task executor does not support the task" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val root = new Task {
       final def getTasks: Traversable[_ <: this.type] = List(this)
     }
-    graphExecutor.execute(root) shouldBe 1
-    checkStatus(graphExecutor, root, FailedSubmission)
+    executor.execute(root) shouldBe 1
+    checkStatus(executor, root, FailedSubmission)
   }
 
   it should "fails when a task cannot be scheduled" in {
-    val taskExecutor = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory))
-    val graphExecutor = new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
+    val taskExecutor = new LocalTaskExecutor(scriptDirectory=scriptDirectory, logDirectory=logDirectory)
+    val executor = new ExecutorImpl(taskExecutor=taskExecutor)
     val root = infiniteResourcesTask
 
-    val execute = Future { graphExecutor.execute(root) }
+    val execute = Future { executor.execute(root) }
     whenReady(execute) { result =>
       result shouldBe 1
-      checkStatus(graphExecutor, root, FailedSubmission)
+      checkStatus(executor, root, FailedSubmission)
     }
   }
 
   it should "fails when a task is executed that has dependencies" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val root = successfulTask
     val child = successfulTask
     root ==> child
 
-    graphExecutor.execute(child) shouldBe 1
-    //an[IllegalArgumentException] should be thrownBy graphExecutor.execute(child)
+    executor.execute(child) shouldBe 1
+    //an[IllegalArgumentException] should be thrownBy executor.execute(child)
   }
 
   it should "not depend on the order tasks are enqueued" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val task = new Task {
       override def getTasks: Traversable[_ <: Task] = {
         pipeline.getTasks.toList.reverse
       }
     }
 
-    graphExecutor.execute(task) shouldBe 0
-    checkInfo(graphExecutor, task=task, statuses=Seq(Pending, Queued, Running, SucceededExecution))
+    executor.execute(task) shouldBe 0
+    checkInfo(executor, task=task, statuses=Seq(Pending, Queued, Running, SucceededExecution))
   }
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -154,38 +154,38 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
   ////////////////////////////////////////////////////////////////////////////////
 
   it should "route through FailedUnknown" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     // fails when we look at dependencies
     val root = new PromiseTask(Duration.Zero, ResourceSet.empty) with UnitTask {
       var count = true
       override def tasksDependedOn: Traversable[Task] = throw new IllegalArgumentException
     } withName "root"
-    graphExecutor.execute(root) shouldBe 1
+    executor.execute(root) shouldBe 1
 
-    checkInfo(graphExecutor, task=root, statuses=Seq(FailedUnknown))
+    checkInfo(executor, task=root, statuses=Seq(Pending, FailedUnknown))
   }
 
   it should "route through Pending => Queued => Submitted => Running => SucceededExecution (for executable tasks)" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val root = successfulTask
-    graphExecutor.execute(root) shouldBe 0
+    executor.execute(root) shouldBe 0
 
-    checkInfo(graphExecutor, task=root, statuses=Seq(Pending, Queued, Submitted, Running, SucceededExecution))
+    checkInfo(executor, task=root, statuses=Seq(Pending, Queued, Submitted, Running, SucceededExecution))
   }
 
   it should "route through Pending => Queued => Running => SucceededExecution (for pipelines)" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val task = pipeline
-    graphExecutor.execute(task) shouldBe 0
+    executor.execute(task) shouldBe 0
 
-    checkInfo(graphExecutor, task=task, statuses=Seq(Pending, Queued, Running, SucceededExecution))
+    checkInfo(executor, task=task, statuses=Seq(Pending, Queued, Running, SucceededExecution))
   }
 
   // This test is disabled since it relies on how many times `tasksDependedOn` gets called, which is a bad idea.  I
   // don't see another way to make it blow up :/
   /*
   it should "route through Pending => FailedUnknown" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.executor
     // fails when we look at dependencies the second time!
     val root = new PromiseTask(Duration.Zero, ResourceSet.empty) with UnitTask {
       var count = true
@@ -199,50 +199,50 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
         }
       }
     } withName "root"
-    graphExecutor.execute(root) shouldBe 1
-    checkInfo(graphExecutor, task=root, statuses=Seq(Pending, FailedUnknown))
+    executor.execute(root) shouldBe 1
+    checkInfo(executor, task=root, statuses=Seq(Pending, FailedUnknown))
   }
   */
 
   it should "route through Pending => Queued => FailedToBuild" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     // fails when building
     val root = new Task {
       withName("root")
       override def getTasks = Nil
     }
 
-    graphExecutor.execute(root) shouldBe 1
-    checkInfo(graphExecutor, task=root, statuses=Seq(Pending, Queued, FailedToBuild))
+    executor.execute(root) shouldBe 1
+    checkInfo(executor, task=root, statuses=Seq(Pending, Queued, FailedToBuild))
   }
 
   it should "route through Pending => Queued => Submitted => FailedSubmission" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val root = new Task {
       final def getTasks: Traversable[_ <: this.type] = List(this)
     }
 
-    graphExecutor.execute(root) shouldBe 1
-    checkInfo(graphExecutor, task=root, statuses=Seq(Pending, Queued, Submitted, FailedSubmission))
+    executor.execute(root) shouldBe 1
+    checkInfo(executor, task=root, statuses=Seq(Pending, Queued, Submitted, FailedSubmission))
   }
 
   it should "route through Pending => Queued => Submitted => Running => FailedExecution" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val root = new ShellCommand("exit", "1") withName "exit 1"
 
-    graphExecutor.execute(root) shouldBe 1
-    checkInfo(graphExecutor, task=root, statuses=Seq(Pending, Queued, Submitted, Running, FailedExecution))
+    executor.execute(root) shouldBe 1
+    checkInfo(executor, task=root, statuses=Seq(Pending, Queued, Submitted, Running, FailedExecution))
   }
 
   it should "route through Pending => Queued => Submitted => Running => FailedOnComplete" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     // scheduled and run immediately, onComplete throws
     val root = new PromiseTask(Duration.Zero, ResourceSet.empty) with UnitTask {
       override def onComplete(exitCode: Int): Boolean = false
     }
 
-    graphExecutor.execute(root) shouldBe 1
-    checkInfo(graphExecutor, task=root, statuses=Seq(Pending, Queued, Submitted, Running, FailedOnComplete))
+    executor.execute(root) shouldBe 1
+    checkInfo(executor, task=root, statuses=Seq(Pending, Queued, Submitted, Running, FailedOnComplete))
   }
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -250,70 +250,70 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
   ////////////////////////////////////////////////////////////////////////////////
 
   it should "execute a chain of one-task pipelines to successful execution" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val p1 = pipelineOneTask withName "p1"
     val p2 = pipelineOneTask withName "p2"
     val p3 = pipelineOneTask withName "p3"
     p1 ==> p2  ==> p3
 
-    graphExecutor.execute(p1) shouldBe 0
+    executor.execute(p1) shouldBe 0
 
     Seq(p1, p2, p3).foreach { p =>
-      checkInfo(graphExecutor, task=p, statuses=Seq(Pending, Queued, Running, SucceededExecution))
+      checkInfo(executor, task=p, statuses=Seq(Pending, Queued, Running, SucceededExecution))
     }
 
-    val times = Seq(p1, p2, p3).map(_.taskInfo(SucceededExecution).value)
+    val times = Seq(p1, p2, p3).map(_.taskInfo.get(SucceededExecution).value)
     checkInstants(times)
   }
 
   it should "execute a chain of pipelines, each with multiple tasks, to successful execution" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val p1 = pipeline withName "p1"
     val p2 = pipeline withName "p2"
     val p3 = pipeline withName "p3"
     p1 ==> p2 ==> p3
 
-    graphExecutor.execute(p1) shouldBe 0
+    executor.execute(p1) shouldBe 0
 
     Seq(p1, p2, p3).foreach { p =>
-      checkInfo(graphExecutor, p, statuses=Seq(Pending, Queued, Running, SucceededExecution))
+      checkInfo(executor, p, statuses=Seq(Pending, Queued, Running, SucceededExecution))
     }
-    val times = Seq(p1, p2, p3).map(_.taskInfo(SucceededExecution).value)
+    val times = Seq(p1, p2, p3).map(_.taskInfo.get(SucceededExecution).value)
     checkInstants(times)
   }
 
   it should "succeed a pipeline task that has a dependent task that will fail" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val p1 = this.pipelineOneTask withName "p1"
     val fail = failureTask
 
     p1 ==> fail
-    graphExecutor.execute(p1) shouldBe 1 // fail
+    executor.execute(p1) shouldBe 1 // fail
 
-    checkInfo(graphExecutor, p1, statuses=Seq(Pending, Queued, Running, SucceededExecution))
-    checkInfo(graphExecutor, fail, statuses=Seq(Pending, Queued, Submitted, FailedSubmission))
+    checkInfo(executor, p1, statuses=Seq(Pending, Queued, Running, SucceededExecution))
+    checkInfo(executor, fail, statuses=Seq(Pending, Queued, Submitted, FailedSubmission))
   }
 
   it should "execute a chain of pipelines where an intermediate pipeline fails" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val p1 = pipeline withName "p1"
     val p2 = pipelineFailure withName "p2"
     val p3 = pipeline withName "p3"
     p1 ==> p2 ==> p3
 
-    val result = graphExecutor.execute(p1)
+    val result = executor.execute(p1)
 
     result should be >= 4 // p1, p2, p2-1, p2-fail, p3
     result should be <= 5 // p1, p2, p2-1, p2-2, p2-fail, p3
 
     // success
-    checkInfo(graphExecutor, p1, statuses=Seq(Pending, Queued, Running, SucceededExecution))
+    checkInfo(executor, p1, statuses=Seq(Pending, Queued, Running, SucceededExecution))
 
     // failure
-    checkPipelineFailure(p2, graphExecutor)
+    checkPipelineFailure(p2, executor)
 
     // failure
-    checkStatus(graphExecutor, p3, Pending)
+    checkStatus(executor, p3, Pending)
   }
 
 
@@ -322,33 +322,33 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
   ////////////////////////////////////////////////////////////////////////////////
 
   it should "retry a task that succeeds on its second attempt" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val task = new SimpleInJvmTask with Retry {
       var attempt = 0
       def run(): Unit = { attempt += 1; println(s"run attempt $attempt"); require(attempt > 1) }
       override def retry(resources: SystemResources, taskInfo: RootTaskInfo): Boolean = attempt < 2
     } withName "retry-task"
 
-    graphExecutor.execute(task) shouldBe 0
+    executor.execute(task) shouldBe 0
     val statuses = Seq(Pending, Queued, Submitted, Running, FailedExecution, Queued, Submitted, Running, SucceededExecution)
-    checkInfo(graphExecutor, task, statuses=statuses, attempts=2)
+    checkInfo(executor, task, statuses=statuses, attempts=2)
   }
 
   it should "retry a task that fails on its second and final attempt" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val task = new SimpleInJvmTask with Retry {
       var attempt = 0
       def run(): Unit = { attempt += 1; throw new IllegalArgumentException("this task should never succeed") }
       override def retry(resources: SystemResources, taskInfo: RootTaskInfo): Boolean = attempt < 2
     } withName "retry-failure-task"
 
-    graphExecutor.execute(task) shouldBe 1
+    executor.execute(task) shouldBe 1
     val statuses = Seq(Pending, Queued, Submitted, Running, FailedExecution, Queued, Submitted, Running, FailedExecution)
-    checkInfo(graphExecutor, task, statuses=statuses, attempts=2)
+    checkInfo(executor, task, statuses=statuses, attempts=2)
   }
 
   it should "retry a task that succeeds on its second attempt, after which a dependent task runs" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     val root = new SimpleInJvmTask with Retry {
       var attempt = 0
       def run(): Unit = { attempt += 1; require(attempt > 1) }
@@ -358,7 +358,7 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
 
     root ==> child
 
-    graphExecutor.execute(root) shouldBe 0
+    executor.execute(root) shouldBe 0
     Seq(root, child).foreach { task =>
       val attempts = if (root == task) 2 else 1
       val statuses = if (root == task) {
@@ -367,7 +367,7 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
       else {
         Seq(Pending, Queued, Submitted, Running, SucceededExecution)
       }
-      checkInfo(graphExecutor, task, statuses=statuses, attempts=attempts)
+      checkInfo(executor, task, statuses=statuses, attempts=attempts)
     }
   }
 
@@ -424,14 +424,14 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
 
         //val systemResources = SystemResources(cores=Cores(16), systemMemory=Memory("16g"), jvmMemory=Memory("16g"))
         val systemResources = SystemResources.infinite
-        val taskExecutor    = new LocalTaskExecutor(scriptsDirectory=Some(scriptsDirectory), logDirectory=Some(logDirectory), systemResources=systemResources)
-        val graphExecutor   = new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
+        val taskExecutor    = new LocalTaskExecutor(scriptDirectory=scriptDirectory, logDirectory=logDirectory, systemResources=systemResources)
+        val executor   = new ExecutorImpl(taskExecutor=taskExecutor)
 
-        whenReady(Future { graphExecutor.execute(root) }, timeout=Timeout(Span(120, Seconds))) { t =>
+        whenReady(Future { executor.execute(root) }, timeout=Timeout(Span(120, Seconds))) { t =>
           t shouldBe 0
           (Seq(root) ++ tasks).foreach { task =>
             //println(s"checking status for ${task.name}")
-            checkStatus(graphExecutor, task, SucceededExecution)
+            checkStatus(executor, task, SucceededExecution)
           }
         }
       }
@@ -456,9 +456,9 @@ class GraphExecutorTest extends GraphExecutorUnitSpec {
   // - run a task, that its onComplete method mutates its args and return value based on the attempt index
 
   "GraphExecute.from" should "return the task status from the ordinal" in {
-    val graphExecutor = this.graphExecutor
+    val executor = this.defaultExecutor
     TaskStatus.values.foreach { status =>
-      graphExecutor.statusFrom(status.ordinal) shouldBe status
+      executor.statusFrom(status.ordinal) shouldBe status
     }
   }
 

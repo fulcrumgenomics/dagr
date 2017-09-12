@@ -37,9 +37,9 @@ import com.fulcrumgenomics.sopt.util.TermCode
 import com.fulcrumgenomics.sopt.{Sopt, arg}
 import dagr.core.config.Configuration
 import dagr.core.exec._
-import dagr.core.reporting.{ExecutionLogger, Terminal, TopLikeStatusReporter}
+import dagr.core.reporting.{ReplayLogger, Terminal, TopLikeStatusReporter}
 import dagr.core.tasksystem.Pipeline
-import dagr.api.models.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContext
@@ -140,14 +140,14 @@ class DagrCoreArgs(
       val config = new Configuration { }
 
       // scripts & logs directories
-      val scriptsDirectory = pick(this.scriptDir, pipeline.outputDirectory.map(_.resolve("scripts")),
-        config.optionallyConfigure(Configuration.Keys.ScriptDirectory))
-      val logDirectory     = pick(this.logDir,    pipeline.outputDirectory.map(_.resolve("logs")),
-        config.optionallyConfigure(Configuration.Keys.LogDirectory))
+      val scriptDirectory = pick(this.scriptDir, pipeline.outputDirectory.map(_.resolve("scripts")),
+        config.optionallyConfigure(Configuration.Keys.ScriptDirectory), Some(Io.makeTempDir("scripts")))
+      val logDirectory    = pick(this.logDir,    pipeline.outputDirectory.map(_.resolve("logs")),
+        config.optionallyConfigure(Configuration.Keys.LogDirectory), Some(Io.makeTempDir("logs")))
 
       {
         val errors: ListBuffer[String] = ListBuffer[String]()
-        scriptsDirectory.foreach(d => mkdir(dir=d, use="scripts", errors=errors))
+        scriptDirectory.foreach(d => mkdir(dir=d, use="scripts", errors=errors))
         logDirectory.foreach(d => mkdir(dir=d, use="logs", errors=errors))
         if (errors.nonEmpty) throw ValidationException(errors.toList)
       }
@@ -163,8 +163,8 @@ class DagrCoreArgs(
         Executor(
           experimentalExecution = experimentalExecution,
           resources             = resources,
-          scriptsDirectory      = scriptsDirectory,
-          logDirectory          = logDirectory
+          scriptDirectory       = scriptDirectory.get,
+          logDirectory          = logDirectory.get
         )
       )
 
@@ -201,7 +201,7 @@ class DagrCoreArgs(
       else {
         report.getParent.resolve(logName)
       }
-      val executionLogger = new ExecutionLogger(log)
+      val executionLogger = new ReplayLogger(log)
       executor.withReporter(executionLogger)
     }
 

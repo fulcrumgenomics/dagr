@@ -25,8 +25,8 @@ package dagr.core.execsystem
 
 import com.fulcrumgenomics.commons.collection._
 import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
-import dagr.api.models.{Cores, Memory, ResourceSet}
-import dagr.core.DagrDef._
+import dagr.api.DagrApi.TaskId
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 import dagr.core.exec._
 import dagr.core.tasksystem.Task.TaskInfo
 import dagr.core.tasksystem._
@@ -59,7 +59,6 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
   def getDefaultTaskManager(sleepMilliseconds: Int = 10, failFast: Boolean = false): TestTaskManager = new TaskManager(
     taskManagerResources = SystemResources.infinite,
-    scriptsDirectory = None,
     sleepMilliseconds = sleepMilliseconds,
     failFast = failFast
   ) with TestTaskManager
@@ -165,7 +164,6 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
       task                 = task,
       sleepMilliseconds    = 10,
       taskManagerResources = Some(SystemResources.infinite),
-      scriptsDirectory     = None,
       simulate             = simulate,
       failFast             = true)
 
@@ -312,7 +310,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   it should "replace a task that could not be scheduled due to OOM and re-run with less memory to completion" in {
     val original = new ShellCommand("exit", "0").requires(memory=Memory("2G")) withName "Too much memory"
     val replacement = new ShellCommand("exit", "0").requires(memory=Memory("1G")) withName "Just enough memory"
-    val taskManager: TestTaskManager = new TaskManager(taskManagerResources = new SystemResources(Cores(1), Memory("1G"), Memory(0)), scriptsDirectory = None) with TestTaskManager
+    val taskManager: TestTaskManager = new TaskManager(taskManagerResources = new SystemResources(Cores(1), Memory("1G"), Memory(0))) with TestTaskManager
 
     // just in case
     original.resources.memory.bytes should be(Resource.parseSizeToBytes("2G"))

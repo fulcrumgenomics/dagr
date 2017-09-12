@@ -32,7 +32,7 @@ import dagr.core.FutureUnitSpec
 import dagr.core.exec.{Executor, SystemResources}
 import dagr.core.execsystem.{TaskStatus => ExecTaskStatus}
 import dagr.core.execsystem2.{TaskStatus => Exec2TaskStatus}
-import dagr.core.reporting.ExecutionLogger.{Definition, Relationship, Status}
+import dagr.core.reporting.ReplayLogger.{Definition, Status}
 import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline, SimpleInJvmTask, Task}
 
 // Defining this here because it cannot be an inner class: https://bugs.openjdk.java.net/browse/JDK-8057919
@@ -42,7 +42,7 @@ private object TestTrait {
   }
 }
 
-class ExecutionLoggerTest extends FutureUnitSpec {
+class ReplayLoggerTest extends FutureUnitSpec {
 
   case object ObjectTask extends SimpleInJvmTask {
     override def run(): Unit = Unit
@@ -105,28 +105,6 @@ class ExecutionLoggerTest extends FutureUnitSpec {
     }
   }
 
-  "ExecutionLogger.Relationship.toString" should "should return a comma-separated list of the values" in {
-    val definitionParent = Definition.buildRootDefinition(ObjectTask)
-    val definitionChild  = Definition(task=AnotherObjectTask,    parentCode=definitionParent.code, childNumber=0)
-    val relationship     = Relationship(parent=definitionParent, child=definitionChild)
-    relationship.toString shouldBe s"RELATIONSHIP,${ObjectTask.hashCode},${AnotherObjectTask.hashCode}"
-  }
-
-  "ExecutionLogger.Relationship.apply" should "should parse from a string" in {
-    Relationship("RELATIONSHIP,123,456") shouldBe Relationship(123, 456)
-
-  }
-
-  it should "throw an exception on a garbage string" in {
-    an[Exception] should be thrownBy Relationship("Garbage string")
-  }
-
-  it should "throw an exception if the parent code of the child was not equal to the given parent code" in {
-    val definitionParent = Definition.buildRootDefinition(ObjectTask)
-    val definitionChild  = definitionParent.copy(parentCode=definitionParent.code+1)
-    an[Exception] should be thrownBy Relationship(parent=definitionParent, child=definitionChild)
-  }
-
   "ExecutionLogger.Status.toString" should "should return a comma-separated list of the values" in {
     val definition = Definition.buildRootDefinition(ObjectTask)
     val status     = Status(ExecTaskStatus.SucceededExecution, definition)
@@ -154,12 +132,12 @@ class ExecutionLoggerTest extends FutureUnitSpec {
         path
       }
 
-      val logger = new ExecutionLogger(log)
+      val logger = new ReplayLogger(log)
       logger.close()
 
       val lines = Io.readLines(log).toSeq
 
-      lines.length shouldBe 3
+      lines.length shouldBe 2
       lines.forall(_.startsWith("#")) shouldBe true
     }
   }
@@ -197,7 +175,7 @@ class ExecutionLoggerTest extends FutureUnitSpec {
       }
 
       // Run it
-      val logger = new ExecutionLogger(log)
+      val logger = new ReplayLogger(log)
       val executor = Executor(experimentalExecution=experimentalExecution, resources=SystemResources(1, Long.MaxValue, Long.MaxValue))
       executor.withReporter(logger)
       executor.execute(pipeline) shouldBe 5 // p, p1, p1.c2, p1.c3, leaf
@@ -205,15 +183,12 @@ class ExecutionLoggerTest extends FutureUnitSpec {
 
       // Header
       val lines = Io.readLines(log).toSeq
-      lines.count(_.startsWith("#")) shouldBe 3
+      lines.count(_.startsWith("#")) shouldBe 2
 
       // Definitions
       val definitions = lines.filter(_.startsWith("DEFINITION")).map(Definition(_))
       definitions.length shouldBe 7
 
-      // Relationships
-      val relationships = lines.filter(_.startsWith("RELATIONSHIP")).map(Relationship(_))
-      relationships.length shouldBe 6
 
       // Statuses
       val statuses = lines.filter(_.startsWith("STATUS")).map(Status(_))

@@ -23,53 +23,39 @@
  *
  */
 
-package dagr.api.models
+package dagr.api.models.tasksystem
 
+import dagr.api.models.DagrJsConversions
 import upickle.Js
 import upickle.default.{Reader, Writer}
 
 object TaskStatus {
-  /** Builds a [[TaskStatus]] from the string.  The returned status will be an anonymous sub-class. */
-  /*
-  def parse(s: String): TaskStatus = {
-    s.split(",", 6).toList match {
-      case _name :: _ordinal :: _success :: _failure :: _executing :: _description :: Nil=>
-        new TaskStatus {
-          override val name: String        = _name
-          override val ordinal: Int        = _ordinal.toInt
-          override val success: Boolean    = _success.toBoolean
-          override val failure: Boolean    = _failure.toBoolean
-          override val executing: Boolean  = _executing.toBoolean
-          override val description: String = _description
-        }
-      case _ =>
-        throw new IllegalArgumentException(s"Could not parse TaskStatus '$s'")
-    }
-  }
-  */
+  import DagrJsConversions._
 
-  import DagrApiDef._
-
-  implicit val query2Writer: Writer[TaskStatus] = Writer[TaskStatus] { status: TaskStatus =>fromTaskStatus(status) }
-  implicit val query2Reader: Reader[TaskStatus] = Reader[TaskStatus] { case obj: Js.Obj => toTaskStatus(obj) }
+  implicit val taskStatusToWriter: Writer[TaskStatus] = Writer[TaskStatus] { status: TaskStatus =>fromTaskStatus(status) }
+  implicit val taskStatusToReader: Reader[TaskStatus] = Reader[TaskStatus] { case obj: Js.Obj => toTaskStatus(obj) }
 }
 
 /** The status of a task.  Any execution system requiring a custom set of statuses should extend this trait. */
 trait TaskStatus {
   /** A brief description of the status. */
   def description: String
+
   /** A unique ordinal for the status, used to prioritize reporting of statuses*/
   def ordinal: Int
+
   /** The name of the status, by default the class' simple name (sanitized). */
   def name: String = this.getClass.getSimpleName.replaceFirst("[$].*$", "")
+
   /** Returns true if this status indicates any type of success, false otherwise. */
   def success: Boolean
+
   /** Returns true if this status indicates any type of failure, false otherwise. */
   def failure: Boolean
+
   /** Returns true if this status indicates the task is executing, false otherwise. */
   def executing: Boolean
+
   /** The string representation of the status, by default the definition. */
   override def toString: String = this.description
-  /** The long string representation of the status. */
-  //def toLongString: String = s"${this.name},${this.ordinal},${this.success},${this.description}"
 }

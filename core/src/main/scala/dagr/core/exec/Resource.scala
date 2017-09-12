@@ -25,9 +25,9 @@
 package dagr.core.exec
 
 
+import dagr.api.models.util.{Cores, Memory, ResourceParsing, ResourceSet}
 import oshi.SystemInfo
 import oshi.hardware.platform.mac.MacHardwareAbstractionLayer
-import dagr.api.models.{Cores, Memory, ResourceParsing, ResourceSet}
 
 /** Manipulates system resources */
 object Resource extends ResourceParsing {
@@ -50,11 +50,6 @@ object Resource extends ResourceParsing {
 
 /** The resources needed for an execution system */
 object SystemResources {
-  /** Creates a new SystemResources that is a copy of an existing one. */
-  def apply(that: SystemResources): SystemResources = {
-    new SystemResources(cores = that.cores, systemMemory = that.systemMemory, jvmMemory = that.jvmMemory)
-  }
-
   /** Creates a new SystemResources with the specified values. */
   def apply(cores: Double, systemMemory: Long, jvmMemory: Long): SystemResources = {
     new SystemResources(cores = Cores(cores), systemMemory = Memory(systemMemory), jvmMemory = Memory(jvmMemory))

@@ -27,7 +27,7 @@ package dagr.core.execsystem2
 
 import com.fulcrumgenomics.commons.CommonsDef.{DirPath, unreachable}
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.exec.{ExecDef, Executor, SystemResources}
+import dagr.core.exec.{ExecDef, Executor => RootExecutor, SystemResources}
 import dagr.core.execsystem2.TaskStatus._
 import dagr.core.tasksystem.Task.{TaskInfo => RootTaskInfo}
 import dagr.core.tasksystem.{Retry, Task}
@@ -39,10 +39,10 @@ import scala.util.{Failure, Success}
 
 // TODO: support failFast
 
-/** Coordinates between the dependency graph ([[DependencyGraph]]) and task executor ([[TaskExecutor]]) given a (root)
+/** Executes a set of tasks executor ([[TaskExecutor]]) given a (root)
   * task to execute.
   */
-trait GraphExecutor[T<:Task] extends Executor {
+trait Executor[T<:Task] extends RootExecutor {
   /** Start the execution of this task and all tasks that depend on it.  Returns the number of tasks that were not
     * executed.  A given task should only be attempted once. */
   def execute(rootTask: Task): Int
@@ -60,17 +60,32 @@ trait GraphExecutor[T<:Task] extends Executor {
   /** The list of statuses ordered by ordinal */
   def statuses: Seq[TaskStatus] = TaskStatus.values
 
+  /** True if the task is running, false otherwise. */
+  def running(task: Task): Boolean = task.taskInfo.status == Running
+
+  /** True if the task is ready for execution (no dependencies), false otherwise. */
+  def queued(task: Task): Boolean = task.taskInfo.status == Queued || task.taskInfo.status == Submitted
+
+  /** True if the task has failed, false otherwise. */
+  def failed(task: Task): Boolean = task.taskInfo.status.isInstanceOf[Failed]
+
+  /** True if the task has succeeded, false otherwise. */
+  def succeeded(task: Task): Boolean = task.taskInfo.status == SucceededExecution
+
+  /** True if the task has completed regardless of status, false otherwise. */
+  def completed(task: Task): Boolean = task.taskInfo.status.isInstanceOf[Completed]
+
+  /** True if the task has unmet dependencies, false otherwise. */
+  def pending(task: Task): Boolean = task.taskInfo.status == Pending
+
   /** Returns the executor that execute tasks. */
   protected def taskExecutor: TaskExecutor[T]
-
-  /** Returns the graph that tracks dependencies. */
-  protected def dependencyGraph: DependencyGraph
 }
 
-object GraphExecutor {
+object Executor {
   /** Creates a default graph executor given a task executor */
-  def apply[T<:Task](taskExecutor: TaskExecutor[T])(implicit ex: ExecutionContext): GraphExecutor[T] =
-    new GraphExecutorImpl(taskExecutor=taskExecutor, dependencyGraph=DependencyGraph())
+  def apply[T<:Task](taskExecutor: TaskExecutor[T])(implicit ex: ExecutionContext): Executor[T] =
+    new ExecutorImpl(taskExecutor=taskExecutor)
 }
 
 /** An implementation of an executor of a tasks that have dependencies.
@@ -79,20 +94,18 @@ object GraphExecutor {
   * map a type of task to its associated task executor.
   *
   * @param taskExecutor the executor for tasks of type [[T]].
-  * @param dependencyGraph the depdendency graph to track when tasks have no more dependencies.
   * @param ex the execution context in which to run execution (but not the task execution themselves).
   * @tparam T the type of task that can be individually executed.
   */
-private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecutor[T],
-                                         protected val dependencyGraph: DependencyGraph=DependencyGraph())
-                                        (implicit ex: ExecutionContext)
-  extends GraphExecutor[T] with LazyLogging {
+private class ExecutorImpl[T<:Task](protected val taskExecutor: TaskExecutor[T])
+                                   (implicit ex: ExecutionContext)
+  extends Executor[T] with LazyLogging {
 
   /** The tasks currently known by the executor. */
   private val _tasks: mutable.Set[Task] = ExecDef.concurrentSet()
 
   /** A lock to synchronize when the task execution or dependency information is updated. */
-  private val lock: Object = (dependencyGraph, _tasks)
+  private val lock: Object = _tasks
 
   /** The tasks currently known by the executor. */
   def tasks: Traversable[Task] = this._tasks
@@ -134,7 +147,7 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
   }
 
   /** Process a given task, its sub-tree, and tasks that only depend on this task.
-    * 1. add any tasks that depend on this task to the dependency graph, if not already added.
+    * 1. track any tasks that depend on this task, if not already tracked.
     * 2. execute this task and it's sub-tree recursively.
     * 3. wait on tasks that depend on this task that were added in #1 to complete.
     * Returns a future that completes if all dependent tasks complete (from #1), failure otherwise.  Note: the future
@@ -156,7 +169,16 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
     } map { t: Task =>
       // Get any dependents that can be processed now that this task and its sub-tree have complete execution.
       // Process those tasks.
-      this.dependencyGraph.remove(t).map(processTask)
+      require(t.tasksDependedOn.isEmpty,
+        s"Removing a task '${t.name}' from the dependency graph that has dependencies: "
+          + t.tasksDependedOn.map(_.name).mkString(", "))
+      // remove this as a dependency for all other tasks that depend on this task
+      t.tasksDependingOnThisTask.flatMap { dependent =>
+        dependent.synchronized {
+          t !=> dependent
+          if (dependent.tasksDependedOn.isEmpty) Some(dependent) else None
+        }
+      }.map(processTask).toSeq // process them!
     } flatMap { dependentFutures: Seq[Future[Task]] =>
       // wait until all tasks that depended on this task are processed
       Future.sequence(dependentFutures) map { _: Seq[Task] => task }
@@ -209,10 +231,9 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
       val childFutures: Future[Seq[Task]] = Future {
         // Register them all at once, since locking is expensive, and we may end up creating many, many futures
         lockIt {
-          // check that children of the parent haven't already been added to the graph.  Not currently allowed.  A child
-          // can only have one parent!
+          // check that children of the parent haven't already been seen as this is not currently allowed.  A child can only have one parent!
           childTasks.foreach { child =>
-            require(!this.dependencyGraph.contains(child), s"child '${child.name}' of parent '${parent.name}' already in the graph")
+            require(!this._tasks.contains(child), s"child '${child.name}' of parent '${parent.name}' already seen")
           }
           val result = childTasks flatMap { child =>
             // NB: if the child has dependencies, it will get executed when the task with last unmet dependency is removed
@@ -220,7 +241,7 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
             if (registerTask(child).contains(true)) Some(child) else None
           }
           // check for cyclical dependencies since a new sub-tree has been added
-          this.dependencyGraph.exceptIfCyclicalDependency(parent)
+          this.exceptIfCyclicalDependency(parent)
           // NB: returns true if the task has no dependencies, false otherwise
           result
         }
@@ -349,12 +370,13 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
     * and sets the status to Pending. Returns None if the task was previously added, true if the task was added and
     * has no dependencies, and false otherwise */
   private def registerTask(task: Task): Option[Boolean] = lockIt {
-    val result = this.dependencyGraph.maybeAdd(task)
-    result.foreach { _ =>
-      // dependent was added
-      updateMetadata(task, Pending)
+    if (this._tasks.contains(task)) {
+      None
     }
-    result
+    else {
+      updateMetadata(task, Pending)
+      Some(task.tasksDependedOn.isEmpty)
+    }
   }
 
   /** Provides synchronization and signals that this may block. */
@@ -374,13 +396,8 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
 
   /** Ensure that the task has no dependencies.  If missingOk is set, then if do not throw an exception if the task
     * is not known. */
-  private def requireNoDependencies(task: Task, missingOk: Boolean = false): Unit = {
-    this.dependencyGraph.hasDependencies(task) match {
-      case Some(true)         => throw new IllegalArgumentException(s"Task ${task.name} has dependencies.")
-      case None if !missingOk => throw new IllegalArgumentException(s"Task ${task.name} is not in the dependency graph.")
-      case _ => Unit
-    }
-  }
+  private def requireNoDependencies(task: Task): Unit =
+    require(task.tasksDependedOn.isEmpty, s"Task ${task.name} has dependencies.")
 
   /** Returns the [[Future[T]] when failed has its throwable tagged with a status using [[TaggedException]] */
   private def failFutureWithTaskStatus[A](task: Task, status: TaskStatus=FailedUnknown)(future: Future[A]): Future[A] = {
@@ -411,6 +428,23 @@ private class GraphExecutorImpl[T<:Task](protected val taskExecutor: TaskExecuto
   //def failWithFailedSubmission[A](task: Task)(body: => A): Future[A] = failWithTaskStatus(task, FailedSubmission, body)
   //def failWithFailedExecution [A](task: Task)(body: => A): Future[A] = failWithTaskStatus(task, FailedExecution,  body)
   def failWithFailedOnComplete[A](task: Task)(body: => A): Future[A] = failWithTaskStatus(task, FailedOnComplete, body)
+
+  /** Throws an exception if there is a cycle in the dependency graph.  The exception may have relevant debug
+    * information.
+    */
+  private def exceptIfCyclicalDependency(task: Task): Unit = this.synchronized {
+    // check for cycles
+    if (Task.hasCycle(task)) {
+      logger.error("Task was part of a graph that had a cycle")
+      for (component <- Task.findStronglyConnectedComponents(task = task)) {
+        if (Task.isComponentACycle(component = component)) {
+          logger.error("Tasks were part of a strongly connected component with a cycle: "
+            + component.map(t => s"'${t.name}'").mkString(", "))
+        }
+      }
+      throw new IllegalArgumentException(s"Task was part of a graph that had a cycle '${task.name}'")
+    }
+  }
 }
 
 /** A little class to store an exception and associated task status. */

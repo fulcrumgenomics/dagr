@@ -38,7 +38,7 @@ import scala.concurrent.duration.Duration
   * of things not specified for various executors (ex. SGE, PBS, local, mixed) on purpose. */
 trait TaskExecutor[T<:Task] {
   /** simple name (not unique) for the executor. */
-  def name: String = getClass.getSimpleName
+  def name: String = getClass.getSimpleName.replaceFirst("[$].*$", "")
 
   /** Execute a task. The first outer returned completes when a task is eligible for execution. It may delay, for
     * example, if there are not enough system resources to run.  The inner future completes when the task has completed
@@ -66,4 +66,3 @@ trait TaskExecutor[T<:Task] {
   /** Returns the log directory. */
   def logDir: DirPath
 }
-

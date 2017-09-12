@@ -30,8 +30,8 @@ import com.fulcrumgenomics.commons.CommonsDef.DirPath
 import com.fulcrumgenomics.commons.collection.BiMap
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.api.models.ResourceSet
-import dagr.core.DagrDef._
+import dagr.api.DagrApi.TaskId
+import dagr.api.models.util.ResourceSet
 import dagr.core.exec._
 import dagr.core.tasksystem._
 
@@ -57,7 +57,7 @@ object TaskManager extends LazyLogging {
    * @param task the task to run
    * @param sleepMilliseconds the time to wait in milliseconds to wait between trying to schedule tasks.
    * @param taskManagerResources the set of task manager resources, otherwise we use the default
-   * @param scriptsDirectory the scripts directory, otherwise we use the default
+   * @param scriptDirectory the scripts directory, otherwise we use the default
    * @param logDirectory the log directory, otherwise we use the default
    * @param scheduler the scheduler, otherwise we use the default
    * @param simulate true if we are to simulate running tasks, false otherwise
@@ -66,15 +66,15 @@ object TaskManager extends LazyLogging {
   def run(task: Task,
           sleepMilliseconds: Int = 1000,
           taskManagerResources: Option[SystemResources] = Some(defaultTaskManagerResources),
-          scriptsDirectory: Option[Path] = None,
-          logDirectory: Option[Path] = None,
+          scriptDirectory: Path = Io.makeTempDir("scripts"),
+          logDirectory: Path = Io.makeTempDir("logs"),
           scheduler: Option[Scheduler] = Some(defaultScheduler),
           simulate: Boolean = false,
           failFast: Boolean = false): BiMap[Task, TaskExecutionInfo] = {
 
     val taskManager: TaskManager = new TaskManager(
       taskManagerResources = taskManagerResources.getOrElse(defaultTaskManagerResources),
-      scriptsDirectory     = scriptsDirectory,
+      scriptDirectory      = scriptDirectory,
       logDirectory         = logDirectory,
       scheduler            = scheduler.getOrElse(defaultScheduler),
       simulate             = simulate,
@@ -94,23 +94,20 @@ object TaskManager extends LazyLogging {
   * No validation of whether or not we actually have the provided system or in-Jvm resources will occur.
   *
   * @param taskManagerResources the set of task manager resources, otherwise we use the default
-  * @param scriptsDirectory     the scripts directory, otherwise a temporary directory will be used
+  * @param scriptDirectory     the scripts directory, otherwise a temporary directory will be used
   * @param logDirectory         the log directory, otherwise a temporary directory will be used
   * @param scheduler            the scheduler, otherwise we use the default
   * @param simulate             true if we are to simulate running tasks, false otherwise
   * @param sleepMilliseconds    the time to wait in milliseconds to wait between trying to schedule tasks.
   */
 class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.defaultTaskManagerResources,
-                  scriptsDirectory: Option[Path]             = None,
-                  logDirectory: Option[Path]                 = None,
-                  scheduler: Scheduler                       = TaskManagerDefaults.defaultScheduler,
-                  simulate: Boolean                          = false,
-                  sleepMilliseconds: Int                     = 1000,
-                  failFast: Boolean                          = false
+                  scriptDirectory: Path                 = Io.makeTempDir("scripts"),
+                  logDirectory: Path                    = Io.makeTempDir("logs"),
+                  scheduler: Scheduler                  = TaskManagerDefaults.defaultScheduler,
+                  simulate: Boolean                     = false,
+                  sleepMilliseconds: Int                = 1000,
+                  failFast: Boolean                     = false
 ) extends TaskManagerLike with TaskTracker with LazyLogging {
-
-  private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
-  protected val actualLogsDirectory  = logDirectory getOrElse Io.makeTempDir("logs")
 
   private val taskExecutionRunner: TaskExecutionRunnerApi = new TaskExecutionRunner()
 
@@ -118,8 +115,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   import TaskStatus._
 
   logger.info(s"Executing with ${taskManagerResources.cores} cores and ${taskManagerResources.systemMemory.prettyString} system memory.")
-  logger.info("Script files will be written to: " + actualScriptsDirectory)
-  logger.info("Logs will be written to: " + actualLogsDirectory)
+  logger.info("Script files will be written to: " + scriptDirectory)
+  logger.info("Logs will be written to: " + logDirectory)
 
   private[core] def getTaskManagerResources: SystemResources = taskManagerResources
 
@@ -128,11 +125,11 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     PathUtil.pathTo(directory.toString, s"$sanitizedName.$taskId.$attemptIndex.$ext")
   }
 
-  override protected def scriptPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, actualScriptsDirectory, "sh")
-  override protected def logPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, actualLogsDirectory, "log")
+  override protected def scriptPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, scriptDirectory, "sh")
+  override protected def logPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, logDirectory, "log")
 
   /** Returns the log directory. */
-  def logDir: DirPath = actualLogsDirectory
+  def logDir: DirPath = logDirectory
 
   /** Attempts to terminate a task's underlying process.
     *
@@ -245,10 +242,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       if (retryTask) {
         // retry it
         logger.debug("task [" + taskInfo.task.name + "] is being retried")
-        node.state          = NO_PREDECESSORS
-        taskInfo.attempts   += 1
-        taskInfo.scriptPath = scriptPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts)
-        taskInfo.logPath    = logPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts)
+        node.state        = NO_PREDECESSORS
+        taskInfo.attempts += 1
+        taskInfo.script   = Some(scriptPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts))
+        taskInfo.log      = Some(logPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts))
         false // do not update the node to completed
       }
       else {
@@ -466,11 +463,6 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     .map(id => this(id).task)
     .map(task => task.asInstanceOf[UnitTask] -> task.taskInfo.resources.get)
     .toMap
-
-  def running(task: Task) = task match {
-    case unitTask: UnitTask => taskExecutionRunner.running(unitTask.taskInfo.id.get)
-    case _                  => false
-  }
 
   protected[core] def readyTasksList: List[UnitTask] = graphNodesInStateFor(NO_PREDECESSORS).toList.map(node => node.task.asInstanceOf[UnitTask])
 

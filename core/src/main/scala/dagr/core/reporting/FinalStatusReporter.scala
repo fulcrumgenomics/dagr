@@ -30,7 +30,7 @@ import java.time.Instant
 import com.fulcrumgenomics.commons.util.SimpleCounter
 import com.fulcrumgenomics.commons.util.StringUtil._
 import com.fulcrumgenomics.commons.util.TimeUtil._
-import dagr.api.models.TaskStatus
+import dagr.api.models.tasksystem.TaskStatus
 import dagr.core.tasksystem.Task
 import dagr.core.tasksystem.Task.TaskInfo
 
@@ -78,12 +78,11 @@ trait FinalStatusReporter {
       timestampStringOrNA(endDate),
       executionTime,
       totalTime,
-      info.scriptPath.map(_.toFile.getAbsolutePath).getOrElse(""),
-      info.logPath.map(_.toFile.getAbsolutePath).getOrElse(""),
+      info.script.getOrElse(""),
+      info.log.getOrElse(""),
       info.attempts
     ).map(_.toString)
   }
-
 
   /** Writes a delimited string of the status of all tasks managed
     *
@@ -98,7 +97,7 @@ trait FinalStatusReporter {
     taskStatusTable.append(reportHeader)
     val counter = new SimpleCounter[TaskStatus]()
     // Go through every task
-    tasks.toList.sortBy(task => (task.taskInfo.id.getOrElse(BigInt(-1)), task.name)).foreach { task =>
+    tasks.toList.sortBy(task => (task.taskInfo.id.getOrElse(-1), task.name)).foreach { task =>
       val info = task.taskInfo
       // Make a report row
       taskStatusTable.append(reportRow(task))

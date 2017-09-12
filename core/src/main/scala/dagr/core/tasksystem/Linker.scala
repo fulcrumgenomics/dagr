@@ -23,7 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.api.models.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 
 /**
   * Object for creating linker tasks that transfer state between other tasks at

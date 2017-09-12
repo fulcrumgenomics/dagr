@@ -23,13 +23,12 @@
  */
 package dagr.core.tasksystem
 
-import dagr.api.models.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 
 /** Companion object to provide a couple of helper constructors for ShellCommand. */
 object ShellCommand {
   /** Constructs a Shell Command using varargs. */
   def apply(args: Any*) : ShellCommand = new ShellCommand(args.map(_.toString):_*)
-
 }
 
 /**

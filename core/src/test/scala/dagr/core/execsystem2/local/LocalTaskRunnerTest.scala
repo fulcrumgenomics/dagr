@@ -28,8 +28,8 @@ package dagr.core.execsystem2.local
 import java.nio.file.{Files, Path}
 
 import com.fulcrumgenomics.commons.CommonsDef.FilePath
+import dagr.api.models.util.ResourceSet
 import dagr.core.FutureUnitSpec
-import dagr.api.models.ResourceSet
 import dagr.core.execsystem2.TaskInfo
 import dagr.core.execsystem2.TaskStatus.Running
 import dagr.core.tasksystem._
@@ -82,8 +82,8 @@ class LocalTaskRunnerTest extends FutureUnitSpec {
   /** Creates a task runner. */
   private def taskRunner(task: UnitTask): LocalTaskRunner = {
     new TaskInfo(task=task, initStatus=Running)
-    task.taskInfo.script = Some(script.toString)
-    task.taskInfo.log    = Some(log.toString)
+    task.taskInfo.script = Some(script)
+    task.taskInfo.log    = Some(log)
     LocalTaskRunner(task)
   }
 

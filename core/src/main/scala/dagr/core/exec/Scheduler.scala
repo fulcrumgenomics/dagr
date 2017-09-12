@@ -25,7 +25,7 @@
 package dagr.core.exec
 
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.api.models.{Cores, Memory, ResourceSet}
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
 
 /** Scheduler of [[Task]] tasks */
