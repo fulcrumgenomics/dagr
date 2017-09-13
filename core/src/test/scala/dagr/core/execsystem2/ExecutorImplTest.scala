@@ -667,7 +667,7 @@ class ExecutorImplTest extends ExecutorUnitSpec with PrivateMethodTester {
     updateMetadata(executor, task, Queued).status shouldBe Queued
 
     val subFuture  = submitAndExecuteFuture(executor, task)
-    val execFuture = subFuture.flatten
+    val execFuture = subFuture.flatMap(identity)
 
     whenReady(execFuture.failed) { thr: Throwable =>
       checkTaggedException[IllegalArgumentException](thr, FailedSubmission)
@@ -681,7 +681,7 @@ class ExecutorImplTest extends ExecutorUnitSpec with PrivateMethodTester {
     updateMetadata(executor, task, Queued).status shouldBe Queued
 
     val subFuture  = submitAndExecuteFuture(executor, task)
-    val execFuture = subFuture.flatten
+    val execFuture = subFuture.flatMap(identity)
 
     whenReady(execFuture.failed) { thr: Throwable =>
       checkTaggedException[IllegalArgumentException](thr, FailedExecution)
@@ -694,7 +694,7 @@ class ExecutorImplTest extends ExecutorUnitSpec with PrivateMethodTester {
     updateMetadata(executor, task, Queued).status shouldBe Queued
 
     val subFuture  = submitAndExecuteFuture(executor, task)
-    val execFuture = subFuture.flatten
+    val execFuture = subFuture.flatMap(identity)
 
     // wait until it is scheduled
     whenReady(subFuture) { _ => }
@@ -714,7 +714,7 @@ class ExecutorImplTest extends ExecutorUnitSpec with PrivateMethodTester {
     // wait until it is scheduled
     whenReady(subFuture) { _ =>
       checkSomeStatus(executor, task, Set(Submitted, Running))
-      val execFuture = subFuture.flatten
+      val execFuture = subFuture.flatMap(identity)
       whenReady(execFuture) { t =>
         checkStatus(executor, t, Running)
       }
@@ -727,7 +727,7 @@ class ExecutorImplTest extends ExecutorUnitSpec with PrivateMethodTester {
     updateMetadata(executor, task, Queued).status shouldBe Queued
 
     val subFuture  = submitAndExecuteFuture(executor, task)
-    val execFuture = subFuture.flatten
+    val execFuture = subFuture.flatMap(identity)
 
     whenReady(execFuture) { _ =>
       updateMetadata(executor, task, Queued).status shouldBe Queued
@@ -748,7 +748,7 @@ class ExecutorImplTest extends ExecutorUnitSpec with PrivateMethodTester {
     updateMetadata(executor, task, Queued).status shouldBe Queued
 
     val subFuture = submitAndExecuteFuture(executor, task)
-    val execFuture = subFuture.flatten
+    val execFuture = subFuture.flatMap(identity)
     val onComplFuture = onCompleteFuture(executor, task, execFuture=execFuture)
 
     whenReady(onComplFuture.failed) { thr: Throwable =>
@@ -780,7 +780,7 @@ class ExecutorImplTest extends ExecutorUnitSpec with PrivateMethodTester {
     updateMetadata(executor, task, Queued).status shouldBe Queued
 
     val subFuture = submitAndExecuteFuture(executor, task)
-    val execFuture = subFuture.flatten
+    val execFuture = subFuture.flatMap(identity)
     val onComplFuture = onCompleteFuture(executor, task, execFuture=execFuture)
 
     whenReady(onComplFuture) { t =>
@@ -808,7 +808,7 @@ class ExecutorImplTest extends ExecutorUnitSpec with PrivateMethodTester {
     val task = successfulTask
     updateMetadata(executor, task, Queued).status shouldBe Queued
     val subFuture = submitAndExecuteFuture(executor, task)
-    val execFuture = subFuture.flatten
+    val execFuture = subFuture.flatMap(identity)
     val onComplFuture = onCompleteFuture(executor, task, execFuture=execFuture)
 
     whenReady(completedTaskFuture(executor, task, onComplFuture=onComplFuture).failed) { thr: Throwable =>
