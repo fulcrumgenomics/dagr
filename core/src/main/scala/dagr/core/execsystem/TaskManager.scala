@@ -206,9 +206,9 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   /** Updates the start and end date for a parent, if it exists */
   private def updateParentStartAndEndDates(node: GraphNode, info: Option[TaskExecutionInfo] = None): Unit = {
     // Set the start and end dates for the parent, if they exist
+    val taskInfo: TaskExecutionInfo = info.getOrElse(node.taskInfo)
     node.enclosingNode.foreach { parent =>
       taskExecutionInfoFor(parent).foreach { parentTaskInfo =>
-        val taskInfo: TaskExecutionInfo = info.getOrElse(node.taskInfo)
         if (compareOptionalInstants(parentTaskInfo.startDate, taskInfo.startDate) >= 0) {
           parentTaskInfo.startDate = taskInfo.startDate
         }
@@ -220,7 +220,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   }
 
   /** Sets the state of the node to completed, and updates the start and end date of any parent */
-  private def completeGraphNode(node: GraphNode,  info: Option[TaskExecutionInfo] = None): Unit = {
+  private def completeGraphNode(node: GraphNode, info: Option[TaskExecutionInfo] = None): Unit = {
     updateParentStartAndEndDates(node, info)
     node.state = GraphNodeState.COMPLETED
   }

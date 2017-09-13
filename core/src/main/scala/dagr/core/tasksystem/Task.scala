@@ -103,12 +103,15 @@ object Task {
     }
 
     /** Updates the instant for the given status.  If the last status is different than the given status, a new time point
-      * is recorded, otherwise the time point for the current status is updated. */
+      * is recorded, otherwise the time point for the current status is updated to the earlier of the old and new instant. */
     private[core] final def update(status: TaskStatus, instant: Instant): Unit = {
-      if (status == this.status) {
+      val newInstant = if (status == this.status) {
+        val oldInstant = this._timePoints.last.instant
         this._timePoints.remove(this._timePoints.length-1)
+        if (oldInstant.isBefore(instant)) oldInstant else instant
       }
-      this._timePoints.append(TimePoint(status, instant))
+      else instant
+      this._timePoints.append(TimePoint(status, newInstant))
     }
 
     /** Gets the latest instant for the status. */
