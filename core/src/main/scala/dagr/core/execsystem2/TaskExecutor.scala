@@ -33,9 +33,17 @@ import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
 
-/** An executor is responsible for executing one or more tasks.  That's it. How the the tasks are executed is
+/** An executor is responsible for executing one or more tasks, where the task is an atomic unit of work (ex. a function
+  * call in the JVM, or as a separate bash process).  That's it. How the the tasks are executed is
   * entirely up to the concrete implementations, including scheduling with resource management. This leaves A LOT
-  * of things not specified for various executors (ex. SGE, PBS, local, mixed) on purpose. */
+  * of things not specified for various executors (ex. SGE, PBS, local, mixed) on purpose.
+  *
+  * A task to execute should be given to the [[TaskExecutor.execute()]] method.  The task executor may wait to execute,
+  * for example if there are not enough system resources.  When ready, the task executor executes the task and is
+  * responsible for the end-to-end execution of the task.  See the [[TaskExecutor.execute()]] method for more details.
+  *
+  * Pipelines or workflows (a set of tasks that depend on each other) are not considered here (see [[Executor]]).
+  * */
 trait TaskExecutor[T<:Task] {
   /** simple name (not unique) for the executor. */
   def name: String = getClass.getSimpleName.replaceFirst("[$].*$", "")

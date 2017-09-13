@@ -25,10 +25,13 @@
 
 package dagr.api.models.tasksystem
 
-/** Base class for all tasks, multi-tasks, and workflows. */
+/** Base class for all tasks, multi-tasks, and workflows.  A task executes a unit of work.  Itself may spawn other tasks,
+  * or perform some atomic unit of work.  It may depend on other tasks, such that it should not be executed until the tasks
+  * it depends on execute successfully (see [[Task.tasksDependedOn()]]).  Furthermore, it there may be other tasks
+  * that depend on this task (see [[Task.tasksDependingOnThisTask()]]). */
 trait Task[T] {
 
-  /** The name of the task. */
+  /** The name of the task, by default the class's simple name. */
   var name: String = getClass.getSimpleName
 
   /** Sets the name of this task. */
@@ -40,6 +43,7 @@ trait Task[T] {
   /** Gets the sequence of tasks that depend on this task. */
   def tasksDependingOnThisTask: Traversable[Task[T]]
 
-  /** Gets the execution information for the task, if available. */
+  /** Gets the execution information for the task, if available. For example, the information may not be available if
+    * the task is not yet registered with the execution system. */
   def info: Option[TaskInfo[T]]
 }

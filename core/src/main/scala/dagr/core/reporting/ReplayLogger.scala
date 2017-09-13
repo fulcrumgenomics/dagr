@@ -112,7 +112,13 @@ object ReplayLogger {
   case class Status(definitionCode: Int, statusName: String, statusOrdinal: Int) extends ToStringIsSimpleNameUpperCase
 }
 
-/** Logs the status changes of a task. */
+/** A replay logger logs the definitions of a task (when they are built) and when their statuses are updated to enable
+  * execution to be replayed.  The replay produced can be used by a [[dagr.core.exec.TaskCache]] in a subsequent execution.
+  *
+  * The resulting log will contain a header (lines starting with #) and a line per task definition and status change
+  * respectively.  New tasks are logged via a [[Definition]] line, which uniquely identifies the task relative to its
+  * parent.  Status changes are logged via a [[Status]] line, which identifies the task and updated status.
+  * */
 class ReplayLogger(log: FilePath) extends TaskLogger with TaskRegister with AutoCloseable {
   private var registeredRootTask: Boolean = false
   private var closed: Boolean = false
@@ -147,6 +153,7 @@ class ReplayLogger(log: FilePath) extends TaskLogger with TaskRegister with Auto
   /** The method that will be called with updated task information. */
   def record(info: TaskInfo): Unit = logStatusChange(info)
 
+  /** Closes the underlying logging file. */
   def close(): Unit = if (!this.closed) {
     this.writer.flush()
     this.writer.safelyClose()

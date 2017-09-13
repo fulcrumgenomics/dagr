@@ -39,8 +39,8 @@ import dagr.core.tasksystem._
 object TaskManagerDefaults extends LazyLogging {
   def defaultTaskManagerResources: SystemResources = {
     val resources = SystemResources(cores=None, totalMemory=None) // Let the apply method figure it all out
-    logger.info("Defaulting System Resources to " + resources.cores.value + " cores and " + Resource.parseBytesToSize(resources.systemMemory.value) + " memory")
-    logger.info("Defaulting JVM Resources to " + Resource.parseBytesToSize(resources.jvmMemory.value) + " memory")
+    logger.info("Defaulting System Resources to " + resources.cores.value + " cores and " + SystemResources.parseBytesToSize(resources.systemMemory.value) + " memory")
+    logger.info("Defaulting JVM Resources to " + SystemResources.parseBytesToSize(resources.jvmMemory.value) + " memory")
     resources
   }
 
@@ -212,8 +212,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         if (compareOptionalInstants(parentTaskInfo.startDate, taskInfo.startDate) >= 0) {
           parentTaskInfo.startDate = taskInfo.startDate
         }
-        if (compareOptionalInstants(parentTaskInfo.endDate, taskInfo.endDate) <= 0) {
-          parentTaskInfo.endDate = taskInfo.endDate
+        if (parentTaskInfo.statusTime.compareTo(taskInfo.statusTime) <= 0) {
+          parentTaskInfo.update(parentTaskInfo.status, taskInfo.statusTime)
         }
       }
     }

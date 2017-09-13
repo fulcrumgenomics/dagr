@@ -429,16 +429,20 @@ class TaskTest extends UnitSpec with LazyLogging with OptionValues {
     val info = new TestingInfo(task=task, initStatus=TaskStatus.Unknown)
 
     info.timePoints.size shouldBe 1
-    val instant = info.get(TaskStatus.Unknown).value
+    val oldInstant = info.get(TaskStatus.Unknown).value
+    val newInstant = Instant.now()
 
-    info(TaskStatus.Unknown) = Instant.now()
+    info.get(TaskStatus.Unknown).value shouldBe oldInstant
+
+    // Same status, so we update the instant, but not the status
+    info(TaskStatus.Unknown) = newInstant
     info.timePoints.size shouldBe 1
-    info.get(TaskStatus.Unknown).value shouldBe instant
+    info.get(TaskStatus.Unknown).value shouldBe newInstant
 
     val startInstant = Instant.now()
     info(TaskStatus.Started) = startInstant
     info.timePoints.size shouldBe 2
-    info.get(TaskStatus.Unknown).value shouldBe instant
+    info.get(TaskStatus.Unknown).value shouldBe newInstant
     info.get(TaskStatus.Started).value shouldBe startInstant
   }
 

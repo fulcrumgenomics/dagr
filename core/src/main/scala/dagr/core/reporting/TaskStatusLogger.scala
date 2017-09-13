@@ -29,7 +29,8 @@ import com.fulcrumgenomics.commons.util.{LazyLogging, Logger}
 import dagr.core.reporting.ReportingDef.TaskLogger
 import dagr.core.tasksystem.Task.TaskInfo
 
-/** A simple logger that delegates to [[dagr.core.tasksystem.Task.TaskInfo#logTaskMessage]]. */
+/** A simple [[TaskLogger]] that delegates to [[dagr.core.tasksystem.Task.TaskInfo#logTaskMessage]] when a task's status
+  * is updated.*/
 class TaskStatusLogger extends TaskLogger {
   // NB: rename this class to set the name on the command line
   private class Dagr extends LazyLogging {

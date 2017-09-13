@@ -30,7 +30,9 @@ import java.time.Instant
 import dagr.api.DagrApi.TaskId
 import dagr.api.models.util.{ResourceSet, TimePoint}
 
-/** The execution information for a task.  Any execution system should extend this to store their task-specific metadata.*/
+/** The execution information for a task.  Any execution system should extend this to store their task-specific metadata.
+  * The type [[T]] is used to store the path to the script and log (see [[TaskInfo.script]] and [[TaskInfo.log]]).
+  * */
 trait TaskInfo[T] {
   /** The task identifier. */
   def id         : Option[TaskId]

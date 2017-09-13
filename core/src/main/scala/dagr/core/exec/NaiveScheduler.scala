@@ -75,8 +75,8 @@ class NaiveScheduler extends Scheduler {
     if (readyTasks.isEmpty) Nil
     else {
       logger.debug(s"the resources were [System cores=" + remainingSystemCores.value
-        + " System memory=" + Resource.parseBytesToSize(remainingSystemMemory.value)
-        + " JVM memory=" + Resource.parseBytesToSize(remainingJvmMemory.value) + " ]")
+        + " System memory=" + SystemResources.parseBytesToSize(remainingSystemMemory.value)
+        + " JVM memory=" + SystemResources.parseBytesToSize(remainingJvmMemory.value) + " ]")
 
       // try one round of scheduling, and recurse if a task could be scheduled
       scheduleOneTask(readyTasks, remainingSystemCores, remainingSystemMemory, remainingJvmMemory) match {

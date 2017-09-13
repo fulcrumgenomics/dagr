@@ -212,7 +212,6 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
 
     // In case it has previously been stopped
     if (TaskStatus.notDone(taskInfo.status, failedIsDone=failedAreCompleted)) {
-      taskInfo.endDate   = Some(Instant.now())
       taskInfo.status    = {
         if ((0 == exitCode && onCompleteSuccessful) || failedAreCompleted) TaskStatus.SucceededExecution
         else if (0 != exitCode) TaskStatus.FailedExecution
@@ -274,7 +273,6 @@ private[core] class TaskExecutionRunner extends TaskExecutionRunnerApi with Lazy
             thread.join(100) // just give it 0.1 of second
             taskInfo.status = TaskStatus.Stopped
           }
-          taskInfo.endDate = Some(Instant.now())
           !thread.isAlive // thread is still alive WTF
         case _  => false
       }

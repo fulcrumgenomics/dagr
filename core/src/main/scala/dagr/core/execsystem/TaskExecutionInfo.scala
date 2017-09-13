@@ -46,7 +46,6 @@ class TaskExecutionInfo(task: Task,
 {
   protected[core] var submissionDate: Option[Instant] = Some(Instant.now())
   protected[core] var startDate:      Option[Instant] = None
-  protected[core] var endDate:        Option[Instant] = None
 
   def taskId: TaskId = this.id.get
   def taskId_=(id: TaskId): Unit = this.id = Some(id)

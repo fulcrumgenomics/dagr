@@ -102,9 +102,12 @@ object Task {
       task.taskInfo = this
     }
 
-    /** Updates the instant for the status if the given status different from the current status or the current status
-      * is not set. */
-    private[core] final def update(status: TaskStatus, instant: Instant): Unit = if (status != this.status) {
+    /** Updates the instant for the given status.  If the last status is different than the given status, a new time point
+      * is recorded, otherwise the time point for the current status is updated. */
+    private[core] final def update(status: TaskStatus, instant: Instant): Unit = {
+      if (status == this.status) {
+        this._timePoints.remove(this._timePoints.length-1)
+      }
       this._timePoints.append(TimePoint(status, instant))
     }
 
@@ -154,7 +157,7 @@ object Task {
     protected[core] def startDate: Option[Instant]
 
     /** The instant that the task finished executing. */
-    protected[core] def endDate: Option[Instant]
+    protected[core] def endDate: Option[Instant] = if (this.task._executor.exists(_.completed(this.task))) Some(this.statusTime) else None
 
     /** Gets the execution and total time. */
     protected[core] def executionAndTotalTime: (String, String) = (submissionDate, startDate, endDate) match {

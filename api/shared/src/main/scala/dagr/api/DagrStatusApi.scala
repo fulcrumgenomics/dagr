@@ -37,9 +37,12 @@ import upickle.default.{Reader, Writer}
 
 import scala.collection.mutable.ListBuffer
 
-/** Use this trait to access methods to query the status of pipelines and tasks in Dagr. */
+/** Use this trait to access methods to query the status of pipelines and tasks in Dagr.
+  *
+  * Methods are provided to query for the status of tasks in the system, as well as other useful properties.
+  * */
 trait DagrStatusApi {
-  // Developer note: this trait cannot extend anything, as required by autowire
+  // Developer note: this trait cannot extend anything, as required by autowire for scala-js
 
   /**
     * Queries Dagr for tasks it knows about.  The parameters can be used to filter or select specific tasks.  Parameters
@@ -98,7 +101,7 @@ object DagrStatusApi {
     * required for scala-js and autowire. */
   val FullyQualifiedPath: List[String] = List("dagr", "api", "DagrStatusApi")
 
-  /** The response returned from the [[dagr.api.DagrStatusApi.status()]] method, providing the task information for reach
+  /** The response returned from the [[dagr.api.DagrStatusApi.status()]] method, providing the task information for each
     * task found, optionally with the execution report. */
   case class StatusResponse(infos: Seq[TaskStatusResponse], report: Option[String] = None)
 

@@ -38,7 +38,7 @@ import dagr.core.exec._
 import dagr.core.execsystem2.TaskExecutor
 import dagr.core.execsystem2.util.InterruptableFuture
 import dagr.core.execsystem2.util.InterruptableFuture.Interruptable
-import dagr.core.tasksystem._
+import dagr.core.tasksystem.{ProcessTask, _}
 
 import scala.collection.mutable
 import scala.concurrent._
@@ -51,8 +51,8 @@ object LocalTaskExecutorDefaults extends LazyLogging {
     * [[ProcessTask]]s (JVM and System resources respectively). */
   def defaultSystemResources: SystemResources = {
     val resources = SystemResources(cores=None, totalMemory=None) // Let the apply method figure it all out
-    logger.debug("Defaulting System Resources to " + resources.cores.value + " cores and " + Resource.parseBytesToSize(resources.systemMemory.value) + " memory")
-    logger.debug("Defaulting JVM Resources to " + Resource.parseBytesToSize(resources.jvmMemory.value) + " memory")
+    logger.debug("Defaulting System Resources to " + resources.cores.value + " cores and " + SystemResources.parseBytesToSize(resources.systemMemory.value) + " memory")
+    logger.debug("Defaulting JVM Resources to " + SystemResources.parseBytesToSize(resources.jvmMemory.value) + " memory")
     resources
   }
 
@@ -71,14 +71,23 @@ object LocalTaskExecutor {
     *                      started executing.
     */
   protected case class TaskInfo
-  (taskRunner: LocalTaskRunner,
+  (taskRunner: LocalSingleTaskExecutor,
    latch: CountDownLatch,
-   submitFuture: InterruptableFuture[LocalTaskRunner],
+   submitFuture: InterruptableFuture[LocalSingleTaskExecutor],
    executeFuture: Option[InterruptableFuture[UnitTask]] = None
   )
 }
 
-/**
+/** Responsible for the execution of tasks in a single-host environment, where there is a finite amount of cores and
+  * memory available for execution.
+  *
+  * Tasks are added with the [[dagr.core.execsystem2.local.LocalTaskExecutor.execute()]] method, which waits for
+  * enough system resources (cores and memory) to be available for the given task, and then executes the task.  The task
+  * may execute in the shell ([[ProcessTask]]) or directly within the JVM ([[InJvmTask]]).  The execution of an individual
+  * task is delegated to a [[LocalSingleTaskExecutor]], one per task.  A [[Future]] of a [[Future]] is returned. The outer
+  * future will complete once the task has been scheduled, while the inner future will complete once the task has
+  * completed execution.  Once a task completes (successfully or otherwise), the resources allocated towards the
+  * execution of the task are eligible for use for another task.
   *
   * @param systemResources the system (JVM and Process) resources to use
   * @param scriptDirectory the directory to which to write script files (mainly for [[ProcessTask]]s).
@@ -168,7 +177,7 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
 
   /** Create the necessary information to schedule and execute a task, and returns a future that completes when
     * the task is scheduled for execution. */
-  private def buildTaskInfoAndSubmitFuture(task: UnitTask): InterruptableFuture[LocalTaskRunner] = {
+  private def buildTaskInfoAndSubmitFuture(task: UnitTask): InterruptableFuture[LocalSingleTaskExecutor] = {
     require(task._taskInfo.isDefined, "Task._taskInfo is not defined")
 
     // Set some basic task info directly on the task
@@ -177,7 +186,7 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
     task.taskInfo.script    = Some(scriptPathFor(task, taskId, task.taskInfo.attempts))
     task.taskInfo.log       = Some(logPathFor(task, taskId, task.taskInfo.attempts))
     task.taskInfo.resources = None // reset resources in case we are retrying
-    val taskRunner = LocalTaskRunner(task=task)
+    val taskRunner = LocalSingleTaskExecutor(task=task)
 
     // Create a future that waits until the task is scheduled for execution (the latch reaches zero).  It returns the
     // task runner that executes the task.
@@ -202,11 +211,11 @@ class LocalTaskExecutor(systemResources: SystemResources = LocalTaskExecutorDefa
   }
 
   /** Run the task to completion and handle its completion. */
-  private def executeTaskRunner(taskRunner: LocalTaskRunner): Future[UnitTask] = {
+  private def executeTaskRunner(taskRunner: LocalSingleTaskExecutor): Future[UnitTask] = {
     val task = taskRunner.task
     // execute the task
     val executeFuture: InterruptableFuture[UnitTask] = taskRunner.execute() interruptable()
-    // update the future that complets when the task execution complets
+    // update the future that completes when the task execution completes
     this.taskInfo.synchronized {
       this.taskInfo.update(taskRunner.task, this.taskInfo(task).copy(executeFuture=Some(executeFuture)))
     }

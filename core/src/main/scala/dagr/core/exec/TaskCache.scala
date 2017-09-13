@@ -33,7 +33,13 @@ import dagr.core.tasksystem.Task
 
 import scala.collection.mutable
 
-/** All implementations that decide if a given task should be executed should implement this. */
+/** A trait that is used by an [[Executor]] to decide if the execution of a task should be skipped or not. A task being
+  * skipped is most often a result of a previous successful execution.
+  *
+  * The task cache will attempt to associate each new task built with tasks that it already knows about (in the
+  * [[dagr.core.exec.TaskCache.register()]]), and determine if the task's execution should be skipped or not (see
+  * [[dagr.core.exec.TaskCache.execute()]]).
+  * */
 trait TaskCache extends TaskRegister {
 
   /** Returns true if the task should be executed, false otherwise. */
@@ -101,13 +107,39 @@ object SimpleTaskCache {
   def apply(replayLog: FilePath): SimpleTaskCache = new SimpleTaskCache(Io.readLines(replayLog).toSeq, source=Some(replayLog.toString))
 }
 
-/** A very inefficient class to determine if tasks should be executed upon replay */
+/** An implementation of a [[TaskCache]] that utilizes a the log of previous execution (see
+  * [[dagr.core.reporting.ReplayLogger]]) to determine if tasks should be executed.  Tasks that completed successfully
+  * in the previous execution will be skipped.
+  *
+  * The aim of this implementation is to err on the side of caution, namely to only skip executing tasks that we can
+  * be extremely confident were executed previously.  This may cause some tasks that could be skipped to be executed.
+  *
+  * The tasks in the current execution will be associated with tasks in the previous execution.  This is trivial if the
+  * tasks remain unchanged.
+  *
+  * Furthermore, the root task is assumed to be unchanged across executions (warning: this is not verified) and so the
+  * first task registered is assumed to be the root task of both the current and previous execution.
+  *
+  * For any non-root task, it is identified by (1) the identify of its parent, (2) its own class's simple name, and
+  * (3) the child number (the 0-based index of itself relative to all children build by the parent).  See [[Definition]]
+  * and [[Definition.equivalent()]] for more details.
+  *
+  * If a task is the parent of any other task (builds other tasks), the following conditions in order apply:
+  * 0. if any ancestor of the parent could not be mapped to a task in the previous execution, the parent and all
+  *    children will be marked for execution.
+  * 1. if the parent builds a different number of children, the parent and all children will be marked for execution.
+  * 2. if any of the children are "equivalent" to each other in identity, the parent and all children will be marked for
+  *    execution.
+  * 3. if any child matches two or more tasks from the previous execution, the parent and all children will be marked for
+  *    execution.
+  * 4. each child, execute if the task did not previous succeed in execution.
+  *
+  * */
 class SimpleTaskCache(replayLogLines: Seq[String], source: Option[String] = None) extends TaskCache {
 
   private val replayLog: String = source.getOrElse("Unknown")
 
-  // TODO: are relationships even needed if we have both the definition of child, who has the parent code?
-  /** Definitions, relationships, and statuses in the replay log */
+  /** Definitions and statuses in the replay log */
   private val (definitions, statuses) = {
     val lines = replayLogLines
     val _definitions   = lines.filter(_.startsWith(Definition.Name)).map(Definition(_))

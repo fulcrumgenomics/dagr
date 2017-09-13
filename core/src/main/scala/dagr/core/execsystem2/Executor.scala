@@ -39,8 +39,7 @@ import scala.util.{Failure, Success}
 
 // TODO: support failFast
 
-/** Executes a set of tasks executor ([[TaskExecutor]]) given a (root)
-  * task to execute.
+/** Executes a set of tasks executor ([[TaskExecutor]]) given a (root) task to execute.
   */
 trait Executor[T<:Task] extends RootExecutor {
   /** Start the execution of this task and all tasks that depend on it.  Returns the number of tasks that were not
@@ -90,8 +89,21 @@ object Executor {
 
 /** An implementation of an executor of a tasks that have dependencies.
   *
-  * Currently, only a single task executor is supported.  In the future, we could have a list of partial functions that
-  * map a type of task to its associated task executor.
+  * This uses [[Future]]s to execute discrete steps of a task's life.  For example, a [[Future]] is returned that completes
+  * successfully when the underlying task executes successfully, but returns a [[Failure]] if any failure was encountered.
+  * Furthermore, this allows for concurrency for handling the transition of states across multiple tasks.
+  *
+  * Currently, only a single task executor is supported for all tasks that will eventually get executed (i.e. tasks that do
+  * not build other tasks).  In the future, we could have a list of partial functions that map a type of task to its
+  * associated task executor.
+  *
+  * A root task is given to the [[dagr.core.execsystem2.ExecutorImpl._execute()]] method to start execution.  Each
+  * new task (including the root task) is registered ([[dagr.core.execsystem2.ExecutorImpl.registerTask()]]).  If the
+  * given tasks is to be executed (does not create new tasks), it is executed, otherwise the task will wait for all its
+  * children to complete successfully (or a single child to fail).  Any failure will propogate to the parent of the
+  * failed task and so on.
+  *
+  * The executor is also responsible for updating the status of the task throughout the task's life.
   *
   * @param taskExecutor the executor for tasks of type [[T]].
   * @param ex the execution context in which to run execution (but not the task execution themselves).
@@ -225,9 +237,8 @@ private class ExecutorImpl[T<:Task](protected val taskExecutor: TaskExecutor[T])
       // fail with [[FailedExecution]] with any failure.
       updateMetadata(parent, Running)
 
-      // For each child task, first add them to the dependency graph.  Next, add any dependent tasks (task that depend
-      // on the child task), to the graph.  The parent task can complete once they have all been added to the
-      // dependency graph.
+      // For each child task, register any dependent tasks (task that depend on the child task).  The parent task can
+      // complete once they have all been executed successfully.
       val childFutures: Future[Seq[Task]] = Future {
         // Register them all at once, since locking is expensive, and we may end up creating many, many futures
         lockIt {

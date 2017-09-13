@@ -38,7 +38,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, CancellationException, TimeoutException}
 
 
-class LocalTaskRunnerTest extends FutureUnitSpec {
+class LocalSingleTaskExecutorTest extends FutureUnitSpec {
 
   /** A task that exits zero and that's it. */
   private class TrivialInJvmTask(exitCode: Int, sleep: Int = 0) extends InJvmTask with FixedResources {
@@ -80,11 +80,11 @@ class LocalTaskRunnerTest extends FutureUnitSpec {
   private def log: FilePath    = Files.createTempFile("TaskRunnerTest", ".log")
 
   /** Creates a task runner. */
-  private def taskRunner(task: UnitTask): LocalTaskRunner = {
+  private def taskRunner(task: UnitTask): LocalSingleTaskExecutor = {
     new TaskInfo(task=task, initStatus=Running)
     task.taskInfo.script = Some(script)
     task.taskInfo.log    = Some(log)
-    LocalTaskRunner(task)
+    LocalSingleTaskExecutor(task)
   }
 
   /** Create a trivial in JVM task and build it. */
@@ -111,17 +111,17 @@ class LocalTaskRunnerTest extends FutureUnitSpec {
   }
 
   /** Build a task and task runner. */
-  private def taskRunner(doInJvmTask: Boolean, exitOk: Boolean=true, onCompleteSuccessful: Boolean=true, sleep: Int=0): LocalTaskRunner = {
+  private def taskRunner(doInJvmTask: Boolean, exitOk: Boolean=true, onCompleteSuccessful: Boolean=true, sleep: Int=0): LocalSingleTaskExecutor = {
     val task = testTask(doInJvmTask=doInJvmTask, exitOk=exitOk, onCompleteSuccessful=onCompleteSuccessful, sleep=sleep)
     taskRunner(task=task)
   }
 
   /** Call the execute() method for at most the duration, and return a future. */
-  private def executeRunner(runner: LocalTaskRunner, duration: Duration = Duration("60s")): UnitTask = {
+  private def executeRunner(runner: LocalSingleTaskExecutor, duration: Duration = Duration("60s")): UnitTask = {
     Await.result(runner.execute(), duration)
   }
 
-  private def requireRunner(runner: LocalTaskRunner,
+  private def requireRunner(runner: LocalSingleTaskExecutor,
                             exitCode: Int= 0,
                             onCompleteSuccessful: Option[Boolean] = Some(true),
                             thrown: Boolean = false): Unit = {
@@ -132,7 +132,7 @@ class LocalTaskRunnerTest extends FutureUnitSpec {
   Seq(true, false).foreach { doInJvmTask =>
     val doInJvmTaskMsg = if (doInJvmTask) "in the JVM" else "in a Process"
 
-    s"LocalTaskRunner ($doInJvmTaskMsg)" should "run with exit 0 and succeed" in {
+    s"LocalSingleTaskExecutor ($doInJvmTaskMsg)" should "run with exit 0 and succeed" in {
       val runner = taskRunner(doInJvmTask=doInJvmTask)
       executeRunner(runner) shouldBe runner.task
       requireRunner(runner=runner)
@@ -171,7 +171,7 @@ class LocalTaskRunnerTest extends FutureUnitSpec {
       future.isCompleted shouldBe true
       runner.join(Duration("1s")) shouldBe None // interrupted!
       runner.interrupted() shouldBe true
-      requireRunner(runner=runner, exitCode=LocalTaskRunner.InterruptedExitCode, thrown=true)
+      requireRunner(runner=runner, exitCode=LocalSingleTaskExecutor.InterruptedExitCode, thrown=true)
       runner.throwable.value shouldBe a[CancellationException]
       whenReady(future.failed) { thr =>
         thr shouldBe a[CancellationException]
@@ -183,7 +183,7 @@ class LocalTaskRunnerTest extends FutureUnitSpec {
       val future = runner.execute()
       future.isCompleted shouldBe false
       runner.join(Duration("1s")) shouldBe None // timeout!
-      requireRunner(runner=runner, exitCode=LocalTaskRunner.InterruptedExitCode, thrown=true)
+      requireRunner(runner=runner, exitCode=LocalSingleTaskExecutor.InterruptedExitCode, thrown=true)
       runner.throwable.value shouldBe a[TimeoutException]
     }
   }

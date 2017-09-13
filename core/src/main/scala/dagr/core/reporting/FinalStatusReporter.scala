@@ -36,7 +36,8 @@ import dagr.core.tasksystem.Task.TaskInfo
 
 import scala.collection.mutable.ListBuffer
 
-/** Provides a method to provide an execution report for a task tracker */
+/** Mix in this trait to provide a method to generating an execution report once execution has completed (see the
+  * [[FinalStatusReporter.logReport()]] method).*/
 trait FinalStatusReporter {
 
   /** The tasks on which we report. */

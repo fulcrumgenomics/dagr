@@ -34,11 +34,16 @@ import scala.concurrent._
 import scala.concurrent.duration.Duration
 
 /**
-  * Trait for tasks that execute locally, for example via a process or in the JVM, i.e.
-  * [[dagr.core.execsystem2.local.LocalTaskRunner.ProcessTaskExecutionRunner]] or
-  * [[dagr.core.execsystem2.local.LocalTaskRunner.InJvmTaskExecutionRunner]].
+  * Trait that executes a single task, either in a shell ([[ProcessTask]]) or in the JVM ([[InJvmTask]]).
+  *
+  * The former is handled by [[dagr.core.execsystem2.local.LocalSingleTaskExecutor.ProcessSingleTaskExecutionExecutor]] and the latter
+  * is handled by [[dagr.core.execsystem2.local.LocalSingleTaskExecutor.InJvmSingleTaskExecutionExecutor]].
+  *
+  * The local task runner is responsible for blocking on the execution (see the [[Future]] returned by the
+  * [[dagr.core.execsystem2.local.LocalSingleTaskExecutor.execute()]] method), interrupting an executing task, and logging any
+  * output.
   */
-sealed trait LocalTaskRunner {
+sealed trait LocalSingleTaskExecutor {
   private var interruptibleFuture: Option[InterruptableFuture[UnitTask]] = None
 
   /** The task to execute */
@@ -66,7 +71,7 @@ sealed trait LocalTaskRunner {
 
   /** Interrupts the execution of the task.  Returns the task if the task already completed, None otherwise. */
   def interrupt(): Option[UnitTask] = {
-    updateExitCodeAndThrowable(code=Some(LocalTaskRunner.InterruptedExitCode))
+    updateExitCodeAndThrowable(code=Some(LocalSingleTaskExecutor.InterruptedExitCode))
     this.interruptibleFuture.flatMap(_.interrupt())
   }
 
@@ -99,25 +104,25 @@ sealed trait LocalTaskRunner {
   }
 }
 
-object LocalTaskRunner {
+object LocalSingleTaskExecutor {
 
   /** The exit code of any interrupted execution of a task. */
   val InterruptedExitCode = 255
 
   /** Creates a task runner for the given task.  Currently supports [[InJvmTask]]s or [[ProcessTask]]s only. */
-  def apply(task: UnitTask): LocalTaskRunner = task match {
-    case t: InJvmTask   => new InJvmTaskExecutionRunner(task=t)
-    case t: ProcessTask => new ProcessTaskExecutionRunner(task=t)
+  def apply(task: UnitTask): LocalSingleTaskExecutor = task match {
+    case t: InJvmTask   => new InJvmSingleTaskExecutionExecutor(task=t)
+    case t: ProcessTask => new ProcessSingleTaskExecutionExecutor(task=t)
     case _ => throw new RuntimeException(s"Cannot call execute on task '${task.name}' that are not 'UnitTask's.")
   }
 
   /** Simple class that runs the given task.  Wrap this in a thread,
-    * and will set the exit code to one if the parent thread was interrupted,
+    * and it will set the exit code to [[InterruptedExitCode]] if the parent thread was interrupted,
     * otherwise the exit code will be set to that of the task's process.
     *
     * @param task the task to run
     */
-  class ProcessTaskExecutionRunner(val task: ProcessTask) extends LocalTaskRunner {
+  class ProcessSingleTaskExecutionExecutor(val task: ProcessTask) extends LocalSingleTaskExecutor {
     def _execute()(implicit ex: ExecutionContext): Future[UnitTask] = Future {
       var process: Option[scala.sys.process.Process] = None
       try {
@@ -136,11 +141,14 @@ object LocalTaskRunner {
     }
   }
 
-  /** Simple class that runs the given task's method.
+  /** Simple class that runs the given task's method in the JVM.
+    *
+    * It will set the exit code to [[InterruptedExitCode]] if it was interrupted (via an [[InterruptedException]]), to
+    * one if any other [[Throwable]] was encountered, or otherwise the value returned by the task's method.
     *
     * @param task the task to run
     */
-  class InJvmTaskExecutionRunner(val task: InJvmTask) extends LocalTaskRunner {
+  class InJvmSingleTaskExecutionExecutor(val task: InJvmTask) extends LocalSingleTaskExecutor {
     def _execute()(implicit ex: ExecutionContext): Future[UnitTask] = Future {
       try {
         val code = task.inJvmMethod(script=script, logFile=log)

@@ -36,12 +36,18 @@ object TaskStatus {
   implicit val taskStatusToReader: Reader[TaskStatus] = Reader[TaskStatus] { case obj: Js.Obj => toTaskStatus(obj) }
 }
 
-/** The status of a task.  Any execution system requiring a custom set of statuses should extend this trait. */
+/** The status of a task.  Any execution system requiring a custom set of statuses should extend this trait.
+  *
+  * The ordinal uniquely identifies the given status and should be larger for statuses that occur later in the
+  * chain of execution. */
 trait TaskStatus {
   /** A brief description of the status. */
   def description: String
 
-  /** A unique ordinal for the status, used to prioritize reporting of statuses*/
+  /** A unique ordinal for the status, used to prioritize reporting of statuses, and generally represent the state of
+    * execution.  For example, a task may have a "running" state that always occurs before a "success" state, and so
+    * there may be a "running" and "success" status respectively, where the ordinal for "running" is smaller than the
+    * ordinal for "success"*/
   def ordinal: Int
 
   /** The name of the status, by default the class' simple name (sanitized). */

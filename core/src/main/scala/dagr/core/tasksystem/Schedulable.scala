@@ -24,7 +24,7 @@
 package dagr.core.tasksystem
 
 import dagr.api.models.util.{Cores, Memory, ResourceSet}
-import dagr.core.exec.Resource
+import dagr.core.exec.SystemResources
 
 object Schedulable {
 
@@ -33,14 +33,14 @@ object Schedulable {
 
   /** The maximum # cores to use when searching for the resources with which a task can execute. */
   private[tasksystem] val EndCores: Cores = {
-    val cores    = Resource.systemCores.value * ResourceMultiple
+    val cores    = SystemResources.systemCores.value * ResourceMultiple
     val minCores = 64
     if (cores < minCores) Cores(minCores) else Cores(cores)
   }
 
   /** The maximum amount of memory to use when searching for the resources with which a task can execute. */
   private[tasksystem] val EndMemory: Memory = {
-    val memory    = Resource.systemMemory.value * ResourceMultiple
+    val memory    = SystemResources.systemMemory.value * ResourceMultiple
     val minMemory = Memory("256g")
     if (memory < minMemory.value) minMemory else Memory(memory)
   }

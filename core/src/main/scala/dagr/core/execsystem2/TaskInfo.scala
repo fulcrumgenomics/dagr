@@ -30,7 +30,8 @@ import java.time.Instant
 import dagr.core.execsystem2.TaskStatus._
 import dagr.core.tasksystem.Task
 
-/** [[dagr.core.tasksystem.Task.TaskInfo]] implementation specific to [[dagr.core.execsystem2]]. */
+/** Stores the execution information needed for the [[dagr.core.execsystem2]] execution system.  Most importantly,
+  * uses the custom set of task statuses (see [[TaskStatus]]). */
 class TaskInfo(task: Task, initStatus: TaskStatus)
   extends Task.TaskInfo(task=task, initStatus=initStatus) {
 

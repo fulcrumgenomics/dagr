@@ -41,6 +41,20 @@ sealed abstract class TaskStatus extends IntEnumEntry with tasksystem.TaskStatus
   def executing: Boolean = this == TaskStatus.Running
 }
 
+/** The task status for the [[dagr.core.execsystem2]] execution system implementation.
+  *
+  * The statuses represent the distinct states that each task is in during its life.
+  *
+  * Three major categories of statuses exist:
+  * 1. [[dagr.core.execsystem2.TaskStatus.PreSubmission]]: statuses prior to attempting to schedule the task given the
+  * system's resources.  This may mean it is waiting on tasks on which it depends ([[dagr.core.execsystem2.TaskStatus.Pending]]),
+  * or is in the process of being built ([[dagr.core.execsystem2.TaskStatus.Queued]]).
+  * 2. [[dagr.core.execsystem2.TaskStatus.Executing]]: the task is either waiting for system resources to be allocated
+  * ([[dagr.core.execsystem2.TaskStatus.Submitted]], or executing (i.e. performing work) ([[dagr.core.execsystem2.TaskStatus.Running]]).
+  * 3. [[dagr.core.execsystem2.TaskStatus.Completed]]: the task has completed, either through successful execution ([[dagr.core.execsystem2.TaskStatus.Succeeded]]),
+  * encountering a failure during any part of the execution system process ([[dagr.core.execsystem2.TaskStatus.Failed]]),
+  * or completed after manual intervention ([[dagr.core.execsystem2.TaskStatus.Stopped]] or [[dagr.core.execsystem2.TaskStatus.ManuallySucceeded]]).
+  * */
 case object TaskStatus extends IntEnum[TaskStatus] {
   override val values: IndexedSeq[TaskStatus] = findValues
 

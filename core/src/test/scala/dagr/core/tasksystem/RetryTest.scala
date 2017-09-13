@@ -57,18 +57,18 @@ class RetryTest extends UnitSpec with OptionValues {
       override def toMemory: Memory = Memory(to)
       override def byMemory: Memory = Memory(by)
     }
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"
 
     // No resources in task.taskInfo
     task.retry(systemResources, {val i = taskInfo(task); i.resources = None; i}) shouldBe false
 
     // from 1G to 1.5G
     task.retry(systemResources, taskInfo(task)) shouldBe true
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1536m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1536m"
 
     // from 1.5G to 2G
     task.retry(systemResources, taskInfo(task)) shouldBe true
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "2048m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "2048m"
 
     // 2G is the limit
     task.retry(systemResources, taskInfo(task)) shouldBe false
@@ -82,18 +82,18 @@ class RetryTest extends UnitSpec with OptionValues {
       override def applyResources(resources : ResourceSet): Unit = Unit
       def getTasks: Traversable[_ <: Task] = List.empty
     }
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"
 
     // No resources in task.taskInfo
     task.retry(systemResources, {val i = taskInfo(task); i.resources = None; i}) shouldBe false
 
     // from 1G to 2G
     task.retry(systemResources, taskInfo(task)) shouldBe true
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "2048m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "2048m"
 
     // from 2G to 4G
     task.retry(systemResources, taskInfo(task)) shouldBe true
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "4096m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "4096m"
 
     // 4G is the limit
     task.retry(systemResources, taskInfo(task)) shouldBe false

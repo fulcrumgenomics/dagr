@@ -28,6 +28,7 @@ package dagr.core.reporting
 import dagr.core.tasksystem.Task
 import dagr.core.tasksystem.Task.TaskInfo
 
+/** Contains base traits for classes that wish to be notified about task creation and status updates. */
 object ReportingDef {
 
   /** Marker trait for all traits and classes that report information about a task. */

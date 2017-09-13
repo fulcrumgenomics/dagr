@@ -63,7 +63,7 @@ trait Terminal {
   def supportsAnsi: Boolean = Terminal.terminal.isAnsiSupported
 }
 
-/** ANSI Strings for cursor movements.
+/** Stores useful ANSI Strings for cursor movements.
   *
   * See: http://www.tldp.org/HOWTO/Bash-Prompt-HOWTO/x361.html
   */
@@ -146,8 +146,7 @@ object TopLikeStatusReporter {
 }
 
 /** A top-like status reporter that prints execution information to the terminal. The
-  * [[TopLikeStatusReporter#refresh()]] method is used to refresh the terminal.  Currently
-  * only displays tasks the extend [[UnitTask]]. */
+  * [[TopLikeStatusReporter#refresh()]] method is used to refresh the terminal. */
 class TopLikeStatusReporter(val executor: Executor,
                             protected val systemResources: SystemResources,
                             protected val loggerOut: Option[ByteArrayOutputStream] = None,

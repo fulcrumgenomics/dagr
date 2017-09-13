@@ -29,8 +29,8 @@ import dagr.api.models.util.{Cores, Memory, ResourceParsing, ResourceSet}
 import oshi.SystemInfo
 import oshi.hardware.platform.mac.MacHardwareAbstractionLayer
 
-/** Manipulates system resources */
-object Resource extends ResourceParsing {
+/** The resources needed for an execution system */
+object SystemResources extends ResourceParsing {
   private val hal = new SystemInfo().getHardware
 
   /** Total number of cores in the system */
@@ -45,11 +45,7 @@ object Resource extends ResourceParsing {
 
   /** The heap size of the JVM. */
   val heapSize: Memory = new Memory(Runtime.getRuntime.maxMemory)
-}
 
-
-/** The resources needed for an execution system */
-object SystemResources {
   /** Creates a new SystemResources with the specified values. */
   def apply(cores: Double, systemMemory: Long, jvmMemory: Long): SystemResources = {
     new SystemResources(cores = Cores(cores), systemMemory = Memory(systemMemory), jvmMemory = Memory(jvmMemory))
@@ -57,16 +53,16 @@ object SystemResources {
 
   /** Creates a new SystemResources with the cores provided and partitions the memory between system and JVM. */
   def apply(cores: Option[Cores] = None, totalMemory: Option[Memory] = None) : SystemResources = {
-    val heapSize = Resource.heapSize
+    val heapSize = this.heapSize
 
     val (system, jvm) = totalMemory match {
       case Some(memory) => (memory, heapSize)
-      case None         => (Resource.systemMemory - heapSize, heapSize)
+      case None         => (this.systemMemory - heapSize, heapSize)
     }
 
     require(system.bytes > 0, "System memory cannot be <= 0 bytes.")
 
-    new SystemResources(cores.getOrElse(Resource.systemCores), system, jvm)
+    new SystemResources(cores.getOrElse(this.systemCores), system, jvm)
   }
 
   val infinite: SystemResources = SystemResources(Double.MaxValue, Long.MaxValue, Long.MaxValue)

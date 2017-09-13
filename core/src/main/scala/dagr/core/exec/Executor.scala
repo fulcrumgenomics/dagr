@@ -57,7 +57,28 @@ object Executor {
   }
 }
 
-/** All executors of tasks should extend this trait. */
+/** All executors of tasks should extend this trait.
+  *
+  * The executor is responsible for executing tasks in an order such that only tasks that do not depend on other tasks
+  * are executed first.  When a task has no dependencies, it will be built, thereby allowing for any delayed configuration
+  * (just-in-time) based on tasks on which it previously depended.  The task being built may either return itself
+  * (fully-configured), in which case it is queued for execution, or may return one or more new tasks, in which case
+  * those tasks are individually built and executed when they have no more unmet dependencies.  In the latter case, the
+  * tasks that build other tasks are not executed per-se, but instead complete when all their children complete.
+  *
+  * There should be no cyclical dependencies, and any task should only be built by one other task (except for the root task
+  * passed to the [[dagr.core.exec.Executor.execute(]] method who has no parent).  The latter implies that tasks that
+  * build other tasks are in fact building distinct sub-trees of a dependency graph.
+  *
+  * The executor is also responsible for providing various types of event notifications:
+  * 1. Notify that a task's status has changed (see [[dagr.core.exec.Executor.withLogger()]] and [[TaskLogger]]).
+  * 2. Notify when a new task is built from another task via [[Task.getTasks()]] (see [[dagr.core.exec.Executor.withTaskRegister()]]
+  *    and [[TaskRegister]]).
+  *
+  * Furthermore, an executor may choose to skip executing task (when it has no unmet dependencies) utilizing a [[TaskCache]],
+  * typically from previous (failed) executions (see [[dagr.core.exec.Executor.withTaskCache()]].
+  *
+  * */
 trait Executor extends FinalStatusReporter with RootExecutor[Task] {
 
   /** A list of [[TaskCache]] to use to determine if a task should be manually succeeded. */
@@ -71,11 +92,13 @@ trait Executor extends FinalStatusReporter with RootExecutor[Task] {
 
   /** Record that the task information has changed for a task. */
   final def record(info: TaskInfo): Unit = this.synchronized {
+    // Developer note: the task itself should call the record() method
     this._loggers.foreach(_.record(info=info))
   }
 
   /** Registers that the parent built the given children. */
   final def register(parent: Task, child: Task*): Unit = this.synchronized {
+    // Developer note: the task itself should call the register() method
     this._registers.foreach(_.register(parent, child:_*))
   }
 

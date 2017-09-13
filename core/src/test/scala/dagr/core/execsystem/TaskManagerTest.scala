@@ -313,9 +313,9 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     val taskManager: TestTaskManager = new TaskManager(taskManagerResources = new SystemResources(Cores(1), Memory("1G"), Memory(0))) with TestTaskManager
 
     // just in case
-    original.resources.memory.bytes should be(Resource.parseSizeToBytes("2G"))
-    replacement.resources.memory.bytes should be(Resource.parseSizeToBytes("1G"))
-    taskManager.getTaskManagerResources.systemMemory.value should be(Resource.parseSizeToBytes("1G"))
+    original.resources.memory.bytes should be(SystemResources.parseSizeToBytes("2G"))
+    replacement.resources.memory.bytes should be(SystemResources.parseSizeToBytes("1G"))
+    taskManager.getTaskManagerResources.systemMemory.value should be(SystemResources.parseSizeToBytes("1G"))
 
     doTryAgain(original = original, replacement = replacement, replaceTask = true, taskManager = taskManager)
   }
@@ -839,7 +839,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
       TaskManager.run(
         new HungryPipeline,
         sleepMilliseconds = 1,
-        taskManagerResources = Some(SystemResources(systemCores, Resource.parseSizeToBytes("8g").toLong, 0.toLong)),
+        taskManagerResources = Some(SystemResources(systemCores, SystemResources.parseSizeToBytes("8g").toLong, 0.toLong)),
         failFast=true
       )
       maxAllocatedCores should be <= systemCores

@@ -28,7 +28,8 @@ import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.api.models.util.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
 
-/** Scheduler of [[Task]] tasks */
+/** Scheduler of [[Task]] tasks responsible for choosing which tasks to execute given both system and JVM resources
+  * (cores and memory). */
 abstract class Scheduler extends LazyLogging {
 
   /** Schedule tasks for execution with a given set of resources.  Returns a map of scheduled tasks to their resources to use
