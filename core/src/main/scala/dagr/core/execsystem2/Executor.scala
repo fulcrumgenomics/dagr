@@ -264,7 +264,7 @@ private class ExecutorImpl[T<:Task](protected val taskExecutor: TaskExecutor[T])
   private def executeWithTaskExecutor(task: Task): Future[T] = {
     Future { task.asInstanceOf[T] } flatMap { t: T =>
       val subFuture     = submitAndExecuteFuture(t)
-      val onComplFuture = onCompleteFuture      (t, execFuture=subFuture.flatten)
+      val onComplFuture = onCompleteFuture      (t, execFuture=subFuture.flatMap(identity))
       val complFuture   = completedTaskFuture   (t, onComplFuture=onComplFuture)
       complFuture
     }
