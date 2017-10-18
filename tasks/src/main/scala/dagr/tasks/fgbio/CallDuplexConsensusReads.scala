@@ -36,7 +36,8 @@ class CallDuplexConsensusReads(val in: PathToBam,
                                val readGroupId:         Option[String] = None,
                                val errorRatePreUmi:     Option[Int]    = None,
                                val errorRatePostUmi:    Option[Int]    = None,
-                               val minInputBaseQuality: Option[Int]    = None
+                               val minInputBaseQuality: Option[Int]    = None,
+                               val minReads:            Seq[Int]       = Seq.empty
                               ) extends FgBioTask with Pipe[SamOrBam,SamOrBam] {
 
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
@@ -47,5 +48,9 @@ class CallDuplexConsensusReads(val in: PathToBam,
     errorRatePreUmi.foreach     (x => buffer.append("-1", x))
     errorRatePostUmi.foreach    (x => buffer.append("-2", x))
     minInputBaseQuality.foreach (x => buffer.append("-m", x))
+    if (minReads.nonEmpty) {
+      buffer.append("-M")
+      buffer.append(minReads:_*)
+    }
   }
 }

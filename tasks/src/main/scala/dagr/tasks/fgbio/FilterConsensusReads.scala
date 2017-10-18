@@ -37,9 +37,12 @@ object FilterConsensusReads {
             maxReadErrorRate: Double,
             maxBaseErrorRate: Double,
             minQuality: Int,
-            maxNoCallFraction: Double): FilterConsensusReads = {
+            maxNoCallFraction: Double,
+            minMeanBaseQuality: Option[Int],
+            requireSingleStrandAgreement: Option[Boolean]): FilterConsensusReads = {
     apply(in=in, out=out, ref=ref, minReads=Seq(minReads), maxReadErrorRate=Seq(maxReadErrorRate),
-      maxBaseErrorRate=Seq(maxBaseErrorRate), minQuality=minQuality, maxNoCallFraction=maxNoCallFraction)
+      maxBaseErrorRate=Seq(maxBaseErrorRate), minQuality=minQuality, maxNoCallFraction=maxNoCallFraction,
+      minMeanBaseQuality=minMeanBaseQuality, requireSingleStrandAgreement=requireSingleStrandAgreement)
   }
 }
 
@@ -50,7 +53,9 @@ case class FilterConsensusReads(in: PathToBam,
                                 maxReadErrorRate: Seq[Double],
                                 maxBaseErrorRate: Seq[Double],
                                 minQuality: Int,
-                                maxNoCallFraction: Double)
+                                maxNoCallFraction: Double,
+                                minMeanBaseQuality: Option[Int] = None,
+                                requireSingleStrandAgreement: Option[Boolean] = None)
   extends FgBioTask {
 
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
@@ -62,5 +67,7 @@ case class FilterConsensusReads(in: PathToBam,
     if (maxBaseErrorRate.nonEmpty) { buffer.append("-e"); buffer.append(maxBaseErrorRate:_*) }
     buffer.append("-N", minQuality)
     buffer.append("-n", maxNoCallFraction)
+    minMeanBaseQuality.foreach { q => buffer.append("-q", q) }
+    requireSingleStrandAgreement.foreach { s => buffer.append("-s", s) }
   }
 }
