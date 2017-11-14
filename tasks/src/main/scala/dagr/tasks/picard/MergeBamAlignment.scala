@@ -42,8 +42,8 @@ class MergeBamAlignment(unmapped: PathToBam,
                         programGroupCommand: Option[String] = None,
                         programGroupName: Option[String] = None,
                         attributesToRetain: List[String] = List[String]("X0", "ZS", "ZI", "ZM", "ZC", "ZN"),
-                        attributesToReverse: List[String] = List[String]("ad", "bd", "cd", "ae", "be", "ce"), // fgbio consensus tags
-                        attributesToReverseComplement: List[String] = Nil,
+                        attributesToReverse: List[String] = List[String]("ad", "bd", "cd", "ae", "be", "ce", "aq", "bq"), // fgbio consensus tags
+                        attributesToReverseComplement: List[String] = List[String]("ac", "bc"), // fgbio consensus tags
                         orientation: PairOrientation = PairOrientation.FR,
                         maxGaps: Int = -1,
                         sortOrder: SortOrder = SortOrder.coordinate,
