@@ -26,9 +26,11 @@ package dagr.tasks.fgbio
 
 import java.nio.file.Path
 
+import com.fulcrumgenomics.commons.util.LogLevel
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
+import dagr.tasks.DagrDef.DirPath
 import dagr.tasks.JarTask
 
 import scala.collection.mutable
@@ -43,7 +45,10 @@ object FgBioTask {
   *
   * @param compressionLevel the compress level to use for HTSJDK.
   */
-abstract class FgBioTask(var compressionLevel: Option[Int] = None)
+abstract class FgBioTask(var compressionLevel: Option[Int] = None,
+                         val asyncIo: Option[Boolean] = None,
+                         val tmpDir: Option[DirPath] = None,
+                         val logLevel: Option[LogLevel] = None)
   extends ProcessTask with JarTask with FixedResources with Configuration {
   requires(Cores(1), Memory("4G"))
 
@@ -55,8 +60,11 @@ abstract class FgBioTask(var compressionLevel: Option[Int] = None)
   override final def args: Seq[Any] = {
     val buffer = ListBuffer[Any]()
     val jvmProps = mutable.Map[String,String]()
-    compressionLevel.foreach(c => jvmProps("samjdk.compression_level") = c.toString)
     buffer.appendAll(jarArgs(this.fgBioJar, jvmProperties=jvmProps, jvmMemory=this.resources.memory))
+    asyncIo.foreach(a => buffer.append("--async-io", a))
+    compressionLevel.foreach(c => buffer.append("--compression", c))
+    tmpDir.foreach(t => buffer.append("--tmp-dir", t))
+    logLevel.foreach(l => buffer.append("--log-level", l))
     buffer += commandName
     addFgBioArgs(buffer)
     buffer
