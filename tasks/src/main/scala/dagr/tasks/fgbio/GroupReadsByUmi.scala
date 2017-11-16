@@ -46,7 +46,7 @@ class GroupReadsByUmi(val in:  PathToBam,
                       val minMapQ: Option[Int] = None,
                       val strategy: AssignmentStrategy = AssignmentStrategy.Adjacency,
                       val edits: Option[Int] = None,
-                      val tmpDir: Option[DirPath] = None) extends FgBioTask with Pipe[SamOrBam, SamOrBam] {
+                      tmpDir: Option[DirPath] = None) extends FgBioTask(tmpDir=tmpDir) with Pipe[SamOrBam, SamOrBam] {
 
   /** Implement this to add the tool-specific arguments */
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
