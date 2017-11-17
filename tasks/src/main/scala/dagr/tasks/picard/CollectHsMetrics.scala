@@ -34,6 +34,7 @@ import scala.collection.mutable.ListBuffer
 object CollectHsMetrics {
   val MetricsExtension   = ".hybrid_selection_metrics"
   val PerTargetExtension = ".per_target_coverage"
+  val PerBaseExtension   = ".per_base_coverage"
   def baitSetName(baitSetIntervals: Path): String = PathUtil.basename(baitSetIntervals.toString, trimExt=true)
 }
 
@@ -57,6 +58,7 @@ class CollectHsMetrics(override val in: PathToBam,
     buffer.append("BAIT_SET_NAME=" + baitSetName.getOrElse(CollectHsMetrics.baitSetName(targets)))
     buffer.append("LEVEL=ALL_READS")
     buffer.append("PER_TARGET_COVERAGE=" + metricsFile(extension=CollectHsMetrics.PerTargetExtension, kind=PicardOutput.Text))
+    buffer.append("PER_BASE_COVERAGE=" + metricsFile(extension=CollectHsMetrics.PerBaseExtension, kind=PicardOutput.Text))
     minimumBaseQuality.foreach { q => buffer.append("MINIMUM_BASE_QUALITY=" + q) }
   }
 }
