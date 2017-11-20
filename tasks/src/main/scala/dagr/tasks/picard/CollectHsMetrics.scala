@@ -34,6 +34,7 @@ import scala.collection.mutable.ListBuffer
 object CollectHsMetrics {
   val MetricsExtension   = ".hybrid_selection_metrics"
   val PerTargetExtension = ".per_target_coverage"
+  val PerBaseExtension   = ".per_base_coverage"
   def baitSetName(baitSetIntervals: Path): String = PathUtil.basename(baitSetIntervals.toString, trimExt=true)
 }
 
@@ -43,7 +44,9 @@ class CollectHsMetrics(override val in: PathToBam,
                        targets: PathToIntervals,
                        baits: Option[PathToIntervals] = None,
                        baitSetName: Option[String] = None,
-                       minimumBaseQuality: Option[Int] = None)
+                       minimumBaseQuality: Option[Int] = None,
+                       generatePerBaseCoverage: Boolean = false, 
+                       generatePerTargetCoverage: Boolean = true)
   extends PicardTask with PicardMetricsTask {
 
   override def metricsExtension: String = CollectHsMetrics.MetricsExtension
@@ -56,7 +59,12 @@ class CollectHsMetrics(override val in: PathToBam,
     buffer.append("BI=" + baits.getOrElse(targets))
     buffer.append("BAIT_SET_NAME=" + baitSetName.getOrElse(CollectHsMetrics.baitSetName(targets)))
     buffer.append("LEVEL=ALL_READS")
-    buffer.append("PER_TARGET_COVERAGE=" + metricsFile(extension=CollectHsMetrics.PerTargetExtension, kind=PicardOutput.Text))
+    if (generatePerTargetCoverage) {
+      buffer.append("PER_TARGET_COVERAGE=" + metricsFile(extension=CollectHsMetrics.PerTargetExtension, kind=PicardOutput.Text))
+    }
+    if (generatePerBaseCoverage) {
+      buffer.append("PER_BASE_COVERAGE=" + metricsFile(extension=CollectHsMetrics.PerBaseExtension, kind=PicardOutput.Text))
+    }
     minimumBaseQuality.foreach { q => buffer.append("MINIMUM_BASE_QUALITY=" + q) }
   }
 }
