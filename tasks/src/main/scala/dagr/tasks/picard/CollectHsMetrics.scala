@@ -45,7 +45,8 @@ class CollectHsMetrics(override val in: PathToBam,
                        baits: Option[PathToIntervals] = None,
                        baitSetName: Option[String] = None,
                        minimumBaseQuality: Option[Int] = None,
-                       generatePerBaseCoverage: Boolean = false)
+                       generatePerBaseCoverage: Boolean = false, 
+                       generatePerTargetCoverage: Boolean = true)
   extends PicardTask with PicardMetricsTask {
 
   override def metricsExtension: String = CollectHsMetrics.MetricsExtension
@@ -58,7 +59,9 @@ class CollectHsMetrics(override val in: PathToBam,
     buffer.append("BI=" + baits.getOrElse(targets))
     buffer.append("BAIT_SET_NAME=" + baitSetName.getOrElse(CollectHsMetrics.baitSetName(targets)))
     buffer.append("LEVEL=ALL_READS")
-    buffer.append("PER_TARGET_COVERAGE=" + metricsFile(extension=CollectHsMetrics.PerTargetExtension, kind=PicardOutput.Text))
+    if (generatePerTargetCoverage) {
+      buffer.append("PER_TARGET_COVERAGE=" + metricsFile(extension=CollectHsMetrics.PerTargetExtension, kind=PicardOutput.Text))
+    }
     if (generatePerBaseCoverage) {
       buffer.append("PER_BASE_COVERAGE=" + metricsFile(extension=CollectHsMetrics.PerBaseExtension, kind=PicardOutput.Text))
     }
