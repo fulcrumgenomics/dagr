@@ -109,7 +109,8 @@ lazy val commonSettings = Seq(
   // See https://github.com/sbt/sbt/issues/653
   // and https://github.com/travis-ci/travis-ci/issues/3775
   javaOptions in Test += "-Xmx1G",
-  libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit")
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit"),
+  assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
 ) ++ Defaults.coreDefaultSettings
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
