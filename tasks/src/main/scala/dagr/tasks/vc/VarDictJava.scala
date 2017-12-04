@@ -80,6 +80,7 @@ private class VarDictJava(tumorBam: PathToBam,
                           maximumMismatches: Option[Int] = None,
                           minimumAltReads: Option[Int] = None,
                           pileupMode: Boolean = false,
+                          countNsInTotalDepth: Boolean = false,
                           minThreads: Int = 1,
                           maxThreads: Int = 32,
                           memory: Memory = Memory("8G")
@@ -104,6 +105,7 @@ private class VarDictJava(tumorBam: PathToBam,
     minimumAltReads.foreach(buffer.append("-r", _)) // Minimum # of reads supporting an alternate allele
     minimumQuality.foreach(buffer.append("-q", _)) // The minimum base quality for a "good call"
     maximumMismatches.foreach(buffer.append("-m", _)) // Maximum number of mismatches for reads to be included, otherwise they will be filtered.
+    if (countNsInTotalDepth) buffer.append("-K") // count Ns in the total depth ("DP" field)
     buffer.append("-th", resources.cores.toInt) // The number of threads.
     buffer.append(bed)
 
@@ -136,7 +138,9 @@ class VarDictJavaEndToEnd
  @arg(flag='R', doc="The minimum # of reads with alternate bases.") minimumAltReads: Option[Int] = None,
  @arg(flag='P', doc="Use the pileup mode (emit all sites with an alternate).") pileupMode: Boolean = false,
  @arg(flag='t', doc="The minimum # of threads with which to run.") minThreads: Int = 1,
- @arg(flag='T', doc="The maximum # of threads with which to run.") maxThreads: Int = 32) extends Pipeline {
+ @arg(flag='T', doc="The maximum # of threads with which to run.") maxThreads: Int = 32,
+ @arg(flag='a', doc="Output all sites, including reference calls.") allSites: Boolean = false,
+ @arg(flag='N', doc="Count Ns in te total depth calculation") countNsInTotalDepth: Boolean = false) extends Pipeline {
   import VarDictJava.BinDir
 
   // Put these here so that they'll error at construction if missing
@@ -150,20 +154,21 @@ class VarDictJavaEndToEnd
     val tmpVcf = f(".vcf")
 
     val vardict = new VarDictJava(
-      tumorBam          = tumorBam,
-      bed               = bed,
-      ref               = ref,
-      tumorName         = tn,
-      minimumAf         = minimumAf,
-      includeNonPf      = includeNonPf,
-      minimumQuality    = minimumQuality,
-      maximumMismatches = maximumMismatches,
-      minimumAltReads   = minimumAltReads,
-      pileupMode        = pileupMode,
-      minThreads        = minThreads,
-      maxThreads        = maxThreads
+      tumorBam            = tumorBam,
+      bed                 = bed,
+      ref                 = ref,
+      tumorName           = tn,
+      minimumAf           = minimumAf,
+      includeNonPf        = includeNonPf,
+      minimumQuality      = minimumQuality,
+      maximumMismatches   = maximumMismatches,
+      minimumAltReads     = minimumAltReads,
+      pileupMode          = pileupMode,
+      countNsInTotalDepth = countNsInTotalDepth,
+      minThreads          = minThreads,
+      maxThreads          = maxThreads
     )
-    val removeRefEqAltRows = new ShellCommand("awk", "{if ($6 != $7) print}") with PipeWithNoResources[Any,Any]
+    val removeRefEqAltRows = if (allSites) Pipes.empty[Any] else new ShellCommand("awk", "{if ($6 != $7) print}") with PipeWithNoResources[Any,Any]
     val bias               = new ShellCommand(biasScript.toString) with PipeWithNoResources[Any,Any]
     val toVcf              = new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with PipeWithNoResources[Any,Vcf]
     val sortVcf            = new SortVcf(in=tmpVcf, out=out, dict=Some(dict))
