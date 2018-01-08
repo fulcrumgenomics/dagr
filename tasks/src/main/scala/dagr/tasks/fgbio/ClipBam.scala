@@ -25,13 +25,14 @@
 package dagr.tasks.fgbio
 
 import com.fulcrumgenomics.commons.CommonsDef.PathToFasta
-import dagr.tasks.DagrDef.PathToBam
+import dagr.tasks.DagrDef.{FilePath, PathToBam}
 
 import scala.collection.mutable.ListBuffer
 
 class ClipBam(val input: PathToBam,
               val output: PathToBam,
               val ref: PathToFasta,
+              val metrics: Option[FilePath] = None,
               @deprecated("Use clipping-mode instead.", since="0.2.1")
               val softClip: Option[Boolean] = None,
               val clippingMode: Option[String] = None,
@@ -50,6 +51,7 @@ class ClipBam(val input: PathToBam,
     buffer.append("-i", input)
     buffer.append("-o", output)
     buffer.append("-r", ref)
+    metrics.foreach           (m => buffer.append("-m", m))
     softClip.foreach          (s => buffer.append("-s", s))
     clippingMode.foreach      (c => buffer.append("-c", c))
     autoClipAttributes.foreach(a => buffer.append("-a", a))
