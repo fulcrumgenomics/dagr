@@ -121,13 +121,13 @@ lazy val core = Project(id="dagr-core", base=file("core"))
   .settings(description := "Core methods and classes to execute tasks in dagr.")
   .settings(
     libraryDependencies ++= Seq(
-      "com.fulcrumgenomics" %%  "commons"           %  "0.3.0",
-      "com.fulcrumgenomics" %%  "sopt"              %  "0.3.1",
+      "com.fulcrumgenomics" %%  "commons"           %  "0.4.0",
+      "com.fulcrumgenomics" %%  "sopt"              %  "0.4.0",
       "com.github.dblock"   %   "oshi-core"         %  "3.3",
       "org.scala-lang"      %   "scala-reflect"     %  scalaVersion.value,
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
       "org.reflections"     %   "reflections"       %  "0.9.10",
-      "com.typesafe"        %   "config"            %  "1.3.1",
+      "com.typesafe"        %   "config"            %  "1.3.2",
       "javax.servlet"       %   "javax.servlet-api" %  "3.1.0"
     )
   )
