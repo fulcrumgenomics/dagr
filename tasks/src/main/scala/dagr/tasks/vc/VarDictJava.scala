@@ -147,6 +147,8 @@ class VarDictJavaEndToEnd
   private val biasScript = BinDir.resolve("teststrandbias.R")
   private val vcfScript  = BinDir.resolve("var2vcf_valid.pl")
 
+  if (allSites) require(pileupMode, "pileup-mode is required when all-sites is used")
+
   def build(): Unit = {
     val tn = tumorName.getOrElse(VarDictJava.extractSampleName(bam=tumorBam))
     val dict = PathUtil.replaceExtension(ref, ".dict")
