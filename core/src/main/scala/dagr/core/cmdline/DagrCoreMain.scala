@@ -231,7 +231,7 @@ class DagrCoreMain extends LazyLogging {
       case Sopt.SubcommandSuccess(dagr, pipeline) =>
         val name = pipeline.getClass.getSimpleName
         try {
-          dagr.configure(pipeline, Some(args.mkString))
+          dagr.configure(pipeline, Some(args.mkString(" ")))
           val name = Configuration.commandLineName(this.name)
           printStartupLines(name, args)
           val numFailed = dagr.execute(pipeline)
