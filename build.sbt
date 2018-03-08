@@ -17,6 +17,28 @@ import scoverage.ScoverageKeys._
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+// Project organization
+//
+// - api: the main API for Dagr, used for dagr-api and dagr-api-js
+// - dagr-api-js the main API compiled for scala-js
+// - dagr-api: the main API compiled for JVM projects (not scala-js)
+// - dagr-core: the implementation of the task and execution systems
+// - dagr-tasks: the common bioinformatic tasks
+// - dagr-pipelines: the common bioinformatic pipelines
+// - dagr-server: an implementation of a server exposing a REST-API
+// - dagr-ui-js: the web-based REST-API-using scala-js user interface
+// - root: the root of the project, omitting the user interface
+//
+// To compile the root:
+// - sbt assembly
+//
+// To compile the UI:
+// - sbt
+// - project dagr-ui-js
+// - fastOptJS
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////
 // Use sbt-release to bump the version numbers.
 //
 // see: http://blog.byjean.eu/2015/07/10/painless-release-with-sbt.html
@@ -80,13 +102,13 @@ val docScalacOptions = Seq("-groups", "-implicits")
 // Common settings for all projects
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-lazy val commonSettings = Seq(
+lazy val commonSettingsNoFork = Seq(
   organization         := "com.fulcrumgenomics",
   organizationName     := "Fulcrum Genomics LLC",
   organizationHomepage := Some(url("http://www.fulcrumgenomics.com")),
   homepage             := Some(url("http://github.com/fulcrumgenomics/dagr")),
   startYear            := Some(2015),
-  scalaVersion         := "2.11.11",
+  scalaVersion         := "2.12.2",
   crossScalaVersions   := Seq("2.11.11", "2.12.2"),
   scalacOptions        += "-target:jvm-1.8",
   scalacOptions in (Compile, doc) ++= docScalacOptions,
@@ -95,8 +117,7 @@ lazy val commonSettings = Seq(
   testOptions in Test  += Tests.Argument(TestFrameworks.ScalaTest, "-h", Option(System.getenv("TEST_HTML_REPORTS")).getOrElse(htmlReportsDirectory)),
   testOptions in Test  += Tests.Argument("-l", "LongRunningTest"), // ignores long running tests
   // uncomment for full stack traces
-  //testOptions in Test  += Tests.Argument("-oD"),
-  fork in Test         := true,
+  testOptions in Test  += Tests.Argument("-oDF"),
   resolvers            += Resolver.jcenterRepo,
   resolvers            += Resolver.sonatypeRepo("public"),
   resolvers            += Resolver.mavenLocal,
@@ -113,6 +134,54 @@ lazy val commonSettings = Seq(
   assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
 ) ++ Defaults.coreDefaultSettings
 
+lazy val commonSettings = Seq(
+  fork in Test         := true
+) ++ commonSettingsNoFork
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Dependency verisons
+////////////////////////////////////////////////////////////////////////////////////////////////
+lazy val akkaV= "2.4.19"
+lazy val akkaHttpV = "10.0.9"
+lazy val scalaTagsV = "0.6.5"
+lazy val autowireV = "0.2.6"
+lazy val upickleV = "0.4.4"
+lazy val jqueryV = "2.1.4"
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+// api project
+////////////////////////////////////////////////////////////////////////////////////////////////
+lazy val api = crossProject.in(file("api"))
+  .settings(unidocSettings: _*)
+  .settings(assemblySettings: _*)
+  .settings(description := "An API for dagr")
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.lihaoyi"       %%% "autowire"             % autowireV,
+      "com.lihaoyi"       %%% "upickle"              % upickleV, 
+      "com.lihaoyi"       %%% "scalatags"            % scalaTagsV
+    )
+  )
+  .jvmSettings(commonSettings: _*)
+  .jsSettings(
+    libraryDependencies ++= Seq(
+	  "org.scala-js" %%% "scalajs-java-time" % "0.2.2"
+    ),
+    jsDependencies ++= Seq(
+	)
+  )
+  .jsSettings(commonSettingsNoFork: _*)
+
+// Create two projects, one the ScalaJs, and one the JVM
+lazy val apiJS = api.js
+    .settings(skip in packageJSDependencies := false)
+	.settings(scalaJSUseMainModuleInitializer := true)
+    .settings(name := "dagr-api-js")
+	//.settings(scalaJSModuleKind := ModuleKind.CommonJSModule)
+lazy val apiJVM = api.jvm
+    .settings(name := "dagr-api")
+    .disablePlugins(sbtassembly.AssemblyPlugin)
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // core project
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -124,6 +193,7 @@ lazy val core = Project(id="dagr-core", base=file("core"))
       "com.fulcrumgenomics" %%  "commons"           %  "0.4.0",
       "com.fulcrumgenomics" %%  "sopt"              %  "0.4.0",
       "com.github.dblock"   %   "oshi-core"         %  "3.3",
+      "com.beachape"        %%  "enumeratum"        %  "1.5.12",
       "org.scala-lang"      %   "scala-reflect"     %  scalaVersion.value,
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
       "org.reflections"     %   "reflections"       %  "0.9.10",
@@ -132,6 +202,7 @@ lazy val core = Project(id="dagr-core", base=file("core"))
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
+  .dependsOn(apiJVM)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // tasks project
@@ -165,6 +236,79 @@ lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
   .dependsOn(tasks, core)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+// server project
+////////////////////////////////////////////////////////////////////////////////////////////////
+lazy val server = Project(id="dagr-server", base=file("server"))
+  .settings(description := "A server for dagr")
+  .settings(commonSettings: _*)
+  .settings(unidocSettings: _*)
+  .settings(assemblySettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.lihaoyi"       %%% "autowire"             % autowireV,
+      "com.lihaoyi"       %%% "upickle"              % upickleV, 
+      "com.lihaoyi"       %%% "scalatags"            % scalaTagsV,
+      "com.typesafe.akka" %% "akka-actor"           % akkaV,
+      "com.typesafe.akka" %% "akka-http"            % akkaHttpV,
+      "com.typesafe.akka" %% "akka-http-core"       % akkaHttpV,
+      "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpV,
+      "ch.megard"         %% "akka-http-cors"       % "0.2.1",
+      "com.typesafe.akka" %% "akka-testkit"         % "2.5.3" % Test,
+      "com.typesafe.akka" %% "akka-http-testkit"    % "10.0.9" % Test
+    )
+  )
+  .dependsOn(apiJVM, core)
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+// ui project
+////////////////////////////////////////////////////////////////////////////////////////////////
+lazy val ui = crossProject.in(file("ui"))
+  .settings(unidocSettings: _*)
+  .settings(assemblySettings: _*)
+  .settings(description := "A web UI for dagr")
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.lihaoyi"       %%% "autowire"             % autowireV,
+      "com.lihaoyi"       %%% "upickle"              % upickleV, 
+      "com.lihaoyi"       %%% "scalatags"            % scalaTagsV
+    )
+  )
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-actor"           % akkaV,
+      "com.typesafe.akka" %% "akka-http"            % akkaHttpV,
+      "com.typesafe.akka" %% "akka-http-core"       % akkaHttpV,
+      "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpV,
+      "ch.megard"         %% "akka-http-cors"       % "0.2.1",
+      "com.typesafe.akka" %% "akka-testkit"         % "2.5.3" % Test,
+      "com.typesafe.akka" %% "akka-http-testkit"    % "10.0.9" % Test
+    )
+  )
+  .jvmSettings(commonSettings: _*)
+  .jsSettings(
+    libraryDependencies ++= Seq(
+      "be.doeraene"  %%% "scalajs-jquery" % "0.9.1",
+      "org.scala-js" %%% "scalajs-dom"    % "0.9.2",
+	  "org.querki"   %%% "querki-jsext"   % "0.8",
+	  "org.scala-js" %%% "scalajs-java-time" % "0.2.2",
+      //RuntimeDOM,
+	  "org.webjars" % "jquery" % jqueryV
+    ),
+    jsDependencies ++= Seq(
+		"org.webjars" % "jquery" % jqueryV / "2.1.4/jquery.js",
+		ProvidedJS / "jquery.dataTables.min.js"
+	)
+  )
+  .jsSettings(commonSettingsNoFork: _*)
+
+// Create two projects, one the ScalaJs, and one the JVM
+lazy val uiJS = ui.js
+    .settings(skip in packageJSDependencies := false)
+	.settings(scalaJSUseMainModuleInitializer := true)
+    .settings(name := "dagr-ui-js")
+    .dependsOn(apiJS)
+
+////////////////////////////////////////////////////////////////////////////////////////////////
 // root (dagr) project
 ////////////////////////////////////////////////////////////////////////////////////////////////
 lazy val assemblySettings = Seq(
@@ -176,8 +320,8 @@ lazy val root = Project(id="dagr", base=file("."))
   .settings(unidocSettings: _*)
   .settings(assemblySettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
-  .aggregate(core, tasks, pipelines)
-  .dependsOn(core, tasks, pipelines)
+  .aggregate(apiJVM, core, tasks, pipelines, server) 
+  .dependsOn(apiJVM, core, tasks, pipelines, server)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Merge strategy for assembly
@@ -188,7 +332,7 @@ val customMergeStrategy: String => MergeStrategy = {
   case PathList(ps@_*) if Assembly.isReadme(ps.last) || Assembly.isLicenseFile(ps.last) =>
     MergeStrategy.rename
   case PathList("META-INF", xs@_*) =>
-    xs map {
+      xs map { 
       _.toLowerCase
     } match {
       case ("manifest.mf" :: Nil) | ("index.list" :: Nil) | ("dependencies" :: Nil) =>
@@ -211,6 +355,7 @@ val customMergeStrategy: String => MergeStrategy = {
     MergeStrategy.discard
   case "logback.xml" =>
     MergeStrategy.first
-  case _ => MergeStrategy.deduplicate
+  case _ => 
+    MergeStrategy.deduplicate
 }
 assemblyMergeStrategy in assembly := customMergeStrategy

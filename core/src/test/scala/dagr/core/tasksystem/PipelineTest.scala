@@ -72,7 +72,7 @@ class PipelineTest extends UnitSpec {
       override def build(): Unit = root ==> new InnerPipeline
     }
 
-    val ts = new OuterPipeline().getTasks.head.getTasks.map(_.name).toList.sorted
+    val ts = new OuterPipeline().make().head.make().map(_.name).toList.sorted
     ts shouldBe List("outerbefore.innerbefore.hello.outerafter.innerafter",
                      "outerbefore.innerbefore.world.outerafter.innerafter")
   }

@@ -26,10 +26,10 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.VariableResources
 import dagr.tasks.DagrDef
 import DagrDef.{PathToIntervals, PathToVcf}
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
 
 import scala.collection.mutable.ListBuffer
 

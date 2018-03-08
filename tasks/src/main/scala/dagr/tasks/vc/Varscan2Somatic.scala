@@ -26,7 +26,7 @@ package dagr.tasks.vc
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.DagrDef.PathPrefix
 import dagr.tasks.JarTask

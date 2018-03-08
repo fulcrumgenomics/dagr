@@ -26,10 +26,10 @@ package dagr.tasks.misc
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToVcf}
+import dagr.api.models.util.{Cores, Memory}
 
 import scala.collection.mutable.ListBuffer
 

@@ -21,42 +21,81 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 package dagr.core.execsystem
 
+import dagr.api.models.tasksystem
 import dagr.core.tasksystem.Task
+import enumeratum.values.{IntEnum, IntEnumEntry}
 
-/** The state for a [[Task]]. */
-object TaskStatus extends Enumeration {
-  type TaskStatus = Value
-  val UNKNOWN            = Value("is unknown") /** The task state is unknown, most likely not considered */
-  val STARTED            = Value("has been started") /** The task has been started */
-  val STOPPED            = Value("has been stopped") /** The task has been stopped */
-  val FAILED_GET_TASKS   = Value("has failed (could not get the list of tasks)") /** The task could not get the list of tasks */
-  val FAILED_SCHEDULING  = Value("has failed (could not start executing after scheduling)") /** The task could not execute after scheduling */
-  val FAILED_COMMAND     = Value("has failed (execution)") /** The task command has failed */
-  val FAILED_ON_COMPLETE = Value("has failed (running the onComplete method)") /** The task has failed when trying to run its onComplete method */
-  val SUCCEEDED          = Value("has succeeded") /** The task has succeeded */
-  val MANUALLY_SUCCEEDED = Value("has succeeded (manually)") /**The task was manually succeeded */
+import scala.collection.immutable.IndexedSeq
 
+sealed abstract class TaskStatus extends IntEnumEntry with tasksystem.TaskStatus {
+  override def ordinal = this.value
+  /** Returns true if this status indicates any type of success, false otherwise. */
+  def success: Boolean = this.isInstanceOf[TaskStatus.Succeeded]
+  /** Returns true if this status indicates any type of failure, false otherwise. */
+  def failure: Boolean = this.isInstanceOf[TaskStatus.Failed]
+  /** Returns true if this status indicates the task is executing, false otherwise. */
+  def executing: Boolean = this == TaskStatus.Started
+}
+
+case object TaskStatus extends IntEnum[TaskStatus] {
+  val values: IndexedSeq[TaskStatus] = this.findValues
+  
   /** Checks if a task with a given status is done.
     *
     * @param taskStatus the status of the task
-    * @param failedIsDone true if we are to treat [[FAILED_COMMAND]] and [[FAILED_ON_COMPLETE]] and [[FAILED_SCHEDULING]] and [[FAILED_GET_TASKS]] as done
+    * @param failedIsDone true if we are to treat a failure as done
     * @return true if the task is done, false otherwise
     */
-  def isTaskDone(taskStatus: TaskStatus, failedIsDone: Boolean = true): Boolean = {
-    (isTaskFailed(taskStatus) && failedIsDone) || SUCCEEDED == taskStatus || MANUALLY_SUCCEEDED == taskStatus || STOPPED == taskStatus
+  def done(taskStatus: tasksystem.TaskStatus, failedIsDone: Boolean = true): Boolean = {
+    requireTaskStatusType(taskStatus)
+    val completed = taskStatus.isInstanceOf[Completed]
+    if (failedIsDone) completed else !failed(taskStatus) && completed
   }
 
   /** Checks if a task with a given status is not done.
     *
     * @param taskStatus the status of the task
-    * @param failedIsDone true if we are to treat [[FAILED_COMMAND]] and [[FAILED_ON_COMPLETE]] and [[FAILED_SCHEDULING]] and [[FAILED_GET_TASKS]] as done
+    * @param failedIsDone true if we are to treat failuer as done
     * @return true if the task is not done, false otherwise
     */
-  def isTaskNotDone(taskStatus: TaskStatus, failedIsDone: Boolean = true): Boolean = {
-    !isTaskDone(taskStatus, failedIsDone = failedIsDone)
+  def notDone(taskStatus: tasksystem.TaskStatus, failedIsDone: Boolean = true): Boolean = {
+    // NB: not checking the type of taskStatus, since the "done" method will do so.
+    !done(taskStatus, failedIsDone=failedIsDone)
   }
 
-  def isTaskFailed(taskStatus: TaskStatus): Boolean = List(FAILED_COMMAND, FAILED_ON_COMPLETE, FAILED_SCHEDULING, FAILED_GET_TASKS).contains(taskStatus)
+  /** Checks if a task with a given status is failed.
+    *
+    * @param taskStatus the status of the task
+    * @return true if the task has failed, false otherwise
+    */
+  def failed(taskStatus: tasksystem.TaskStatus): Boolean = {
+    requireTaskStatusType(taskStatus)
+    taskStatus.isInstanceOf[Failed]
+  }
+
+  private def requireTaskStatusType(taskStatus: tasksystem.TaskStatus): Unit = {
+    require(taskStatus.isInstanceOf[TaskStatus],
+      s"Wrong type of task status, expected '${TaskStatus.getClass.getCanonicalName}', found '${taskStatus.getClass.getCanonicalName}'")
+  }
+
+  // Groups of statuses
+  sealed trait Completed         extends TaskStatus
+  sealed trait Failed            extends Completed
+  sealed trait Succeeded         extends Completed
+
+  // High-level statuses
+  case object Unknown            extends TaskStatus { val description: String = "is unknown";                                              val value: Int = 0 }
+  case object Started            extends TaskStatus { val description: String = "has been started";                                        val value: Int = 1 }
+  case object Stopped            extends Completed  { val description: String = "has been stopped";                                        val value: Int = 2 }
+
+  // Statuses after execution has completed
+  case object FailedGetTasks     extends Failed     { val description: String = "has failed (could not get the list of tasks)";            val value: Int = 3 }
+  case object FailedScheduling   extends Failed     { val description: String = "has failed (could not start executing after scheduling)"; val value: Int = 4 }
+  case object FailedExecution    extends Failed     { val description: String = "has failed (execution)";                                  val value: Int = 5 }
+  case object FailedOnComplete   extends Failed     { val description: String = "Failed during the onComplete callback";                   val value: Int = 6 }
+  case object SucceededExecution extends Succeeded  { val description: String = "has succeeded";                                           val value: Int = 7 }
+  case object ManuallySucceeded  extends Succeeded  { val description: String = "has succeeded (manually)";                                val value: Int = 8 }
 }

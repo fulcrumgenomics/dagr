@@ -25,8 +25,8 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Cores, Memory}
-import com.fulcrumgenomics.commons.io.{PathUtil, Io}
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
+import dagr.api.models.util.{Cores, Memory}
 import dagr.tasks.DagrDef
 import dagr.tasks.DagrDef.{PathPrefix, PathToBam}
 

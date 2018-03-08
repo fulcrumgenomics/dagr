@@ -24,19 +24,20 @@
 package dagr.core.execsystem
 
 import java.nio.file.Path
-import java.time.Instant
 
 import com.fulcrumgenomics.commons.CommonsDef._
 import com.fulcrumgenomics.commons.collection.BiMap
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.DagrDef._
+import dagr.api.DagrApi.TaskId
+import dagr.api.models.tasksystem
+import dagr.api.models.exec.{Executor => RootExecutor}
 import dagr.core.execsystem.TaskStatus._
 import dagr.core.tasksystem.Task
 
 import scala.collection.mutable
 
 /** Tracks tasks during their execution */
-trait TaskTracker extends TaskManagerLike with LazyLogging {
+trait TaskTracker extends TaskManagerLike with RootExecutor[Task] with LazyLogging {
 
   /** Stores information about the execution of the current task and its place in the execution graph.  Mainly used
     * for convenience during lookups.
@@ -45,11 +46,9 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     val (info: TaskExecutionInfo, node: GraphNode) = {
       val info = new TaskExecutionInfo(
         task=task,
-        taskId=id,
-        status=UNKNOWN,
+        initId=id,
         script=scriptPathFor(task=task, id=id, attemptIndex=1),
-        logFile=logPathFor(task=task, id=id, attemptIndex=1),
-        submissionDate=Some(Instant.now())
+        log=logPathFor(task=task, id=id, attemptIndex=1)
       )
       val node = predecessorsOf(task = task) match {
         case None => new GraphNode(task=task, predecessorNodes=Nil, state=GraphNodeState.ORPHAN, enclosingNode=enclosingNode)
@@ -70,6 +69,8 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
   private val taskAndGraphNode = new BiMap[Task, GraphNode]()
 
   override def addTask(task: Task): TaskId = {
+    task._executor = Some(this)
+    this.register(task)
     addTask(task=task, enclosingNode=None, ignoreExists=false)
   }
 
@@ -99,11 +100,9 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
         // set the task info
         val info = new TaskExecutionInfo(
           task=task,
-          taskId=id,
-          status=UNKNOWN,
+          initId=id,
           script=scriptPathFor(task=task, id=id, attemptIndex=1),
-          logFile=logPathFor(task=task, id=id, attemptIndex=1),
-          submissionDate=Some(Instant.now())
+          log=logPathFor(task=task, id=id, attemptIndex=1)
         )
         task._taskInfo = Some(info)
 
@@ -131,9 +130,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     tasks.map(task => addTask(task=task, enclosingNode=enclosingNode, ignoreExists=ignoreExists)).toList
   }
 
-  override def addTasks(tasks: Task*): Seq[TaskId] = {
-    tasks.map(task => addTask(task, enclosingNode=None, ignoreExists=false))
-  }
+  override def addTasks(tasks: Task*): Seq[TaskId] = tasks.map(task => addTask(task))
 
   override def taskFor(id: TaskId): Option[Task] = idLookup.get(id)
 
@@ -148,11 +145,14 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     */
   def taskExecutionInfoFor(node: GraphNode): Option[TaskExecutionInfo] = taskAndGraphNode.valueFor(node.task).map(_.taskInfo)
 
-  override def taskStatusFor(task: Task): Option[TaskStatus.Value] = taskAndGraphNode.valueFor(task).map(_.taskInfo.status)
+  override def taskStatusFor(task: Task): Option[tasksystem.TaskStatus] = taskAndGraphNode.valueFor(task).map(_.taskInfo.status)
 
-  override def taskStatusFor(id: TaskId): Option[TaskStatus.Value] = idLookup.get(id).flatMap(task => taskAndGraphNode.valueFor(task)).map(_.taskInfo.status)
+  override def taskStatusFor(id: TaskId): Option[tasksystem.TaskStatus] = idLookup.get(id).flatMap(task => taskAndGraphNode.valueFor(task)).map(_.taskInfo.status)
 
-  override def taskFor(task: Task): Option[TaskId] = task._taskInfo.map(_.taskId)
+  override def taskFor(task: Task): Option[TaskId] = task._taskInfo match {
+    case None => None
+    case _    => Some(task.execsystemTaskInfo.taskId)
+  }
 
   override def taskIds(): Iterable[TaskId] = idLookup.keys
 
@@ -213,7 +213,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
       case Some(node) =>
         if (replacement.tasksDependedOn.nonEmpty || replacement.tasksDependingOnThisTask.nonEmpty) false
         else {
-          val info = original.taskInfo
+          val info = original.execsystemTaskInfo
           val id   = info.taskId
 
           // Update the inter-task dependencies for the swap
@@ -240,11 +240,11 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
           taskAndGraphNode.add(replacement, node)
 
           // reset to no predecessors and ready for execution
-          if (!isTaskDone(info.status)) {
+          if (!done(info.status)) {
             if (List(GraphNodeState.RUNNING, GraphNodeState.NO_PREDECESSORS, GraphNodeState.ONLY_PREDECESSORS).contains(node.state)) {
               node.state = GraphNodeState.PREDECESSORS_AND_UNEXPANDED
             }
-            info.status = TaskStatus.UNKNOWN
+            info.status = TaskStatus.Unknown
           }
 
           true
@@ -255,7 +255,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
   // Turning it off until `resubmit` is used.
   //def resubmitTask(task: Task): Boolean
 
-  override def hasFailedTasks: Boolean = taskAndGraphNode.values.exists(trackingInfo => TaskStatus.isTaskFailed(trackingInfo.taskInfo.status))
+  override def hasFailedTasks: Boolean = taskAndGraphNode.values.exists(trackingInfo => TaskStatus.failed(trackingInfo.taskInfo.status))
 
   /** Generates a path to a file to hold the task command */
   protected def scriptPathFor(task: Task, id: TaskId, attemptIndex: Int): Path
@@ -301,7 +301,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     task.tasksDependedOn match {
       case Nil => Some(Nil)
       case _ =>
-        val predecessors: Traversable[Option[GraphNode]] = for (dependency <- task.tasksDependedOn) yield graphNodeFor(dependency)
+        val predecessors: Traversable[Option[GraphNode]] = task.tasksDependedOn.map { dependency => this.graphNodeFor(dependency) }
         if (predecessors.exists(_.isEmpty)) None // we found predecessors that have no associated graph node
         else Some(predecessors.map(_.get))
     }
@@ -332,4 +332,33 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
   protected def graphNodesWithPredecessors: Iterable[GraphNode] = {
     graphNodes.filter(node => GraphNodeState.hasPredecessors(node.state))
   }
+
+  /** True if the task is running, false otherwise. */
+  def running(task: Task): Boolean = task.taskInfo.status == TaskStatus.Started // taskManager.running(task)
+
+  /** True if the task is ready for execution (no dependencies), false otherwise. */
+  def queued(task: Task): Boolean = this.graphNodeFor(task).exists { node =>
+    node.state == GraphNodeState.NO_PREDECESSORS && task.taskInfo.status == TaskStatus.Unknown
+  }
+
+  /** True if the task has failed, false otherwise. */
+  def failed(task: Task): Boolean = TaskStatus.failed(task.taskInfo.status)
+
+  /** True if the task has succeeded, false otherwise. */
+  def succeeded(task: Task): Boolean = TaskStatus.done(task.taskInfo.status, failedIsDone=false)
+
+  /** True if the task has completed regardless of status, false otherwise. */
+  def completed(task: Task): Boolean = TaskStatus.done(task.taskInfo.status, failedIsDone=true)
+
+  /** True if the task has unmet dependencies, false otherwise. */
+  def pending(task: Task): Boolean = {
+    val info = task.taskInfo
+    info.status == TaskStatus.Unknown && this.graphNodeStateFor(task).exists(_ != GraphNodeState.NO_PREDECESSORS)
+  }
+
+  /** Returns the task status by ordinal */
+  final def statusFrom(ordinal: Int): TaskStatus = TaskStatus.withValue(ordinal)
+
+  /** The list of statuses ordered by ordinal */
+  def statuses: Seq[TaskStatus] = TaskStatus.values
 }

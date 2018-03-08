@@ -24,8 +24,8 @@
 
 package dagr.tasks.vc
 
+import dagr.api.models.util.ResourceSet
 import dagr.core.config.Configuration
-import dagr.core.execsystem.ResourceSet
 import dagr.core.tasksystem.Pipes.PipeWithNoResources
 import dagr.core.tasksystem._
 import dagr.tasks.DagrDef._

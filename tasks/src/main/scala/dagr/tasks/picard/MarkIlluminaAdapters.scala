@@ -25,11 +25,11 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.SamOrBam
 import dagr.tasks.DagrDef
 import DagrDef.PathToBam
+import dagr.api.models.util.{Cores, Memory}
 
 import scala.collection.mutable.ListBuffer
 

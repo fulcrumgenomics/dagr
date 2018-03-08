@@ -24,16 +24,16 @@
 
 package dagr.core.cmdline
 
-import dagr.core.cmdline.pipelines.PipelineFour
-import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
-import com.fulcrumgenomics.commons.io.Io
-import com.fulcrumgenomics.sopt.util.TermCode
-import com.fulcrumgenomics.commons.util.CaptureSystemStreams
-import org.scalatest.BeforeAndAfterAll
 import java.nio.file.{Files, Path}
 
-import dagr.core.UnitSpec
+import com.fulcrumgenomics.commons.io.Io
+import com.fulcrumgenomics.commons.util.CaptureSystemStreams
+import com.fulcrumgenomics.sopt.util.TermCode
+import dagr.core.FutureUnitSpec
 import dagr.core.cmdline.DagrScriptManager.DagrScriptManagerException
+import dagr.core.cmdline.pipelines.PipelineFour
+import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
+import org.scalatest.BeforeAndAfterAll
 
 private class NoOpPipeline extends Pipeline {
   override def build(): Unit = {
@@ -41,7 +41,7 @@ private class NoOpPipeline extends Pipeline {
   }
 }
 
-class DagrCoreMainTest extends UnitSpec with BeforeAndAfterAll with CaptureSystemStreams {
+class DagrCoreMainTest extends FutureUnitSpec with CaptureSystemStreams with BeforeAndAfterAll {
 
   private val prevPrintColor = TermCode.printColor
 
@@ -59,7 +59,7 @@ class DagrCoreMainTest extends UnitSpec with BeforeAndAfterAll with CaptureSyste
     var exitCode: Option[Int] = None
     val (stderr, stdout, log) = captureItAll(() => {
       val argsWithReport = Array[String]("--report", reportPath.toAbsolutePath.toString) ++ args
-      exitCode = Some(new DagrCoreMain().makeItSo(args=argsWithReport, packageList=List(packageName), includeHidden=true))
+      exitCode = Some(new DagrCoreMain[DagrCoreArgs]().makeItSo(args=argsWithReport, packageList=List(packageName), includeHidden=true))
     })
     (exitCode, stderr, stdout, log)
   }
@@ -85,16 +85,33 @@ class DagrCoreMainTest extends UnitSpec with BeforeAndAfterAll with CaptureSyste
   }
 
   it should "run a pipeline end-to-end in interactive mode" in {
-    captureLogger(() => {
-      val clp = new DagrCoreArgs(report = Some(Io.DevNull), interactive = true)
-      val pipeline = new NoOpPipeline()
+    Seq(true, false).foreach { experimentalExecution =>
+      Seq(true, false).foreach { withLogAndScriptDir =>
 
-      clp.configure(pipeline)
-      val stdout = captureStdout(() => {
-        clp.execute(pipeline) shouldBe 0
-      })
-      stdout should include("1 Done")
-    })
+        val logAndScriptDir = if (!withLogAndScriptDir) None else {
+          val dir = Files.createTempDirectory("DagrCoreMainTest")
+          dir.toFile.deleteOnExit()
+          Some(dir)
+        }
+
+        captureLogger(() => {
+          val clp = new DagrCoreArgs(
+            report                = Some(Io.DevNull),
+            interactive           = true,
+            scriptDir             = logAndScriptDir,
+            logDir                = logAndScriptDir,
+            experimentalExecution = experimentalExecution
+          )
+          val pipeline  = new NoOpPipeline()
+
+          clp.configure(pipeline)
+          val stdout = captureStdout(() => {
+            clp.execute(pipeline) shouldBe 0
+          })
+          stdout should include("1 Done")
+        })
+      }
+    }
   }
 
   "DagrCoreMain.parse" should "print just the main usage when the path to the main configuration file does not exist" in {
@@ -140,5 +157,4 @@ class DagrCoreMainTest extends UnitSpec with BeforeAndAfterAll with CaptureSyste
     }
     exception.getMessage should include(s"Compile of $tmpFile failed with")
   }
-
 }

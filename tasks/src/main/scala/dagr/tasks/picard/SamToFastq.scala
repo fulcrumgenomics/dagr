@@ -24,7 +24,7 @@
 package dagr.tasks.picard
 
 import com.fulcrumgenomics.commons.CommonsDef.unreachable
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DagrDef.{PathToBam, PathToFastq}
 import dagr.tasks.DataTypes.{Fastq, SamOrBam}

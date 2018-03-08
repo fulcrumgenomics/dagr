@@ -23,7 +23,7 @@
  */
 package dagr.tasks.picard
 
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
 
 import scala.collection.mutable.ListBuffer

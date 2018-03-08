@@ -26,9 +26,11 @@ package dagr.core.tasksystem
 
 import java.nio.file.{Files, Paths}
 
-import com.fulcrumgenomics.commons.io.Io
-import dagr.core.UnitSpec
 import com.fulcrumgenomics.commons.CommonsDef._
+import com.fulcrumgenomics.commons.io.Io
+import dagr.api.models.util.{Cores, Memory, ResourceSet}
+import dagr.core.UnitSpec
+import dagr.core.exec._
 import dagr.core.execsystem._
 import org.scalatest.OptionValues
 
@@ -38,8 +40,8 @@ class RetryTest extends UnitSpec with OptionValues {
   private val systemResources = SystemResources(Cores(1.0), Memory("4G"), Memory("4G"))
   private def taskInfo(task: Task) = {
     task match {
-      case f: FixedResources => new TaskExecutionInfo(task, 1, TaskStatus.UNKNOWN, null, null, None, resources=f.resources)
-      case _ => new TaskExecutionInfo(task, 1, TaskStatus.UNKNOWN, null, null, None)
+      case f: FixedResources => new TaskExecutionInfo(task=task, initId=1, script=null, log=null, resources=Some(f.resources))
+      case _ => new TaskExecutionInfo(task, 1, TaskStatus.Unknown, null, null, None)
     }
   }
 
@@ -55,15 +57,18 @@ class RetryTest extends UnitSpec with OptionValues {
       override def toMemory: Memory = Memory(to)
       override def byMemory: Memory = Memory(by)
     }
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"
+
+    // No resources in task.taskInfo
+    task.retry(systemResources, {val i = taskInfo(task); i.resources = None; i}) shouldBe false
 
     // from 1G to 1.5G
     task.retry(systemResources, taskInfo(task)) shouldBe true
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1536m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1536m"
 
     // from 1.5G to 2G
     task.retry(systemResources, taskInfo(task)) shouldBe true
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "2048m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "2048m"
 
     // 2G is the limit
     task.retry(systemResources, taskInfo(task)) shouldBe false
@@ -77,15 +82,18 @@ class RetryTest extends UnitSpec with OptionValues {
       override def applyResources(resources : ResourceSet): Unit = Unit
       def getTasks: Traversable[_ <: Task] = List.empty
     }
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"
+
+    // No resources in task.taskInfo
+    task.retry(systemResources, {val i = taskInfo(task); i.resources = None; i}) shouldBe false
 
     // from 1G to 2G
     task.retry(systemResources, taskInfo(task)) shouldBe true
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "2048m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "2048m"
 
     // from 2G to 4G
     task.retry(systemResources, taskInfo(task)) shouldBe true
-    Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "4096m"
+    SystemResources.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "4096m"
 
     // 4G is the limit
     task.retry(systemResources, taskInfo(task)) shouldBe false
@@ -98,11 +106,11 @@ class RetryTest extends UnitSpec with OptionValues {
     }
     val info = taskInfo(task)
     task.retry(systemResources, info) shouldBe true
-    info.attemptIndex += 1
+    info.attempts += 1
     task.retry(systemResources, info) shouldBe true
-    info.attemptIndex += 1
+    info.attempts += 1
     task.retry(systemResources, info) shouldBe true
-    info.attemptIndex += 1
+    info.attempts += 1
     task.retry(systemResources, info) shouldBe false
   }
 
@@ -122,7 +130,7 @@ class RetryTest extends UnitSpec with OptionValues {
 
 
         val info = task match {
-          case f: FixedResources => new TaskExecutionInfo(task, 1, TaskStatus.UNKNOWN, null, logFile=logFile, None, resources=f.resources)
+          case f: FixedResources => new TaskExecutionInfo(task=task, initId=1, script=null, log=logFile, resources=Some(f.resources))
           case _ => unreachable()
         }
         task.ranOutOfMemory(info) shouldBe true
@@ -132,9 +140,15 @@ class RetryTest extends UnitSpec with OptionValues {
   it should "return false when the log file does not exist" in {
     val task = new ShellCommand("exit", "0") with JvmRanOutOfMemory with MemoryDoublingRetry
     val info = task match {
-      case f: FixedResources => new TaskExecutionInfo(task, 1, TaskStatus.UNKNOWN, null, logFile=Paths.get("DNE"), None, resources=f.resources)
+      case f: FixedResources => new TaskExecutionInfo(task, initId=1, script=null, log=Paths.get("DNE"), resources=Some(f.resources))
       case _ => unreachable()
     }
     task.ranOutOfMemory(info) shouldBe false
+  }
+
+  it should "return false when no memory is found" in {
+    // No resources in task.taskInfo
+    val task = new ShellCommand("exit", "0") with JvmRanOutOfMemory with MemoryDoublingRetry
+    task.retry(systemResources, {val i = taskInfo(task); i.resources = None; i}) shouldBe false
   }
 }

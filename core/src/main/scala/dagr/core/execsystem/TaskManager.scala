@@ -26,49 +26,21 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.Instant
 
-import dagr.core.DagrDef._
-import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.tasksystem._
+import com.fulcrumgenomics.commons.CommonsDef.DirPath
 import com.fulcrumgenomics.commons.collection.BiMap
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
-
-/** The resources needed for the task manager */
-object SystemResources {
-  /** Creates a new SystemResources that is a copy of an existing one. */
-  def apply(that: SystemResources): SystemResources = {
-    new SystemResources(cores = that.cores, systemMemory = that.systemMemory, jvmMemory = that.jvmMemory)
-  }
-
-  /** Creates a new SystemResources with the specified values. */
-  def apply(cores: Double, systemMemory: Long, jvmMemory: Long): SystemResources = {
-    new SystemResources(cores = Cores(cores), systemMemory = Memory(systemMemory), jvmMemory = Memory(jvmMemory))
-  }
-
-  /** Creates a new SystemResources with the cores provided and partitions the memory between system and JVM. */
-  def apply(cores: Option[Cores] = None, totalMemory: Option[Memory] = None) : SystemResources = {
-    val heapSize = Resource.heapSize
-
-    val (system, jvm) = totalMemory match {
-      case Some(memory) => (memory, heapSize)
-      case None         => (Resource.systemMemory - heapSize, heapSize)
-    }
-
-    require(system.bytes > 0, "System memory cannot be <= 0 bytes.")
-
-    new SystemResources(cores.getOrElse(Resource.systemCores), system, jvm)
-  }
-
-  val infinite: SystemResources = SystemResources(Double.MaxValue, Long.MaxValue, Long.MaxValue)
-}
-
-case class SystemResources(cores: Cores, systemMemory: Memory, jvmMemory: Memory)
+import com.fulcrumgenomics.commons.util.LazyLogging
+import dagr.api.DagrApi.TaskId
+import dagr.api.models.util.ResourceSet
+import dagr.core.exec._
+import dagr.core.tasksystem._
 
 /** Various defaults for task manager */
 object TaskManagerDefaults extends LazyLogging {
   def defaultTaskManagerResources: SystemResources = {
     val resources = SystemResources(cores=None, totalMemory=None) // Let the apply method figure it all out
-    logger.info("Defaulting System Resources to " + resources.cores.value + " cores and " + Resource.parseBytesToSize(resources.systemMemory.value) + " memory")
-    logger.info("Defaulting JVM Resources to " + Resource.parseBytesToSize(resources.jvmMemory.value) + " memory")
+    logger.info("Defaulting System Resources to " + resources.cores.value + " cores and " + SystemResources.parseBytesToSize(resources.systemMemory.value) + " memory")
+    logger.info("Defaulting JVM Resources to " + SystemResources.parseBytesToSize(resources.jvmMemory.value) + " memory")
     resources
   }
 
@@ -85,7 +57,7 @@ object TaskManager extends LazyLogging {
    * @param task the task to run
    * @param sleepMilliseconds the time to wait in milliseconds to wait between trying to schedule tasks.
    * @param taskManagerResources the set of task manager resources, otherwise we use the default
-   * @param scriptsDirectory the scripts directory, otherwise we use the default
+   * @param scriptDirectory the scripts directory, otherwise we use the default
    * @param logDirectory the log directory, otherwise we use the default
    * @param scheduler the scheduler, otherwise we use the default
    * @param simulate true if we are to simulate running tasks, false otherwise
@@ -94,23 +66,24 @@ object TaskManager extends LazyLogging {
   def run(task: Task,
           sleepMilliseconds: Int = 1000,
           taskManagerResources: Option[SystemResources] = Some(defaultTaskManagerResources),
-          scriptsDirectory: Option[Path] = None,
-          logDirectory: Option[Path] = None,
+          scriptDirectory: Path = Io.makeTempDir("scripts"),
+          logDirectory: Path = Io.makeTempDir("logs"),
           scheduler: Option[Scheduler] = Some(defaultScheduler),
           simulate: Boolean = false,
           failFast: Boolean = false): BiMap[Task, TaskExecutionInfo] = {
 
     val taskManager: TaskManager = new TaskManager(
       taskManagerResources = taskManagerResources.getOrElse(defaultTaskManagerResources),
-      scriptsDirectory     = scriptsDirectory,
+      scriptDirectory      = scriptDirectory,
       logDirectory         = logDirectory,
       scheduler            = scheduler.getOrElse(defaultScheduler),
       simulate             = simulate,
-      sleepMilliseconds    = sleepMilliseconds
+      sleepMilliseconds    = sleepMilliseconds,
+      failFast             = failFast
     )
 
     taskManager.addTask(task = task)
-    taskManager.runToCompletion(failFast=failFast)
+    taskManager.runToCompletion()
 
     taskManager.taskToInfoBiMapFor
   }
@@ -121,22 +94,20 @@ object TaskManager extends LazyLogging {
   * No validation of whether or not we actually have the provided system or in-Jvm resources will occur.
   *
   * @param taskManagerResources the set of task manager resources, otherwise we use the default
-  * @param scriptsDirectory     the scripts directory, otherwise a temporary directory will be used
+  * @param scriptDirectory     the scripts directory, otherwise a temporary directory will be used
   * @param logDirectory         the log directory, otherwise a temporary directory will be used
   * @param scheduler            the scheduler, otherwise we use the default
   * @param simulate             true if we are to simulate running tasks, false otherwise
   * @param sleepMilliseconds    the time to wait in milliseconds to wait between trying to schedule tasks.
   */
 class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.defaultTaskManagerResources,
-                  scriptsDirectory: Option[Path]             = None,
-                  logDirectory: Option[Path]                 = None,
-                  scheduler: Scheduler                       = TaskManagerDefaults.defaultScheduler,
-                  simulate: Boolean                          = false,
-                  sleepMilliseconds: Int                     = 1000
-) extends TaskManagerLike with TaskTracker with FinalStatusReporter with LazyLogging {
-
-  private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
-  protected val actualLogsDirectory  = logDirectory getOrElse Io.makeTempDir("logs")
+                  scriptDirectory: Path                 = Io.makeTempDir("scripts"),
+                  logDirectory: Path                    = Io.makeTempDir("logs"),
+                  scheduler: Scheduler                  = TaskManagerDefaults.defaultScheduler,
+                  simulate: Boolean                     = false,
+                  sleepMilliseconds: Int                = 1000,
+                  failFast: Boolean                     = false
+) extends TaskManagerLike with TaskTracker with LazyLogging {
 
   private val taskExecutionRunner: TaskExecutionRunnerApi = new TaskExecutionRunner()
 
@@ -144,8 +115,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   import TaskStatus._
 
   logger.info(s"Executing with ${taskManagerResources.cores} cores and ${taskManagerResources.systemMemory.prettyString} system memory.")
-  logger.info("Script files will be written to: " + actualScriptsDirectory)
-  logger.info("Logs will be written to: " + actualLogsDirectory)
+  logger.info("Script files will be written to: " + scriptDirectory)
+  logger.info("Logs will be written to: " + logDirectory)
 
   private[core] def getTaskManagerResources: SystemResources = taskManagerResources
 
@@ -154,8 +125,11 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     PathUtil.pathTo(directory.toString, s"$sanitizedName.$taskId.$attemptIndex.$ext")
   }
 
-  override protected def scriptPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, actualScriptsDirectory, "sh")
-  override protected def logPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, actualLogsDirectory, "log")
+  override protected def scriptPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, scriptDirectory, "sh")
+  override protected def logPathFor(task: Task, taskId: TaskId, attemptIndex: Int): Path = pathFor(task, taskId, attemptIndex, logDirectory, "log")
+
+  /** Returns the log directory. */
+  def logDir: DirPath = logDirectory
 
   /** Attempts to terminate a task's underlying process.
     *
@@ -165,17 +139,12 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   protected def terminateTask(taskId: TaskId): Boolean = taskExecutionRunner.terminateTask(taskId=taskId)
 
   /** For testing purposes only. */
-  protected def joinOnRunningTasks(millis: Long) = taskExecutionRunner.joinAll(millis)
+  protected def joinOnRunningTasks(millis: Long): Unit = taskExecutionRunner.joinAll(millis)
 
   /** For testing purposes only. */
   private[execsystem] def completedTasks(failedAreCompleted: Boolean): Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks(failedAreCompleted=failedAreCompleted)
 
-  /** Logs a message for the given task. */
-  private def logTaskMessage(taskInfo: TaskExecutionInfo): Unit = {
-    val cores  = taskInfo.resources.cores.toString
-    val memory = taskInfo.resources.memory.prettyString
-    logger.info(s"'${taskInfo.task.name}' ${taskInfo.status} on attempt #${taskInfo.attemptIndex} with $cores cores and $memory memory")
-  }
+  def tasks: Traversable[Task] = this.taskToInfoBiMapFor.keys
 
   /** Replace the original task with the replacement task and update
    * any internal references.  This will terminate the task if it is running.
@@ -189,7 +158,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       case Some(taskId) =>
         val taskInfo = original.taskInfo
 
-        if (taskInfo.status == STARTED) {
+        if (taskInfo.status == Started) {
           // the task has been started, kill it
           terminateTask(taskId)
           processCompletedTask(taskId = taskId, doRetry = false)
@@ -237,21 +206,21 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   /** Updates the start and end date for a parent, if it exists */
   private def updateParentStartAndEndDates(node: GraphNode, info: Option[TaskExecutionInfo] = None): Unit = {
     // Set the start and end dates for the parent, if they exist
+    val taskInfo: TaskExecutionInfo = info.getOrElse(node.taskInfo)
     node.enclosingNode.foreach { parent =>
       taskExecutionInfoFor(parent).foreach { parentTaskInfo =>
-        val taskInfo: TaskExecutionInfo = info.getOrElse(node.taskInfo)
         if (compareOptionalInstants(parentTaskInfo.startDate, taskInfo.startDate) >= 0) {
           parentTaskInfo.startDate = taskInfo.startDate
         }
-        if (compareOptionalInstants(parentTaskInfo.endDate, taskInfo.endDate) <= 0) {
-          parentTaskInfo.endDate = taskInfo.endDate
+        if (parentTaskInfo.statusTime.compareTo(taskInfo.statusTime) <= 0) {
+          parentTaskInfo.update(parentTaskInfo.status, taskInfo.statusTime)
         }
       }
     }
   }
 
   /** Sets the state of the node to completed, and updates the start and end date of any parent */
-  private def completeGraphNode(node: GraphNode,  info: Option[TaskExecutionInfo] = None): Unit = {
+  private def completeGraphNode(node: GraphNode, info: Option[TaskExecutionInfo] = None): Unit = {
     updateParentStartAndEndDates(node, info)
     node.state = GraphNodeState.COMPLETED
   }
@@ -264,8 +233,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private[execsystem] def processCompletedTask(taskId: TaskId, doRetry: Boolean = true): Unit = {
     val node      = this(taskId)
     val taskInfo  = node.taskInfo
-    logTaskMessage(taskInfo=taskInfo)
-    val updateNodeToCompleted: Boolean = if (TaskStatus.isTaskFailed(taskStatus = taskInfo.status) && doRetry) {
+    this.logger.info(taskInfo.infoString)
+    val updateNodeToCompleted: Boolean = if (TaskStatus.failed(taskStatus = taskInfo.status) && doRetry) {
       val retryTask = taskInfo.task match {
         case retry: Retry => retry.retry(this.getTaskManagerResources, taskInfo)
         case _ => false
@@ -273,10 +242,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       if (retryTask) {
         // retry it
         logger.debug("task [" + taskInfo.task.name + "] is being retried")
-        node.state = NO_PREDECESSORS
-        taskInfo.attemptIndex += 1
-        taskInfo.script  = scriptPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attemptIndex)
-        taskInfo.logFile = logPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attemptIndex)
+        node.state        = NO_PREDECESSORS
+        taskInfo.attempts += 1
+        taskInfo.script   = Some(scriptPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts))
+        taskInfo.log      = Some(logPathFor(task=taskInfo.task, taskId=taskInfo.taskId, attemptIndex=taskInfo.attempts))
         false // do not update the node to completed
       }
       else {
@@ -289,7 +258,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     }
     if (updateNodeToCompleted) {
       logger.debug("processCompletedTask: Task [" + taskInfo.task.name + "] updating node to completed")
-      if (TaskStatus.isTaskNotDone(taskInfo.status, failedIsDone = true)) {
+      if (TaskStatus.notDone(taskInfo.status, failedIsDone = true)) {
         throw new RuntimeException("Processing a completed task but it was not done!")
       }
       completeGraphNode(node, Some(taskInfo))
@@ -335,7 +304,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   /**  Remove predecessors in the execution graph for any completed predecessor.
     *
     *  For each execution node in our graph, find those with predecessors.  For each predecessor, remove it if that
-    *  task has completed.  For tasks that are not [[UnitTask]], we can immediately set them to [[SUCCEEDED]] since
+    *  task has completed.  For tasks that are not [[UnitTask]], we can immediately set them to [[SucceededExecution]] since
     *  they do not actually perform a task, but simply generate a list of tasks themselves.  Otherwise, set the task
     *  to have no predecessors: [[NO_PREDECESSORS]].  If we find the former case, we need to perform this procedure again,
     *  since some tasks go strait to succeeded and we may have successor tasks (children) that can now execute.
@@ -343,7 +312,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private def updatePredecessors(): Unit = {
     var hasMore = false
     for (node <- graphNodesWithPredecessors) {
-      node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED && TaskStatus.isTaskDone(p.taskInfo.status, failedIsDone=false)).map(p => node.removePredecessor(p))
+      node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED && TaskStatus.done(p.taskInfo.status, failedIsDone=false)).map(p => node.removePredecessor(p))
       logger.debug("runSchedulerOnce: examining task [" + node.task.name + "] for predecessors: " + node.hasPredecessor)
       // - if this node has already been expanded and now has no predecessors, then move it to the next state.
       // - if it hasn't been expanded and now has no predecessors, it should get expanded later
@@ -353,7 +322,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
           case task: UnitTask => node.state = NO_PREDECESSORS
           case _ =>
             completeGraphNode(node)
-            taskInfo.status = TaskStatus.SUCCEEDED
+            taskInfo.status = TaskStatus.SucceededExecution
             hasMore = true // try again for all successors, since we have more nodes that have completed
         }
         logger.debug(s"updatePredecessors: task [${node.task.name}] now has node state [${node.state}] and status [${taskInfo.status}]")
@@ -379,7 +348,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private def invokeGetTasks(node: GraphNode): Boolean = {
 
     // get the list of tasks that this task generates
-    val tasks = try { node.task.getTasks.toList } catch { case e: Exception => throw new TaskException(e, TaskStatus.FAILED_GET_TASKS) }
+    val tasks = try { node.task.make().toList } catch { case e: Exception => throw new TaskException(e, TaskStatus.FailedGetTasks) }
 
     // NB: we don't create a new node for this task if it just returns itself
     // NB: always check for cycles, since we don't know when they could be introduced.  We will check
@@ -426,7 +395,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         // its [[getTasks]] method have completed, so set it to have only predecessors in that case.
         if (node.hasPredecessor) {
           node.state = GraphNodeState.ONLY_PREDECESSORS
-          taskInfo.status = TaskStatus.STARTED
+          taskInfo.status = TaskStatus.Started
         }
         else { // must have predecessors, since `getTasks` did not return itself, and therefore we made this task dependent on others.
           throw new IllegalStateException(
@@ -459,7 +428,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
           completeGraphNode(node, Some(taskInfo))
           taskInfo.status = e match {
             case ex: TaskException => ex.status
-            case _ => FAILED_GET_TASKS
+            case _ => FailedGetTasks
           }
           logger.exception(e, s"Failed getTasks for [${node.task.name}]: ")
       }
@@ -476,22 +445,24 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private def scheduleAndRunTasks(tasksToSchedule: Map[UnitTask, ResourceSet]): Unit = {
     // schedule them and update the node status
     for ((task, taskResourceSet) <- tasksToSchedule) {
-      val taskInfo = task.taskInfo
+      val taskInfo = task.execsystemTaskInfo
       val node     = this(taskInfo.taskId)
-      taskInfo.resources = taskResourceSet // update the resource set that was used when scheduling the task
       if (taskExecutionRunner.runTask(taskInfo, simulate)) {
         node.state = RUNNING
-        logTaskMessage( taskInfo=taskInfo)
       }
       else {
         completeGraphNode(node, Some(taskInfo))
-        logTaskMessage(taskInfo=taskInfo)
       }
+      this.logger.info(taskInfo.infoString)
     }
   }
 
   /** Returns a map of running tasks and the resource set they were scheduled with. */
-  def runningTasksMap: Map[UnitTask, ResourceSet] = Map(taskExecutionRunner.runningTaskIds.toList.map(id => this(id).task).map(task => (task.asInstanceOf[UnitTask], task.taskInfo.resources)) : _*)
+  def runningTasksMap: Map[UnitTask, ResourceSet] = taskExecutionRunner.runningTaskIds
+    .toList
+    .map(id => this(id).task)
+    .map(task => task.asInstanceOf[UnitTask] -> task.taskInfo.resources.get)
+    .toMap
 
   protected[core] def readyTasksList: List[UnitTask] = graphNodesInStateFor(NO_PREDECESSORS).toList.map(node => node.task.asInstanceOf[UnitTask])
 
@@ -542,7 +513,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     )
   }
 
-  override def runToCompletion(failFast: Boolean): BiMap[Task, TaskExecutionInfo] = {
+  override def runToCompletion(): BiMap[Task, TaskExecutionInfo] = {
     var allDone = false
     while (!allDone) {
       val (readyTasks, tasksToSchedule, runningTasks, _) = stepExecution()
@@ -575,7 +546,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
         allDone = true
       }
-      else if (failFast && hasFailedTasks) {
+      else if (this.failFast && hasFailedTasks) {
         allDone = true
       }
     }
@@ -601,5 +572,16 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     }
 
     taskToInfoBiMapFor
+  }
+
+  override def _execute(task: Task): Int = {
+    // add the task
+    this.addTask(task)
+    // run to completion
+    this.runToCompletion()
+    // return those not done
+    this.taskToInfoBiMapFor.count { case (_, info) =>
+      TaskStatus.notDone(info.status, failedIsDone=false)
+    }
   }
 }

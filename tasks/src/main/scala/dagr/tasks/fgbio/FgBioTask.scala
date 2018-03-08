@@ -28,7 +28,7 @@ import java.nio.file.Path
 
 import com.fulcrumgenomics.commons.util.LogLevel
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.DagrDef.DirPath
 import dagr.tasks.JarTask

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) $year Fulcrum Genomics
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -66,7 +66,4 @@ object DagrDef {
 
   /** A String that represents the prefix or basename of a filename. */
   type FilenamePrefix = String
-
-  /** Implicit that will convert an Option[Dependable] to a Dependable when needed. */
-  implicit def optionDependableToDependable(maybe: Option[Dependable]): Dependable = EmptyDependable.optionDependableToDependable(maybe)
 }

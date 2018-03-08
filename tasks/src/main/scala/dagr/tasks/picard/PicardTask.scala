@@ -26,13 +26,12 @@ package dagr.tasks.picard
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.api.models.util.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
 import dagr.tasks.JarTask
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-
 import htsjdk.samtools.ValidationStringency
 
 object PicardTask {
