@@ -87,7 +87,7 @@ class IlluminaBasecallsToSam(basecallsDir: DirPath,
     buffer += "INCLUDE_NON_PF_READS=" + includeNonPfReads
     if (adapterPairs.isEmpty) buffer += "ADAPTERS_TO_CHECK=null"
     else adapterPairs.foreach(buffer += "ADAPTERS_TO_CHECK=" + _)
-    maxReadsInRamPerTile.foreach(n => "MAX_READS_IN_RAM_PER_TILE=" + n)
+    maxReadsInRamPerTile.foreach(n => buffer += "MAX_READS_IN_RAM_PER_TILE=" + n)
     tmpDir.foreach(tmp => buffer += "TMP_DIR=" + tmp)
   }
 }
