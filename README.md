@@ -2,7 +2,6 @@
 [![Coverage Status](https://codecov.io/github/fulcrumgenomics/dagr/coverage.svg?branch=master)](https://codecov.io/github/fulcrumgenomics/dagr?branch=master)
 [![Code Review](https://api.codacy.com/project/badge/grade/52e1d786d9784c7192fae2f8e853fa34)](https://www.codacy.com/app/contact_32/dagr)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.fulcrumgenomics/dagr_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.fulcrumgenomics/dagr_2.11)
-[![Dependency Status](https://www.versioneye.com/user/projects/56b2d2d593b95a003c714340/badge.svg)](https://www.versioneye.com/user/projects/56b2d2d593b95a003c714340#dialog_dependency_badge)
 [![Javadocs](http://javadoc.io/badge/com.fulcrumgenomics/dagr_2.12.svg)](http://javadoc.io/doc/com.fulcrumgenomics/dagr_2.12)
 [![License](http://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/fulcrumgenomics/dagr/blob/master/LICENSE)
 [![Language](http://img.shields.io/badge/language-scala-brightgreen.svg)](http://www.scala-lang.org/)
@@ -79,22 +78,22 @@ Tests may be run with ```sbt test```.
 
 ## Command line
 
-`java -jar target/scala-2.11/dagr-0.1.0-SNAPSHOT.jar` to see the full list of options.
+`java -jar target/scala-2.11/dagr-0.3.0-SNAPSHOT.jar` to see the full list of options.
 
 ## Include dagr in your project
 
 You can include the three sub-projects that make up dagr using:
 
 ```
-libraryDependencies += "com.fulcrumgenomics" %%  "dagr-core" % "0.1.0"
-libraryDependencies += "com.fulcrumgenomics" %%  "dagr-tasks" % "0.1.0"
-libraryDependencies += "com.fulcrumgenomics" %%  "dagr-pipelines" % "0.1.0"
+libraryDependencies += "com.fulcrumgenomics" %%  "dagr-core" % "0.3.0"
+libraryDependencies += "com.fulcrumgenomics" %%  "dagr-tasks" % "0.3.0"
+libraryDependencies += "com.fulcrumgenomics" %%  "dagr-pipelines" % "0.3.0"
 ```
 
 Or you can depend on the following which will pull in the three dependencies above:
 
 ```
-libraryDependencies += "com.fulcrumgenomics" %% "dagr" % "0.1.0",
+libraryDependencies += "com.fulcrumgenomics" %% "dagr" % "0.3.0",
 ```
 
 ## Roadmap
