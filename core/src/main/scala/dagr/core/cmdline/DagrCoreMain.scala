@@ -228,7 +228,8 @@ class DagrCoreMain extends LazyLogging {
         1
       case Sopt.CommandSuccess(cmd) =>
         unreachable("CommandSuccess should never be returned by parseCommandAndSubCommand.")
-      case Sopt.SubcommandSuccess(dagr, pipeline) =>
+      case Sopt.SubcommandSuccess(dagr, originalPipeline) =>
+        val pipeline = modifyPipeline(dagr, originalPipeline)
         val name = pipeline.getClass.getSimpleName
         try {
           dagr.configure(pipeline, Some(args.mkString(" ")))
@@ -248,6 +249,8 @@ class DagrCoreMain extends LazyLogging {
     exit
   }
 
+  protected def modifyPipeline(dagr: DagrCoreArgs, pipeline: Pipeline): Pipeline = pipeline
+
   /** Prints a line of useful information when a tool starts executing. */
   protected def printStartupLines(tool: String, args: Array[String]): Unit = {
     val version    = CommandLineProgramParserStrings.version(getClass, color=false).replace("Version: ", "")
@@ -266,7 +269,7 @@ class DagrCoreMain extends LazyLogging {
   }
 
   /** Loads the various dagr scripts and puts them on the classpath. */
-  private def loadScripts(args: Array[String]): Unit = {
+  protected def loadScripts(args: Array[String]): Unit = {
     val tokenizer = new ArgTokenizer(args, argFilePrefix=Some("@"))
     val collator = new ArgTokenCollator(tokenizer)
     collator.filter(_.isSuccess).foreach {
