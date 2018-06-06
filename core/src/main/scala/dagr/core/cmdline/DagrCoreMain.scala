@@ -114,9 +114,7 @@ class DagrCoreArgs(
   Configuration.initialize(this.config)
 
   /** Takes a series of things that return Option[T] and returns the first defined one or None if none are defined. */
-  private def pick[T](things : Option[T]*) : Option[T] = {
-    things.find(_.isDefined) getOrElse None
-  }
+  private def pick[T](things : Option[T]*) : Option[T] = things.find(_.isDefined).flatten
 
   /** Try to create a given directory, and if there is an exception, write the path since some exceptions can be obtuse */
   private def mkdir(dir: Path, use: String, errors: ListBuffer[String]): Unit = {
@@ -209,6 +207,8 @@ class DagrCoreArgs(
 class DagrCoreMain extends LazyLogging {
   protected def name: String = "dagr"
 
+  protected def pipelineTransformer: Pipeline => Pipeline = identity
+
   /** A main method that invokes System.exit with the exit code. */
   def makeItSoAndExit(args: Array[String]): Unit = System.exit(makeItSo(args))
 
@@ -226,7 +226,7 @@ class DagrCoreMain extends LazyLogging {
       case Sopt.Failure(usage) =>
         System.err.print(usage())
         1
-      case Sopt.CommandSuccess(cmd) =>
+      case Sopt.CommandSuccess(_) =>
         unreachable("CommandSuccess should never be returned by parseCommandAndSubCommand.")
       case Sopt.SubcommandSuccess(dagr, pipeline) =>
         val name = pipeline.getClass.getSimpleName
@@ -234,7 +234,7 @@ class DagrCoreMain extends LazyLogging {
           dagr.configure(pipeline, Some(args.mkString(" ")))
           val name = Configuration.commandLineName(this.name)
           printStartupLines(name, args)
-          val numFailed = dagr.execute(pipeline)
+          val numFailed = dagr.execute(pipelineTransformer(pipeline))
           printEndingLines(startTime, name, success = numFailed == 0)
           numFailed
         }
