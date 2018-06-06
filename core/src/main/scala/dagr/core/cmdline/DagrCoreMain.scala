@@ -114,9 +114,7 @@ class DagrCoreArgs(
   Configuration.initialize(this.config)
 
   /** Takes a series of things that return Option[T] and returns the first defined one or None if none are defined. */
-  private def pick[T](things : Option[T]*) : Option[T] = {
-    things.find(_.isDefined) getOrElse None
-  }
+  private def pick[T](things : Option[T]*) : Option[T] = things.find(_.isDefined).flatten
 
   /** Try to create a given directory, and if there is an exception, write the path since some exceptions can be obtuse */
   private def mkdir(dir: Path, use: String, errors: ListBuffer[String]): Unit = {
@@ -226,7 +224,7 @@ class DagrCoreMain extends LazyLogging {
       case Sopt.Failure(usage) =>
         System.err.print(usage())
         1
-      case Sopt.CommandSuccess(cmd) =>
+      case Sopt.CommandSuccess(_) =>
         unreachable("CommandSuccess should never be returned by parseCommandAndSubCommand.")
       case Sopt.SubcommandSuccess(dagr, pipeline) =>
         val name = pipeline.getClass.getSimpleName
@@ -234,7 +232,7 @@ class DagrCoreMain extends LazyLogging {
           dagr.configure(pipeline, Some(args.mkString(" ")))
           val name = Configuration.commandLineName(this.name)
           printStartupLines(name, args)
-          val numFailed = dagr.execute(pipeline)
+          val numFailed = dagr.execute(modifyPipeline(dagr, pipeline))
           printEndingLines(startTime, name, success = numFailed == 0)
           numFailed
         }
@@ -247,6 +245,8 @@ class DagrCoreMain extends LazyLogging {
 
     exit
   }
+
+  protected def modifyPipeline(dagr: DagrCoreArgs, pipeline: Pipeline): Pipeline = pipeline
 
   /** Prints a line of useful information when a tool starts executing. */
   protected def printStartupLines(tool: String, args: Array[String]): Unit = {
@@ -266,7 +266,7 @@ class DagrCoreMain extends LazyLogging {
   }
 
   /** Loads the various dagr scripts and puts them on the classpath. */
-  private def loadScripts(args: Array[String]): Unit = {
+  protected def loadScripts(args: Array[String]): Unit = {
     val tokenizer = new ArgTokenizer(args, argFilePrefix=Some("@"))
     val collator = new ArgTokenCollator(tokenizer)
     collator.filter(_.isSuccess).foreach {
