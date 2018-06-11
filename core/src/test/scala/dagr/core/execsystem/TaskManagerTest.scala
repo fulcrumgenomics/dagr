@@ -968,4 +968,36 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     innerPipelineInfo.endDate.get.compareTo(secondTaskInfo.endDate.get) should be <= 0
     outerPipelineInfo.endDate.get.compareTo(secondTaskInfo.endDate.get) should be <= 0
   }
+
+  private class ParentFailTask extends Task {
+    val child: Task = new ShellCommand("exit", "1")
+    override def getTasks: Traversable[_ <: Task] = Seq(child)
+  }
+
+  it should "mark a task as failed when one of its children fails" in {
+    val parent = new ParentFailTask()
+    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    taskManager.addTask(parent)
+    taskManager.runToCompletion(failFast=true)
+    Seq(parent.child, parent).foreach { task =>
+      val info : TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, task)
+      info.status shouldBe TaskStatus.FAILED_COMMAND
+    }
+  }
+
+  private class FailPipeline extends Pipeline {
+    val child: Task = new ShellCommand("exit", "1")
+    def build(): Unit = root ==> child
+  }
+
+  it should "mark a pipeline as failed when one of its children fails" in {
+    val pipeline = new FailPipeline()
+    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    taskManager.addTask(pipeline)
+    taskManager.runToCompletion(failFast=true)
+    Seq(pipeline.child, pipeline).foreach { task =>
+      val info : TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, task)
+      info.status shouldBe TaskStatus.FAILED_COMMAND
+    }
+  }
 }
