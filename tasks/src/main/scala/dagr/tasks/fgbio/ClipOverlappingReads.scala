@@ -29,6 +29,7 @@ import dagr.tasks.DagrDef.PathToBam
 
 import scala.collection.mutable.ListBuffer
 
+@deprecated("Use ClipBam instead", since="fgbio-0.5.0")
 class ClipOverlappingReads(val in: PathToBam,
                            val out: PathToBam,
                            val ref: PathToFasta,
