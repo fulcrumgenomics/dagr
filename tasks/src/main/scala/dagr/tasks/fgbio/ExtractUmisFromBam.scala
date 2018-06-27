@@ -48,7 +48,7 @@ class ExtractUmisFromBam(val in: PathToBam,
       buffer.append(readStructures: _*)
     }
     if (umiTags.nonEmpty) {
-      buffer.append("-b")
+      buffer.append("-t")
       buffer.append(umiTags: _*)
     }
     buffer.append("-a", annotateNames)
