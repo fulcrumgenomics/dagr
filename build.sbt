@@ -33,10 +33,10 @@ releaseProcess := Seq[ReleaseStep](
   setReleaseVersion,
   commitReleaseVersion,
   tagRelease,
-  ReleaseStep(action = Command.process("publishSigned", _)),
+  releaseStepCommand("publishSigned"),
   setNextVersion,
   commitNextVersion,
-  ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
+  releaseStepCommand("sonatypeReleaseAll"),
   pushChanges
 )
 
@@ -121,8 +121,8 @@ lazy val core = Project(id="dagr-core", base=file("core"))
   .settings(description := "Core methods and classes to execute tasks in dagr.")
   .settings(
     libraryDependencies ++= Seq(
-      "com.fulcrumgenomics" %%  "commons"           %  "0.4.0",
-      "com.fulcrumgenomics" %%  "sopt"              %  "0.4.0",
+      "com.fulcrumgenomics" %%  "commons"           %  "0.5.0",
+      "com.fulcrumgenomics" %%  "sopt"              %  "0.5.0",
       "com.github.dblock"   %   "oshi-core"         %  "3.3",
       "org.scala-lang"      %   "scala-reflect"     %  scalaVersion.value,
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
@@ -173,7 +173,6 @@ lazy val assemblySettings = Seq(
 )
 lazy val root = Project(id="dagr", base=file("."))
   .settings(commonSettings: _*)
-  .settings(unidocSettings: _*)
   .settings(assemblySettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
   .aggregate(core, tasks, pipelines)
