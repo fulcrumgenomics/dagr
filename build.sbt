@@ -49,21 +49,23 @@ assemblyJarName in assembly := "dagr-" + version.value + ".jar"
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Sonatype settings
 ////////////////////////////////////////////////////////////////////////////////////////////////
-publishMavenStyle := true
-publishTo := {
-  val nexus = "https://oss.sonatype.org/"
-  if (isSnapshot.value)
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  else
-    Some("releases"  at nexus + "service/local/staging/deploy/maven2")
-}
-publishArtifact in Test := false
-pomIncludeRepository := { _ => false }
-// For Travis CI - see http://www.cakesolutions.net/teamblogs/publishing-artefacts-to-oss-sonatype-nexus-using-sbt-and-travis-ci
-credentials ++= (for {
-  username <- Option(System.getenv().get("SONATYPE_USER"))
-  password <- Option(System.getenv().get("SONATYPE_PASS"))
-} yield Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", username, password)).toSeq
+lazy val sonatypeSettings = Seq(
+    publishMavenStyle := true,
+    publishTo := {
+      val nexus = "https://oss.sonatype.org/"
+      if (isSnapshot.value)
+        Some("snapshots" at nexus + "content/repositories/snapshots")
+      else
+        Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+    },
+    publishArtifact in Test := false,
+    pomIncludeRepository := { _ => false },
+    // For Travis CI - see http://www.cakesolutions.net/teamblogs/publishing-artefacts-to-oss-sonatype-nexus-using-sbt-and-travis-ci
+    credentials ++= (for {
+      username <- Option(System.getenv().get("SONATYPE_USER"))
+      password <- Option(System.getenv().get("SONATYPE_PASS"))
+    } yield Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", username, password)).toSeq
+)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Coverage settings: only count coverage of dagr.core
@@ -111,7 +113,7 @@ lazy val commonSettings = Seq(
   javaOptions in Test += "-Xmx1G",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit"),
   assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
-) ++ Defaults.coreDefaultSettings
+) ++ Defaults.coreDefaultSettings ++ sonatypeSettings
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // core project
@@ -175,6 +177,7 @@ lazy val root = Project(id="dagr", base=file("."))
   .settings(commonSettings: _*)
   .settings(assemblySettings: _*)
   .settings(description := "A tool to execute tasks in directed acyclic graphs.")
+  .settings(publishArtifact := false)
   .aggregate(core, tasks, pipelines)
   .dependsOn(core, tasks, pipelines)
 
