@@ -20,8 +20,9 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
-package dagr.core.execsystem
+package dagr.core.exec
 
 import oshi.SystemInfo
 import oshi.hardware.platform.mac.MacHardwareAbstractionLayer
@@ -95,7 +96,7 @@ object Resource {
   * @tparam R self-referential type required to make all the operators work nicely
   */
 sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit numeric :Numeric[T]) {
-  if (numeric.toDouble(value) <  0) {
+  if (numeric.toDouble(value) < 0) {
     throw new IllegalArgumentException(s"Cannot have negative resource. ${getClass.getSimpleName}=" + value)
   }
 
@@ -149,7 +150,6 @@ object Memory {
 
 /** A resource representing a number of cores (including partial cores). */
 case class Cores(override val value: Double) extends Resource[Double, Cores](value=value) {
-  if (value < 0) throw new IllegalArgumentException("Cannot have negative cores. Cores=" + value)
 
   /** Round the number of cores to the nearest integer value. */
   def toInt: Int = Math.round(value).toInt
@@ -162,4 +162,37 @@ object Cores {
   def apply(cores: Cores): Cores = new Cores(cores.value)
   val none = Cores(0.0)
   val infinite = Cores(Double.MaxValue) // Not really infinite, but close to it.
+}
+
+/** The resources needed for an execution system */
+object SystemResources {
+  /** Creates a new SystemResources that is a copy of an existing one. */
+  def apply(that: SystemResources): SystemResources = {
+    new SystemResources(cores = that.cores, systemMemory = that.systemMemory, jvmMemory = that.jvmMemory)
+  }
+
+  /** Creates a new SystemResources with the specified values. */
+  def apply(cores: Double, systemMemory: Long, jvmMemory: Long): SystemResources = {
+    new SystemResources(cores = Cores(cores), systemMemory = Memory(systemMemory), jvmMemory = Memory(jvmMemory))
+  }
+
+  /** Creates a new SystemResources with the cores provided and partitions the memory between system and JVM. */
+  def apply(cores: Option[Cores] = None, totalMemory: Option[Memory] = None) : SystemResources = {
+    val heapSize = Resource.heapSize
+
+    val (system, jvm) = totalMemory match {
+      case Some(memory) => (memory, heapSize)
+      case None         => (Resource.systemMemory - heapSize, heapSize)
+    }
+
+    require(system.bytes > 0, "System memory cannot be <= 0 bytes.")
+
+    new SystemResources(cores.getOrElse(Resource.systemCores), system, jvm)
+  }
+
+  val infinite: SystemResources = SystemResources(Double.MaxValue, Long.MaxValue, Long.MaxValue)
+}
+
+case class SystemResources(cores: Cores, systemMemory: Memory, jvmMemory: Memory) {
+  def systemResources: ResourceSet = ResourceSet(cores, systemMemory)
 }

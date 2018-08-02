@@ -26,9 +26,10 @@ package dagr.core.tasksystem
 
 import java.nio.file.Files
 
-import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.execsystem._
 import com.fulcrumgenomics.commons.io.Io
+import com.fulcrumgenomics.commons.util.LazyLogging
+import dagr.core.exec.{Memory, SystemResources}
+import dagr.core.tasksystem.Task.TaskInfo
 
 /** A trait to facilitate retry a task when it has failed. */
 trait Retry {
@@ -38,7 +39,7 @@ trait Retry {
     * @param taskInfo the task execution information for the task to be retried.
     * @return true if the task is to be retried, false otherwise.
     */
-  def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = false
+  def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = false
 }
 
 /**
@@ -54,7 +55,7 @@ trait MemoryRetry extends Retry with FixedResources {
   protected def useSystemMemory: Boolean = true
 
   /** Determines if this task ran out of memory, and if so, it will get the next memory value with which to be retried. */
-  protected def ranOutOfMemory(taskInfo: TaskExecutionInfo): Boolean = true
+  protected def ranOutOfMemory(taskInfo: TaskInfo): Boolean = true
 
   /** Tries to get the next memory value with which to run task.  It will enforce tha the task will not require more
     * memory than in the system.
@@ -62,18 +63,20 @@ trait MemoryRetry extends Retry with FixedResources {
     * @param taskInfo the task execution information for the task to be retried.
     * @return true if the task is to be retried, false otherwise.
     */
-  override final def retry(systemResources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
-    if (taskInfo.resources.memory != this.resources.memory) throw new IllegalStateException("Scheduled memory does not equal current memory")
-    if (ranOutOfMemory(taskInfo)) {
-      val maximumMemory = if (useSystemMemory) systemResources.systemMemory else systemResources.jvmMemory
-      nextMemory(this.resources.memory)
-        .filter { _ <= maximumMemory }
-        .map { memory => this.requires(this.resources.cores, memory) }
-        .isDefined
-    }
-    else {
-      false
-    }
+  override final def retry(systemResources: SystemResources, taskInfo: TaskInfo): Boolean = taskInfo.resources match {
+    case None => false
+    case Some(resources) =>
+      if (resources.memory != this.resources.memory) throw new IllegalStateException("Scheduled memory does not equal current memory")
+      if (ranOutOfMemory(taskInfo)) {
+        val maximumMemory = if (useSystemMemory) systemResources.systemMemory else systemResources.jvmMemory
+        nextMemory(this.resources.memory)
+          .filter { _ <= maximumMemory }
+          .map { memory => this.requires(this.resources.cores, memory) }
+          .isDefined
+      }
+      else {
+        false
+      }
   }
 }
 
@@ -112,9 +115,9 @@ trait MultipleRetry extends Retry with LazyLogging {
   /** returns the maximum number iterations to retry. */
   def maxNumIterations: Int
 
-  override def retry(resources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
-    logger.debug("maxNumIterations=" + maxNumIterations + " taskInfo.attemptIndex=" + taskInfo.attemptIndex)
-    taskInfo.attemptIndex <= maxNumIterations
+  override def retry(resources: SystemResources, taskInfo: TaskInfo): Boolean = {
+    logger.debug("maxNumIterations=" + maxNumIterations + " taskInfo.attemptIndex=" + taskInfo.attempts)
+    taskInfo.attempts <= maxNumIterations
   }
 }
 
@@ -123,8 +126,10 @@ trait JvmRanOutOfMemory extends MemoryRetry {
   /** A list of tokens that are looked for in the log file of a process by the default [[ranOutOfMemory]]. */
   def outOfMemoryTokens: List[String] =  List ("OutOfMemory", "you did not provide enough memory to run this program")
 
-  override protected[core] def ranOutOfMemory(taskInfo: TaskExecutionInfo): Boolean = {
-    Files.exists(taskInfo.logFile) &&
-      Io.readLines(taskInfo.logFile).exists(line => outOfMemoryTokens.exists(token => line.contains(token)))
+  override protected[core] def ranOutOfMemory(taskInfo: TaskInfo): Boolean = taskInfo.log match {
+    case None => false
+    case Some(log) =>
+      Files.exists(log) &&
+        Io.readLines(log).exists(line => outOfMemoryTokens.exists(token => line.contains(token)))
   }
 }

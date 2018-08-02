@@ -31,10 +31,10 @@ import com.fulcrumgenomics.commons.CommonsDef.yieldAndThen
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.core.cmdline.Pipelines
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.Pipes.PipeWithNoResources
 import dagr.core.tasksystem._
 import com.fulcrumgenomics.sopt.{arg, clp}
+import dagr.core.exec.{Cores, Memory, ResourceSet}
 import dagr.tasks.DagrDef._
 import dagr.tasks.DataTypes.Vcf
 import dagr.tasks.misc.DeleteFiles

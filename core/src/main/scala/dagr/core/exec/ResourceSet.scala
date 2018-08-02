@@ -20,14 +20,19 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
-package dagr.core.execsystem
+package dagr.core.exec
+
+import dagr.core.exec
 
 object ResourceSet {
   def apply(that: ResourceSet): ResourceSet = new ResourceSet(cores = Cores(that.cores.value), memory = Memory(that.memory.value))
   def apply(cores: Double, memory: Long): ResourceSet = new ResourceSet(Cores(cores), Memory(memory))
 
   val empty = ResourceSet(0, 0)
+  val Inf = ResourceSet(Double.MaxValue, Long.MaxValue)
+  @deprecated("use `Inf` instead", since="0.1.3")
   val infinite = ResourceSet(Double.MaxValue, Long.MaxValue)
 }
 
@@ -66,7 +71,7 @@ case class ResourceSet(cores: Cores = Cores.none, memory: Memory = Memory.none) 
   }
 
   /**
-    * Returns a [[dagr.core.execsystem.ResourceSet]] with the remaining resources after subtracting `other`
+    * Returns a [[exec.ResourceSet]] with the remaining resources after subtracting `other`
     * if doing so would not generate negative resources. Otherwise returns `None`.
     */
   def minusOption(other: ResourceSet) : Option[ResourceSet] = if (subsettable(other)) Some(this - other) else None

@@ -20,10 +20,12 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
-package dagr.core.execsystem
+package dagr.core.exec
 
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, UnitTask}
+import com.fulcrumgenomics.commons.CommonsDef.unreachable
 
 /** Simple scheduler that picks the task that uses the most memory, cores, then disk. */
 class NaiveScheduler extends Scheduler {
@@ -31,10 +33,10 @@ class NaiveScheduler extends Scheduler {
     * Takes the list of tasks that could be scheduled if their resource needs can be met and attempts
     * to schedule a single task for execution.
     */
-  private[execsystem] def scheduleOneTask(readyTasks: Traversable[UnitTask],
-                                          remainingSystemCores: Cores,
-                                          remainingSystemMemory: Memory,
-                                          remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
+  private[exec] def scheduleOneTask(readyTasks: Traversable[UnitTask],
+                                    remainingSystemCores: Cores,
+                                    remainingSystemMemory: Memory,
+                                    remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
     val systemResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingSystemMemory)
     val jvmResourceSet: ResourceSet = ResourceSet(remainingSystemCores, remainingJvmMemory)
     // Find the first task that can be executed
@@ -45,12 +47,12 @@ class NaiveScheduler extends Scheduler {
         case task: InJvmTask   => (task, task.pickResources(jvmResourceSet))
       }
       .find { // find the first that returned a resource set
-        case (_, Some(resourceSet)) => true
+        case (_, Some(_)) => true
         case _ => false
       }
       .map { // get the resource set
         case (task, Some(resourceSet)) => (task, resourceSet)
-        case _ => throw new IllegalStateException("BUG")
+        case _ => unreachable("Could not find a task to be executed")
       }
   }
 

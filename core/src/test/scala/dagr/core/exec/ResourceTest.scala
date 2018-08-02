@@ -20,9 +20,10 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 
-package dagr.core.execsystem
+package dagr.core.exec
 
 import dagr.core.UnitSpec
 
@@ -133,5 +134,9 @@ class ResourceTest extends UnitSpec {
     mem.prettyString shouldBe "2m"
     mem = Memory(1024.toLong * 2.toLong)
     mem.prettyString shouldBe "2k"
+  }
+
+  "Cores.apply" should "copy the value" in {
+    Cores(Cores(1.0)).value shouldBe 1.0
   }
 }

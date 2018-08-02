@@ -27,15 +27,15 @@ import java.io.File
 import java.nio.file.{Files, Path}
 import java.time.Duration
 
-import com.typesafe.config.{ConfigParseOptions, ConfigFactory, Config}
-import com.typesafe.config.ConfigException.Generic
 import com.fulcrumgenomics.commons.io.PathUtil._
 import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.execsystem.{Cores, Memory}
+import com.typesafe.config.ConfigException.Generic
+import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
+import dagr.core.exec.{Cores, Memory}
 
+import scala.collection.JavaConversions._
 import scala.collection.SortedSet
 import scala.reflect.runtime.universe.{TypeTag, typeOf}
-import collection.JavaConversions._
 
 /**
   * Companion object to the Configuration trait that keeps track of all configuration keys
@@ -223,11 +223,6 @@ private[config] trait ConfigurationLike extends LazyLogging {
     * PATH, splits it on the path separator and returns it as a Seq[String]
     */
   protected def systemPath : Seq[Path] = config.getString(Configuration.Keys.SystemPath).split(File.pathSeparatorChar).view.map(pathTo(_))
-
-  /** Removes various characters from the simple class name, for scala class names. */
-  private def sanitizeSimpleClassName(className: String): String = {
-    className.replaceFirst("[$].*$", "")
-  }
 
   /** Searches the system path for the executable and return the full path. */
   private def findInPath(executable: String) : Option[Path] = {

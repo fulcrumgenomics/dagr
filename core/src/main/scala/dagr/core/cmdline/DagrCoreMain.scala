@@ -23,25 +23,26 @@
  */
 package dagr.core.cmdline
 
-import java.io.{ByteArrayOutputStream, PrintStream, PrintWriter}
+import java.io.PrintWriter
 import java.net.InetAddress
 import java.nio.file.{Files, Path}
 import java.text.DecimalFormat
 
-import com.fulcrumgenomics.commons.CommonsDef.unreachable
+import com.fulcrumgenomics.commons.CommonsDef.{FilePath, unreachable}
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
-import com.fulcrumgenomics.sopt.Sopt.CommandSuccess
-import com.fulcrumgenomics.sopt.cmdline.{CommandLineParser, CommandLineProgramParserStrings, ValidationException}
-import com.fulcrumgenomics.sopt.parsing.{ArgOptionAndValues, ArgTokenCollator, ArgTokenizer, OptionParser}
+import com.fulcrumgenomics.sopt.cmdline.{CommandLineProgramParserStrings, ValidationException}
+import com.fulcrumgenomics.sopt.parsing.{ArgOptionAndValues, ArgTokenCollator, ArgTokenizer}
 import com.fulcrumgenomics.sopt.util.TermCode
-import com.fulcrumgenomics.sopt.{OptionName, Sopt, arg}
+import com.fulcrumgenomics.sopt.{Sopt, arg}
 import dagr.core.config.Configuration
-import dagr.core.execsystem._
+import dagr.core.exec._
+import dagr.core.reporting.{ExecutionLogger, Terminal, TopLikeStatusReporter}
 import dagr.core.tasksystem.Pipeline
 
 import scala.collection.mutable.ListBuffer
-import scala.util.{Failure, Success}
+import scala.concurrent.ExecutionContext
+import scala.util.Success
 
 object DagrCoreMain extends Configuration {
   /** The packages we wish to include in our command line **/
@@ -52,7 +53,9 @@ object DagrCoreMain extends Configuration {
 
   /** The main method */
   /** The main method */
-  def main(args: Array[String]): Unit = new DagrCoreMain().makeItSoAndExit(args)
+  def main(args: Array[String]): Unit = {
+    new DagrCoreMain().makeItSoAndExit(args)
+  }
 
   /** Provide a command line validation error message */
   private[cmdline] def buildErrorMessage(msgOption: Option[String] = None, exceptionOption: Option[Exception] = None): String = {
@@ -103,11 +106,15 @@ class DagrCoreArgs(
   @arg(doc = "Write an execution report to this file, otherwise write to the stdout")
   val report: Option[Path] = None,
   @arg(doc = "Provide an top-like interface for tasks with the give delay in seconds. This suppress info logging.")
-  var interactive: Boolean = false
+  var interactive: Boolean = false,
+  @arg(doc = "Use the experimental execution system.")
+  val experimentalExecution: Boolean = false,
+  @arg(doc = "Attempt to replay using the provided replay log")
+  val replayLog: Option[FilePath] = None
 ) extends LazyLogging {
 
   // These are not optional, but are only populated during configure()
-  private var taskManager : Option[TaskManager] = None
+  private var executor   : Option[Executor] = None
   private var reportPath  : Option[Path] = None
 
   // Initialize the configuration as early as possible
@@ -121,11 +128,11 @@ class DagrCoreArgs(
   /** Try to create a given directory, and if there is an exception, write the path since some exceptions can be obtuse */
   private def mkdir(dir: Path, use: String, errors: ListBuffer[String]): Unit = {
     try { Files.createDirectories(dir) }
-    catch { case e: Exception => errors += DagrCoreMain.buildErrorMessage(Some(s"Could not create the $use directory: $dir")) }
+    catch { case _: Exception => errors += DagrCoreMain.buildErrorMessage(Some(s"Could not create the $use directory: $dir")) }
   }
 
   // Invoked by DagrCommandLineParser after the pipeline has also been instantiated
-  private[cmdline] def configure(pipeline: Pipeline, commandLine: Option[String] = None) : Unit = {
+  private[cmdline] def configure(pipeline: Pipeline, commandLine: Option[String] = None)(implicit ex: ExecutionContext) : Unit = {
     try {
       val config = new Configuration { }
 
@@ -149,7 +156,14 @@ class DagrCoreArgs(
       this.reportPath.foreach(p => Io.assertCanWriteFile(p, parentMustExist=false))
 
       val resources = SystemResources(cores = cores.map(Cores(_)), totalMemory = memory.map(Memory(_)))
-      this.taskManager = Some(new TaskManager(taskManagerResources=resources, scriptsDirectory = scriptsDirectory, logDirectory = logDirectory))
+      this.executor = Some(
+        Executor(
+          experimentalExecution = experimentalExecution,
+          resources             = resources,
+          scriptsDirectory      = scriptsDirectory,
+          logDirectory          = logDirectory
+        )
+      )
 
       // Print all the arguments if desired.
       commandLine.foreach { line =>
@@ -168,52 +182,66 @@ class DagrCoreArgs(
     * Attempts to setup the various directories needed to executed the pipeline, execute it, and generate
     * an execution report.
     */
-  protected[cmdline] def execute(pipeline : Pipeline): Int = {
-    val taskMan = this.taskManager.getOrElse(throw new IllegalStateException("execute() called before configure()"))
-    val report  = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
+  protected[cmdline] def execute(pipeline : Pipeline)(implicit ex: ExecutionContext): Int = {
+    val report = this.reportPath.getOrElse(throw new IllegalStateException("execute() called before configure()"))
 
-    val interactiveReporter: Option[TopLikeStatusReporter] = interactive match {
-      case true if !Terminal.supportsAnsi =>
+    // Get the executor
+    val executor = this.executor.getOrElse(throw new IllegalStateException("Executor was not configured, did you all configure()"))
+
+    // Set up an interactive logger if desired and supported
+    if (this.interactive) {
+      if (Terminal.supportsAnsi) {
+        executor.withReporter(TopLikeStatusReporter(executor))
+      }
+      else {
         logger.warning("ANSI codes are not supported in your terminal.  Interactive mode will not be used.")
-        interactive = false
-        None
-      case true =>
-        val loggerOutputStream = new ByteArrayOutputStream()
-        val loggerPrintStream = new PrintStream(loggerOutputStream)
-        Logger.out = loggerPrintStream
-        Some(new TopLikeStatusReporter(taskMan, Some(loggerOutputStream), print = (s: String) => System.out.print(s)))
-      case false => None
+      }
     }
-    interactiveReporter.foreach(_.start())
 
-    taskMan.addTask(pipeline)
-    taskMan.runToCompletion(this.failFast)
+    // Set up the execution logger whose output can be used later for replay
+    {
+      val logName = "replay_log.csv"
+      val log = if (Seq(Io.StdOut, PathUtil.pathTo("/dev/stderr"), Io.DevNull).contains(report)) {
+        executor.logDir.resolve(logName)
+      }
+      else {
+        report.getParent.resolve(logName)
+      }
+      val executionLogger = new ExecutionLogger(log)
+      executor.withReporter(executionLogger)
+    }
+
+    // Set up the task cache (in case of replay)
+    this.replayLog.foreach { log =>
+      executor.withReporter(TaskCache(log))
+    }
+
+    // execute
+    val exitCode = executor.execute(pipeline)
 
     // Write out the execution report
     if (!interactive || Io.StdOut != report) {
       val pw = new PrintWriter(Io.toWriter(report))
-      taskMan.logReport({ str: String => pw.write(str + "\n") })
+      executor.logReport({ str: String => pw.write(str + "\n") })
       pw.close()
     }
 
-    interactiveReporter.foreach(_.shutdown())
-
-    // return an exit code based on the number of non-completed tasks
-    taskMan.taskToInfoBiMapFor.count { case (_, info) =>
-      TaskStatus.isTaskNotDone(info.status, failedIsDone=false)
-    }
+    exitCode
   }
-
 }
 
 class DagrCoreMain extends LazyLogging {
   protected def name: String = "dagr"
 
   /** A main method that invokes System.exit with the exit code. */
-  def makeItSoAndExit(args: Array[String]): Unit = System.exit(makeItSo(args))
+  def makeItSoAndExit(args: Array[String]): Unit = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    System.exit(makeItSo(args))
+  }
 
   /** A main method that returns an exit code instead of exiting. */
-  def makeItSo(args: Array[String], packageList: List[String] = DagrCoreMain.getPackageList, includeHidden: Boolean = false): Int = {
+  def makeItSo(args: Array[String], packageList: List[String] = DagrCoreMain.getPackageList, includeHidden: Boolean = false)
+              (implicit ex: ExecutionContext): Int = {
     // Initialize color options
     TermCode.printColor = DagrCoreMain.optionallyConfigure[Boolean](Configuration.Keys.ColorStatus).getOrElse(true)
 
@@ -226,7 +254,7 @@ class DagrCoreMain extends LazyLogging {
       case Sopt.Failure(usage) =>
         System.err.print(usage())
         1
-      case Sopt.CommandSuccess(cmd) =>
+      case Sopt.CommandSuccess(_) =>
         unreachable("CommandSuccess should never be returned by parseCommandAndSubCommand.")
       case Sopt.SubcommandSuccess(dagr, pipeline) =>
         val name = pipeline.getClass.getSimpleName

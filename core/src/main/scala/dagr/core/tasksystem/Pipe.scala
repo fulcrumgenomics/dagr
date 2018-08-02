@@ -26,8 +26,9 @@ package dagr.core.tasksystem
 import java.nio.file.Path
 
 import com.fulcrumgenomics.commons.io.Io
-import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import dagr.core.exec.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem.Pipes.{RedirectErrorToFile, RedirectToFile}
+import com.fulcrumgenomics.commons.CommonsDef.unreachable
 
 ///////////////////////////////////////////////////////////////////////////////
 // Section: General traits related to piping
@@ -123,8 +124,8 @@ object Pipes {
     * Must remain private and only be instantiated by [[Pipes.empty]].
     */
   private class EmptyPipe[T] extends Pipe[T,T] {
-    override def args: Seq[Any] = throw new IllegalStateException("Should not reach here.")
-    override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = throw new IllegalStateException("Should not reach here.")
+    override def args: Seq[Any] = unreachable("Should not reach here.")
+    override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = unreachable("Should not reach here.")
   }
 
   /**
@@ -132,7 +133,7 @@ object Pipes {
     */
   private[tasksystem] class RedirectToFile[In](val path: Path, val append: Boolean) extends PipeIn[In] with FixedResources {
     requires(Cores.none, Memory.none)
-    override def args: Seq[Any] = throw new IllegalStateException("Should not reach here.")
+    override def args: Seq[Any] = unreachable("Should not reach here.")
     /* Returns the appropriate redirect symbol for appending or overwriting. */
     def redirect: String = if (append) RedirectAppendString else RedirectOverwriteString
   }
@@ -142,7 +143,7 @@ object Pipes {
     */
   private[tasksystem] class RedirectErrorToFile[In,Out](val path: Path, val append: Boolean) extends Pipe[In,Out] with FixedResources {
     requires(Cores.none, Memory.none)
-    override def args: Seq[Any] = throw new IllegalStateException("Should not reach here.")
+    override def args: Seq[Any] = unreachable("Should not reach here.")
     /* Returns the appropriate redirect symbol for appending or overwriting. */
     def redirect: String = if (append) RedirectErrorAppendString else RedirectErrorOverwriteString
   }

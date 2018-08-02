@@ -25,7 +25,7 @@ package dagr.tasks
 
 import java.nio.file.Path
 
-import dagr.core.execsystem.Memory
+import dagr.core.exec.Memory
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer

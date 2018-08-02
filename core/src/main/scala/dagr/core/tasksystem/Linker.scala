@@ -23,7 +23,7 @@
  */
 package dagr.core.tasksystem
 
-import dagr.core.execsystem.{Memory, Cores}
+import dagr.core.exec.{Cores, Memory}
 
 /**
   * Object for creating linker tasks that transfer state between other tasks at

@@ -25,7 +25,7 @@
 package dagr.tasks.fgbio
 
 import com.fulcrumgenomics.commons.CommonsDef._
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.core.exec.{Cores, Memory}
 import dagr.core.tasksystem.Pipe
 import dagr.tasks.DataTypes.SamOrBam
 
