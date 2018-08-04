@@ -132,7 +132,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
                   logDirectory: Option[Path]                 = None,
                   scheduler: Scheduler                       = TaskManagerDefaults.defaultScheduler,
                   simulate: Boolean                          = false,
-                  sleepMilliseconds: Int                     = 1000
+                  sleepMilliseconds: Int                     = 250
 ) extends TaskManagerLike with TaskTracker with FinalStatusReporter with LazyLogging {
 
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
@@ -500,15 +500,18 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
     // get newly completed tasks
     val completedTasks = updateCompletedTasks()
+    val canDoAnything  = completedTasks.nonEmpty || taskExecutionRunner.runningTaskIds.isEmpty
 
-    // check if we now know about the predecessors for orphan tasks.
-    updateOrphans()
+    if (canDoAnything) {
+      // check if we now know about the predecessors for orphan tasks.
+      updateOrphans()
 
-    // remove predecessors (dependencies) since some tasks may now be completed
-    updatePredecessors()
+      // remove predecessors (dependencies) since some tasks may now be completed
+      updatePredecessors()
 
-    // expand all tasks that no longer have dependencies
-    invokeCallbacksAndGetTasks()
+      // expand all tasks that no longer have dependencies
+      invokeCallbacksAndGetTasks()
+    }
 
     // get the running tasks to estimate currently used resources
     val runningTasks: Map[UnitTask, ResourceSet] = runningTasksMap
@@ -518,17 +521,22 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     logger.debug("runSchedulerOnce: found " + readyTasks.size + " readyTasks tasks")
 
     // get the list of tasks to schedule
-    val tasksToSchedule: Map[UnitTask, ResourceSet] = scheduler.schedule(
-      runningTasks = runningTasks,
-      readyTasks   = readyTasks,
-      systemCores  = taskManagerResources.cores,
-      systemMemory = taskManagerResources.systemMemory,
-      jvmMemory    = taskManagerResources.jvmMemory
-    )
-    logger.debug("runSchedulerOnce: scheduling " + tasksToSchedule.size + " tasks")
+    val tasksToSchedule: Map[UnitTask, ResourceSet] = if (!canDoAnything) Map.empty else {
+      val tasks = scheduler.schedule(
+        runningTasks = runningTasks,
+        readyTasks   = readyTasks,
+        systemCores  = taskManagerResources.cores,
+        systemMemory = taskManagerResources.systemMemory,
+        jvmMemory    = taskManagerResources.jvmMemory
+      )
 
-    // add the given tasks to the task runner with the appropriate (as determined by the scheduler) resources.
-    scheduleAndRunTasks(tasksToSchedule = tasksToSchedule)
+      logger.debug("runSchedulerOnce: scheduling " + tasks.size + " tasks")
+
+      // add the given tasks to the task runner with the appropriate (as determined by the scheduler) resources.
+      scheduleAndRunTasks(tasksToSchedule = tasks)
+
+      tasks
+    }
 
     // for debugging purposes
     logger.debug("runSchedulerOnce: finishing one round of execution")
