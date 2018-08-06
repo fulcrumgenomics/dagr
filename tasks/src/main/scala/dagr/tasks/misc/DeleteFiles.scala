@@ -37,6 +37,7 @@ import DagrDef.FilePath
   */
 class DeleteFiles(val paths: FilePath*) extends SimpleInJvmTask {
   withName("Delete_" + paths.size + "_Files")
+  requires(cores=0.1, memory="4m")
 
   override def run(): Unit = paths.foreach(delete)
 
