@@ -30,4 +30,6 @@ import dagr.core.tasksystem.ShellCommand
 /**
   * Uses the shell to move a file or directory from one path to another
   */
-class MoveFile(val from: Path, val to: Path) extends ShellCommand("mv", from.toString, to.toString)
+class MoveFile(val from: Path, val to: Path) extends ShellCommand("mv", from.toString, to.toString) {
+  requires(cores=0.1, memory="4m")
+}

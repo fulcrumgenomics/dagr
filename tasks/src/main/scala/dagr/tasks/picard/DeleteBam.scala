@@ -36,6 +36,7 @@ import scala.collection.mutable.ListBuffer
   */
 class DeleteBam(val bam: Path*) extends SimpleInJvmTask {
   name = if (bam.length == 1) "DeleteBam." + PathUtil.basename(bam.head) else s"Delete${bam.length}Bams"
+  requires(cores=0.1, memory="4m")
 
   override def run(): Unit = {
     val paths = ListBuffer[Path](bam:_*)

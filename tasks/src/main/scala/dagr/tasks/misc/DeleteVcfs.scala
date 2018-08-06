@@ -35,6 +35,7 @@ import DagrDef.PathToVcf
   */
 class DeleteVcfs(val vcfs:PathToVcf*) extends SimpleInJvmTask {
   name = "DeleteVcfs"
+  requires(cores=0.1, memory="4m")
 
   override def run(): Unit = {
     vcfs.foreach(vcf => {
