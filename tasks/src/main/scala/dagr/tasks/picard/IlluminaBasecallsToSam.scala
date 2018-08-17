@@ -43,6 +43,7 @@ class IlluminaBasecallsToSam(basecallsDir: DirPath,
                              runDate: Option[Iso8601Date] = None,
                              sequencingCenter: Option[String] = None,
                              includeNonPfReads: Boolean = false,
+                             ignoreUnexpectedBarcodes: Boolean = false,
                              minThreads: Int = 4,
                              maxThreads: Int = 16,
                              adapterPairs: Seq[IlluminaAdapterPair] = Seq(
@@ -85,6 +86,7 @@ class IlluminaBasecallsToSam(basecallsDir: DirPath,
     buffer += "READ_STRUCTURE=" + readStructure.toString
     buffer += "LIBRARY_PARAMS=" + libraryParamsFile
     buffer += "INCLUDE_NON_PF_READS=" + includeNonPfReads
+    if (ignoreUnexpectedBarcodes) buffer += "IGNORE_UNEXPECTED_BARCODES=true"
     if (adapterPairs.isEmpty) buffer += "ADAPTERS_TO_CHECK=null"
     else adapterPairs.foreach(buffer += "ADAPTERS_TO_CHECK=" + _)
     maxReadsInRamPerTile.foreach(n => buffer += "MAX_READS_IN_RAM_PER_TILE=" + n)
