@@ -140,6 +140,7 @@ class VarDictJavaEndToEnd
  @arg(flag='t', doc="The minimum # of threads with which to run.") minThreads: Int = 1,
  @arg(flag='T', doc="The maximum # of threads with which to run.") maxThreads: Int = 32,
  @arg(flag='a', doc="Output all sites, including reference calls.") allSites: Boolean = false,
+ @arg(flag='A', doc="Output all variants at the same position.") allVariants: Boolean = false,
  @arg(flag='N', doc="Count Ns in te total depth calculation") countNsInTotalDepth: Boolean = false) extends Pipeline {
   import VarDictJava.BinDir
 
@@ -172,7 +173,11 @@ class VarDictJavaEndToEnd
     )
     val removeRefEqAltRows = if (allSites) Pipes.empty[Any] else new ShellCommand("awk", "{if ($6 != $7) print}") with PipeWithNoResources[Any,Any]
     val bias               = new ShellCommand(biasScript.toString) with PipeWithNoResources[Any,Any]
-    val toVcf              = new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with PipeWithNoResources[Any,Vcf]
+    val toVcf              = if (allVariants) {
+      new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString, "-A") with PipeWithNoResources[Any,Vcf]
+    } else {
+      new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with PipeWithNoResources[Any,Vcf]
+    }
     val sortVcf            = new SortVcf(in=tmpVcf, out=out, dict=Some(dict))
 
     root ==> (vardict | removeRefEqAltRows | bias | toVcf > tmpVcf).withName("VarDictJava") ==> sortVcf ==> new DeleteFiles(tmpVcf)
