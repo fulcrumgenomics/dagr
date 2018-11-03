@@ -24,6 +24,7 @@
 
 package dagr.tasks.fgbio
 
+import dagr.core.tasksystem.{JvmRanOutOfMemory, MemoryDoublingRetry}
 import dagr.tasks.DagrDef.{PathPrefix, PathToBam, PathToFasta, PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer
@@ -36,7 +37,7 @@ case class ErrorRateByReadPosition(in: PathToBam,
                                    includeDuplicates: Option[Boolean] = None,
                                    minMappingQuality: Option[Int] = None,
                                    minBaseQuality: Option[Int] = None
-                             ) extends FgBioTask {
+                             ) extends FgBioTask with MemoryDoublingRetry with JvmRanOutOfMemory {
 
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
