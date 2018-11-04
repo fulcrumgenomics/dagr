@@ -30,6 +30,8 @@ import com.fulcrumgenomics.commons.collection._
 import dagr.core.{TestTags, UnitSpec}
 import org.scalatest._
 
+import scala.collection.mutable.ListBuffer
+
 object TaskManagerTest {
 
   trait TryThreeTimesTask extends MultipleRetry {
@@ -967,5 +969,54 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     // - both pipelines should have end dates of task two
     innerPipelineInfo.endDate.get.compareTo(secondTaskInfo.endDate.get) should be <= 0
     outerPipelineInfo.endDate.get.compareTo(secondTaskInfo.endDate.get) should be <= 0
+  }
+
+  private class ParentFailTask extends Task {
+    val child: Task = new ShellCommand("exit", "1")
+    override def getTasks: Traversable[_ <: Task] = Seq(child)
+  }
+
+  it should "mark a task as failed when one of its children fails" in {
+    val parent = new ParentFailTask()
+    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    taskManager.addTask(parent)
+    taskManager.runToCompletion(failFast=true)
+    Seq(parent.child, parent).foreach { task =>
+      val info : TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, task)
+      info.status shouldBe TaskStatus.FAILED_COMMAND
+    }
+  }
+
+  private class FailPipeline(val child: Task = new ShellCommand("exit", "1")) extends Pipeline {
+    def build(): Unit = root ==> child
+  }
+
+  it should "mark a pipeline as failed when one of its children fails" in {
+    val pipeline = new FailPipeline()
+    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    taskManager.addTask(pipeline)
+    taskManager.runToCompletion(failFast=true)
+    Seq(pipeline.child, pipeline).foreach { task =>
+      val info : TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, task)
+      info.status shouldBe TaskStatus.FAILED_COMMAND
+    }
+  }
+
+  it should "propagate failures back to parent tasks" in {
+    val leaf: Task = new ShellCommand("exit", "1") withName "Leaf"
+    val tasks = ListBuffer[Task]()
+    tasks += leaf
+    val root: Task = Range.inclusive(1, 10).foldLeft(leaf) { case (child, index) =>
+      val pipeline = new FailPipeline(child=child) withName s"Fail.$index"
+      tasks += pipeline
+      pipeline
+    }
+    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    taskManager.addTask(root)
+    taskManager.runToCompletion(failFast=true)
+    tasks.foreach { task =>
+      val info : TaskExecutionInfo = getAndTestTaskExecutionInfo(taskManager, task)
+      info.status shouldBe TaskStatus.FAILED_COMMAND
+    }
   }
 }

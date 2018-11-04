@@ -234,17 +234,28 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     case _ => 0
   }
 
-  /** Updates the start and end date for a parent, if it exists */
+  /** Updates the start and end date for a parent, if it exists.  If the task failed, then also set the parent status
+    * to failed */
   private def updateParentStartAndEndDates(node: GraphNode, info: Option[TaskExecutionInfo] = None): Unit = {
     // Set the start and end dates for the parent, if they exist
     node.enclosingNode.foreach { parent =>
+      logger.info(s"updateParentStartAndEndDates: updating parent [${parent.task.name}]")
       taskExecutionInfoFor(parent).foreach { parentTaskInfo =>
         val taskInfo: TaskExecutionInfo = info.getOrElse(node.taskInfo)
+        // start date
         if (compareOptionalInstants(parentTaskInfo.startDate, taskInfo.startDate) >= 0) {
           parentTaskInfo.startDate = taskInfo.startDate
         }
+        // end date
         if (compareOptionalInstants(parentTaskInfo.endDate, taskInfo.endDate) <= 0) {
           parentTaskInfo.endDate = taskInfo.endDate
+        }
+        // status if the child task failed
+        if (TaskStatus.isTaskFailed(taskInfo.status) && !TaskStatus.isTaskFailed(parentTaskInfo.status)) {
+          assert(parentTaskInfo.status == TaskStatus.STARTED)
+          parentTaskInfo.status = taskInfo.status
+          // Update the parent's parent(s), if any
+          updateParentStartAndEndDates(node=parent, info=Some(parentTaskInfo))
         }
       }
     }
@@ -344,13 +355,13 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     var hasMore = false
     for (node <- graphNodesWithPredecessors) {
       node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED && TaskStatus.isTaskDone(p.taskInfo.status, failedIsDone=false)).map(p => node.removePredecessor(p))
-      logger.debug("runSchedulerOnce: examining task [" + node.task.name + "] for predecessors: " + node.hasPredecessor)
+      logger.debug("updatePredecessors: examining task [" + node.task.name + "] for predecessors: " + node.hasPredecessor)
       // - if this node has already been expanded and now has no predecessors, then move it to the next state.
       // - if it hasn't been expanded and now has no predecessors, it should get expanded later
       if (!node.hasPredecessor && node.state == ONLY_PREDECESSORS) {
         val taskInfo = node.taskInfo
         node.task match {
-          case task: UnitTask => node.state = NO_PREDECESSORS
+          case _: UnitTask => node.state = NO_PREDECESSORS
           case _ =>
             completeGraphNode(node)
             taskInfo.status = TaskStatus.SUCCEEDED
@@ -392,7 +403,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         checkForCycles(task = node.task)
         // verify we have a UnitTask
         node.task match {
-          case task: UnitTask =>
+          case _: UnitTask =>
           case _ => throw new RuntimeException(s"Task was not a UnitTask!")
         }
         false
