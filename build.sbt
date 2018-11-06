@@ -123,8 +123,8 @@ lazy val core = Project(id="dagr-core", base=file("core"))
   .settings(description := "Core methods and classes to execute tasks in dagr.")
   .settings(
     libraryDependencies ++= Seq(
-      "com.fulcrumgenomics" %%  "commons"           %  "0.5.0",
-      "com.fulcrumgenomics" %%  "sopt"              %  "0.5.0",
+      "com.fulcrumgenomics" %%  "commons"           %  "0.6.1",
+      "com.fulcrumgenomics" %%  "sopt"              %  "0.6.1",
       "com.github.dblock"   %   "oshi-core"         %  "3.3",
       "org.scala-lang"      %   "scala-reflect"     %  scalaVersion.value,
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
@@ -150,8 +150,8 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "com.github.samtools"       % "htsjdk"     % "2.8.1" excludeAll(htsjdkAndPicardExcludes: _*),
-      "com.github.broadinstitute" % "picard"     % "2.8.1" excludeAll(htsjdkAndPicardExcludes: _*)
+      "com.github.samtools"       % "htsjdk"     % "2.16.1" excludeAll(htsjdkAndPicardExcludes: _*),
+      "com.github.broadinstitute" % "picard"     % "2.18.16" excludeAll(htsjdkAndPicardExcludes: _*)
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
