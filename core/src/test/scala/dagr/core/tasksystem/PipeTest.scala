@@ -160,6 +160,25 @@ class PipeTest extends UnitSpec {
     val pipe3 = Cat("foo.txt") | MakeCsv() | CsvToTsv() | BgZip() // subtype: Tsv
   }
 
+  it should "allow the use of Option[Pipe]" in {
+    val pipe1: Pipe[Void, Types.Csv]  = Cat("foo.txt") | MakeCsv()
+    val pipe2: Pipe[Void, Types.Text] = Cat("foo.txt") | Option(MakeCsv())
+    val pipe3: Pipe[Void, Types.Text] = Cat("foo.txt") | None
+    val pipe4: Pipe[Void, Types.Text] = Cat("foo.txt") | MakeCsv() | Column()
+    val pipe5: Pipe[Void, Types.Csv]  = Cat("foo.txt") | MakeCsv() | None
+    val pipe6: Pipe[Void, Types.Text] = Cat("foo.txt") | Option(MakeCsv()) | Column()
+    val pipe7: Pipe[Void, Types.Text] = Cat("foo.txt") | None | Column()
+
+    // The following are invalid
+    """val pipe8: Pipe[Void, Types.Csv]  = Cat("foo.txt") | MakeCsv() | Some(Column())""" shouldNot compile
+
+    def maybeWithCsv(maybeCsv: Option[Pipe[Types.Text, Types.Csv]]): Pipe[Void, Types.Text] = {
+      Cat("foo.txt") | maybeCsv
+    }
+    val pipe8: Pipe[Void, Types.Text] = maybeWithCsv(None)
+    val pipe9: Pipe[Void, Types.Text] = maybeWithCsv(Option(MakeCsv()))
+  }
+
   "EmptyPipe" should "explode if its arg or pickResources methods are ever called" in {
     an[IllegalStateException] shouldBe thrownBy {Pipes.empty[Any].args }
     an[IllegalStateException] shouldBe thrownBy {Pipes.empty[Any].pickResources(ResourceSet.infinite) }
