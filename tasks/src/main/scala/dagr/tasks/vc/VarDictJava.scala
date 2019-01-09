@@ -241,6 +241,6 @@ class VarDictJavaEndToEnd
 
     val sortVcf = new SortVcf(in = tmpVcf, out = out, dict = Some(dict))
 
-    root ==> (vardict | removeRefEqAltRows | bias | var2vcfvalid > tmpVcf).withName("VarDictJavaEndToEnd") ==> sortVcf ==> new DeleteFiles(tmpVcf)
+    root ==> (vardict | removeRefEqAltRows | bias | var2vcfvalid > tmpVcf).withName("VarDictJavaPipeChain") ==> sortVcf ==> new DeleteFiles(tmpVcf)
   }
 }
