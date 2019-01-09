@@ -36,18 +36,17 @@ import dagr.core.tasksystem.Pipes.PipeWithNoResources
 import dagr.core.tasksystem._
 import com.fulcrumgenomics.sopt.{arg, clp}
 import dagr.tasks.DagrDef._
-import dagr.tasks.DataTypes.Vcf
 import dagr.tasks.misc.DeleteFiles
-import dagr.tasks.picard.{IntervalListToBed, SortVcf}
+import dagr.tasks.picard.SortVcf
 import htsjdk.samtools.SamReaderFactory
 
 import scala.collection.mutable.ListBuffer
 
 /**
   * The VarDictJava directory structure is assumed to be as follows:
-  *   - Root directory: /path/to/git/VarDictJava
-  *   - Perl scripts:   /path/to/git/VarDictJava/VarDict
-  *   - Startup script: /path/to/git/VarDictJava/build/install/VarDict/bin/VarDict
+  *   - Root directory:    /path/to/git/VarDictJava
+  *   - VarDict Submodule: /path/to/git/VarDictJava/VarDict
+  *   - Startup script:    /path/to/git/VarDictJava/build/install/VarDict/bin/VarDict
   */
 object VarDictJava extends Configuration {
   /** Config key for the VarDictJava directory.  This should be the root project directory. */
@@ -59,11 +58,17 @@ object VarDictJava extends Configuration {
   /** Path to the VarDictJava install directory with the VarDictJava startup script. */
   val VarDictJava = RootDir.resolve("build/install/VarDict/bin/VarDict")
 
-  /** Path to the VarDictJava bin directory with a multitude of perl scripts. */
+  /** Path to the VarDict submodule with a multitude of perl and R scripts. */
   val BinDir = RootDir.resolve("VarDict")
 
+  /** Path to the teststrandbias.R script in the VarDict submodule. */
+  val TestStrandBias = BinDir.resolve("teststrandbias.R")
+
+  /** Path to the var2vcf_valid.pl script in the VarDict submodule. */
+  val Var2VcfValid = BinDir.resolve("var2vcf_valid.pl")
+
   /** Pulls a sample name out of a BAM file. */
-  private[vc] def extractSampleName(bam: PathToBam) : String = {
+  private[vc] def extractSampleName(bam: PathToBam): String = {
     val in = SamReaderFactory.make().open(bam)
     yieldAndThen(in.getFileHeader.getReadGroups.iterator().next().getSample) { in.close() }
   }
@@ -92,7 +97,7 @@ private class VarDictJava(tumorBam: PathToBam,
   }
 
   override def args: Seq[Any] = {
-    val buffer   = new ListBuffer[Any]()
+    val buffer = new ListBuffer[Any]()
     buffer.appendAll(List(VarDictJava.VarDictJava, "-G", ref, "-N", tumorName, "-b", tumorBam))
     if (pileupMode) buffer.append("-p")
     buffer.append("-z", "1") // Set to 1 since we are using a BED as input
@@ -108,6 +113,49 @@ private class VarDictJava(tumorBam: PathToBam,
     if (countNsInTotalDepth) buffer.append("-K") // count Ns in the total depth ("DP" field)
     buffer.append("-th", resources.cores.toInt) // The number of threads.
     buffer.append(bed)
+
+    buffer
+  }
+}
+
+/** Converts VarDictJava tabular output to valid VCF output. */
+private class Var2VcfValid(sampleName: String,
+                           includeNonPfVariants: Boolean = false,
+                           allVariants: Boolean = true,
+                           maximumDistanceToRemoveHighQualitySnvPairs: Option[Int] = None,
+                           maximumNonMonomerMsi: Option[Int] = None,
+                           maximumMeanMismatches: Option[Double] = None,
+                           minimumMeanVariantPositionInReads: Option[Double] = None,
+                           minimumMeanBaseQuality: Option[Double] = None,
+                           minimumMappingQuality: Option[Double] = None,
+                           minimumDepth: Option[Int] = None,
+                           minimumHighQualityAltDepth: Option[Int] = None,
+                           minimumAf: Double = 0.01,
+                           minimumSignalToNoiseRatio: Option[Double] = None,
+                           minimumHomozygousAlleleFreq: Option[Double] = None,
+                           printEndTag: Boolean = false,
+                           minimumSplitReadsForSv: Option[Int] = None
+                          ) extends ProcessTask with PipeWithNoResources[Any, Any] {
+  name = "Var2VcfValid"
+
+  override def args: Seq[Any] = {
+    val buffer = new ListBuffer[Any]()
+    buffer.appendAll(List(VarDictJava.Var2VcfValid, "-N", sampleName))
+    if (!includeNonPfVariants) buffer.append("-S") // If set, variants that did not pass filters will not be present.
+    if (allVariants) buffer.append("-A") // Output all variants at the same position, default outputs only the highest AF variant.
+    maximumDistanceToRemoveHighQualitySnvPairs.foreach(buffer.append("-c", _)) // If two seemingly high quality SNV variants are within {int}bp, they're both filtered.
+    maximumNonMonomerMsi.foreach(buffer.append("-I", _)) // The maximum non-monomer MSI allowed for a HT variant with AF < 0.5.
+    maximumMeanMismatches.foreach(buffer.append("-m", _)) // Maximum mean mismatches per read allowed, does not include indels.
+    minimumMeanVariantPositionInReads.foreach(buffer.append("-p", _)) // The minimum mean position of variants in the read.
+    minimumMeanBaseQuality.foreach(buffer.append("-q", _)) // The minimum mean base quality.
+    minimumMappingQuality.foreach(buffer.append("-Q", _)) // The minimum mapping quality.
+    minimumDepth.foreach(buffer.append("-d", _)) // The minimum total read depth.
+    minimumHighQualityAltDepth.foreach(buffer.append("-v", _)) // The minimum high quality variant depth.
+    buffer.append("-f", minimumAf) // The minimum allele frequency.
+    minimumSignalToNoiseRatio.foreach(buffer.append("-o", _)) // The minimum signal to noise, or the ratio of hi/(lo+0.5).
+    minimumHomozygousAlleleFreq.foreach(buffer.append("-F", _)) // The minimum allele frequency to consider a variant as homozygous.
+    if (!printEndTag) buffer.append("-E") // If set, do not print END tag.
+    minimumSplitReadsForSv.foreach(buffer.append("-T", _)) // The minimum number of split reads for an SV call.
 
     buffer
   }
@@ -133,27 +181,30 @@ class VarDictJavaEndToEnd
  @arg(flag='n', doc="The tumor sample name, otherwise taken from the first read group in the BAM.") tumorName: Option[String] = None,
  @arg(flag='f', doc="The minimum allele frequency.") minimumAf: Double = 0.01,
  @arg(flag='p', doc="Include non-pf reads.") includeNonPf: Boolean = false,
- @arg(flag='m', doc="The minimum base quality to use.") minimumQuality: Option[Int] = None,
- @arg(flag='M', doc="he maximum # of mismatches (not indels).") maximumMismatches: Option[Int] = None,
+ @arg(flag='S', doc="Include non-pf calls.") includeNonPfVariants: Boolean = true,
+ @arg(flag='m', doc="The minimum base quality for a read to support a call.") minimumQuality: Option[Int] = None,
+ @arg(flag='M', doc="The maximum # of mismatches a read may have to support a call (not indels).") maximumMismatches: Option[Int] = None,
+ @arg(flag='s', doc="The maximum mean # of mismatches per read for a call (not indels).") maximumMeanMismatches: Option[Double] = None,
  @arg(flag='R', doc="The minimum # of reads with alternate bases.") minimumAltReads: Option[Int] = None,
+ @arg(flag='x', doc="The minimum mean position in reads for a call.") minimumMeanVariantPositionInReads: Option[Double] = None,
+ @arg(flag='q', doc="The minimum mean base quality for a call.") minimumMeanBaseQuality: Option[Double] = None,
+ @arg(flag='d', doc="The minimum total read depth for a call.") minimumDepth: Option[Int] = None,
+ @arg(flag='v', doc="The minimum # of high quality alternate alleles for a call.") minimumHighQualityAltDepth: Option[Int] = None,
  @arg(flag='P', doc="Use the pileup mode (emit all sites with an alternate).") pileupMode: Boolean = false,
  @arg(flag='t', doc="The minimum # of threads with which to run.") minThreads: Int = 1,
  @arg(flag='T', doc="The maximum # of threads with which to run.") maxThreads: Int = 32,
  @arg(flag='a', doc="Output all sites, including reference calls.") allSites: Boolean = false,
- @arg(flag='A', doc="Output all variants at the same position.") allVariants: Boolean = false,
- @arg(flag='N', doc="Count Ns in te total depth calculation") countNsInTotalDepth: Boolean = false) extends Pipeline {
-  import VarDictJava.BinDir
-
-  // Put these here so that they'll error at construction if missing
-  private val biasScript = BinDir.resolve("teststrandbias.R")
-  private val vcfScript  = BinDir.resolve("var2vcf_valid.pl")
+ @arg(flag='A', doc="Output all variants at the same genomic site.") allVariants: Boolean = false,
+ @arg(flag='N', doc="Count No-calls (Ns) in the total depth tag (DP)") countNsInTotalDepth: Boolean = false) extends Pipeline {
 
   if (allSites) require(pileupMode, "pileup-mode is required when all-sites is used")
 
   def build(): Unit = {
-    val tn = tumorName.getOrElse(VarDictJava.extractSampleName(bam=tumorBam))
+    val tn = tumorName.getOrElse(VarDictJava.extractSampleName(bam = tumorBam))
     val dict = PathUtil.replaceExtension(ref, ".dict")
-    def f(ext: String): Path = Io.makeTempFile("vardict.", ext, dir= if (out == Io.StdOut) None else Some(out.getParent))
+
+    def f(ext: String): Path = Io.makeTempFile("vardict.", ext, dir = if (out == Io.StdOut) None else Some(out.getParent))
+
     val tmpVcf = f(".vcf")
 
     val vardict = new VarDictJava(
@@ -171,15 +222,25 @@ class VarDictJavaEndToEnd
       minThreads          = minThreads,
       maxThreads          = maxThreads
     )
-    val removeRefEqAltRows = if (allSites) Pipes.empty[Any] else new ShellCommand("awk", "{if ($6 != $7) print}") with PipeWithNoResources[Any,Any]
-    val bias               = new ShellCommand(biasScript.toString) with PipeWithNoResources[Any,Any]
-    val toVcf              = if (allVariants) {
-      new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString, "-A") with PipeWithNoResources[Any,Vcf]
-    } else {
-      new ShellCommand(vcfScript.toString, "-N", tn, "-E", "-f", minimumAf.toString) with PipeWithNoResources[Any,Vcf]
-    }
-    val sortVcf            = new SortVcf(in=tmpVcf, out=out, dict=Some(dict))
 
-    root ==> (vardict | removeRefEqAltRows | bias | toVcf > tmpVcf).withName("VarDictJava") ==> sortVcf ==> new DeleteFiles(tmpVcf)
+    val removeRefEqAltRows = if (allSites) Pipes.empty[Any] else new ShellCommand("awk", "{if ($6 != $7) print}") with PipeWithNoResources[Any, Any]
+    val bias = new ShellCommand(VarDictJava.TestStrandBias.toString) with PipeWithNoResources[Any, Any]
+
+    val var2vcfvalid = new Var2VcfValid(
+      sampleName                        = tn,
+      includeNonPfVariants              = includeNonPfVariants,
+      allVariants                       = allVariants,
+      maximumMeanMismatches             = maximumMeanMismatches,
+      minimumMeanVariantPositionInReads = minimumMeanVariantPositionInReads,
+      minimumMeanBaseQuality            = minimumMeanBaseQuality,
+      minimumDepth                      = minimumDepth,
+      minimumHighQualityAltDepth        = minimumHighQualityAltDepth,
+      minimumAf                         = minimumAf,
+      printEndTag                       = false
+    )
+
+    val sortVcf = new SortVcf(in = tmpVcf, out = out, dict = Some(dict))
+
+    root ==> (vardict | removeRefEqAltRows | bias | var2vcfvalid > tmpVcf).withName("VarDictJavaPipeChain") ==> sortVcf ==> new DeleteFiles(tmpVcf)
   }
 }
