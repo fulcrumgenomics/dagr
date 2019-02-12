@@ -54,6 +54,8 @@ class IlluminaBasecallsToSam(basecallsDir: DirPath,
                              ),
                              barcodesDir: Option[DirPath] = None,
                              maxReadsInRamPerTile: Option[Int] = Some(500000),
+                             firstTile: Option[Int] = None,
+                             tileLimit: Option[Int] = None,
                              tmpDir: Option[DirPath] = None
                             ) extends PicardTask with VariableResources with JvmRanOutOfMemory {
 
@@ -90,6 +92,8 @@ class IlluminaBasecallsToSam(basecallsDir: DirPath,
     if (adapterPairs.isEmpty) buffer += "ADAPTERS_TO_CHECK=null"
     else adapterPairs.foreach(buffer += "ADAPTERS_TO_CHECK=" + _)
     maxReadsInRamPerTile.foreach(n => buffer += "MAX_READS_IN_RAM_PER_TILE=" + n)
+    firstTile.foreach(buffer += "FIRST_TILE=" + _) // If set, this is the first tile to be processed (used for debugging).
+    tileLimit.foreach(buffer += "TILE_LIMIT=" + _) // If set, process no more than this many tiles (used for debugging).
     tmpDir.foreach(tmp => buffer += "TMP_DIR=" + tmp)
   }
 }
