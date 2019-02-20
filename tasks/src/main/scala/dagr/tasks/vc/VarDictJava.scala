@@ -353,8 +353,8 @@ class VarDictJavaEndToEnd
 
     val testAndStreamToVcf = normalBam match {
       case None =>
-        val somatic = new ShellCommand(VarDictJava.TestSomatic.toString) with PipeWithNoResources[Text, Text]
-        val toVcf   = new Var2VcfValid(
+        val bias         = new ShellCommand(VarDictJava.TestStrandBias.toString) with PipeWithNoResources[Text, Text]
+        val var2VcfValid = new Var2VcfValid(
           sampleName                        = tName,
           includeNonPfVariants              = includeNonPfVariants,
           allVariants                       = allVariants,
@@ -366,11 +366,11 @@ class VarDictJavaEndToEnd
           minimumAf                         = minimumAf,
           printEndTag                       = false
         )
-        (somatic | toVcf)
+        (bias | var2VcfValid)
       case Some(_normalBam) =>
-        val nName = normalName.getOrElse(VarDictJava.extractSampleName(bam = _normalBam))
-        val bias  = new ShellCommand(VarDictJava.TestStrandBias.toString) with PipeWithNoResources[Text, Text]
-        val toVcf = new Var2VcfPaired(
+        val nName         = normalName.getOrElse(VarDictJava.extractSampleName(bam = _normalBam))
+        val somatic       = new ShellCommand(VarDictJava.TestSomatic.toString) with PipeWithNoResources[Text, Text]
+        val var2VcfPaired = new Var2VcfPaired(
           tumorName                         = tName,
           normalName                        = nName,
           includeNonPfVariants              = includeNonPfVariants,
@@ -382,7 +382,7 @@ class VarDictJavaEndToEnd
           minimumHighQualityAltDepth        = minimumHighQualityAltDepth,
           minimumAf                         = minimumAf
         )
-        (bias | toVcf)
+        (somatic | var2VcfPaired)
     }
 
     val sortVcf = new SortVcf(in = tmpVcf, out = out, dict = Some(dict))
