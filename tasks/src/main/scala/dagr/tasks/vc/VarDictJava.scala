@@ -261,33 +261,13 @@ private class Var2VcfValid(sampleName: String,
       |
       |`VarDictJava` performance scales linearly to sequencing depth, making it suitable for high coverage calling.
       |
-      |## The `VarDictJava` Workflow:
+      |See the `VarDictJava` documentation for more information:
       |
-      |1. Subset variant calling to the regions of interest provided in `bed`.
-      |2. For each segment in the interval file:
-      |    1. Find all variants:
-      |        - Skip non-passing filter reads.
-      |        - Skip unmapped reads.
-      |        - Skip a read if it does not overlap with the segment.
-      |        - Pre-process the CIGAR string (see https://github.com/AstraZeneca-NGS/VarDictJava#cigar-preprocessing-initial-realignment)
-      |        - For each non-matching position in the alignment, support an existing variant, or create a new variant.
-      |    2. Find structural variants.
-      |    3. Realign some of the variants using information about previously detected structural variation.
-      |    4. Calculate statistics for each variant.
-      |    5. Assign a type to each variant.
-      |    6. Output variants into an intermediate tabular format (`.var`) (see https://github.com/AstraZeneca-NGS/VarDictJava#output-columns)
-      |3. Perform a statistical test:
-      |    - For tumor-only calling, strand bias is tested.
-      |    - For tumor-normal calling, somatic candidacy is tested.
-      |4. Transform the intermediate tabular format to valid VCF output.
+      |  - https://github.com/AstraZeneca-NGS/VarDictJava
       |
       |## Sample Names
       |
       |The output sample names will be inferred from the first read group in the corresponding input BAM if not provided.
-      |
-      |See the `VarDictJava` documentation for more information:
-      |
-      |  - https://github.com/AstraZeneca-NGS/VarDictJava
     """",
   group = classOf[Pipelines]
 )
