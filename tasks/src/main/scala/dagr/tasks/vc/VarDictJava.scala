@@ -95,7 +95,7 @@ object VarDictJava extends Configuration {
     yieldAndThen(in.getFileHeader.getReadGroups.iterator().next().getSample) { in.close() }
   }
 
-  /** Validate that a string does not contain the `VarDictJava` tumor-normal separator character. */
+  /** Validate that a string does not contain the `VarDictJava` tumor-normal separator. */
   private[vc] def validateSeparatorNotIn(s: String, name: String, sep: String = TumorNormalSeparator): Unit = {
     require(!s.contains(sep), s"$name must not contain '$sep': $s")
   }
@@ -118,7 +118,6 @@ private class VarDictJava(tumorBam: PathToBam,
                           maxThreads: Int = VarDictJava.MaximumThreads,
                           memory: Memory = VarDictJava.DefaultMemory
                          ) extends ProcessTask with VariableResources with PipeOut[Text] {
-  name = "VarDictJava"
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
     resources.subset(minCores = Cores(minThreads), maxCores = Cores(maxThreads), memory = memory)
@@ -180,7 +179,6 @@ private class Var2VcfPaired(tumorName: String,
                             minimumSignalToNoiseRatio: Option[Double] = None,
                             minimumHomozygousAlleleFreq: Option[Double] = None
                            ) extends ProcessTask with PipeWithNoResources[Text, Vcf] {
-  name = "Var2VcfPaired"
 
   /** Format the two sample names into one argument by joining on the default separator. */
   private def sampleNames: String = {
@@ -233,7 +231,6 @@ private class Var2VcfValid(sampleName: String,
                            printEndTag: Boolean = false,
                            minimumSplitReadsForSv: Option[Int] = None
                           ) extends ProcessTask with PipeWithNoResources[Text, Vcf] {
-  name = "Var2VcfValid"
 
   override def args: Seq[Any] = {
     val buffer = new ListBuffer[Any]()
