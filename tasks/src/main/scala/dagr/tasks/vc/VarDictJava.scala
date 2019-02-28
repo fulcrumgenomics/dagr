@@ -126,8 +126,8 @@ private class VarDictJava(tumorBam: PathToBam,
   /** Format tumor/normal BAM paths into one argument by joining on the default separator. Defaults to the tumor BAM path. */
   private def maybeJoinTumorNormalPaths(tumorBam: PathToBam, normalBam: Option[PathToBam]): String = {
     VarDictJava.validateSeparatorNotIn(tumorBam.toString, name = "Tumor BAM")
-
     normalBam.foreach(bam => VarDictJava.validateSeparatorNotIn(bam.toString, name = "Normal BAM"))
+
     normalBam match {
       case None             => tumorBam.toString
       case Some(_normalBam) => Seq(tumorBam, _normalBam).mkString(VarDictJava.TumorNormalSeparator)
