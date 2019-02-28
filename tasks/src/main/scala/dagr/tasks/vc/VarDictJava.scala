@@ -94,6 +94,11 @@ object VarDictJava extends Configuration {
     val in = SamReaderFactory.make().open(bam)
     yieldAndThen(in.getFileHeader.getReadGroups.iterator().next().getSample) { in.close() }
   }
+
+  /** Validate that a string does not contain the `VarDictJava` tumor-normal separator character. */
+  private[vc] def validateSeparatorNotIn(s: String, name: String, sep: String = TumorNormalSeparator): Unit = {
+    require(!s.contains(sep), s"$name must not contain '$sep': $s")
+  }
 }
 
 /** Runs VarDictJava to produce its intermediate tabular format. */
@@ -121,9 +126,12 @@ private class VarDictJava(tumorBam: PathToBam,
 
   /** Format tumor/normal BAM paths into one argument by joining on the default separator. Defaults to the tumor BAM path. */
   private def maybeJoinTumorNormalPaths(tumorBam: PathToBam, normalBam: Option[PathToBam]): String = {
+    VarDictJava.validateSeparatorNotIn(tumorBam.toString, name = "Tumor BAM")
+
+    normalBam.foreach(bam => VarDictJava.validateSeparatorNotIn(bam.toString, name = "Normal BAM"))
     normalBam match {
       case None             => tumorBam.toString
-      case Some(_normalBam) => Seq(tumorBam.toString, _normalBam.toString).mkString(VarDictJava.TumorNormalSeparator)
+      case Some(_normalBam) => Seq(tumorBam, _normalBam).mkString(VarDictJava.TumorNormalSeparator)
     }
   }
   
@@ -176,6 +184,9 @@ private class Var2VcfPaired(tumorName: String,
 
   /** Format the two sample names into one argument by joining on the default separator. */
   private def sampleNames: String = {
+    VarDictJava.validateSeparatorNotIn(tumorName, name = "Tumor name")
+    VarDictJava.validateSeparatorNotIn(normalName, name = "Normal name")
+
     Seq(tumorName, normalName).mkString(VarDictJava.TumorNormalSeparator)
   }
 
