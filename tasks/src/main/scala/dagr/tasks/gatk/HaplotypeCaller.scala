@@ -52,9 +52,7 @@ class HaplotypeCaller(ref: PathToFasta,
     buffer.append("-variant_index_parameter", "128000")
     buffer.append("-variant_index_type", "LINEAR")
     buffer.append("--emitRefConfidence", "GVCF")
-
     ploidy.foreach(p => buffer.append("--sample_ploidy", p))
-
     buffer.append("--max_alternate_alleles", maxAlternateAlleles)
     maxReadsInRegionPerSample.foreach(n => buffer.append("--maxReadsInRegionPerSample", n))
     minReadsPerAlignmentStart.foreach(n => buffer.append("--minReadsPerAlignmentStart", n))
