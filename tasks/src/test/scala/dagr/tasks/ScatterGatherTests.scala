@@ -116,34 +116,67 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     sum2 shouldBe lengths.map(x => x*x).sum
   }
 
+  private case class Sample(name: String, library: String, lane: Option[Int])
+
+  private trait SampleTask extends SimpleInJvmTask {
+    var _sample: Option[Sample] = None
+    def sample: Sample = _sample.get
+    def sample_=(s: Sample): Unit = _sample = Some(s)
+  }
+
+  private case class ToSample(input: Path) extends SampleTask {
+    def run(): Unit = {
+      val lines = Io.readLines(input).toSeq
+      require(lines.length == 1, s"Could not parse input: '$input'")
+      sample = lines.head.split(' ') match {
+        case Array(sampleName, library, lane) => Sample(sampleName, library, Some(lane.toInt))
+        case _ => throw new IllegalArgumentException(s"Could not parse line: '${lines.head}'")
+      }
+    }
+  }
+
+  private case class MergeLibraries(libraries: Seq[Sample]) extends SampleTask {
+    def run(): Unit = {
+      require(libraries.map(l => (l.name, l.library)).distinct.length == 1) // same name+lib
+      require(libraries.flatMap(_.lane).distinct.length == libraries.length) // different lanes
+      val library = libraries.map(_.library).mkString(":")
+      sample = libraries.head.copy(library=library, lane=None)
+    }
+  }
+
+  private case class CountLibraries(samples: Seq[Sample], output: Path) extends SimpleInJvmTask  {
+    def run(): Unit = Io.writeLines(output, Seq(samples.map(s => (s.name, s.library)).distinct.length.toString))
+  }
+
+  private case class CountSamples(samples: Seq[Sample], output: Path) extends SimpleInJvmTask  {
+    def run(): Unit = Io.writeLines(output, Seq(samples.map(_.name).distinct.length.toString))
+  }
+
   it should "run a scatter-gather pipeline with a group-by" in {
-    val lines = Seq("one", "one two", "one two three", "one two three four", "one two three four five")
-    val lengths = Seq(1,2,3,4,5)
+    val lines = Seq("1_A 2_A 1", "1_A 2_A 2", "1_A 2_B 1", "1_B 2_A 1", "1_B 2_B 1")
 
     // setup the input and output
     val input = tmp()
-    val sumOfCounts  = tmp()
-    val sumOfSquares = tmp()
+    val libCounts = tmp()
+    val sampleCounts = tmp()
+    val mergedLibCounts = tmp()
+    val mergedSampleCounts = tmp()
 
     Io.writeLines(input, lines)
 
     val pipeline = new Pipeline() {
       override def build(): Unit = {
-        // Returns true if the path contains an even number of lines, false otherwise
-        def f(path: Path): Boolean = Io.readLines(path).length % 2 == 0
+        // split by line, then map to [[Sample]], then group by sample+library, then merge libraries
+        val scatter       = Scatter(SplitByLine(input))
+        val samples       = scatter.map { path => ToSample(path) }
+        val mergedSamples = samples.groupBy(s => (s.sample.name, s.sample.library))
+            .map { case (_, libraries: Seq[ToSample]) => MergeLibraries(libraries.map(_.sample)) }
 
-        // Returns a path to the concatenated input files
-        def g(even: Boolean, paths: Seq[Path]): Concat = {
-          Concat(paths, tmp())
-        }
-
-        val scatter = Scatter(SplitByLine(input=input))
-        val grouper = scatter.groupBy(f, g)
-        val counts = grouper.map(p => CountWords(input=p.output, output=tmp()))
-        counts.gather(cs => SumNumbers(inputs=cs.map(_.output), output=sumOfCounts))
-
-        val squares = counts.map(c => SquareNumbers(input=c.output, output=tmp()))
-        squares.gather(ss => SumNumbers(ss.map(_.output), output=sumOfSquares))
+        // gather counts
+        samples.gather(toSamples => CountLibraries(toSamples.map(_.sample), libCounts))
+        samples.gather(toSamples => CountSamples(toSamples.map(_.sample), sampleCounts))
+        mergedSamples.gather(toSamples => CountLibraries(toSamples.map(_.sample), mergedLibCounts))
+        mergedSamples.gather(toSamples => CountSamples(toSamples.map(_.sample), mergedSampleCounts))
 
         root ==> scatter
       }
@@ -153,10 +186,14 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     taskManager.addTask(pipeline)
     taskManager.runToCompletion(true)
 
-    val sum1 = Io.readLines(sumOfCounts).next().toInt
-    val sum2 = Io.readLines(sumOfSquares).next().toInt
+    val libs          = Io.readLines(libCounts).next().toInt
+    val samples       = Io.readLines(sampleCounts).next().toInt
+    val mergedLibs    = Io.readLines(mergedLibCounts).next().toInt
+    val mergedSamples = Io.readLines(mergedSampleCounts).next().toInt
 
-    sum1 shouldBe lengths.sum
-    sum2 shouldBe lengths.map(x => x*x).sum
+    libs shouldBe 4 // (1_A 2_A), (1_A 2_B), (1_B 2_A), and (1_B 2_B)
+    samples shouldBe 2 // 1_A and 2_B
+    mergedLibs shouldBe 4 // (1_A 2_A:2_A), (1_A 2_B), (1_B 2_A), and (1_B 2_B)
+    mergedSamples shouldBe 2 // 1_A and 2_B
   }
 }
