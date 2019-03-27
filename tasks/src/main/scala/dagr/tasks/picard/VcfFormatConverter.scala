@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2018 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,8 +27,7 @@ import dagr.tasks.DagrDef.PathToVcf
 
 import scala.collection.mutable.ListBuffer
 
-class VcfFormatConverter(val in: PathToVcf, val out: PathToVcf, val requireIndex: Boolean = true)
-  extends PicardTask {
+class VcfFormatConverter(val in: PathToVcf, val out: PathToVcf, val requireIndex: Boolean = true) extends PicardTask {
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in) // The BCF or VCF input file.
