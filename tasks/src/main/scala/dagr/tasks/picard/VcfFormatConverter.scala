@@ -27,11 +27,11 @@ import dagr.tasks.DagrDef.PathToVcf
 
 import scala.collection.mutable.ListBuffer
 
-class VcfFormatConverter(val in: PathToVcf, val out: PathToVcf, val requireIndex: Boolean = true) extends PicardTask {
+class VcfFormatConverter(val in: PathToVcf, val out: PathToVcf) extends PicardTask {
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in) // The BCF or VCF input file.
     buffer.append("O=" + out) // The BCF or VCF output file name.
-    buffer.append("REQUIRE_INDEX=" + requireIndex) // Fail if an index is not available for the input VCF/BCF.
+    buffer.append("REQUIRE_INDEX=false") // Fail if an index is not available for the input VCF/BCF.
   }
 }
