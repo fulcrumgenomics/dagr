@@ -78,10 +78,14 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     def run(): Unit = Io.writeLines(output, Seq(inputs.flatMap(Io.readLines).map(_.toInt).sum.toString))
   }
 
-  val lines = Seq("one", "one two", "one two three", "one two three four", "one two three four five")
-  val lengths = Seq(1,2,3,4,5)
+  private case class Concat(inputs: Seq[Path], output: Path) extends SimpleInJvmTask {
+    def run(): Unit = Io.writeLines(output, inputs.flatMap(Io.readLines))
+  }
 
   "ScatterGather" should "run a simple scatter-gather pipeline on files" in {
+    val lines = Seq("one", "one two", "one two three", "one two three four", "one two three four five")
+    val lengths = Seq(1,2,3,4,5)
+
     // setup the input and output
     val input = tmp()
     val sumOfCounts  = tmp()
@@ -90,8 +94,52 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val pipeline = new Pipeline() {
       override def build(): Unit = {
-        val scatter = Scatter(new SplitByLine(input=input))
+        val scatter = Scatter(SplitByLine(input=input))
         val counts = scatter.map(p => CountWords(input=p, output=tmp()))
+        counts.gather(cs => SumNumbers(inputs=cs.map(_.output), output=sumOfCounts))
+
+        val squares = counts.map(c => SquareNumbers(input=c.output, output=tmp()))
+        squares.gather(ss => SumNumbers(ss.map(_.output), output=sumOfSquares))
+
+        root ==> scatter
+      }
+    }
+
+    val taskManager = buildTaskManager
+    taskManager.addTask(pipeline)
+    taskManager.runToCompletion(true)
+
+    val sum1 = Io.readLines(sumOfCounts).next().toInt
+    val sum2 = Io.readLines(sumOfSquares).next().toInt
+
+    sum1 shouldBe lengths.sum
+    sum2 shouldBe lengths.map(x => x*x).sum
+  }
+
+  it should "run a scatter-gather pipeline with a group-by" in {
+    val lines = Seq("one", "one two", "one two three", "one two three four", "one two three four five")
+    val lengths = Seq(1,2,3,4,5)
+
+    // setup the input and output
+    val input = tmp()
+    val sumOfCounts  = tmp()
+    val sumOfSquares = tmp()
+
+    Io.writeLines(input, lines)
+
+    val pipeline = new Pipeline() {
+      override def build(): Unit = {
+        // Returns true if the path contains an even number of lines, false otherwise
+        def f(path: Path): Boolean = Io.readLines(path).length % 2 == 0
+
+        // Returns a path to the concatenated input files
+        def g(even: Boolean, paths: Seq[Path]): Concat = {
+          Concat(paths, tmp())
+        }
+
+        val scatter = Scatter(SplitByLine(input=input))
+        val grouper = scatter.groupBy(f, g)
+        val counts = grouper.map(p => CountWords(input=p.output, output=tmp()))
         counts.gather(cs => SumNumbers(inputs=cs.map(_.output), output=sumOfCounts))
 
         val squares = counts.map(c => SquareNumbers(input=c.output, output=tmp()))

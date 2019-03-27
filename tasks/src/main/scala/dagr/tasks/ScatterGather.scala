@@ -54,8 +54,8 @@ object ScatterGather {
    */
   sealed trait Scatter[A] extends Task {
     /**
-     * Produces a new Scatter from the existing scatter. Takes a function that maps an individual
-     * object of type A to a Task of type B.  During scatter/gather operation this function will
+     * Produces a new [[Scatter]] from the existing scatter. Takes a function that maps an individual
+     * object of type A to a [[Task]] of type B.  During scatter/gather operation this function will
      * be invoked with each A, to manufacture tasks of type B.
      *
      * The resulting Scatter[B] can be further mapped or gathered (or both!).
@@ -63,10 +63,19 @@ object ScatterGather {
     def map[B <: Task](f: A => B) : Scatter[B]
 
     /**
-     * Produces a Gather object which will be used at runtime to manufacture a Task of type B
+     * Produces a [[Gather]] object which will be used at runtime to manufacture a [[Task]] of type B
      * which can gather things of type A.
      */
     def gather[B <: Task](f: Seq[A] => B) : Gather[A,B]
+
+    /**
+      * Produces a new [[Scatter]] from the existing scatter. Takes a function that maps an individual
+      * object of type A to a key of type K to partition the task of type A.  Then takes a function
+      * to manufacture a [[Task]] of type B from the given key of type K and partition of objects of type A.
+      *
+      * The resulting Scatter[B] can be further mapped or gathered (or both!).
+      */
+    def groupBy[K, B <: Task](f: A => K, g: (K, Seq[A]) => B) : Scatter[B]
   }
 
 
@@ -93,13 +102,20 @@ object ScatterGather {
   private class PartitionerWrapper[A](partitioner: Partitioner[A]) extends Scatter[A] {
     override def getTasks: Traversable[_ <: Task] = Some(partitioner)
 
-    override def gather[B <: Task](f: (Seq[A]) => B): Gather[A,B] =
+    override def gather[B <: Task](f: Seq[A] => B): Gather[A,B] =
       throw new UnsupportedOperationException("gather not supported on an unmapped Scatter")
 
     override def map[T <: Task](f: A => T): Scatter[T] = {
       val sub = new PrimarySubScatter(partitioner, f)
       this ==> sub
       sub
+    }
+
+
+    override def groupBy[K, B <: Task](f: A => K, g: (K, Seq[A]) => B) : Scatter[B] = {
+      val grouper = new PrimaryGrouper(partitioner, f, g)
+      this ==> grouper
+      grouper
     }
   }
 
@@ -109,12 +125,13 @@ object ScatterGather {
   * when the partitions are available and the set of Gathers to be performed on this stage of the Scatter.
   */
   private trait SubScatter[A, B <: Task] extends Scatter[B] {
-    val tasks   = new ListBuffer[B]
-    val subs    = new ListBuffer[SecondarySubScatter[B, _ <: Task]]
-    val gathers = new ListBuffer[Gather[B, _ <: Task]]
+    val tasks    = new ListBuffer[B]
+    val subs     = new ListBuffer[SecondarySubScatter[B, _ <: Task]]
+    val gathers  = new ListBuffer[Gather[B, _ <: Task]]
+    val groupers = new ListBuffer[SecondaryGrouper[_, B, _ <: Task]]
 
     /** Ensures that gathers are wired in correctly. */
-    protected def connectGathers(): Unit = {
+    protected def connectGathersAndGroupers(): Unit = {
       val taskList = this.tasks.toList
 
       gathers.foreach(gather => {
@@ -122,19 +139,31 @@ object ScatterGather {
         taskList.foreach(task => task ==> gather)
       })
 
-      subs.foreach(_.connectGathers())
+      groupers.foreach { grouper =>
+        taskList.foreach(task => task ==> grouper)
+        grouper.chain(taskList)
+        grouper.connectGathersAndGroupers()
+      }
+
+      subs.foreach(_.connectGathersAndGroupers())
     }
 
-    override def map[T <: Task](f: (B) => T): Scatter[T] = {
-      val sub = new SecondarySubScatter(f)
+    override def map[T <: Task](f: B => T): Scatter[T] = {
+      val sub = new SecondarySubScatter[B,T](f)
       this.subs += sub
       sub
     }
 
-    override def gather[G <: Task](f: (Seq[B]) => G): Gather[B,G] = {
+    override def gather[G <: Task](f: Seq[B] => G): Gather[B,G] = {
       val gather = new SingleGather[B,G](f)
       this.gathers += gather
       gather
+    }
+
+    override def groupBy[K, T <: Task](f: B => K, g: (K, Seq[B]) => T): Scatter[T] = {
+      val grouper = new SecondaryGrouper[K, B, T](f, g)
+      this.groupers += grouper
+      grouper
     }
   }
 
@@ -145,19 +174,20 @@ object ScatterGather {
   */
   private class PrimarySubScatter[A, B <: Task](private val partitioner: Partitioner[A], f: A => B) extends Pipeline with SubScatter[A,B] {
     override def build(): Unit = {
-      val as = partitioner.partitions match {
+      val as: Seq[A] = partitioner.partitions match {
         case Some(seq) => seq
         case None      => throw new IllegalStateException("Scatter/Gather pipeline trying to build before scatters populated.")
       }
 
-      as.foreach(scatter => {
-        val task = f(scatter)
+      // Create the list of tasks and chain of sub-scatterers
+      as.foreach { scatter: A =>
+        val task: B = f(scatter)
         this.tasks += task
         root ==> task
         subs.foreach(sub => task ==> sub.chain(task))
-      })
+      }
 
-      connectGathers()
+      connectGathersAndGroupers()
     }
   }
 
@@ -177,6 +207,48 @@ object ScatterGather {
 
     override def getTasks: Traversable[_ <: Task] = {
       throw new UnsupportedOperationException("getTasks is not supported and should never be called on sub-scatters.")
+    }
+  }
+
+  /**
+    * A type of Scatter that is used to represent the first round of Scatter operation after the
+    * partitioner has created the partitions.  It's tasks are generated using the scatter partitions
+    * as input, and is also responsible for chaining together sub-scatters.
+    */
+  private class PrimaryGrouper[K, A, B <: Task](private val partitioner: Partitioner[A], f: A => K, g: (K, Seq[A]) => B) extends Pipeline with SubScatter[A,B] {
+    override def build(): Unit = {
+      val as: Seq[A] = partitioner.partitions match {
+        case Some(seq) => seq
+        case None      => throw new IllegalStateException("Scatter/Gather pipeline trying to build before scatters populated.")
+      }
+
+      // Create the list of tasks and chain of sub-scatterers
+      as.groupBy(f).foreach { case (k, v) =>
+        val task = g(k, v)
+        this.tasks += task
+        root ==> task
+        subs.foreach(sub => task ==> sub.chain(task))
+      }
+
+      connectGathersAndGroupers()
+    }
+  }
+
+  /** Implementation of a Scatter that performs a groupBy operation on the given sources. */
+  private class SecondaryGrouper[K, A, B <: Task](val f: A => K, val g: (K, Seq[A]) => B) extends SubScatter[A, B] {
+    def chain(tasks: Seq[A]): Iterable[B] = {
+      tasks.groupBy(f).map { case (k, v) =>
+        val task = g(k, v)
+        this.tasks += task
+        this.tasksDependingOnThisTask.foreach(other => task ==> other)
+        this.tasksDependedOn.foreach(other => other ==> task)
+        subs.foreach(sub => task ==> sub.chain(task))
+        task
+      }
+    }
+
+    override def getTasks: Traversable[_ <: Task] = {
+      throw new UnsupportedOperationException("getTasks is not supported and should never be called on groupers.")
     }
   }
 }
