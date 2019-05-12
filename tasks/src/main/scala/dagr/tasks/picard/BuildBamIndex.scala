@@ -23,11 +23,11 @@
  */
 package dagr.tasks.picard
 
-import dagr.tasks.DagrDef.PathToBam
+import dagr.tasks.DagrDef.{PathToBai, PathToBam}
 
 import scala.collection.mutable.ListBuffer
 
-class BuildBamIndex(val in: PathToBam, val out: Option[PathToBam] = None) extends PicardTask {
+class BuildBamIndex(val in: PathToBam, val out: Option[PathToBai] = None) extends PicardTask {
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in.toAbsolutePath)

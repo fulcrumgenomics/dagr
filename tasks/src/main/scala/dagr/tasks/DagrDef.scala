@@ -40,6 +40,9 @@ object DagrDef {
   // Path-like typedefs that are used to hint at what the Path should be to
   /////////////////////////////////////////////////////////////////////////////
 
+  /** Represents a path to a BAM (or SAM or CRAM) index file. */
+  type PathToBai = java.nio.file.Path
+
   /** Represents a path to a BAM (or SAM or CRAM) file. */
   type PathToBam = java.nio.file.Path
 
