@@ -29,12 +29,6 @@ import htsjdk.samtools.util.Iso8601Date
 
 import scala.collection.mutable.ListBuffer
 
-object AddOrReplaceReadGroups {
-
-  /** The Picard default for the Library ID tag. */
-  val DefaultLibraryId: String = "1"
-}
-
 class AddOrReplaceReadGroups(
   val in: PathToBam,
   val out: PathToBam,
@@ -42,7 +36,7 @@ class AddOrReplaceReadGroups(
   val library: String,
   val platform: String,
   val platformUnit: String,
-  val id: Option[String] = Some(AddOrReplaceReadGroups.DefaultLibraryId),
+  val id: Option[String] = None,
   val sortOrder: Option[SortOrder] = None,
   val sequencingCenter: Option[String] = None,
   val description: Option[String] = None,
@@ -59,7 +53,7 @@ class AddOrReplaceReadGroups(
     buffer.append("O=" + out)
     buffer.append("RGSM=" + sampleName)
     buffer.append("RGLB=" + library)
-    buffer.append("RGPL=" + platform)
+    buffer.append("RGPL=" + platform)  // The RGPL tag value can only be restricted set of spec-compliant values.
     buffer.append("RGPU=" + platformUnit)
     id.foreach(tag => buffer.append("RGID=" + tag))
     sortOrder.foreach(so => buffer.append("SORT_ORDER=" + so))
