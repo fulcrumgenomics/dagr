@@ -29,16 +29,21 @@ import htsjdk.samtools.util.Iso8601Date
 
 import scala.collection.mutable.ListBuffer
 
+object AddOrReplaceReadGroups {
+
+  /** The Picard default for the Library ID tag. */
+  val DefaultLibraryId: String = "1"
+}
 
 class AddOrReplaceReadGroups(
   val in: PathToBam,
   val out: PathToBam,
-  val sortOrder: Option[SortOrder] = None,
-  val id: Option[String] = None,
+  val sampleName: String,
   val library: String,
   val platform: String,
   val platformUnit: String,
-  val sampleName: String,
+  val id: Option[String] = Some(AddOrReplaceReadGroups.DefaultLibraryId),
+  val sortOrder: Option[SortOrder] = None,
   val sequencingCenter: Option[String] = None,
   val description: Option[String] = None,
   val runDate: Option[Iso8601Date] = None,
@@ -52,12 +57,12 @@ class AddOrReplaceReadGroups(
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in)
     buffer.append("O=" + out)
-    sortOrder.foreach(so => buffer.append("SORT_ORDER=" + so))
-    id.foreach(tag => buffer.append("RGID=" + tag))
+    buffer.append("RGSM=" + sampleName)
     buffer.append("RGLB=" + library)
     buffer.append("RGPL=" + platform)
     buffer.append("RGPU=" + platformUnit)
-    buffer.append("RGSM=" + sampleName)
+    id.foreach(tag => buffer.append("RGID=" + tag))
+    sortOrder.foreach(so => buffer.append("SORT_ORDER=" + so))
     sequencingCenter.foreach(tag => buffer.append("RGCN=" + tag))
     description.foreach(tag => buffer.append("RGDS=" + tag))
     runDate.foreach(tag => buffer.append("RGDT=" + tag))
