@@ -123,6 +123,13 @@ class ResourceTest extends UnitSpec {
     Memory("1G").toString shouldBe (1024*1024*1024).toString
   }
 
+  "Cores" should "allow building from other types" in {
+    Cores(Cores(1)) shouldBe Cores(1)
+    Cores("1") shouldBe Cores(1)
+    Cores(Cores(1.0)) shouldBe Cores(1.0)
+    Cores("1.0") shouldBe Cores(1.0)
+  }
+
   "Memory" should "represent its value in pretty formats" in {
     var mem = Memory(1024.toLong * 1024.toLong * 1024.toLong * 2.toLong)
     mem.kb shouldBe "2097152k"
