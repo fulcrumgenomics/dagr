@@ -1,2 +1,6 @@
+# IDE specific
 .idea
+*.iml
+
+# Build tool specific
 target
