@@ -31,6 +31,6 @@ class BuildBamIndex(val in: PathToBam, val out: Option[PathToBai] = None) extend
 
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("I=" + in.toAbsolutePath)
-    out.foreach(bai => buffer.append("O=" + bai.toString))
+    out.foreach(bai => buffer.append("O=" + bai.toAbsolutePath))
   }
 }
