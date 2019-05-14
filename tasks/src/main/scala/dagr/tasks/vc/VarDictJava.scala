@@ -39,7 +39,7 @@ import dagr.tasks.DagrDef._
 import dagr.tasks.DataTypes._
 import dagr.tasks.misc.DeleteFiles
 import dagr.tasks.picard.SortVcf
-import htsjdk.samtools.SamReaderFactory
+import htsjdk.samtools.{SAMReadGroupRecord, SamReaderFactory}
 
 import scala.collection.mutable.ListBuffer
 
@@ -80,7 +80,7 @@ object VarDictJava extends Configuration {
   /** The minimum threads for `VarDictJava`. */
   val MinimumThreads: Int = 1
 
-  /** The minimum threads for `VarDictJava`. */
+  /** The maximum threads for `VarDictJava`. */
   val MaximumThreads: Int = 32
 
   /** The default memory for `VarDictJava`. */
@@ -89,10 +89,21 @@ object VarDictJava extends Configuration {
   /** Plain text tumor-normal separator. */
   val TumorNormalSeparator: String = "|"
 
-  /** Pulls a sample name out of a BAM file. */
-  private[vc] def extractSampleName(bam: PathToBam): String = {
+  /** Return the first read group in a BAM. */
+  private[vc] def firstReadGroup(bam: PathToBam): Option[SAMReadGroupRecord] = {
+    import com.fulcrumgenomics.commons.CommonsDef.javaIteratorAsScalaIterator
     val in = SamReaderFactory.make().open(bam)
-    yieldAndThen(in.getFileHeader.getReadGroups.iterator().next().getSample) { in.close() }
+    yieldAndThen(in.getFileHeader.getReadGroups.iterator.toStream.headOption) { in.close() }
+  }
+
+  /** Return the sample name from the first read group in a BAM.
+    *
+    * @throws IllegalStateException When there is not a single read group in the input BAM.
+    * @throws IllegalStateException When there is no sample name tag in the first read group.
+    **/
+  private[vc] def extractSampleName(bam: PathToBam): String = {
+    val rg = firstReadGroup(bam).getOrElse(throw new IllegalStateException(s"No read groups found in BAM: $bam"))
+    Option(rg.getSample).getOrElse(throw new IllegalStateException(s"No sample name tag found in the first read group: $rg"))
   }
 
   /** Validate that a string does not contain the `VarDictJava` tumor-normal separator. */
@@ -315,7 +326,7 @@ class VarDictJavaEndToEnd
     Io.assertCanWriteFile(out)
     normalBam.foreach(Io.assertReadable)
 
-    val tName = tumorName.getOrElse(VarDictJava.extractSampleName(bam = tumorBam))
+    val _tumorName = tumorName.getOrElse(VarDictJava.extractSampleName(bam = tumorBam))
 
     def f(ext: String): Path = Io.makeTempFile("vardict.", ext, dir = if (out == Io.StdOut) None else Some(out.getParent))
     val tmpVcf = f(".vcf")
@@ -325,7 +336,7 @@ class VarDictJavaEndToEnd
       normalBam           = normalBam,
       bed                 = bed,
       ref                 = ref,
-      tumorName           = tName,
+      tumorName           = _tumorName,
       minimumAf           = minimumAf,
       includeNonPf        = includeNonPf,
       minimumQuality      = minimumQuality,
@@ -343,7 +354,7 @@ class VarDictJavaEndToEnd
       case None =>
         val bias         = new ShellCommand(VarDictJava.TestStrandBias.toString) with PipeWithNoResources[Text, Text]
         val var2VcfValid = new Var2VcfValid(
-          sampleName                        = tName,
+          sampleName                        = _tumorName,
           includeNonPfVariants              = includeNonPfVariants,
           allVariants                       = allVariants,
           maximumMeanMismatches             = maximumMeanMismatches,
@@ -356,11 +367,11 @@ class VarDictJavaEndToEnd
         )
         (bias | var2VcfValid)
       case Some(_normalBam) =>
-        val nName         = normalName.getOrElse(VarDictJava.extractSampleName(bam = _normalBam))
+        val _normalName   = normalName.getOrElse(VarDictJava.extractSampleName(bam = _normalBam))
         val somatic       = new ShellCommand(VarDictJava.TestSomatic.toString) with PipeWithNoResources[Text, Text]
         val var2VcfPaired = new Var2VcfPaired(
-          tumorName                         = tName,
-          normalName                        = nName,
+          tumorName                         = _tumorName,
+          normalName                        = _normalName,
           includeNonPfVariants              = includeNonPfVariants,
           allVariants                       = allVariants,
           maximumMeanMismatches             = maximumMeanMismatches,
