@@ -56,9 +56,9 @@ object ScatterGather {
     /**
      * Produces a new [[Scatter]] from the existing scatter. Takes a function that maps an individual
      * object of type Result to a [[Task]] of type NextResult.  During scatter/gather operation this function will
-     * be invoked with each A, to manufacture tasks of type NextResult.
+     * be invoked with each Result, to manufacture tasks of type NextResult.
      *
-     * The resulting Scatter[B] can be further mapped or gathered (or both!).
+     * The resulting Scatter[NextResult] can be further mapped or gathered (or both!).
      */
     def map[NextResult <: Task](f: Result => NextResult) : Scatter[NextResult]
 
@@ -69,11 +69,12 @@ object ScatterGather {
     def gather[NextResult <: Task](f: Seq[Result] => NextResult) : Gather[Result,NextResult]
 
     /**
-      * Produces a new [[Scatter]] from the existing scatter. Takes a function that maps an individual
-      * object of type Result to a key of type K to partition the task of type Result.  Then takes a function
-      * to manufacture a [[Task]] of type NextResult from the given key of type K and partition of objects of type Result.
+      * Produces a new [[Scatter]] from the existing scatter.  Partitions the the scattered objects of type Result
+      * according to the given discriminator function.  The discriminator function maps an individual object of type
+      * Result to a key of type K.  The partitions are each a sequence of objects of type Result that share the same key
+      * of type K when the discriminator function is applied.
       *
-      * The resulting Scatter[B] can be further mapped or gathered (or both!).
+      * The resulting Scatter[(Key, Seq[Result])] can be further mapped or gathered (or both!).
       */
     def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])]
   }
