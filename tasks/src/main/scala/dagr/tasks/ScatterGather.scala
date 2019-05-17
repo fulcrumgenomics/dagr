@@ -165,18 +165,18 @@ object ScatterGather {
 
   /**
   * A type of Scatter that is used to represent the first round of Scatter operation after the
-  * partitioner has created the partitions.  It's tasks are generated using the scatter partitions
+  * [[Partitioner]] has created the partitions.  It's tasks are generated using the scatter partitions
   * as input, and is also responsible for chaining together sub-scatters.
   */
   private class PrimarySubScatter[Source, Result <: Task](private val partitioner: Partitioner[Source], f: Source => Result) extends Pipeline with SubScatter[Result] {
     override def build(): Unit = {
-      val as: Seq[Source] = partitioner.partitions match {
+      val sources: Seq[Source] = partitioner.partitions match {
         case Some(seq) => seq
         case None      => throw new IllegalStateException("Scatter/Gather pipeline trying to build before scatters populated.")
       }
 
       // Create the list of tasks and chain of sub-scatterers
-      as.foreach { scatter: Source =>
+      sources.foreach { scatter: Source =>
         val task: Result = f(scatter)
         this.tasks += task
         root ==> task
@@ -192,8 +192,8 @@ object ScatterGather {
   * be a Task already, and not a partition on some domain type (e.g. intervals).
   */
   private class SecondarySubScatter[Source <: Task, Result <: Task](f: Source => Result) extends SubScatter[Result] {
-    def chain(a: Source): Result = {
-      val task: Result = f(a)
+    def chain(source: Source): Result = {
+      val task: Result = f(source)
       this.tasks += task
       this.tasksDependingOnThisTask.foreach(other => task ==> other)
       this.tasksDependedOn.foreach(other => other ==> task)
@@ -207,17 +207,16 @@ object ScatterGather {
   }
 
   /**
-    * A type of partitioner that is found at stage 2 and beyond where the input is guaranteed to be a task already, and
+    * A type of [[Partitioner]] that is found at stage 2 and beyond where the input is guaranteed to be a task already, and
     * not part of some domain type.  The given method `f` is used to group the source tasks.
     */
   private class GroupByPartitioner[Result <: Task, Key](f: Result => Key) extends SimpleInJvmTask with Partitioner[(Key, Seq[Result])] {
-    var _partitions: Option[Seq[(Key, Seq[Result])]] = None
+    var partitions: Option[Seq[(Key, Seq[Result])]] = None
     var sources: Option[Seq[Result]] = None
     val scatter: Scatter[(Key, Seq[Result])] = Scatter(this)
-    override def partitions: Option[Seq[(Key, Seq[Result])]] = this._partitions
     override def run(): Unit = this.sources match {
       case None => throw new IllegalStateException("GroupByPartitioner.tasks called before _tasks populated.")
-      case Some(_tasks) => this._partitions = Some(_tasks.groupBy(f).toSeq)
+      case Some(_tasks) => this.partitions = Some(_tasks.groupBy(f).toSeq)
     }
   }
 }

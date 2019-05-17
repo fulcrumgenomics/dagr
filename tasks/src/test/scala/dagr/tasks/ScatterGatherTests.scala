@@ -116,7 +116,9 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     sum2 shouldBe lengths.map(x => x*x).sum
   }
 
-  private case class Sample(name: String, library: String, lane: Option[Int])
+  private case class Sample(name: String, library: String, lane: Option[Int]) {
+    def toLine: String = s"$name $library" + lane.map(" " + _).getOrElse("")
+  }
 
   private trait SampleTask extends SimpleInJvmTask {
     var _sample: Option[Sample] = None
@@ -135,12 +137,12 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     }
   }
 
-  private case class MergeLibraries(libraries: Seq[Sample]) extends SampleTask {
+  private case class MergeLibraries(samples: Seq[Sample]) extends SampleTask {
     def run(): Unit = {
-      require(libraries.map(l => (l.name, l.library)).distinct.length == 1) // same name+lib
-      require(libraries.flatMap(_.lane).distinct.length == libraries.length) // different lanes
-      val library = libraries.map(_.library).mkString(":")
-      sample = libraries.head.copy(library=library, lane=None)
+      require(samples.map(l => (l.name, l.library)).distinct.length == 1) // same name+lib
+      require(samples.flatMap(_.lane).distinct.length == samples.length) // different lanes
+      val library = samples.map(_.library).mkString(":")
+      sample = samples.head.copy(library=library, lane=None)
     }
   }
 
@@ -152,8 +154,23 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     def run(): Unit = Io.writeLines(output, Seq(samples.map(_.name).distinct.length.toString))
   }
 
-  it should "run a scatter-gather pipeline with a group-by" in {
-    val lines = Seq("1_A 2_A 1", "1_A 2_A 2", "1_A 2_B 1", "1_B 2_A 1", "1_B 2_B 1")
+  it should "run a scatter-gather pipeline with a group-by (1st test case)" in {
+    // Three instances of sample 1: two from the same library and a different lane, and a third that is from a different
+    // library but the same lane as the first sample.  Then two instances of sample 2 with differing libraries but the
+    // same lane.  The goal is to calculate:
+    // 1. the # of unique name/library combinations (4: s1.l1, s1.l2, s2.l1, s2.l2)
+    // 2. the # of unique samples (2: s1 and s2)
+    // 3. the # of "merged libraries" and "merged samples", where samples are merged if they have the same name/library
+    //    but different lane.  In this case, s1.l1 is present in two lanes, so we should have four merged libraries. We
+    //    should also return only two samples
+    val sourceSamples = Seq(
+      Sample("s1", "s1.l1", Some(1)),
+      Sample("s1", "s1.l1", Some(2)),
+      Sample("s1", "s1.l2", Some(1)),
+      Sample("s2", "s2.l1", Some(1)),
+      Sample("s2", "s2.l2", Some(1)),
+    )
+    val lines = sourceSamples.map(_.toLine)
 
     // setup the input and output
     val input = tmp()
@@ -191,9 +208,86 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     val mergedLibs    = Io.readLines(mergedLibCounts).next().toInt
     val mergedSamples = Io.readLines(mergedSampleCounts).next().toInt
 
-    libs shouldBe 4 // (1_A 2_A), (1_A 2_B), (1_B 2_A), and (1_B 2_B)
-    samples shouldBe 2 // 1_A and 2_B
-    mergedLibs shouldBe 4 // (1_A 2_A:2_A), (1_A 2_B), (1_B 2_A), and (1_B 2_B)
-    mergedSamples shouldBe 2 // 1_A and 2_B
+    libs shouldBe 4
+    samples shouldBe 2
+    mergedLibs shouldBe 4
+    mergedSamples shouldBe 2
+  }
+
+  private case class CountTasks(wordCount: Int, tasks: Seq[SimpleInJvmTask], output: Path) extends SimpleInJvmTask  {
+    def run(): Unit = Io.writeLines(output, Seq(wordCount + " " + tasks.length))
+  }
+
+  private case class GatherWordCounts(tasks: Seq[CountTasks], output: Path) extends SimpleInJvmTask  {
+    def run(): Unit = Io.writeLines(output, tasks.flatMap { task => Io.readLines(task.output) })
+  }
+
+  it should "run a scatter-gather pipeline with a group-by (2nd test case)" in {
+    // This example will:
+    // 1. take a single file, split by line
+    // 2. for each line, count the # of words (using spaces)
+    // 3. group by per-line word count, return how many lines how a given # of words
+    // The result should be:
+    // | # of words | count |
+    // |    ---     |  ---  |
+    // |     1      |   3   |
+    // |     2      |   2   |
+    // |     5      |   1   |
+    // |     9      |   1   |
+
+    val lines = Seq(
+      "this is the first line",
+      "second",
+      "third line",
+      "fourth line",
+      "this is a really, really, really, long fifth line",
+      "sixth",
+      "seventh"
+    )
+
+    val input = tmp()
+    val totalWordCountOutput = tmp()
+    val wordCountFreqOutput = tmp()
+
+    Io.writeLines(input, lines)
+
+    val pipeline = new Pipeline() {
+      override def build(): Unit = {
+        // split the input by line
+        val scatterByLine= Scatter(SplitByLine(input))
+        // for each line, count the # of words in that line
+        val scatterByLineWordCount = scatterByLine.map { p => CountWords(input=p, output=tmp()) }
+        // sum the per-line word counts
+        scatterByLineWordCount.gather { byLineWordCounts =>
+          SumNumbers(byLineWordCounts.map(_.output), output=totalWordCountOutput)
+        }
+        // 1. group the per-line word counts by their value
+        // 2. for each unique per-line word count, count the # of lines with that value
+        // 3. gather the results
+        scatterByLineWordCount.groupBy { byLineWordCount =>
+          Io.readLines(byLineWordCount.output).next().toInt
+        }.map {
+          case (wordCount, tasks) => CountTasks(wordCount, tasks, tmp())
+        }.gather {
+          countTasks => GatherWordCounts(countTasks, wordCountFreqOutput)
+        }
+
+        root ==> scatterByLine
+      }
+    }
+
+    val taskManager = buildTaskManager
+    taskManager.addTask(pipeline)
+    taskManager.runToCompletion(true)
+
+    val totalWordCount = Io.readLines(totalWordCountOutput).next().toInt
+    val wordCountFreq  = Io.readLines(wordCountFreqOutput).map { line =>
+      line.split(' ') match {
+        case Array(wordCount, occurrence) => (wordCount.toInt, occurrence.toInt)
+      }
+    }.toMap
+
+    totalWordCount shouldBe 21
+    wordCountFreq.toSeq.sortBy(_._1) should contain theSameElementsInOrderAs Seq((1, 3), (2, 2), (5, 1), (9, 1))
   }
 }
