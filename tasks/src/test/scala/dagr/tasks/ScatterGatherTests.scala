@@ -168,7 +168,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
       Sample("s1", "s1.l1", Some(2)),
       Sample("s1", "s1.l2", Some(1)),
       Sample("s2", "s2.l1", Some(1)),
-      Sample("s2", "s2.l2", Some(1)),
+      Sample("s2", "s2.l2", Some(1))
     )
     val lines = sourceSamples.map(_.toLine)
 
