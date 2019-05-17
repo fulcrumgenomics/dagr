@@ -166,9 +166,9 @@ private[config] trait ConfigurationLike extends LazyLogging {
   }
 
   /**
-    * Attempts to determine the path to an executable, first by looking it up in config and optionally checking to see
-    * if the path exists. If that fails, we will then locate the executable on the system path. If both strategies fail,
-    * then an exception is raised.
+    * Attempts to determine the path to an executable, first by looking it up in the config and optionally checking to
+    * see if the path exists. If that fails, we will then locate the executable on the system path. If both strategies
+    * fail, then an exception is raised.
     *
     * @param path the configuration path to look up
     * @param executable the default name of the executable
@@ -182,11 +182,12 @@ private[config] trait ConfigurationLike extends LazyLogging {
     optionallyConfigure[Path](path)
       .filterNot(mustExist && !Files.exists(_))
       .orElse(findInPath(executable))
+      .map(_.toAbsolutePath)
       .getOrElse(
         throw new Generic(
-          s"Could not configurable executable. "
-          + s"Config path '$path' is not defined, or the config value references a file which does not exist, "
-          + s"and executable '$executable' is not in PATH."
+          s"Could not configure executable."
+          + s" Config path '$path' is not defined, or the config value references a file which does not exist,"
+          + s" and executable '$executable' is not in the system path."
         )
       )
   }
