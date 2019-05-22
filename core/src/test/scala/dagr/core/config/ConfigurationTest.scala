@@ -143,7 +143,7 @@ class ConfigurationTest extends UnitSpec with CaptureSystemStreams {
     Files.isExecutable(java) shouldBe true
 
     // If the config key is found, but the value, as a path, does not exist, then fallback to the system path.
-    java = conf.configureExecutable("some-executable", "java", mustExist = true)
+    java = conf.configureExecutable("some-executable", "java", allowMissingConfigReference = false)
     java.getFileName.toString shouldBe "java"
     Files.isExecutable(java) shouldBe true
 

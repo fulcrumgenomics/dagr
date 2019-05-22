@@ -166,28 +166,37 @@ private[config] trait ConfigurationLike extends LazyLogging {
   }
 
   /**
-    * Attempts to determine the path to an executable, first by looking it up in the config and optionally checking to
-    * see if the path exists. If that fails, we will then locate the executable on the system path. If both strategies
-    * fail, then an exception is raised.
+    * Attempt to determine the path to an executable.
+    *
+    * The following logic describes how we will attempt to determine the path to the executable:
+    *
+    * 1. If the key `path` is not present in the config, then we immediately fallback to searching the system path for
+    *       `executable`.
+    * 2. If the key `path` is present in the config and `allowMissingConfigReference` is `true` then the config value
+    *    is returned without testing if the value references an executable filepath that actually exists.
+    * 3. If the key `path` is present in the config and `allowMissingConfigReference` is `false` then the config value
+    *    is only returned if the value references an executable filepath that exists. If the executable filepath does
+    *    not exist, then we fallback to searching the system path for `executable`.
+    * 4. If all above strategies fail, then an exception is raised.
     *
     * @param path the configuration path to look up
     * @param executable the default name of the executable
-    * @param mustExist ensure the configuration path to look up references a file which exists
-    * @return an absolute path to the executable to use
+    * @param allowMissingConfigReference whether we require the executable path in the configuration to exist on disk before falling back to searching the system path
+    * @return an absolute path to the executable
     * @throws Generic when the executable cannot be configured
     */
-  def configureExecutable(path: String, executable: String, mustExist: Boolean = false) : Path = {
+  def configureExecutable(path: String, executable: String, allowMissingConfigReference: Boolean = true) : Path = {
     Configuration.RequestedKeys += path
 
     optionallyConfigure[Path](path)
-      .filterNot(mustExist && !Files.exists(_))
+      .filter(allowMissingConfigReference || Files.exists(_))
       .orElse(findInPath(executable))
       .map(_.toAbsolutePath)
       .getOrElse(
         throw new Generic(
-          s"Could not configure executable."
-          + s" Config path '$path' is not defined, or the config value references a file which does not exist,"
-          + s" and executable '$executable' is not in the system path."
+          s"Could not configure executable. Config path `$path` is not defined "
+          + (if (allowMissingConfigReference) "" else s"or the config value references a file which does not exist, ")
+          + s"and executable '$executable' is not on the system path."
         )
       )
   }
