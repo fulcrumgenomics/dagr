@@ -127,7 +127,7 @@ class ConfigurationTest extends UnitSpec with CaptureSystemStreams {
     pw.println(Configuration.Keys.ColorStatus + " = false")
     pw.close()
 
-    val conf = new Configuration {  override val config : Config = ConfigFactory.parseFile(configPath.toFile) }
+    val conf: Configuration = new Configuration {  override val config : Config = ConfigFactory.parseFile(configPath.toFile).resolve() }
     conf.configure[String](Configuration.Keys.CommandLineName) shouldBe "command-line-name"
     conf.configure[Boolean](Configuration.Keys.ColorStatus) shouldBe false
     conf.optionallyConfigure[String](Configuration.Keys.SystemPath) shouldBe 'empty
@@ -147,6 +147,25 @@ class ConfigurationTest extends UnitSpec with CaptureSystemStreams {
     java.getFileName.toString shouldBe "java"
     Files.isExecutable(java) shouldBe true
     Configuration.requestedKeys should contain("java.exe")
+  }
+
+  it should s"fallback to the system path when ${Configuration.Keys.FallBackToSystemPath} is true" in {
+    val configPath = Files.createTempFile("config", ".txt")
+    configPath.toFile.deleteOnExit()
+
+    val pw = new PrintWriter(Io.toWriter(configPath))
+    pw.println(Configuration.Keys.SystemPath + " = ${PATH}")
+    pw.println(Configuration.Keys.FallBackToSystemPath + " = true")
+    pw.close()
+
+    val conf: Configuration = new Configuration {  override val config : Config = ConfigFactory.parseFile(configPath.toFile).resolve() }
+
+    conf.configure[Boolean](Configuration.Keys.FallBackToSystemPath) shouldBe true
+
+    var java = conf.configureExecutable("java.exe", "java")
+    java = conf.configureExecutable("some-executable", "java")
+    java.getFileName.toString shouldBe "java"
+    Files.isExecutable(java) shouldBe true
   }
 
   it should "thrown an exception when an executable cannot be found" in {

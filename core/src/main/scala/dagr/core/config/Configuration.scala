@@ -46,15 +46,16 @@ object Configuration extends ConfigurationLike {
 
   // Keys for configuration values used in dagr core
   object Keys {
-    val CommandLineName = "dagr.command-line-name"
-    val ColorStatus     = "dagr.color-status"
-    val SystemPath      = "dagr.path"
-    val PackageList     = "dagr.package-list"
-    val ScriptDirectory = "dagr.script-directory"
-    val LogDirectory    = "dagr.log-directory"
-    val SystemCores     = "dagr.system-cores"
-    val SystemMemory    = "dagr.system-memory"
-    val PrintArgs       = "dagr.print-args"
+    val CommandLineName      = "dagr.command-line-name"
+    val ColorStatus          = "dagr.color-status"
+    val SystemPath           = "dagr.path"
+    val PackageList          = "dagr.package-list"
+    val ScriptDirectory      = "dagr.script-directory"
+    val LogDirectory         = "dagr.log-directory"
+    val SystemCores          = "dagr.system-cores"
+    val SystemMemory         = "dagr.system-memory"
+    val PrintArgs            = "dagr.print-args"
+    val FallBackToSystemPath = "dagr.fall-back-to-system-path"
   }
 
   // The global configuration instance
@@ -165,10 +166,19 @@ private[config] trait ConfigurationLike extends LazyLogging {
     }
   }
 
+  /** True to fall back to the searching the system path when a configuration key exists but the executable does not.
+    * False to throw an exception if the configuration key exists but the executable does not. */
+  private def fallBackToSystemPath: Boolean = configure(Configuration.Keys.FallBackToSystemPath, false)
+
   /**
     * Attempts to determine the path to an executable, first by looking it up in config,
     * and if that fails, by attempting to locate it on the system path. If both fail then
     * an exception is raised.
+    *
+    * If the configuration key exists but the value (i.e. executable path) does not, the fallback behavior is controlled
+    * by the `Configuration.Keys.FallBackToSystemPath` configuration value (default is false).  If false, an exception
+    * will be raised if the configuration key exists but the executable (value) does not exist, otherwise the system
+    * path is searched.
     *
     * @param path the configuration path to look up
     * @param executable the default name of the executable
@@ -177,13 +187,19 @@ private[config] trait ConfigurationLike extends LazyLogging {
   def configureExecutable(path: String, executable: String) : Path = {
     Configuration.RequestedKeys += path
 
-    optionallyConfigure[Path](path) match {
-      case Some(exec) => exec
-      case None => findInPath(executable) match {
-        case Some(exec) => exec
-        case None => throw new Generic(s"Could not configurable executable. Config path '$path' is not defined and executable '$executable' is not in PATH.")
-      }
-    }
+    optionallyConfigure[Path](path)
+      // always keep the value if we should not fall back, otherwise if we should fallback, keep the value if the file
+      // exists
+      .filter(!fallBackToSystemPath || Files.exists(_))
+      .orElse(findInPath(executable))
+      .map(_.toAbsolutePath)
+      .getOrElse(
+        throw new Generic(
+          s"Could not configure executable. Config path `$path` is not defined "
+            + (if (fallBackToSystemPath) "" else s"or the config value references a file which does not exist, ")
+            + s"and executable '$executable' is not on the system path."
+        )
+      )
   }
 
   /**
@@ -223,11 +239,6 @@ private[config] trait ConfigurationLike extends LazyLogging {
     * PATH, splits it on the path separator and returns it as a Seq[String]
     */
   protected def systemPath : Seq[Path] = config.getString(Configuration.Keys.SystemPath).split(File.pathSeparatorChar).view.map(pathTo(_))
-
-  /** Removes various characters from the simple class name, for scala class names. */
-  private def sanitizeSimpleClassName(className: String): String = {
-    className.replaceFirst("[$].*$", "")
-  }
 
   /** Searches the system path for the executable and return the full path. */
   private def findInPath(executable: String) : Option[Path] = {
