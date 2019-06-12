@@ -108,4 +108,9 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
   /** Sets asynchronous IO on or off. */
   def withIndexing(indexing: Boolean = true) : this.type = { this.createIndex = Some(indexing); this; }
 
+  /** Sets the validation stringency to a specific level. */
+  def withValidationStringency(validationStringency: ValidationStringency) : this.type = {
+    this.validationStringency = Some(validationStringency)
+    this
+  }
 }
