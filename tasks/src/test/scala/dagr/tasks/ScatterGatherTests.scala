@@ -28,7 +28,7 @@ import java.nio.file.{Files, Path}
 
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel, Logger}
-import dagr.core.execsystem.{SystemResources, TaskManager}
+import dagr.core.execsystem.{SystemResources, TaskManager, TaskStatus}
 import dagr.core.tasksystem.{Pipeline, SimpleInJvmTask}
 import dagr.tasks.ScatterGather.{Partitioner, Scatter}
 import org.scalatest.BeforeAndAfterAll
@@ -66,6 +66,22 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     }
   }
 
+  private case class SplitLineByWord(input: Path) extends SimpleInJvmTask with Partitioner[Path] {
+    var partitions: Option[Seq[Path]] = None
+
+    def run(): Unit = {
+      val line = {
+        val lines = Io.readLines(input).toSeq
+        require(lines.size == 1)
+        lines.head
+      }
+      val words = line.split(' ')
+      val paths = words.map(_ => tmp())
+      words.zip(paths) foreach { case(word, path) => Io.writeLines(path, Seq(word))}
+      this.partitions = Some(paths)
+    }
+  }
+
   private case class CountWords(input: Path, output: Path) extends SimpleInJvmTask {
     def run(): Unit = Io.writeLines(output, Io.readLines(input).toSeq.map(_.split(" ").length.toString))
   }
@@ -82,6 +98,15 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     def run(): Unit = Io.writeLines(output, inputs.flatMap(Io.readLines))
   }
 
+  private case class ToRange(input: Path) extends SimpleInJvmTask with Partitioner[Int]  {
+    var partitions: Option[Seq[Int]] = None
+    override def run(): Unit =this.partitions = Some(Range.inclusive(start=1, end=Io.readLines(input).toSeq.head.toInt))
+  }
+
+  private case class WriteNumber(number: Int, output: Path) extends SimpleInJvmTask {
+    def run(): Unit = Io.writeLines(output, Seq(number.toString))
+  }
+
   "ScatterGather" should "run a simple scatter-gather pipeline on files" in {
     val lines = Seq("one", "one two", "one two three", "one two three four", "one two three four five")
     val lengths = Seq(1,2,3,4,5)
@@ -96,7 +121,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
       override def build(): Unit = {
         val scatter = Scatter(SplitByLine(input=input))
         val counts = scatter.map(p => CountWords(input=p, output=tmp()))
-        counts.gather(cs => SumNumbers(inputs=cs.map(_.output), output=sumOfCounts))
+        val gather = counts.gather(cs => SumNumbers(inputs=cs.map(_.output), output=sumOfCounts))
 
         val squares = counts.map(c => SquareNumbers(input=c.output, output=tmp()))
         squares.gather(ss => SumNumbers(ss.map(_.output), output=sumOfSquares))
@@ -107,7 +132,11 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true)
+    taskManager.runToCompletion(true).foreach { case (task, info) =>
+      if (TaskStatus.isTaskNotDone(info.status)) {
+        println(s"${task.name} $info")
+      }
+    }
 
     val sum1 = Io.readLines(sumOfCounts).next().toInt
     val sum2 = Io.readLines(sumOfSquares).next().toInt
@@ -289,5 +318,37 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     totalWordCount shouldBe 21
     wordCountFreq.toSeq.sortBy(_._1) should contain theSameElementsInOrderAs Seq((1, 3), (2, 2), (5, 1), (9, 1))
+  }
+
+  it should "scatter than flatten and gather" in {
+    val lines = Seq("one", "one two", "one two three", "one two three four", "one two three four five")
+    val lengths = Seq(1,2,3,4,5)
+
+    // setup the input and output
+    val input = tmp()
+    val sumOfCountsFlatMap = tmp()
+    Io.writeLines(input, lines)
+
+    val pipeline = new Pipeline() {
+      override def build(): Unit = {
+        // the initial scatter
+        val scatter: Scatter[Path] = Scatter(SplitByLine(input=input))
+
+        // flatMap
+        val scatterByWordFlatMap: Scatter[Path] = scatter.flatMap { pathToLine => Scatter(SplitLineByWord(pathToLine)) }
+        val countByWords = scatterByWordFlatMap.map { pathToWord: Path => CountWords(input=pathToWord, output=tmp()) }
+        countByWords.gather(cs => SumNumbers(inputs=cs.map(_.output), output=sumOfCountsFlatMap))
+
+        root ==> scatter
+      }
+    }
+
+    val taskManager = buildTaskManager
+    taskManager.addTask(pipeline)
+    taskManager.runToCompletion(true)
+
+    val sumFlatMap = Io.readLines(sumOfCountsFlatMap).next().toInt
+
+    sumFlatMap shouldBe lengths.sum
   }
 }
