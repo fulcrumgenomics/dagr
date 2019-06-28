@@ -391,7 +391,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
     // get the list of tasks that this task generates
     val tasks = try { node.task.getTasks.toList } catch { case e: Exception => throw new TaskException(e, TaskStatus.FAILED_GET_TASKS) }
-
+    logger.debug(f"0 ${node.task.name} : ${tasks.map(_.name).mkString(", ")}")
     // NB: we don't create a new node for this task if it just returns itself
     // NB: always check for cycles, since we don't know when they could be introduced.  We will check
     //     for cycles in [[addTask]] so only check here if [[getTasks]] returns itself.
@@ -408,6 +408,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         }
         false
       case _ =>
+        logger.debug(f"3 ${node.task.name} : ${tasks.map(_.name).mkString(", ")}")
         // set the submission time stamp
         node.taskInfo.submissionDate = Some(Instant.now())
         // we will make this task dependent on the tasks it creates...
@@ -416,6 +417,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         val taskIds: List[TaskId] = tasks.map { task => addTask(task = task, enclosingNode = Some(node), ignoreExists = true) }
         // make this node dependent on those tasks
         taskIds.map(taskId => node.addPredecessors(this(taskId)))
+        // we may need to update precedessors if a returned task was already completed
+        if (tasks.flatMap(t => graphNodeFor(t)).exists(_.state == GraphNodeState.COMPLETED)) updatePredecessors()
         // TODO: we could check each new task to see if they are in the PREDECESSORS_AND_UNEXPANDED state
         true
     }
@@ -430,7 +433,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     * */
   private def updateNodeStateAndTasksStatusAfterGetTasks(node: GraphNode): Unit = {
     node.task match {
-      case task: UnitTask => node.state = NO_PREDECESSORS
+      case _: UnitTask => node.state = NO_PREDECESSORS
       case _ =>
         val taskInfo = node.taskInfo
         // In the case that this node is not a [[UnitTask]] we should wait until all of the tasks returned by
@@ -475,6 +478,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
           logger.exception(e, s"Failed getTasks for [${node.task.name}]: ")
       }
     }
+    // update predecessors just in case some tasks added were already completed
+    updatePredecessors()
     // if we added more tasks of non-[[UnitTask]] type, then we should check again
     if (hasMore) invokeCallbacksAndGetTasks()
   }
