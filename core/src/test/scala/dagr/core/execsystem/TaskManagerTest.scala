@@ -330,6 +330,21 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     }
   }
 
+  it should "handle two tasks with the same hashcode/equals" in {
+    val first = new SimpleInJvmTask(0) {
+      override def hashCode(): Int = 0
+      override def equals(obj: Any): Boolean = this.hashCode() == obj.hashCode()
+    }
+    val second = new SimpleInJvmTask(0) {
+      override def hashCode(): Int = 0
+      override def equals(obj: Any): Boolean = this.hashCode() == obj.hashCode()
+    }
+    val taskManager: TestTaskManager = getDefaultTaskManager()
+    taskManager.addTask(first)
+    taskManager.graphNodeFor(first).nonEmpty shouldBe true
+    taskManager.graphNodeFor(second).isEmpty shouldBe true
+  }
+
   // This test fails occasionally, so there likely is a race condition.  Turning it off until `resubmit` is used.
   /*
   it should "resubmit a task that failed and re-run to completion" in {
