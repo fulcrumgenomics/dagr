@@ -239,25 +239,25 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private def updateParentStartAndEndDates(node: GraphNode, info: Option[TaskExecutionInfo] = None): Unit = {
     // Set the start and end dates for the parent, if they exist
     node.enclosingNode.foreach { parent =>
-      logger.info(s"updateParentStartAndEndDates: updating parent [${parent.task.name}]")
-      taskExecutionInfoFor(parent).foreach { parentTaskInfo =>
-        val taskInfo: TaskExecutionInfo = info.getOrElse(node.taskInfo)
-        // start date
-        if (compareOptionalInstants(parentTaskInfo.startDate, taskInfo.startDate) >= 0) {
-          parentTaskInfo.startDate = taskInfo.startDate
-        }
-        // end date
-        if (compareOptionalInstants(parentTaskInfo.endDate, taskInfo.endDate) <= 0) {
-          parentTaskInfo.endDate = taskInfo.endDate
-        }
-        // status if the child task failed
-        if (TaskStatus.isTaskFailed(taskInfo.status) && !TaskStatus.isTaskFailed(parentTaskInfo.status)) {
-          assert(parentTaskInfo.status == TaskStatus.STARTED)
-          parentTaskInfo.status = taskInfo.status
-          // Update the parent's parent(s), if any
-          updateParentStartAndEndDates(node=parent, info=Some(parentTaskInfo))
-        }
+      logger.debug(s"updateParentStartAndEndDates: updating parent [${parent.task.name}] [${parent.task.tasksDependingOnThisTask.size}]")
+      val parentTaskInfo = parent.taskInfo
+      val taskInfo: TaskExecutionInfo = info.getOrElse(node.taskInfo)
+      // start date
+      if (compareOptionalInstants(parentTaskInfo.startDate, taskInfo.startDate) >= 0) {
+        parentTaskInfo.startDate = taskInfo.startDate
       }
+      // end date
+      if (compareOptionalInstants(parentTaskInfo.endDate, taskInfo.endDate) <= 0) {
+        parentTaskInfo.endDate = taskInfo.endDate
+      }
+      // status if the child task failed
+      if (TaskStatus.isTaskFailed(taskInfo.status) && !TaskStatus.isTaskFailed(parentTaskInfo.status)) {
+        assert(parentTaskInfo.status == TaskStatus.STARTED)
+        parentTaskInfo.status = taskInfo.status
+        // Update the parent's parent(s), if any
+        updateParentStartAndEndDates(node=parent, info=Some(parentTaskInfo))
+      }
+      logger.debug(s"updateParentStartAndEndDates: updating parent [${parent.task.name}] [${parent.task.tasksDependingOnThisTask.size}]")
     }
   }
 
@@ -409,11 +409,11 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         false
       case _ =>
         // set the submission time stamp
-        taskExecutionInfoFor(node).foreach(info => info.submissionDate = Some(Instant.now()))
+        node.taskInfo.submissionDate = Some(Instant.now())
         // we will make this task dependent on the tasks it creates...
         if (tasks.contains(node.task)) throw new IllegalStateException(s"Task [${node.task.name}] contained itself in the list returned by getTasks")
         // track the new tasks. If they are already added, that's fine too.
-        val taskIds: List[TaskId] = for (task <- tasks) yield addTask(task = task, enclosingNode = Some(node), ignoreExists = true)
+        val taskIds: List[TaskId] = tasks.map { task => addTask(task = task, enclosingNode = Some(node), ignoreExists = true) }
         // make this node dependent on those tasks
         taskIds.map(taskId => node.addPredecessors(this(taskId)))
         // TODO: we could check each new task to see if they are in the PREDECESSORS_AND_UNEXPANDED state
