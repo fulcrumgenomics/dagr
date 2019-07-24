@@ -41,7 +41,7 @@ class CallDuplexConsensusReads(val in: PathToBam,
                                val minReads:            Seq[Int]       = Seq.empty,
                                val maxReadsPerStrand:   Option[Int]    = None,
                                val minThreads: Int                     = 1,
-                               val maxThreads: Int                     = 32,
+                               val maxThreads: Int                     = 32
                               ) extends FgBioTask with VariableResources with Pipe[SamOrBam,SamOrBam] {
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
