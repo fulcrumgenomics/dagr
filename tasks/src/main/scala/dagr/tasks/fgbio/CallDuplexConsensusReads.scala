@@ -24,7 +24,8 @@
 
 package dagr.tasks.fgbio
 
-import dagr.core.tasksystem.Pipe
+import dagr.core.execsystem.{Cores, ResourceSet}
+import dagr.core.tasksystem.{Pipe, VariableResources}
 import dagr.tasks.DagrDef.PathToBam
 import dagr.tasks.DataTypes.SamOrBam
 
@@ -40,7 +41,12 @@ class CallDuplexConsensusReads(val in: PathToBam,
                                val minReads:            Seq[Int]       = Seq.empty,
                                val maxReadsPerStrand:   Option[Int]    = None,
                                val threads:             Option[Int]    = None
-                              ) extends FgBioTask with Pipe[SamOrBam,SamOrBam] {
+                              ) extends FgBioTask with VariableResources with Pipe[SamOrBam,SamOrBam] {
+
+  override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
+    val maxCores = Cores(this.threads.getOrElse(1))
+    resources.subset(minCores=Cores(1), maxCores=maxCores, memory=this.resources.memory)
+  }
 
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
