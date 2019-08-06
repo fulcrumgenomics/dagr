@@ -59,10 +59,10 @@ case class ResourceSet(cores: Cores = Cores.none, memory: Memory = Memory.none) 
     * number of cores. Will greedily assign the highest number of cores possible.
     */
   def subset(minCores: Cores, maxCores: Cores, memory: Memory) : Option[ResourceSet] = {
-    val min = math.ceil(minCores.value).toInt
-    val max = math.floor(maxCores.value).toInt
-    val cores = max.to(min, -1).find(cores => subset(Cores(cores), memory).isDefined)
-    cores.map(c => ResourceSet(Cores(c), memory))
+    val min = minCores.value
+    val max = maxCores.value
+    val cores = Range.BigDecimal.inclusive(max, min, -1).find(cores => subset(Cores(cores.doubleValue), memory).isDefined)
+    cores.map(c => ResourceSet(Cores(c.doubleValue), memory))
   }
 
   /**
