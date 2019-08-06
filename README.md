@@ -1,8 +1,8 @@
 [![Build Status](https://travis-ci.org/fulcrumgenomics/dagr.svg?branch=master)](https://travis-ci.org/fulcrumgenomics/dagr)
 [![Coverage Status](https://codecov.io/github/fulcrumgenomics/dagr/coverage.svg?branch=master)](https://codecov.io/github/fulcrumgenomics/dagr?branch=master)
 [![Code Review](https://api.codacy.com/project/badge/grade/52e1d786d9784c7192fae2f8e853fa34)](https://www.codacy.com/app/contact_32/dagr)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.fulcrumgenomics/dagr_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.fulcrumgenomics/dagr_2.11)
-[![Javadocs](http://javadoc.io/badge/com.fulcrumgenomics/dagr_2.12.svg)](http://javadoc.io/doc/com.fulcrumgenomics/dagr_2.12)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.fulcrumgenomics/dagr_2.13/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.fulcrumgenomics/dagr_2.13)
+[![Javadocs](http://javadoc.io/badge/com.fulcrumgenomics/dagr_2.13.svg)](http://javadoc.io/doc/com.fulcrumgenomics/dagr_2.13)
 [![License](http://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/fulcrumgenomics/dagr/blob/master/LICENSE)
 [![Language](http://img.shields.io/badge/language-scala-brightgreen.svg)](http://www.scala-lang.org/)
 
@@ -10,7 +10,7 @@
 
 A task and pipeline execution system for directed acyclic graphs to support scientific, and more specifically, genomic analysis workflows.
 We are currently in alpha development; please see the [Roadmap](#roadmap).
-The latest API documentation can be found [here](http://javadoc.io/doc/com.fulcrumgenomics/dagr_2.12).
+The latest API documentation can be found [here](http://javadoc.io/doc/com.fulcrumgenomics/dagr_2.13).
 
 <!---toc start-->
   * [Goals](#goals)
@@ -44,7 +44,7 @@ Tests may be run with: `sbt test`.
 
 ## Command line
 
-DAGR is run with: `java -jar target/scala-2.12/dagr-0.4.0-SNAPSHOT.jar`
+DAGR is run with: `java -jar target/scala-2.13/dagr-1.0.0-SNAPSHOT.jar`
 Running the above with no options will produce the usage documentation.
 
 ## Include dagr in your project
@@ -52,15 +52,15 @@ Running the above with no options will produce the usage documentation.
 You can include the three sub-projects that make up dagr using:
 
 ```
-libraryDependencies += "com.fulcrumgenomics" %%  "dagr-core" % "0.4.0"
-libraryDependencies += "com.fulcrumgenomics" %%  "dagr-tasks" % "0.4.0"
-libraryDependencies += "com.fulcrumgenomics" %%  "dagr-pipelines" % "0.4.0"
+libraryDependencies += "com.fulcrumgenomics" %%  "dagr-core" % "1.0.0"
+libraryDependencies += "com.fulcrumgenomics" %%  "dagr-tasks" % "1.0.0"
+libraryDependencies += "com.fulcrumgenomics" %%  "dagr-pipelines" % "1.0.0"
 ```
 
 Or you can depend on the following which will pull in the three dependencies above:
 
 ```
-libraryDependencies += "com.fulcrumgenomics" %% "dagr" % "0.4.0",
+libraryDependencies += "com.fulcrumgenomics" %% "dagr" % "1.0.0",
 ```
 
 ## Authors
