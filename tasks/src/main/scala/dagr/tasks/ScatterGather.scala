@@ -109,7 +109,7 @@ object ScatterGather {
 
   /** Implementation of a Gather that performs a single All->One gather operation. */
   private class SingleGather[Source, Result <: Task](f: Seq[Source] => Result) extends Gather[Source,Result] {
-    override def getTasks: Traversable[_ <: Task] = sources match {
+    override def getTasks: Iterable[_ <: Task] = sources match {
       case None    => throw new IllegalStateException("Gather.getTasks called before sources populated.")
       case Some(a) => Some(f(a))
     }
@@ -121,7 +121,7 @@ object ScatterGather {
   */
   private class PartitionerWrapper[Result](val partitioner: Partitioner[Result]) extends Scatter[Result] {
 
-    override def getTasks: Traversable[_ <: Task] = Some(partitioner)
+    override def getTasks: Iterable[_ <: Task] = Some(partitioner)
 
     override def gather[NextResult <: Task](f: Seq[Result] => NextResult): Gather[Result,NextResult] =
       throw new UnsupportedOperationException("gather not supported on an unmapped Scatter")
@@ -232,7 +232,7 @@ object ScatterGather {
       subs.foreach { sub => sub.chain(task).foreach { s => task ==> s } }
       Seq(task)
     }
-    override def getTasks: Traversable[_ <: Task] =
+    override def getTasks: Iterable[_ <: Task] =
       throw new UnsupportedOperationException("getTasks is not supported and should never be called on sub-scatters.")
   }
 

@@ -25,11 +25,11 @@ package dagr.tasks.misc
 
 import java.nio.file.Path
 
+import com.fulcrumgenomics.commons.CommonsDef._
 import dagr.core.tasksystem.SimpleInJvmTask
 import htsjdk.samtools.metrics.MetricsFile
 import picard.analysis.AlignmentSummaryMetrics
 
-import scala.collection.JavaConversions._
 
 class GetNumPfReads(alignmentSummaryMetrics: Path) extends SimpleInJvmTask {
   var numPfReads: Long = 0

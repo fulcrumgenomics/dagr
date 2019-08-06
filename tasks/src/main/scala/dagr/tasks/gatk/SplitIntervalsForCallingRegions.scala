@@ -26,6 +26,7 @@ package dagr.tasks.gatk
 
 import java.nio.file.{Files, Path}
 
+import com.fulcrumgenomics.commons.CommonsDef._
 import dagr.core.tasksystem.SimpleInJvmTask
 import dagr.tasks.DagrDef.{DirPath, PathToFasta, PathToIntervals}
 import dagr.tasks.ScatterGather.Partitioner
@@ -33,7 +34,6 @@ import htsjdk.samtools.SAMFileHeader
 import htsjdk.samtools.reference.IndexedFastaSequenceFile
 import htsjdk.samtools.util.{CloserUtil, Interval, IntervalList}
 
-import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 
 
@@ -65,7 +65,7 @@ class SplitIntervalsForCallingRegions(ref: PathToFasta,
       case None => Files.createTempFile(pre, suffix)
     }
     val intervalList = new IntervalList(header)
-    intervalList.addall(theIntervals)
+    intervalList.addall(theIntervals.iterator.toJavaList)
     intervalList.write(out.toFile)
     out
   }
@@ -92,7 +92,7 @@ class SplitIntervalsForCallingRegions(ref: PathToFasta,
     if (seqIntervals.isEmpty) throw new IllegalStateException("No sequence intervals to process")
 
     // break them up based on the region size
-    val brokenUpIntervals = IntervalList.breakIntervalsAtBandMultiples(seqIntervals, maxBasesPerScatter)
+    val brokenUpIntervals = IntervalList.breakIntervalsAtBandMultiples(seqIntervals.iterator.toJavaList, maxBasesPerScatter)
     if (brokenUpIntervals.isEmpty) throw new IllegalStateException("No broken up intervals to process")
 
     // group the intervals such that the total # of bases covered is not greater than `maxBasesPerScatter`.  This can
@@ -103,7 +103,7 @@ class SplitIntervalsForCallingRegions(ref: PathToFasta,
     for (interval <- brokenUpIntervals) {
       // check if adding one more interval will cause us to be too large.  If so output the interval list and clear it.
       if (maxBasesPerScatter < size + interval.length() && intervalBuffer.nonEmpty) {
-        outputs.append(writeIntervals(theIntervals=intervalBuffer, idx=idx, header=header))
+        outputs.append(writeIntervals(theIntervals=intervalBuffer.toSeq, idx=idx, header=header))
         size = 0
         idx += 1
         intervalBuffer.clear()
@@ -111,7 +111,7 @@ class SplitIntervalsForCallingRegions(ref: PathToFasta,
       intervalBuffer.append(interval)
       size += interval.length()
     }
-    if (intervalBuffer.nonEmpty) outputs.append(writeIntervals(theIntervals=intervalBuffer, idx=idx, header=header))
-    this.intervalLists = Some(outputs)
+    if (intervalBuffer.nonEmpty) outputs.append(writeIntervals(theIntervals=intervalBuffer.toSeq, idx=idx, header=header))
+    this.intervalLists = Some(outputs.toSeq)
   }
 }

@@ -27,17 +27,15 @@ package dagr.pipelines
 import java.nio.file.{Files, Path}
 
 import _root_.picard.analysis.CollectMultipleMetrics.Program
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.sopt._
 import dagr.core.cmdline._
-import dagr.core.tasksystem.{Linker, Pipeline, ProcessTask, Task}
-import com.fulcrumgenomics.commons.io.{Io, PathUtil}
+import dagr.core.tasksystem.{Linker, Pipeline, Task}
 import dagr.tasks.DagrDef
-import DagrDef._
+import dagr.tasks.DagrDef._
 import dagr.tasks.bwa.{Bwa, BwaBacktrack}
 import dagr.tasks.misc.CalculateDownsamplingProportion
 import dagr.tasks.picard._
-
-import scala.collection.mutable.ListBuffer
 
 object DnaResequencingFromUnmappedBamPipeline {
   final val SUMMARY =
@@ -77,9 +75,9 @@ class DnaResequencingFromUnmappedBamPipeline
 
     val mappedBam   = Files.createTempFile(tmp, "mapped.", ".bam")
     val dsMappedBam = Files.createTempFile(tmp, "mapped.ds.", ".bam")
-    val finalBam    = PathUtil.pathTo(prefix + ".bam")
-    val dsPrefix    = PathUtil.pathTo(prefix + ".ds")
-    val dsFinalBam  = PathUtil.pathTo(dsPrefix + ".bam")
+    val finalBam    = PathUtil.pathTo(s"${prefix}.bam")
+    val dsPrefix    = PathUtil.pathTo(s"${prefix}.ds")
+    val dsFinalBam  = PathUtil.pathTo(s"${dsPrefix}.bam")
 
     ///////////////////////////////////////////////////////////////////////
     // Run BWA mem, then do some downsampling
@@ -100,7 +98,7 @@ class DnaResequencingFromUnmappedBamPipeline
       programs=List(Program.CollectQualityYieldMetrics),
       ref=ref
     )
-    val calculateP = new CalculateDownsamplingProportion(PathUtil.pathTo(prefix + ".quality_yield_metrics.txt"), downsampleToReads)
+    val calculateP = new CalculateDownsamplingProportion(PathUtil.pathTo(s"${prefix}.quality_yield_metrics.txt"), downsampleToReads)
     val downsample = new DownsampleSam(in=mappedBam, out=dsMappedBam, proportion=1, accuracy=Some(0.00001))
     val linker     = Linker(calculateP, downsample){(cp, ds) => ds.proportion = cp.proportion}
     bwa ==> yieldMetrics ==> calculateP ==> linker ==> downsample

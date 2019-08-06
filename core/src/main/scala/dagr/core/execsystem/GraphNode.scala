@@ -39,7 +39,7 @@ import scala.collection.mutable.ListBuffer
   *                         nodes are [[dagr.core.tasksystem.Pipeline]]s.
   */
 class GraphNode(var task: Task,
-                predecessorNodes: Traversable[GraphNode] = Nil,
+                predecessorNodes: Iterable[GraphNode] = Nil,
                 var state: GraphNodeState.Value = GraphNodeState.PREDECESSORS_AND_UNEXPANDED,
                 val enclosingNode: Option[GraphNode] = None) extends BaseGraphNode {
 
@@ -89,8 +89,8 @@ class GraphNode(var task: Task,
     * @param predecessor the predecessor(s) to add
     * @return true if the predecessor was not already added and added successfully, false otherwise
     */
-  def addPredecessors(predecessor: Traversable[GraphNode]): Boolean = {
-    addPredecessors(predecessor.toArray:_*)
+  def addPredecessors(predecessor: Iterable[GraphNode]): Boolean = {
+    addPredecessors(predecessor.toSeq:_*)
   }
 
   /** Get the predecessors

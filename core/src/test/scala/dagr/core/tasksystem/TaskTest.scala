@@ -41,7 +41,7 @@ class TaskTest extends UnitSpec with LazyLogging {
   class LazyTask(var sleepTime: Option[SleepAndExitData]) extends ProcessTask {
     name = "LazyTask"
     private val argBuffer = ListBuffer[Any]()
-    override def args = argBuffer
+    override def args = argBuffer.toSeq
     override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = Some(ResourceSet.empty)
 
     override def applyResources(resources: ResourceSet): Unit = {
@@ -88,7 +88,7 @@ class TaskTest extends UnitSpec with LazyLogging {
 
       // so now lazyTask depends on the number from firstTask being not None
       firstTask.applyResources(ResourceSet.infinite)
-      firstTask.sleepTime should be ('defined)
+      firstTask.sleepTime.isDefined shouldBe true
       firstTask.tasksDependingOnThisTask.foreach(t => t.asInstanceOf[InJvmTask].inJvmMethod())
       lazyTask.getTasks should have size 1
     }
@@ -115,7 +115,7 @@ class TaskTest extends UnitSpec with LazyLogging {
       firstTask.getTasks should have size 1
       firstTask.sleepTime should be (None)
       firstTask.onComplete(0) should be (true)
-      firstTask.sleepTime should be ('defined)
+      firstTask.sleepTime.isDefined shouldBe true
       firstTask.tasksDependingOnThisTask.foreach(t => t.asInstanceOf[InJvmTask].inJvmMethod())
       lazyTask.getTasks should have size 1
     }
@@ -224,24 +224,24 @@ class TaskTest extends UnitSpec with LazyLogging {
       a ==> (b :: c :: d) ==> e ==> (f :: g)
 
       a.tasksDependedOn.isEmpty shouldBe true
-      a.tasksDependingOnThisTask should contain theSameElementsAs Traversable(b, c, d)
+      a.tasksDependingOnThisTask should contain theSameElementsAs Iterable(b, c, d)
 
-      b.tasksDependedOn should contain theSameElementsAs Traversable(a)
-      b.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e)
+      b.tasksDependedOn should contain theSameElementsAs Iterable(a)
+      b.tasksDependingOnThisTask should contain theSameElementsAs Iterable(e)
 
-      c.tasksDependedOn should contain theSameElementsAs Traversable(a)
-      c.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e)
+      c.tasksDependedOn should contain theSameElementsAs Iterable(a)
+      c.tasksDependingOnThisTask should contain theSameElementsAs Iterable(e)
 
-      d.tasksDependedOn should contain theSameElementsAs Traversable(a)
-      d.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e)
+      d.tasksDependedOn should contain theSameElementsAs Iterable(a)
+      d.tasksDependingOnThisTask should contain theSameElementsAs Iterable(e)
 
-      e.tasksDependedOn should contain theSameElementsAs Traversable(b, c, d)
-      e.tasksDependingOnThisTask should contain theSameElementsAs Traversable(f, g)
+      e.tasksDependedOn should contain theSameElementsAs Iterable(b, c, d)
+      e.tasksDependingOnThisTask should contain theSameElementsAs Iterable(f, g)
 
-      f.tasksDependedOn should contain theSameElementsAs Traversable(e)
+      f.tasksDependedOn should contain theSameElementsAs Iterable(e)
       f.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      g.tasksDependedOn should contain theSameElementsAs Traversable(e)
+      g.tasksDependedOn should contain theSameElementsAs Iterable(e)
       g.tasksDependingOnThisTask.isEmpty shouldBe true
 
       a !=> (b :: c :: d)
@@ -257,24 +257,24 @@ class TaskTest extends UnitSpec with LazyLogging {
       a :: b ==> c :: d ==> e :: f :: g
 
       a.tasksDependedOn.isEmpty shouldBe true
-      a.tasksDependingOnThisTask should contain theSameElementsAs Traversable(c, d)
+      a.tasksDependingOnThisTask should contain theSameElementsAs Iterable(c, d)
 
       b.tasksDependedOn.isEmpty shouldBe true
-      b.tasksDependingOnThisTask should contain theSameElementsAs Traversable(c, d)
+      b.tasksDependingOnThisTask should contain theSameElementsAs Iterable(c, d)
 
-      c.tasksDependedOn should contain theSameElementsAs Traversable(a, b)
-      c.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e, f, g)
+      c.tasksDependedOn should contain theSameElementsAs Iterable(a, b)
+      c.tasksDependingOnThisTask should contain theSameElementsAs Iterable(e, f, g)
 
-      d.tasksDependedOn should contain theSameElementsAs Traversable(a, b)
-      d.tasksDependingOnThisTask should contain theSameElementsAs Traversable(e, f, g)
+      d.tasksDependedOn should contain theSameElementsAs Iterable(a, b)
+      d.tasksDependingOnThisTask should contain theSameElementsAs Iterable(e, f, g)
 
-      e.tasksDependedOn should contain theSameElementsAs Traversable(c, d)
+      e.tasksDependedOn should contain theSameElementsAs Iterable(c, d)
       e.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      f.tasksDependedOn should contain theSameElementsAs Traversable(c, d)
+      f.tasksDependedOn should contain theSameElementsAs Iterable(c, d)
       f.tasksDependingOnThisTask.isEmpty shouldBe true
 
-      g.tasksDependedOn should contain theSameElementsAs Traversable(c, d)
+      g.tasksDependedOn should contain theSameElementsAs Iterable(c, d)
       g.tasksDependingOnThisTask.isEmpty shouldBe true
 
       a :: b !=> c :: d

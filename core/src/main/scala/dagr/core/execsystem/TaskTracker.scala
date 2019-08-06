@@ -125,7 +125,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     * @param ignoreExists true if we just return the task id for already added tasks, false if we are to throw an [[IllegalArgumentException]]
     * @return the task identifiers.
     */
-  protected[execsystem] def addTasks(tasks: Traversable[Task], enclosingNode: Option[GraphNode] = None, ignoreExists: Boolean = false): List[TaskId] = {
+  protected[execsystem] def addTasks(tasks: Iterable[Task], enclosingNode: Option[GraphNode] = None, ignoreExists: Boolean = false): List[TaskId] = {
     tasks.map(task => addTask(task=task, enclosingNode=enclosingNode, ignoreExists=ignoreExists)).toList
   }
 
@@ -286,11 +286,11 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
    * @return the list of precedessors, or Nil if this task has no predecessors.  If there were predecessors that
     *         are not currently being tracked, None will be returned instead.
     */
-  protected def predecessorsOf(task: Task): Option[Traversable[GraphNode]] = {
+  protected def predecessorsOf(task: Task): Option[Iterable[GraphNode]] = {
     task.tasksDependedOn match {
       case Nil => Some(Nil)
       case _ =>
-        val predecessors: Traversable[Option[GraphNode]] = for (dependency <- task.tasksDependedOn) yield graphNodeFor(dependency)
+        val predecessors: Iterable[Option[GraphNode]] = for (dependency <- task.tasksDependedOn) yield graphNodeFor(dependency)
         if (predecessors.exists(_.isEmpty)) None // we found predecessors that have no associated graph node
         else Some(predecessors.map(_.get))
     }
@@ -310,7 +310,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     * @param states the states of the returned graph nodes.
     * @return the graph nodes with the given states.
     */
-  protected def graphNodesInStatesFor(states: Traversable[GraphNodeState.Value]): Iterable[GraphNode] = {
+  protected def graphNodesInStatesFor(states: Iterable[GraphNodeState.Value]): Iterable[GraphNode] = {
     graphNodes.filter(n => states.toList.contains(n.state))
   }
 

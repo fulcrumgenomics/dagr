@@ -76,9 +76,9 @@ class FilterFreeBayesCalls(val in: PathToVcf,
 
   requires(1.0, "2G")
 
-  override def applyResources(resources: ResourceSet): Unit = Unit
+  override def applyResources(resources: ResourceSet): Unit = ()
 
-  override def getTasks: Traversable[_ <: Task] = {
+  override def getTasks: Iterable[_ <: Task] = {
     // Apply filters specific to somatic calling
     if (somatic) {
       // source: https://github.com/chapmanb/bcbio-nextgen/blob/60a0f3c4f8ec658f8c34d6bc77b23a90f47b45d6/bcbio/variation/freebayes.py#L250
@@ -89,13 +89,13 @@ class FilterFreeBayesCalls(val in: PathToVcf,
     val decompressVcf = new ShellCommand(configureExecutableFromBinDirectory(BgzipBinConfigKey, "bgzip").toString, "-c", "-d", in.toAbsolutePath.toString) with PipeWithNoResources[Nothing, Vcf]
 
     // Remove low quality calls
-    val filterLowQualityCalls = new ShellCommand(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "filter", "-i", """'ALT="<*>" || QUAL > 5'""") with PipeWithNoResources[Vcf, Vcf] discardError()
+    val filterLowQualityCalls = (new ShellCommand(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "filter", "-i", """'ALT="<*>" || QUAL > 5'""") with PipeWithNoResources[Vcf, Vcf]).discardError()
 
     // fix ambiguous (IUPAC) reference base calls
     val fixAmbiguousIupacReferenceCalls = new ShellCommand("awk", """-F\t""",  "-v", """OFS=\t""",  """{if ($0 !~ /^#/) gsub(/[KMRYSWBVHDX]/, "N", $4) } { print }""") with PipeWithNoResources[Vcf, Vcf]
 
     // remove alternate alleles that are not called in any sample
-    val removeAlts = new ShellCommand(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "view", "-a", "-") with PipeWithNoResources[Vcf, Vcf] discardError()
+    val removeAlts = (new ShellCommand(configureExecutableFromBinDirectory(BcfToolsBinConfigKey, "bcftools").toString, "view", "-a", "-") with PipeWithNoResources[Vcf, Vcf]).discardError()
 
     // remove calls with missing alternative alleles
     // source: https://github.com/chapmanb/bcbio-nextgen/blob/60a0f3c4f8ec658f8c34d6bc77b23a90f47b45d6/bcbio/variation/freebayes.py#L237
@@ -112,7 +112,7 @@ class FilterFreeBayesCalls(val in: PathToVcf,
 
     // standardizes the representation of variants using parsimony and left-alignment relative to the reference genome
     // See: http://genome.sph.umich.edu/wiki/Variant_Normalization
-    val leftAlign = new ShellCommand(configureExecutableFromBinDirectory(VtBinConfigKey, "vt").toString, "normalize", "-n", "-r", ref.toAbsolutePath.toString, "-q", "-") with PipeWithNoResources[Vcf, Vcf] discardError()
+    val leftAlign = (new ShellCommand(configureExecutableFromBinDirectory(VtBinConfigKey, "vt").toString, "normalize", "-n", "-r", ref.toAbsolutePath.toString, "-q", "-") with PipeWithNoResources[Vcf, Vcf]).discardError()
 
     // remove both duplicate and reference alternate alleles
     val removeDuplicateAlleles = new ShellCommand(configureExecutableFromBinDirectory(VcfLibBinConfigKey, "vcfuniqalleles").toString) with PipeWithNoResources[Vcf, Vcf]

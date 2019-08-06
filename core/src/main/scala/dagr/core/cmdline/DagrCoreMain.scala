@@ -222,7 +222,7 @@ class DagrCoreMain extends LazyLogging {
 
     val startTime = System.currentTimeMillis()
     val packages = Sopt.find[Pipeline](packageList, includeHidden=includeHidden)
-    val exit      = Sopt.parseCommandAndSubCommand[DagrCoreArgs,Pipeline](name, args, packages) match {
+    val exit      = Sopt.parseCommandAndSubCommand[DagrCoreArgs,Pipeline](name, args.toIndexedSeq, packages) match {
       case Sopt.Failure(usage) =>
         System.err.print(usage())
         1
@@ -267,7 +267,7 @@ class DagrCoreMain extends LazyLogging {
 
   /** Loads the various dagr scripts and puts them on the classpath. */
   private def loadScripts(args: Array[String]): Unit = {
-    val tokenizer = new ArgTokenizer(args, argFilePrefix=Some("@"))
+    val tokenizer = new ArgTokenizer(args.toIndexedSeq, argFilePrefix=Some("@"))
     val collator = new ArgTokenCollator(tokenizer)
     collator.filter(_.isSuccess).foreach {
       case Success(ArgOptionAndValues(name: String, values: Seq[String])) if name == "scripts" =>

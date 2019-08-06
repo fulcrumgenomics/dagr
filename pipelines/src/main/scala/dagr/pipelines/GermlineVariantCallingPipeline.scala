@@ -96,7 +96,7 @@ class GermlineVariantCallingPipeline
     // Run variant calling metrics
     dbsnp match {
       case Some(db) => vc ==> new CollectVariantCallingMetrics(vcf=finalVcf, prefix=out, dbsnp=db, intervals=intervals)
-      case _ => Unit
+      case _        => ()
     }
 
     // Perform variant assessment
@@ -131,7 +131,7 @@ class GermlineVariantCallingPipeline
 
         // Update the dependencies
         vc ==> (getCallSampleName :: getTruthSampleName) ==> concordance
-      case None => Unit
+      case None => ()
     }
   }
 }

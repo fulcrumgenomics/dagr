@@ -33,10 +33,10 @@ import com.fulcrumgenomics.commons.util.TimeUtil._
 import dagr.core.execsystem.GraphNodeState._
 import dagr.core.execsystem.TopLikeStatusReporter.{ReportField, StatusRunnable}
 import dagr.core.tasksystem.{InJvmTask, ProcessTask, Task, UnitTask}
+import jline.{TerminalFactory, Terminal => JLineTerminal}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.tools.jline_embedded.{Terminal => JLineTerminal, TerminalFactory}
 
 /** Simple methods for a terminal */
 object Terminal {
@@ -62,13 +62,13 @@ trait Terminal {
   * See: http://www.tldp.org/HOWTO/Bash-Prompt-HOWTO/x361.html
   */
 object CursorMovement {
-  def positionCursor(line: Int, column: Int): String = s"\033[$line;${column}H"
+  def positionCursor(line: Int, column: Int): String = s"\u001b$line;${column}H"
   //def moveUp(numLines: Int): String = s"\033[${numLines}A"
   //def moveDown(numLines: Int): String = s"\033[${numLines}B"
   //def moveRight(numColumns: Int): String = s"\033[${numColumns}C"
   //def moveLeft(numColumns: Int): String = s"\033[${numColumns}D"
-  def clearScreen: String = "\033[2J"
-  def eraseToEOL: String = "\033[K"
+  def clearScreen: String = "\u001b[2J"
+  def eraseToEOL: String = "\u001b[K"
 }
 
 object TopLikeStatusReporter {

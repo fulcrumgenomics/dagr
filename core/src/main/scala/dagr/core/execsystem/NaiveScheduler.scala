@@ -31,7 +31,7 @@ class NaiveScheduler extends Scheduler {
     * Takes the list of tasks that could be scheduled if their resource needs can be met and attempts
     * to schedule a single task for execution.
     */
-  private[execsystem] def scheduleOneTask(readyTasks: Traversable[UnitTask],
+  private[execsystem] def scheduleOneTask(readyTasks: Iterable[UnitTask],
                                           remainingSystemCores: Cores,
                                           remainingSystemMemory: Memory,
                                           remainingJvmMemory: Memory): Option[(UnitTask, ResourceSet)] = {
@@ -64,7 +64,7 @@ class NaiveScheduler extends Scheduler {
     * @param remainingJvmMemory the set of remaining JVM memory, not including running tasks.
     * @return a map of tasks should be scheduled and their allocate resources.
     */
-  private def scheduleOnce(readyTasks: Traversable[UnitTask],
+  private def scheduleOnce(readyTasks: Iterable[UnitTask],
                            remainingSystemCores: Cores,
                            remainingSystemMemory: Memory,
                            remainingJvmMemory: Memory): List[(UnitTask, ResourceSet)] = {
@@ -111,7 +111,7 @@ class NaiveScheduler extends Scheduler {
    * @param jvmMemory the JVM memory available.
    * @return the map of tasks should be scheduled.
    */
-  override def schedule(readyTasks: Traversable[UnitTask],
+  override def schedule(readyTasks: Iterable[UnitTask],
                         systemCores: Cores,
                         systemMemory: Memory,
                         jvmMemory: Memory

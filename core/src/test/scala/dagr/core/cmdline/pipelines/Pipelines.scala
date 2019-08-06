@@ -35,7 +35,7 @@ private class TestGroup extends ClpGroup {
 
 @clp(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] class CommandLineTaskTesting extends Pipeline {
-  override def build(): Unit = Unit
+  override def build(): Unit = ()
 }
 
 @clp(description = "", group = classOf[TestGroup], hidden = true)

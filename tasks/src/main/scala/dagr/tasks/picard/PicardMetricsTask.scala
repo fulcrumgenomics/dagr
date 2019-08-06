@@ -57,7 +57,7 @@ trait PicardMetricsTask {
    * the case of CollectGcBiasMetrics.
     */
   def metricsFile(extension: String, kind: PicardOutput.Value) : Path = {
-    PathUtil.pathTo(pathPrefix + extension + "." + kind.toString)
+    PathUtil.pathTo(s"${pathPrefix}${extension}.${kind}")
   }
 
   /** All Picard metric generating tools should define their own metrics extension. */

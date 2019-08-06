@@ -24,14 +24,13 @@
 
 package dagr.tasks.misc
 
+import com.fulcrumgenomics.commons.CommonsDef._
 import dagr.core.tasksystem.SimpleInJvmTask
-import dagr.tasks.DagrDef
-import DagrDef.PathToVcf
+import dagr.tasks.DagrDef.PathToVcf
 import htsjdk.samtools.util.CloserUtil
 import htsjdk.variant.vcf.{VCFFileReader, VCFHeader}
-import scala.collection.mutable
 
-import scala.collection.JavaConversions._
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /** Gets the sample names from a VCF */

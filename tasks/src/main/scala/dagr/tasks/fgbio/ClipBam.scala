@@ -33,8 +33,6 @@ class ClipBam(val input: PathToBam,
               val output: PathToBam,
               val ref: PathToFasta,
               val metrics: Option[FilePath] = None,
-              @deprecated("Use clipping-mode instead.", since="0.2.1")
-              val softClip: Option[Boolean] = None,
               val clippingMode: Option[String] = None,
               val autoClipAttributes: Option[Boolean] = None,
               val upgradeClipping: Option[Boolean] = None,
@@ -45,14 +43,11 @@ class ClipBam(val input: PathToBam,
               val clipOverlappingReads: Option[Boolean] = None
              ) extends FgBioTask {
 
-  require(softClip.isEmpty || clippingMode.isEmpty, "Both softClip and clippingMode cannot both be used.")
-
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", input)
     buffer.append("-o", output)
     buffer.append("-r", ref)
     metrics.foreach           (m => buffer.append("-m", m))
-    softClip.foreach          (s => buffer.append("-s", s))
     clippingMode.foreach      (c => buffer.append("-c", c))
     autoClipAttributes.foreach(a => buffer.append("-a", a))
     upgradeClipping.foreach   (u => buffer.append("--upgrade-clipping", u))

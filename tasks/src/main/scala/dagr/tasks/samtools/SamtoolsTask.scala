@@ -38,7 +38,7 @@ abstract class SamtoolsTask(val command: String) extends ProcessTask with Config
     val buffer = ListBuffer[Any]()
     buffer.append(samtools, command)
     addSubcommandArgs(buffer)
-    buffer
+    buffer.toSeq
   }
 
   def addSubcommandArgs(buffer: ListBuffer[Any]): Unit

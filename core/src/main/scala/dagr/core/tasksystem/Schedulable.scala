@@ -95,8 +95,8 @@ trait Schedulable {
   private[tasksystem] def minCores(start: Cores = OneCore, end: Cores = EndCores, step: Cores = OneCore, maxMemory: Memory = EndMemory): Option[Cores] = {
     // first check that the search will succeed, then test a range of values for cores
     this.pickResources(availableResources = new ResourceSet(end, maxMemory)).flatMap { _ =>
-      (start.value to end.value by step.value).flatMap { cores =>
-        val availableResources = new ResourceSet(Cores(cores), maxMemory)
+      Range.BigDecimal.inclusive(start.value, end.value, step.value).flatMap { cores =>
+        val availableResources = new ResourceSet(Cores(cores.doubleValue), maxMemory)
         this.pickResources(availableResources = availableResources).map(_.cores)
       }.headOption
     }
@@ -106,7 +106,7 @@ trait Schedulable {
   private[tasksystem] def minMemory(start: Memory = StartMemory, end: Memory = EndMemory, step: Memory = StepMemory, maxCores: Cores = EndCores): Option[Memory] = {
     // first check that the search will succeed, then test a range of values for memory
     this.pickResources(availableResources = new ResourceSet(maxCores, end)).flatMap { _ =>
-      (start.value to end.value by step.value).flatMap { memory =>
+      Range.Long.inclusive(start.value, end.value, step.value).flatMap { memory =>
         val availableResources = new ResourceSet(maxCores, Memory(memory))
         this.pickResources(availableResources = availableResources).map(_.memory)
       }.headOption
@@ -115,8 +115,8 @@ trait Schedulable {
 
   /** A crude attempt at estimating the minimum resources by assuming a fixed ratio of memory per core. */
   private[tasksystem] def minCoresAndMemory(start: Cores = OneCore, end: Cores = EndCores, step: Cores = OneCore, memoryPerCore: Memory = MemoryPerCore): Option[ResourceSet] = {
-    (start.value to end.value by step.value).flatMap { cores =>
-      val availableResources = new ResourceSet(Cores(cores), Memory((memoryPerCore.value * cores).toLong))
+    Range.BigDecimal.inclusive(start.value, end.value, step.value).flatMap { cores =>
+      val availableResources = new ResourceSet(Cores(cores.doubleValue), Memory((memoryPerCore.value * cores).toLong))
       this.pickResources(availableResources = availableResources)
     }.headOption
   }

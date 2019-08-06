@@ -23,6 +23,7 @@
  */
 package dagr.core.execsystem
 
+import com.fulcrumgenomics.commons.CommonsDef._
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.tasksystem._
 import dagr.core.UnitSpec
@@ -186,7 +187,7 @@ class NaiveSchedulerTest extends UnitSpec with LazyLogging {
     val readyTasks = List(new HungryTask, new HungryTask, new HungryTask)
 
     val tupleOption = scheduler.scheduleOneTask(readyTasks, systemCores, systemMemory, jvmMemory)
-    tupleOption shouldBe 'defined
+    tupleOption.isDefined shouldBe true
     val resourceSet = tupleOption.get._2
     resourceSet.cores.value should be <= systemCores.value
   }

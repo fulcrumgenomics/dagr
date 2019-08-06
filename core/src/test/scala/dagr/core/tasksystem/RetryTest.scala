@@ -50,8 +50,8 @@ class RetryTest extends UnitSpec with OptionValues {
 
     val task = new Task with LinearMemoryRetry {
       requires(1, from)
-      override def applyResources(resources : ResourceSet): Unit = Unit
-      def getTasks: Traversable[_ <: Task] = List.empty
+      override def applyResources(resources : ResourceSet): Unit = ()
+      def getTasks: Iterable[_ <: Task] = List.empty
       override def toMemory: Memory = Memory(to)
       override def byMemory: Memory = Memory(by)
     }
@@ -74,8 +74,8 @@ class RetryTest extends UnitSpec with OptionValues {
 
     val task = new Task with MemoryDoublingRetry {
       requires(1, from)
-      override def applyResources(resources : ResourceSet): Unit = Unit
-      def getTasks: Traversable[_ <: Task] = List.empty
+      override def applyResources(resources : ResourceSet): Unit = ()
+      def getTasks: Iterable[_ <: Task] = List.empty
     }
     Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"
 
@@ -94,7 +94,7 @@ class RetryTest extends UnitSpec with OptionValues {
   "MultipleRetry" should "retry a fixed number of times" in {
     val task = new Task with MultipleRetry {
       def maxNumIterations: Int = 3
-      def getTasks: Traversable[_ <: Task] = List.empty
+      def getTasks: Iterable[_ <: Task] = List.empty
     }
     val info = taskInfo(task)
     task.retry(systemResources, info) shouldBe true

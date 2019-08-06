@@ -32,7 +32,7 @@ import org.scalatest.OptionValues
 class SchedulableTest extends UnitSpec with OptionValues {
 
   private val fixedTask = new FixedResources {
-    override def applyResources(resources: ResourceSet) = Unit
+    override def applyResources(resources: ResourceSet) = ()
   }
 
   // A variable task that takes twice as much memory in GB as available cores.
@@ -59,64 +59,64 @@ class SchedulableTest extends UnitSpec with OptionValues {
   "Schedulable.minCores" should "work with fixed resources" in {
     fixedTask.requires(1, "2g").minCores().value.value shouldBe 1
     fixedTask.requires(2, "2g").minCores().value.value shouldBe 2
-    fixedTask.requires(2, "2g").minCores(end=Cores(1)) shouldBe 'empty
-    fixedTask.requires(2, "2g").minCores(start=Cores(1), end=Cores(2), step=Cores(2)) shouldBe 'empty
+    fixedTask.requires(2, "2g").minCores(end=Cores(1)).isEmpty shouldBe true
+    fixedTask.requires(2, "2g").minCores(start=Cores(1), end=Cores(2), step=Cores(2)).isEmpty shouldBe true
   }
 
   it should "work with variable resources" in {
     doubleMemoryTask.minCores(end=Cores(1)).value.value shouldBe 1
     doubleMemoryTask.minCores(start=Cores(2), end=Cores(2), step=Cores(1)).value.value shouldBe 2
-    doubleMemoryTask.minCores(start=Cores(3), end=Cores(2), step=Cores(1)) shouldBe 'empty
+    doubleMemoryTask.minCores(start=Cores(3), end=Cores(2), step=Cores(1)).isEmpty shouldBe true
   }
 
   "Schedulable.minMemory" should "work with fixed resources" in {
     fixedTask.requires(1, "2g").minMemory().value shouldBe Memory("2g")
     fixedTask.requires(2, "2g").minMemory().value shouldBe Memory("2g")
-    fixedTask.requires(2, "2g").minMemory(end=Memory("1g")) shouldBe 'empty
-    fixedTask.requires(2, "2g").minMemory(start=Memory("1g"), end=Memory("2g"), step=Memory("2g")) shouldBe 'empty
+    fixedTask.requires(2, "2g").minMemory(end=Memory("1g")).isEmpty shouldBe true
+    fixedTask.requires(2, "2g").minMemory(start=Memory("1g"), end=Memory("2g"), step=Memory("2g")).isEmpty shouldBe true
   }
 
   it should "work with variable resources" in {
     twoGbTask.minMemory().value.value shouldBe Memory("2g").value
-    twoGbTask.minMemory(end=Memory("1g"), step=Memory("256m")) shouldBe 'empty
+    twoGbTask.minMemory(end=Memory("1g"), step=Memory("256m")).isEmpty shouldBe true
     twoGbTask.minMemory(end=Memory("2g"), step=Memory("256m")).value.value shouldBe Memory("2g").value
     twoGbTask.minMemory(start=Memory("1g"), end=Memory("2g"), step=Memory("1g")).value.value shouldBe Memory("2g").value
-    twoGbTask.minMemory(start=Memory("3g"), end=Memory("2g"), step=Memory("1g")) shouldBe 'empty
+    twoGbTask.minMemory(start=Memory("3g"), end=Memory("2g"), step=Memory("1g")).isEmpty shouldBe true
   }
 
   "Schedulable.minCoresAndMemory" should "work with fixed resources" in {
     fixedTask.requires(2, "2g").minCoresAndMemory(memoryPerCore=Memory("1g")).value shouldBe ResourceSet(Cores(2), Memory("2g"))
     fixedTask.requires(2, "1g").minCoresAndMemory(memoryPerCore=Memory("512m")).value shouldBe ResourceSet(Cores(2), Memory("1g"))
-    fixedTask.requires(2, "1g").minCoresAndMemory(memoryPerCore=Memory(Memory("1m").value / 2)) shouldBe 'empty
+    fixedTask.requires(2, "1g").minCoresAndMemory(memoryPerCore=Memory(Memory("1m").value / 2)).isEmpty shouldBe true
   }
 
   it should "work with variable resources" in {
     doubleMemoryTask.minCoresAndMemory(memoryPerCore=Memory("4g")).value shouldBe ResourceSet(Cores(1), Memory("2g"))
     doubleMemoryTask.minCoresAndMemory(memoryPerCore=Memory("2g")).value shouldBe ResourceSet(Cores(1), Memory("2g"))
-    doubleMemoryTask.minCoresAndMemory(memoryPerCore=Memory("1g")) shouldBe 'empty
+    doubleMemoryTask.minCoresAndMemory(memoryPerCore=Memory("1g")).isEmpty shouldBe true
 
     quadMemoryTask.minCoresAndMemory(memoryPerCore=Memory("4g")).value shouldBe ResourceSet(Cores(1), Memory("4g"))
-    quadMemoryTask.minCoresAndMemory(memoryPerCore=Memory("2g")) shouldBe 'empty
-    quadMemoryTask.minCoresAndMemory(memoryPerCore=Memory("1g")) shouldBe 'empty
+    quadMemoryTask.minCoresAndMemory(memoryPerCore=Memory("2g")).isEmpty shouldBe true
+    quadMemoryTask.minCoresAndMemory(memoryPerCore=Memory("1g")).isEmpty shouldBe true
   }
 
   "Schedulable.minResources" should "work with fixed resources" in {
     fixedTask.requires(1, "2g").minResources().value shouldBe ResourceSet(Cores(1), Memory("2g"))
     fixedTask.requires(2, "24g").minResources().value shouldBe ResourceSet(Cores(2), Memory("24g"))
-    fixedTask.requires(2, "24g").minResources(maximumResources=ResourceSet(Cores(1), Memory("24g"))) shouldBe 'empty
+    fixedTask.requires(2, "24g").minResources(maximumResources=ResourceSet(Cores(1), Memory("24g"))).isEmpty shouldBe true
   }
 
   it should "work with variable resources" in {
     twoGbTask.minResources().value shouldBe ResourceSet(Cores(1), Memory("2g"))
     twoGbTask.minResources(ResourceSet(Cores(2), Memory("2g"))).value shouldBe ResourceSet(Cores(1), Memory("2g"))
     twoGbTask.minResources(ResourceSet(Cores(2), Memory("1g"))).value shouldBe ResourceSet(Cores(2), Memory("2g"))
-    twoGbTask.minResources(ResourceSet(Cores(2), Memory("1023m"))) shouldBe 'empty
+    twoGbTask.minResources(ResourceSet(Cores(2), Memory("1023m"))).isEmpty shouldBe true
 
     doubleMemoryTask.minResources().value shouldBe ResourceSet(Cores(1), Memory("2g"))
-    doubleMemoryTask.minResources(ResourceSet(Cores(2), Memory("1g"))) shouldBe 'empty
+    doubleMemoryTask.minResources(ResourceSet(Cores(2), Memory("1g"))).isEmpty shouldBe true
 
     quadMemoryTask.minResources().value shouldBe ResourceSet(Cores(1), Memory("4g"))
     quadMemoryTask.minResources(ResourceSet(Cores(1), Memory("4g"))).value shouldBe ResourceSet(Cores(1), Memory("4g"))
-    quadMemoryTask.minResources(ResourceSet(Cores(1), Memory("3g"))) shouldBe 'empty
+    quadMemoryTask.minResources(ResourceSet(Cores(1), Memory("3g"))).isEmpty shouldBe true
   }
 }

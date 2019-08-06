@@ -26,10 +26,8 @@ package dagr.tasks.misc
 import java.nio.file.{Path, Files}
 import java.util.stream.Collectors
 
+import com.fulcrumgenomics.commons.CommonsDef._
 import dagr.core.tasksystem.SimpleInJvmTask
-import dagr.tasks.DagrDef
-import DagrDef.FilePath
- import scala.collection.JavaConversions._
 
 /**
   * Simple tasks that deletes one or more extent files. If a path represents a directory
@@ -47,7 +45,7 @@ class DeleteFiles(val paths: FilePath*) extends SimpleInJvmTask {
       val childStream = Files.list(path)
       val children = childStream.collect(Collectors.toList())
       childStream.close()
-      children.foreach(this.delete)
+      children.iterator.foreach(this.delete)
     }
 
     Files.deleteIfExists(path)

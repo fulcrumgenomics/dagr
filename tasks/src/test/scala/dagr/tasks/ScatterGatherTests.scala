@@ -76,7 +76,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
         lines.head
       }
       val words = line.split(' ')
-      val paths = words.map(_ => tmp())
+      val paths = words.map(_ => tmp()).toSeq
       words.zip(paths) foreach { case(word, path) => Io.writeLines(path, Seq(word))}
       this.partitions = Some(paths)
     }
@@ -244,7 +244,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
   }
 
   private case class CountTasks(wordCount: Int, tasks: Seq[SimpleInJvmTask], output: Path) extends SimpleInJvmTask  {
-    def run(): Unit = Io.writeLines(output, Seq(wordCount + " " + tasks.length))
+    def run(): Unit = Io.writeLines(output, Seq(s"${wordCount} ${tasks.length}"))
   }
 
   private case class GatherWordCounts(tasks: Seq[CountTasks], output: Path) extends SimpleInJvmTask  {

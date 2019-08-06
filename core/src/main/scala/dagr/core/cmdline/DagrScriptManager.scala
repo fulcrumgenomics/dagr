@@ -31,9 +31,9 @@ import java.nio.file.Path
 
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel}
+import com.fulcrumgenomics.commons.CommonsDef._
 import org.reflections.util.ClasspathHelper
 
-import scala.collection.JavaConversions._
 import scala.reflect.internal.util.{FakePos, NoPosition, Position, StringOps}
 import scala.tools.nsc.io.PlainFile
 import scala.tools.nsc.reporters.AbstractReporter
@@ -52,7 +52,7 @@ object DagrScriptManager {
     * HACK: Uses reflection to modify the class path, and assumes loader is a URLClassLoader.
     * @param urls URLs to add to the system class loader classpath.
     */
-  private def addToClasspath(urls: Traversable[URL]): Unit = {
+  private def addToClasspath(urls: Iterable[URL]): Unit = {
     Thread.currentThread().setContextClassLoader(new URLClassLoader(urls.toArray, Thread.currentThread().getContextClassLoader))
   }
 
@@ -156,7 +156,7 @@ private[core] class DagrScriptManager extends LazyLogging {
     * Compiles and loads the scripts in the files into the current classloader.
     * Heavily based on scala/src/compiler/scala/tools/ant/Scalac.scala
     */
-  def loadScripts(scripts: Traversable[Path], tempDir: Path, quiet: Boolean = true): Unit = {
+  def loadScripts(scripts: Iterable[Path], tempDir: Path, quiet: Boolean = true): Unit = {
     // Make sure the scripts actually exist and we can write to the tempDir
     Io.assertReadable(scripts)
     Io.assertWritableDirectory(tempDir)

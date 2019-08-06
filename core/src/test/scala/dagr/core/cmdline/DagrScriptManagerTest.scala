@@ -27,12 +27,11 @@ package dagr.core.cmdline
 import java.io.PrintWriter
 import java.nio.file.{Files, Path}
 
+import com.fulcrumgenomics.commons.CommonsDef._
 import com.fulcrumgenomics.commons.util.ClassFinder
 import dagr.core.UnitSpec
 import dagr.core.tasksystem.Pipeline
 import org.reflections.util.ClasspathHelper
-
-import scala.collection.JavaConversions._
 
 object DagrScriptManagerTest {
   def packageName: String = "dagr.example"
@@ -97,14 +96,14 @@ class DagrScriptManagerTest extends UnitSpec {
     manager.loadScripts(Seq(tmpFile), tmpDir)
 
     // make sure tmpDir is not on the classpath
-    ClasspathHelper.forManifest.toSet.exists(url => url.toString.contains(tmpDir.toString)) shouldBe true
+    ClasspathHelper.forManifest.iterator.toSet.exists(url => url.toString.contains(tmpDir.toString)) shouldBe true
 
     // make sure we find the class in the classpath
     val classFinder: ClassFinder = new ClassFinder
     classFinder.find("dagr.example", classOf[Pipeline])
     classFinder
       .getClasses
-      .toList
+      .iterator
       .map(_.getCanonicalName)
       .exists(name => 0 == name.compareTo("dagr.example.HelloWorldPipeline")) shouldBe true
 
@@ -117,6 +116,6 @@ class DagrScriptManagerTest extends UnitSpec {
     an[RuntimeException] should be thrownBy manager.loadScripts(Seq(tmpFile), tmpDir)
 
     // make sure tmpDir is not on the classpath
-    ClasspathHelper.forManifest.toSet.exists(url => url.toString.contains(tmpDir.toString)) shouldBe false
+    ClasspathHelper.forManifest.iterator.exists(url => url.toString.contains(tmpDir.toString)) shouldBe false
   }
 }

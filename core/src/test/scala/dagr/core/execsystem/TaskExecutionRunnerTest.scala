@@ -149,7 +149,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     runTaskAndComplete(task = task, taskId = taskId, taskInfo = taskInfo, taskStatus = TaskStatus.SUCCEEDED, exitCode = 0, onCompleteSuccessful = true)
   }
 
-  def runSimpleExitTest(inJvmTask: Boolean, exitSuccessfully: Boolean, onCompleteSuccessful: Boolean, failedAreCompleted: Boolean) {
+  def runSimpleExitTest(inJvmTask: Boolean, exitSuccessfully: Boolean, onCompleteSuccessful: Boolean, failedAreCompleted: Boolean): Unit = {
     val exitCode: Int = if (exitSuccessfully) 0 else 1
     val (task: UnitTask, taskId: TaskId, taskInfo: TaskExecutionInfo) = if (inJvmTask) {
       setupInJvmTaskList(exitCode = exitCode, taskId = 1)
@@ -277,7 +277,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
     runningTasks.head should be (taskId)
     taskInfo.status should be (TaskStatus.STARTED)
     val onCompleteSuccesful: Option[Boolean] = taskRunner.onCompleteSuccessful(taskId)
-    onCompleteSuccesful should be ('empty)
+    onCompleteSuccesful.isEmpty shouldBe true
 
     // the rest of the tests after this are just to make sure things work out and that we do not have a zombie process
 
@@ -356,7 +356,7 @@ class TaskExecutionRunnerTest extends UnitSpec with OptionValues with BeforeAndA
   it should "fail to run a task that is not a UnitTask" in  {
     val taskRunner: TaskExecutionRunner = new TaskExecutionRunner()
     val task = new Task {
-      override def getTasks: Traversable[_ <: Task] = Nil
+      override def getTasks: Iterable[_ <: Task] = Nil
     }
     val taskInfo = new TaskExecutionInfo(
       task = task,

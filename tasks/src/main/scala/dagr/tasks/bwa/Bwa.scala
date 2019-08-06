@@ -51,7 +51,7 @@ object Bwa extends Configuration {
                      processAltMappings: Boolean = false,
                      orientation: PairOrientation = PairOrientation.FR
                     ): Pipe[SamOrBam,SamOrBam] = {
-    val alt = PathUtil.pathTo(ref + ".alt")
+    val alt = PathUtil.pathTo(s"${ref}.alt")
     val doAlt = Files.exists(alt) && processAltMappings
     val fifoMem: Memory = Memory(fifoBufferMem)
 
