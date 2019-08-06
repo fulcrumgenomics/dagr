@@ -85,7 +85,7 @@ class BwaAln(val in: PathToFastq, val out: FilePath, val ref: PathToFasta, val m
     seedLength.foreach(args.append("-l", _))
     if (Io.StdOut  != out) args.append("-f", out.toString)
     args.append(ref, in)
-    args
+    args.toSeq
   }
 }
 
@@ -101,7 +101,7 @@ class BwaSampe(val r1Fastq: PathToFastq, val r2Fastq: PathToFastq,
     args.append(Bwa.findBwa.toString, "sampe", "-P")
     if (Io.StdOut  != out) args.append("-f", out)
     args.append(ref, r1Sai, r2Sai, r1Fastq, r2Fastq)
-    args
+    args.toSeq
   }
 }
 
@@ -114,10 +114,9 @@ class BwaSamse(val r1Fastq: PathToFastq,
   requires(new ResourceSet(Cores(1), Memory("6g")))
 
   override def args: Seq[Any] = {
-    val args = ListBuffer[Any]()
-    args.append(Bwa.findBwa.toString, "samse")
+    val args = ListBuffer[Any](Bwa.findBwa.toString, "samse")
     if (Io.StdOut  != out) args.append("-f", out)
     args.append(ref, r1Sai, r1Fastq)
-    args
+    args.toSeq
   }
 }

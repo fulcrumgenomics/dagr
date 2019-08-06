@@ -63,9 +63,8 @@ object Task {
 
     // 1. find all tasks connected to this task
     val visited: mutable.Set[Task] = new mutable.HashSet[Task]()
-    val toVisit: mutable.Set[Task] = new mutable.HashSet[Task]() {
-      add(task)
-    }
+    val toVisit: mutable.Set[Task] = mutable.HashSet[Task](task)
+
     while (toVisit.nonEmpty) {
       val nextTask: Task = toVisit.head
       toVisit -= nextTask

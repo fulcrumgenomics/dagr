@@ -88,9 +88,9 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://www.fulcrumgenomics.com")),
   homepage             := Some(url("http://github.com/fulcrumgenomics/dagr")),
   startYear            := Some(2015),
-  scalaVersion         := "2.12.6",
-  crossScalaVersions   := Seq("2.12.6", "2.11.12"),
-  scalacOptions        += "-target:jvm-1.8",
+  scalaVersion         := "2.13.0",
+  crossScalaVersions   := Seq("2.12.8", "2.13.0"),
+  scalacOptions        ++= Seq("-target:jvm-1.8", "-deprecation"),
   scalacOptions in (Compile, doc) ++= docScalacOptions,
   scalacOptions in (Test, doc) ++= docScalacOptions,
   autoAPIMappings := true,
@@ -111,7 +111,7 @@ lazy val commonSettings = Seq(
   // See https://github.com/sbt/sbt/issues/653
   // and https://github.com/travis-ci/travis-ci/issues/3775
   javaOptions in Test += "-Xmx1G",
-  libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit"),
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit"),
   assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
 ) ++ Defaults.coreDefaultSettings ++ sonatypeSettings
 
@@ -123,14 +123,15 @@ lazy val core = Project(id="dagr-core", base=file("core"))
   .settings(description := "Core methods and classes to execute tasks in dagr.")
   .settings(
     libraryDependencies ++= Seq(
-      "com.fulcrumgenomics" %%  "commons"           %  "0.6.1",
-      "com.fulcrumgenomics" %%  "sopt"              %  "0.6.1",
+      "com.fulcrumgenomics" %%  "commons"           %  "0.8.0-87f4b88-SNAPSHOT",
+      "com.fulcrumgenomics" %%  "sopt"              %  "0.8.0-6330673-SNAPSHOT",
       "com.github.dblock"   %   "oshi-core"         %  "3.3",
       "org.scala-lang"      %   "scala-reflect"     %  scalaVersion.value,
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
       "org.reflections"     %   "reflections"       %  "0.9.10",
       "com.typesafe"        %   "config"            %  "1.3.2",
-      "javax.servlet"       %   "javax.servlet-api" %  "3.1.0"
+      "javax.servlet"       %   "javax.servlet-api" %  "3.1.0",
+      "jline"               %   "jline"             %  "2.14.2"
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)

@@ -67,7 +67,7 @@ abstract class FgBioTask(var compressionLevel: Option[Int] = None,
     logLevel.foreach(l => buffer.append("--log-level", l))
     buffer += commandName
     addFgBioArgs(buffer)
-    buffer
+    buffer.toSeq
   }
 
   /** Can be overridden to use a specific FgBio jar. */

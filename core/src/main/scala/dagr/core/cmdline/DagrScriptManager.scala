@@ -31,9 +31,9 @@ import java.nio.file.Path
 
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel}
+import com.fulcrumgenomics.commons.CommonsDef._
 import org.reflections.util.ClasspathHelper
 
-import scala.collection.JavaConversions._
 import scala.reflect.internal.util.{FakePos, NoPosition, Position, StringOps}
 import scala.tools.nsc.io.PlainFile
 import scala.tools.nsc.reporters.AbstractReporter

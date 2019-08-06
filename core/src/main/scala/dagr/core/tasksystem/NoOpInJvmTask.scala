@@ -28,5 +28,5 @@ package dagr.core.tasksystem
  */
 class NoOpInJvmTask(taskName: String) extends SimpleInJvmTask {
   this.name = taskName
-  override def run(): Unit = Unit
+  override def run(): Unit = ()
 }

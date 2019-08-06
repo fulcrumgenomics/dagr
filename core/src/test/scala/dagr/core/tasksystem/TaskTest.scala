@@ -41,7 +41,7 @@ class TaskTest extends UnitSpec with LazyLogging {
   class LazyTask(var sleepTime: Option[SleepAndExitData]) extends ProcessTask {
     name = "LazyTask"
     private val argBuffer = ListBuffer[Any]()
-    override def args = argBuffer
+    override def args = argBuffer.toSeq
     override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = Some(ResourceSet.empty)
 
     override def applyResources(resources: ResourceSet): Unit = {

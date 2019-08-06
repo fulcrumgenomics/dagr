@@ -50,7 +50,7 @@ class RetryTest extends UnitSpec with OptionValues {
 
     val task = new Task with LinearMemoryRetry {
       requires(1, from)
-      override def applyResources(resources : ResourceSet): Unit = Unit
+      override def applyResources(resources : ResourceSet): Unit = ()
       def getTasks: Traversable[_ <: Task] = List.empty
       override def toMemory: Memory = Memory(to)
       override def byMemory: Memory = Memory(by)
@@ -74,7 +74,7 @@ class RetryTest extends UnitSpec with OptionValues {
 
     val task = new Task with MemoryDoublingRetry {
       requires(1, from)
-      override def applyResources(resources : ResourceSet): Unit = Unit
+      override def applyResources(resources : ResourceSet): Unit = ()
       def getTasks: Traversable[_ <: Task] = List.empty
     }
     Resource.parseBytesToSize(task.asInstanceOf[FixedResources].resources.memory.value) shouldBe "1024m"

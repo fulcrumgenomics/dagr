@@ -27,15 +27,16 @@ import java.io.File
 import java.nio.file.{Files, Path}
 import java.time.Duration
 
-import com.typesafe.config.{ConfigParseOptions, ConfigFactory, Config}
+import com.fulcrumgenomics.commons.CommonsDef._
+import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
 import com.typesafe.config.ConfigException.Generic
 import com.fulcrumgenomics.commons.io.PathUtil._
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.execsystem.{Cores, Memory}
 
+
 import scala.collection.SortedSet
 import scala.reflect.runtime.universe.{TypeTag, typeOf}
-import collection.JavaConversions._
 
 /**
   * Companion object to the Configuration trait that keeps track of all configuration keys
@@ -115,7 +116,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
       case t if t =:= typeOf[Path]         => pathTo(config.getString(path)).asInstanceOf[T]
       case t if t =:= typeOf[Duration]     => config.getDuration(path).asInstanceOf[T]
       // TODO: replace this with better handling of List/Seq/Array
-      case t if t =:= typeOf[List[String]] => config.getStringList(path).toList.asInstanceOf[T]
+      case t if t =:= typeOf[List[String]] => config.getStringList(path).iterator.toList.asInstanceOf[T]
       case t if t =:= typeOf[Cores] => Cores(config.getDouble(path)).asInstanceOf[T]
       case t if t =:= typeOf[Memory] => Memory(config.getString(path)).asInstanceOf[T]
       case _ => throw new IllegalArgumentException("Don't know how to configure a " + typeOf[T])
@@ -127,7 +128,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
     * a None will be returned, else a Some(T) of the appropriate type.
     */
   def optionallyConfigure[T : TypeTag](path: String) : Option[T] = {
-    Configuration.RequestedKeys += path
+    Configuration.RequestedKeys.add(path)
     if (config.hasPath(path)) Some(configure[T](path))
     else None
   }
@@ -138,7 +139,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
     * exception is thrown.
     */
   def configure[T : TypeTag](path: String) : T = {
-    Configuration.RequestedKeys += path
+    Configuration.RequestedKeys.add(path)
     try {
       asType[T](path)
     }
@@ -154,7 +155,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
     */
   def configure[T : TypeTag](path: String, defaultValue: T) : T = {
     try {
-      Configuration.RequestedKeys += path
+      Configuration.RequestedKeys.add(path)
       if (config.hasPath(path)) configure[T](path)
       else defaultValue
     }
@@ -175,7 +176,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
     * @return An absolute path to the executable to use
     */
   def configureExecutable(path: String, executable: String) : Path = {
-    Configuration.RequestedKeys += path
+    Configuration.RequestedKeys.add(path)
 
     optionallyConfigure[Path](path) match {
       case Some(exec) => exec
@@ -199,7 +200,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
     * @return An absolute path to the executable to use
     */
   def configureExecutableFromBinDirectory(binPath: String, executable: String, subDir: Option[Path] = None) : Path = {
-    Configuration.RequestedKeys += binPath
+    Configuration.RequestedKeys.add(binPath)
 
     optionallyConfigure[Path](binPath) match {
       case Some(exec) =>
@@ -222,7 +223,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
     * Grabs the config key "PATH" which, if not defined in config will default to the environment variable
     * PATH, splits it on the path separator and returns it as a Seq[String]
     */
-  protected def systemPath : Seq[Path] = config.getString(Configuration.Keys.SystemPath).split(File.pathSeparatorChar).view.map(pathTo(_))
+  protected def systemPath : Seq[Path] = config.getString(Configuration.Keys.SystemPath).split(File.pathSeparatorChar).map(pathTo(_))
 
   /** Removes various characters from the simple class name, for scala class names. */
   private def sanitizeSimpleClassName(className: String): String = {

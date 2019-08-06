@@ -24,10 +24,9 @@
 package dagr.tasks.picard
 
 import dagr.core.execsystem.{Cores, Memory}
-import dagr.tasks.DagrDef._
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
-import scala.collection.JavaConversions._
+import com.fulcrumgenomics.commons.CommonsDef._
 import scala.collection.mutable.ListBuffer
 
 object RevertSam {

@@ -56,7 +56,7 @@ abstract class GatkTask(val walker: String,
     intervals.foreach(il => buffer.append("-L", il.toAbsolutePath.toString))
     bamCompression.foreach(c => buffer.append("--bam_compression", c))
     addWalkerArgs(buffer)
-    buffer
+    buffer.toSeq
   }
 
   /** Can be overridden to use a specific GATK jar. */

@@ -32,7 +32,7 @@ import org.scalatest.OptionValues
 class SchedulableTest extends UnitSpec with OptionValues {
 
   private val fixedTask = new FixedResources {
-    override def applyResources(resources: ResourceSet) = Unit
+    override def applyResources(resources: ResourceSet) = ()
   }
 
   // A variable task that takes twice as much memory in GB as available cores.

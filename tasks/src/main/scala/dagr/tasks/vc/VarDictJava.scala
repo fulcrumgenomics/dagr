@@ -166,7 +166,7 @@ private class VarDictJava(tumorBam: PathToBam,
     buffer.append("-th", resources.cores.toInt) // The number of threads.
     buffer.append(bed)
 
-    buffer
+    buffer.toSeq
   }
 }
 
@@ -220,7 +220,7 @@ private class Var2VcfPaired(tumorName: String,
     minimumSignalToNoiseRatio.foreach(buffer.append("-o", _)) // The minimum signal to noise, or the ratio of hi/(lo+0.5).
     minimumHomozygousAlleleFreq.foreach(buffer.append("-F", _)) // The minimum allele frequency to consider a variant as homozygous.
 
-    buffer
+    buffer.toSeq
   }
 }
 
@@ -263,7 +263,7 @@ private class Var2VcfValid(sampleName: String,
     if (!printEndTag) buffer.append("-E") // If set, do not print END tag.
     minimumSplitReadsForSv.foreach(buffer.append("-T", _)) // The minimum number of split reads for an SV call.
 
-    buffer
+    buffer.toSeq
   }
 }
 

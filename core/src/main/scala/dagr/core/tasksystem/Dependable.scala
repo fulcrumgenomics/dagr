@@ -80,8 +80,8 @@ object EmptyDependable extends Dependable {
     case None    => EmptyDependable
   }
 
-  override def addDependent(dependent: Dependable): Unit = Unit
-  override def !=>(other: Dependable): Unit = Unit
+  override def addDependent(dependent: Dependable): Unit = ()
+  override def !=>(other: Dependable): Unit = ()
   override def headTasks: Traversable[Task] = Nil
   override def tailTasks: Traversable[Task] = Nil
   override def allTasks: Traversable[Task]  = Nil

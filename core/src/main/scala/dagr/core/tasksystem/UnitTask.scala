@@ -54,5 +54,5 @@ trait UnitTask extends Task with LazyLogging with Schedulable {
     * necessary last-minute configuration with the knowledge of the exact set of resources
     * they are to be run with.
     */
-  override def applyResources(resources: ResourceSet): Unit = Unit
+  override def applyResources(resources: ResourceSet): Unit = ()
 }
