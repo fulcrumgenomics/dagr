@@ -32,7 +32,6 @@ import com.fulcrumgenomics.sopt._
 import dagr.core.cmdline.Pipelines
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{Linker, NoOpInJvmTask, Pipeline, SimpleInJvmTask}
-import dagr.tasks.DagrDef
 import dagr.tasks.jeanluc.FilterBam
 import dagr.tasks.picard.{CollectHsMetrics, DownsampleSam, DownsamplingStrategy}
 import htsjdk.samtools.metrics.MetricsFile
@@ -50,12 +49,12 @@ import htsjdk.samtools.metrics.MetricsFile
   group = classOf[Pipelines]
 )
 class DownsampleAndCallSomaticVariants
-(@arg(flag='t', doc="Tumor BAM file")                          val tumorBam:  DagrDef.PathToBam,
- @arg(flag='n', doc="Normal BAM file")                         val normalBam: DagrDef.PathToBam,
- @arg(flag='r', doc="Reference FASTA file")                    val ref: DagrDef.PathToFasta,
- @arg(flag='l', doc="Regions to call over")                    val intervals: DagrDef.PathToIntervals,
+(@arg(flag='t', doc="Tumor BAM file")                          val tumorBam:  PathToBam,
+ @arg(flag='n', doc="Normal BAM file")                         val normalBam: PathToBam,
+ @arg(flag='r', doc="Reference FASTA file")                    val ref: PathToFasta,
+ @arg(flag='l', doc="Regions to call over")                    val intervals: PathToIntervals,
  @arg(          doc="One or more coverage levels to call at.") val coverage:  Seq[Int],
- @arg(flag='o', doc="Output directory")                        val output:    DagrDef.DirPath)
+ @arg(flag='o', doc="Output directory")                        val output:    DirPath)
   extends Pipeline(Some(output)) {
 
   override def build(): Unit = {
