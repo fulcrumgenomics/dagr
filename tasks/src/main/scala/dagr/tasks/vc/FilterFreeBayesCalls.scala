@@ -78,7 +78,7 @@ class FilterFreeBayesCalls(val in: PathToVcf,
 
   override def applyResources(resources: ResourceSet): Unit = ()
 
-  override def getTasks: Traversable[_ <: Task] = {
+  override def getTasks: Iterable[_ <: Task] = {
     // Apply filters specific to somatic calling
     if (somatic) {
       // source: https://github.com/chapmanb/bcbio-nextgen/blob/60a0f3c4f8ec658f8c34d6bc77b23a90f47b45d6/bcbio/variation/freebayes.py#L250

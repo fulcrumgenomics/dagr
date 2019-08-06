@@ -65,9 +65,9 @@ class Strelka(val tumor: PathToBam,
       override def args: Seq[Any] = Seq("make", "--directory=" + tmpdir, "-j", this.resources.cores.toInt)
 
       override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = {
-        (maxThreads to minThreads by -1).toStream
+        (maxThreads to minThreads by -1).iterator
           .flatMap(c => availableResources.subset(Cores(c), memory = Memory(s"${c}G")))
-          .headOption
+          .buffered.headOption
       }
     }.withName("RunStrelka")
 

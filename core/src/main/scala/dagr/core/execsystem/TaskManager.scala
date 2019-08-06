@@ -511,7 +511,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
   protected[core] def readyTasksList: List[UnitTask] = graphNodesInStateFor(NO_PREDECESSORS).toList.map(node => node.task.asInstanceOf[UnitTask])
 
-  override def stepExecution(): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task]) = {
+  override def stepExecution(): (Iterable[Task], Iterable[Task], Iterable[Task], Iterable[Task]) = {
     logger.debug("runSchedulerOnce: starting one round of execution")
 
     // get newly completed tasks

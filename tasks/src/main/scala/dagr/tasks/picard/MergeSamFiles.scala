@@ -34,7 +34,7 @@ import scala.collection.mutable.ListBuffer
 /**
  * Task for running MergeSamFiles with one or more inputs.
  */
-class MergeSamFiles(in: Traversable[PathToBam], out: PathToBam, sortOrder: SortOrder, useAsyncIo: Boolean = false)
+class MergeSamFiles(in: Iterable[PathToBam], out: PathToBam, sortOrder: SortOrder, useAsyncIo: Boolean = false)
   extends PicardTask(createIndex = Some(sortOrder == SortOrder.coordinate), useAsyncIo=useAsyncIo) with PipeOut[SamOrBam] {
   override protected def addPicardArgs(buffer: ListBuffer[Any]): Unit = {
     in.foreach(p => buffer.append("INPUT=" + p))

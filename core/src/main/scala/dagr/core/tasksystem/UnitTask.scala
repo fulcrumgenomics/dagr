@@ -45,7 +45,7 @@ trait UnitTask extends Task with LazyLogging with Schedulable {
     *
     * @return the list of tasks of to run.
     */
-  final def getTasks: Traversable[_ <: this.type] = {
+  final def getTasks: Iterable[_ <: this.type] = {
     List(this)
   }
 

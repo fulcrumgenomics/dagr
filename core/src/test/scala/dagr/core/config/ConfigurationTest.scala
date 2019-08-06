@@ -130,7 +130,7 @@ class ConfigurationTest extends UnitSpec with CaptureSystemStreams {
     val conf = new Configuration {  override val config : Config = ConfigFactory.parseFile(configPath.toFile) }
     conf.configure[String](Configuration.Keys.CommandLineName) shouldBe "command-line-name"
     conf.configure[Boolean](Configuration.Keys.ColorStatus) shouldBe false
-    conf.optionallyConfigure[String](Configuration.Keys.SystemPath) shouldBe 'empty
+    conf.optionallyConfigure[String](Configuration.Keys.SystemPath).isEmpty shouldBe true
   }
 
   it should "find executables" in {

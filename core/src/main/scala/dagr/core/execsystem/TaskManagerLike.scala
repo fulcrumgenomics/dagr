@@ -163,5 +163,5 @@ private[execsystem] trait TaskManagerLike {
     *         (3) tasks that are running prior to scheduling.
     *         (4) the tasks that have completed prior to scheduling.
     */
-  def stepExecution(): (Traversable[Task], Traversable[Task], Traversable[Task], Traversable[Task])
+  def stepExecution(): (Iterable[Task], Iterable[Task], Iterable[Task], Iterable[Task])
 }

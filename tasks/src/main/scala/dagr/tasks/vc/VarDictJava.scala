@@ -93,7 +93,7 @@ object VarDictJava extends Configuration {
   private[vc] def firstReadGroup(bam: PathToBam): Option[SAMReadGroupRecord] = {
     import com.fulcrumgenomics.commons.CommonsDef.javaIteratorAsScalaIterator
     val in = SamReaderFactory.make().open(bam)
-    yieldAndThen(in.getFileHeader.getReadGroups.iterator.toStream.headOption) { in.close() }
+    yieldAndThen(in.getFileHeader.getReadGroups.iterator.buffered.headOption) { in.close() }
   }
 
   /** Return the sample name from the first read group in a BAM.

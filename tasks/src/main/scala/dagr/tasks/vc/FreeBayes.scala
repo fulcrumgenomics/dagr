@@ -149,7 +149,7 @@ abstract class FreeBayes(val ref: PathToFasta,
   }
 
   /** Sets the arguments for FreeBayes.  For somatic calling, there should be two bams, a tumor bam then normal bam. */
-  override def getTasks: Traversable[_ <: Task] = {
+  override def getTasks: Iterable[_ <: Task] = {
     // Generates the regions on the fly
     val generateTargets = targetIntervals match {
       case None => // Split using the FASTA

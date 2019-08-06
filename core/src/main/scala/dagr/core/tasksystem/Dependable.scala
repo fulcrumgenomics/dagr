@@ -63,13 +63,13 @@ trait Dependable {
   }
 
   /** Must be implemented to return all tasks on which new predecessor dependencies should be added. */
-  def headTasks: Traversable[Task]
+  def headTasks: Iterable[Task]
 
   /** Must be implemented to return all tasks on which new successor dependencies should be added. */
-  def tailTasks: Traversable[Task]
+  def tailTasks: Iterable[Task]
 
   /** Must be implemented to return all tasks represented by the Dependable. */
-  def allTasks: Traversable[Task]
+  def allTasks: Iterable[Task]
 }
 
 /** An object that can be implicitly converted to from a None when using Option[Dependable]. */
@@ -82,9 +82,9 @@ object EmptyDependable extends Dependable {
 
   override def addDependent(dependent: Dependable): Unit = ()
   override def !=>(other: Dependable): Unit = ()
-  override def headTasks: Traversable[Task] = Nil
-  override def tailTasks: Traversable[Task] = Nil
-  override def allTasks: Traversable[Task]  = Nil
+  override def headTasks: Iterable[Task] = Nil
+  override def tailTasks: Iterable[Task] = Nil
+  override def allTasks: Iterable[Task]  = Nil
 }
 
 /**
@@ -98,9 +98,9 @@ case class DependencyChain(from: Dependable, to: Dependable) extends Dependable 
   override def !=>(other: Dependable): Unit = to !=> other
 
 
-  override def headTasks: Traversable[Task] = from.headTasks
-  override def tailTasks: Traversable[Task] = to.tailTasks
-  override def allTasks: Traversable[Task]  = from.allTasks ++ to.allTasks
+  override def headTasks: Iterable[Task] = from.headTasks
+  override def tailTasks: Iterable[Task] = to.tailTasks
+  override def allTasks: Iterable[Task]  = from.allTasks ++ to.allTasks
 }
 
 /**
@@ -119,7 +119,7 @@ case class DependencyGroup(a: Dependable, b: Dependable) extends Dependable {
     f(b)
   }
 
-  override def headTasks: Traversable[Task] = a.headTasks ++ b.headTasks
-  override def tailTasks: Traversable[Task] = a.tailTasks ++ b.tailTasks
-  override def allTasks: Traversable[Task]  = a.allTasks  ++ b.allTasks
+  override def headTasks: Iterable[Task] = a.headTasks ++ b.headTasks
+  override def tailTasks: Iterable[Task] = a.tailTasks ++ b.tailTasks
+  override def allTasks: Iterable[Task]  = a.allTasks  ++ b.allTasks
 }

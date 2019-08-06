@@ -51,7 +51,7 @@ object JarTask {
 trait JarTask {
 
   protected def jarArgs(jarPath: Path,
-                        jvmArgs: Traversable[String] = Nil,
+                        jvmArgs: Iterable[String] = Nil,
                         jvmProperties: collection.Map[String,String] = Map.empty,
                         jvmMemory: Memory,
                         useAdvancedGcOptions: Boolean = true): List[String] = {

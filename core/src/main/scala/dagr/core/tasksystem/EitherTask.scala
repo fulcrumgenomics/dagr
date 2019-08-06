@@ -60,5 +60,5 @@ object EitherTask {
   */
 class EitherTask private (private val left: Task, private val right: Task, private val choice: () => EitherTask.Choice) extends Task {
   /** Decides which task to return based on `choice` at execution time. */
-  override def getTasks: Traversable[Task] = Seq(if (choice() eq EitherTask.Left) left else right)
+  override def getTasks: Iterable[Task] = Seq(if (choice() eq EitherTask.Left) left else right)
 }

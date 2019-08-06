@@ -73,7 +73,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = (str: String) => output.append(str)) with TestTerminal
     reporter.start()
     reporter.shutdown()
-    output should not be 'empty
+    output.isEmpty shouldBe false
   }
 
   it should "start and shutdown cleanly when no tasks are being managed with a two line terminal" in {
@@ -82,7 +82,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = (str: String) => output.append(str)) with TwoLineTestTerminal
     reporter.start()
     reporter.shutdown()
-    output should not be 'empty
+    output.isEmpty shouldBe false
     output.toString() should include("with 4 more lines not shown")
   }
 
@@ -94,7 +94,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     taskManager.addTask(new NoOpInJvmTask("Exit0Task"))
     taskManager.runToCompletion(failFast=true)
     reporter.shutdown()
-    output should not be 'empty
+    output.isEmpty shouldBe false
     output.toString() should include("Exit0Task")
     output.toString() should include("1 Done")
   }
@@ -112,7 +112,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     taskManager.addTask(taskOne)
     taskManager.runToCompletion(failFast=true)
     reporter.refresh(print=printMethod)
-    output should not be 'empty
+    output.isEmpty shouldBe false
     output.toString() should include("TaskOne")
     output.toString() should include("0 Running")
     output.toString() should include("1 Failed")
@@ -134,7 +134,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       taskManager.stepExecution()
     }
     reporter.refresh(print=printMethod)
-    output should not be 'empty
+    output.isEmpty shouldBe false
     output.toString() should include("TaskOne")
     output.toString() should include("1 Running")
     output.toString() should include("0 Done")
@@ -142,7 +142,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
 
     taskManager.runToCompletion(failFast=true)
     reporter.refresh(print=printMethod)
-    output should not be 'empty
+    output.isEmpty shouldBe false
     output.toString() should include("TaskOne")
     output.toString() should include("0 Running")
     output.toString() should include("1 Done")
@@ -169,7 +169,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       taskManager.stepExecution()
     }
     reporter.refresh(print=printMethod)
-    output should not be 'empty
+    output.isEmpty shouldBe false
     output.toString() should include("TaskOne")
     output.toString() should include("TaskTwo")
     output.toString() should include("1 Running")
@@ -180,7 +180,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
 
     taskManager.runToCompletion(failFast=true)
     reporter.refresh(print=printMethod)
-    output should not be 'empty
+    output.isEmpty shouldBe false
     output.toString() should include("TaskOne")
     output.toString() should include("TaskTwo")
     output.toString() should include("0 Running")
@@ -205,7 +205,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
       taskManager.stepExecution()
     }
     reporter.refresh(print=printMethod)
-    output should not be 'empty
+    output.isEmpty shouldBe false
     output.toString() should include("TaskOne")
     output.toString() should not include "TaskTwo"
     output.toString() should include("1 Running")
@@ -216,7 +216,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
 
     taskManager.runToCompletion(failFast=true)
     reporter.refresh(print=printMethod)
-    output should not be 'empty
+    output.isEmpty shouldBe false
     output.toString() should include("TaskOne")
     output.toString() should include("TaskTwo")
     output.toString() should include("0 Running")

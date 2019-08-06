@@ -223,7 +223,7 @@ private[config] trait ConfigurationLike extends LazyLogging {
     * Grabs the config key "PATH" which, if not defined in config will default to the environment variable
     * PATH, splits it on the path separator and returns it as a Seq[String]
     */
-  protected def systemPath : Seq[Path] = config.getString(Configuration.Keys.SystemPath).split(File.pathSeparatorChar).map(pathTo(_))
+  protected def systemPath : Seq[Path] = config.getString(Configuration.Keys.SystemPath).split(File.pathSeparatorChar).toSeq.map(pathTo(_))
 
   /** Removes various characters from the simple class name, for scala class names. */
   private def sanitizeSimpleClassName(className: String): String = {

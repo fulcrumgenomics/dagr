@@ -164,10 +164,10 @@ trait Task extends Dependable {
   private val dependedOnByTasks = new ListBuffer[Task]()
 
   /** Gets the sequence of tasks that this task depends on.. */
-  protected[core] def tasksDependedOn: Traversable[Task] = this.dependsOnTasks.toList
+  protected[core] def tasksDependedOn: Iterable[Task] = this.dependsOnTasks.toList
 
   /** Gets the sequence of tasks that depend on this task. */
-  protected[core] def tasksDependingOnThisTask: Traversable[Task] = this.dependedOnByTasks.toList
+  protected[core] def tasksDependingOnThisTask: Iterable[Task] = this.dependedOnByTasks.toList
 
   /** Must be implemented to handle the addition of a dependent. */
   override def addDependent(dependent: Dependable): Unit = dependent.headTasks.foreach(t => {
@@ -178,9 +178,9 @@ trait Task extends Dependable {
   /** Removes this as a dependency for other */
   override def !=>(other: Dependable): Unit = other.headTasks.foreach(_.removeDependency(this))
 
-  override def headTasks: Traversable[Task] = Seq(this)
-  override def tailTasks: Traversable[Task] = Seq(this)
-  override def allTasks: Traversable[Task]  = Seq(this)
+  override def headTasks: Iterable[Task] = Seq(this)
+  override def tailTasks: Iterable[Task] = Seq(this)
+  override def allTasks: Iterable[Task]  = Seq(this)
 
   /**
      * Removes a dependency by removing the supplied task from the list of dependencies for this task
@@ -213,7 +213,7 @@ trait Task extends Dependable {
    *
    * @return the list of tasks of to run.
    */
-  def getTasks: Traversable[_ <: Task]
+  def getTasks: Iterable[_ <: Task]
 
   /** Finalize anything after the task has been run.
    *

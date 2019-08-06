@@ -105,16 +105,16 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
     val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTask(task=task) shouldBe 0
-    taskManager.taskStatusFor(0) shouldBe 'defined
-    taskManager.taskStatusFor(1) shouldBe 'empty
+    taskManager.taskStatusFor(0).isDefined shouldBe true
+    taskManager.taskStatusFor(1).isEmpty shouldBe true
   }
 
   it should "get the graph node state for only tracked tasks" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
     val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTask(task=task) shouldBe 0
-    taskManager.graphNodeStateFor(0) shouldBe 'defined
-    taskManager.graphNodeStateFor(1) shouldBe 'empty
+    taskManager.graphNodeStateFor(0).isDefined shouldBe true
+    taskManager.graphNodeStateFor(1).isEmpty shouldBe true
   }
 
   // ******************************************
@@ -274,7 +274,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   def doTryAgain(original: Task,
                  replacement: Task,
                  replaceTask: Boolean = true,
-                 taskManager: TestTaskManager) {
+                 taskManager: TestTaskManager): Unit = {
 
     val (originalTaskStatus, originalGraphNodeState) = replaceTask match {
       case true => (TaskStatus.UNKNOWN, GraphNodeState.NO_PREDECESSORS)
@@ -291,7 +291,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
       // replace
       logger.debug("*** REPLACING TASK ***")
       taskManager.replaceTask(original = original, replacement = replacement)
-      original._taskInfo shouldBe 'empty
+      original._taskInfo.isEmpty shouldBe true
     }
     else {
       // resubmit...
@@ -627,7 +627,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     taskManager.addTasks(leftA, leftB, rightB, finalTask)
 
     // run it until we cannot run any more tasks
-    taskManager.graphNodeStateFor(rightA) should be ('empty)
+    taskManager.graphNodeStateFor(rightA).isEmpty shouldBe true
     taskManager.graphNodeStateFor(rightB).value should be(GraphNodeState.ORPHAN)
     taskManager.stepExecution()
     taskManager.joinOnRunningTasks(1000)
@@ -719,8 +719,8 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     taskManager.graphNodeStateFor(predecessorWorkflow).value should be(GraphNodeState.ONLY_PREDECESSORS)
     taskManager.graphNodeStateFor(predecessorWorkflow.firstTask).value should be(GraphNodeState.RUNNING)
     taskManager.graphNodeStateFor(predecessorWorkflow.secondTask).value should be(GraphNodeState.RUNNING)
-    taskManager.taskStatusFor(successorWorkflow.firstTask) should be('empty)
-    taskManager.taskStatusFor(successorWorkflow.secondTask) should be('empty)
+    taskManager.taskStatusFor(successorWorkflow.firstTask).isEmpty shouldBe true
+    taskManager.taskStatusFor(successorWorkflow.secondTask).isEmpty shouldBe true
     taskManager.taskStatusFor(successorWorkflow).value should be(TaskStatus.UNKNOWN)
     taskManager.graphNodeStateFor(successorWorkflow).value should be(GraphNodeState.PREDECESSORS_AND_UNEXPANDED)
 
@@ -902,10 +902,10 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   private def getAndTestTaskExecutionInfo(taskManager: TestTaskManager, task: Task): TaskExecutionInfo = {
     // make sure the execution info and timestamps are set for this taske
     val info = taskManager.taskExecutionInfoFor(task)
-    info shouldBe 'defined
-    info.get.submissionDate shouldBe 'defined
-    info.get.startDate shouldBe 'defined
-    info.get.endDate shouldBe 'defined
+    info.isDefined shouldBe true
+    info.get.submissionDate.isDefined shouldBe true
+    info.get.startDate.isDefined shouldBe true
+    info.get.endDate.isDefined shouldBe true
     info.get
   }
 
@@ -988,7 +988,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
   private class ParentFailTask extends Task {
     val child: Task = new ShellCommand("exit", "1")
-    override def getTasks: Traversable[_ <: Task] = Seq(child)
+    override def getTasks: Iterable[_ <: Task] = Seq(child)
   }
 
   it should "mark a task as failed when one of its children fails" in {
