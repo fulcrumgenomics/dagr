@@ -115,6 +115,17 @@ object ScatterGather {
     }
   }
 
+  /** Implementation of a Partitioner that takes the partitions from an existing Partitioner, and then groups them. */
+  private class GroupByPartitioner[Result, Key](partitioner: Partitioner[Result], f: Result => Key) extends SimpleInJvmTask with Partitioner[(Key, Seq[Result])] {
+    var partitions: Option[Seq[(Key, Seq[Result])]] = None
+    override def run(): Unit = {
+      partitioner.partitions match {
+        case None             => throw new IllegalStateException(s"partitioner.partitions called before partitions populated.")
+        case Some(_partition) => this.partitions = Some(_partition.groupBy(f).toSeq)
+      }
+    }
+  }
+
   /**
   * Implementation of a Scatter that is just a thinly veiled wrapper around the Scatterer
   * being used to generate the set of scatters/partitions to operate on.
@@ -126,8 +137,11 @@ object ScatterGather {
     override def gather[NextResult <: Task](f: Seq[Result] => NextResult): Gather[Result,NextResult] =
       throw new UnsupportedOperationException("gather not supported on an unmapped Scatter")
 
-    override def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] =
-      throw new UnsupportedOperationException("groupBy not supported on an unmapped Scatter")
+    override def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] = {
+      val grouper = new GroupByPartitioner[Result, Key](partitioner, f)
+      this ==> grouper.scatter
+      grouper.scatter
+    }
 
     override def flatMap[NextResult](f: Result => Scatter[NextResult]) : Scatter[NextResult] = {
       this.map(f).flatMap(identity)
