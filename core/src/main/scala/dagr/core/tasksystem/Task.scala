@@ -33,6 +33,15 @@ import scala.util.control.Breaks._
 /** Utility methods to aid in working with a task. */
 object Task {
 
+  /** Marker trait for empty tasks. */
+  sealed trait EmptyTask extends Task
+
+  /** A task that does nothing. */
+  def empty: Task = new EmptyTask {
+    name = "Task.empty"
+    override def getTasks: Iterable[_ <: Task] = None
+  }
+
   /** Helper class for Tarjan's strongly connected components algorithm */
   private class TarjanData {
     var index: Int = 0

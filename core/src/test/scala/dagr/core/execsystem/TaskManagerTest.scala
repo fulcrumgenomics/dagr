@@ -128,10 +128,39 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     tryTaskNTimes(taskManager = taskManager, task = task, numTimes = 1, taskIsDoneFinally = true, failedAreCompletedFinally = true)
   }
 
+  it should "run an empty task" in {
+    val task = Task.empty
+    val taskManager: TestTaskManager = getDefaultTaskManager()
+    taskManager.addTask(task)
+    val taskMap = taskManager.runToCompletion(true)
+    taskMap.size shouldBe 1
+    val taskInfo = taskMap.valueFor(task).get
+    TaskStatus.isTaskDone(taskInfo.status, failedIsDone = false) shouldBe true
+  }
+
+  it should "run an empty task as part of a pipeline" in {
+    val pipeline = new Pipeline() {
+      name = "Pipeline"
+      override def build(): Unit = {
+        def newTask(name: String) = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty withName name
+        val middle = Task.empty
+        root ==> newTask("exit0-1") ==> middle ==> newTask("exit0-2")
+      }
+    }
+
+    val taskManager: TestTaskManager = getDefaultTaskManager()
+    taskManager.addTask(pipeline)
+    val taskMap = taskManager.runToCompletion(true)
+    taskMap.size shouldBe 4
+    taskMap.foreach { case (_, info) =>
+      TaskStatus.isTaskDone(info.status, failedIsDone = false) shouldBe true
+    }
+  }
+
+
   it should "run a simple task that fails but we allow it" in {
     val task: UnitTask = new ShellCommand("exit", "1") withName "exit 1"
     val taskManager: TestTaskManager = getDefaultTaskManager()
-
     tryTaskNTimes(taskManager = taskManager, task = task, numTimes = 1, taskIsDoneFinally = true, failedAreCompletedFinally = true)
   }
 

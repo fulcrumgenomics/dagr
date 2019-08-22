@@ -57,3 +57,9 @@ private[cmdline] case class PipelineFour
 @clp(description = "", group = classOf[TestGroup], hidden = true)
 private[cmdline] case class PipelineWithMutex
 (@arg(mutex = Array("another")) var argument: String, @arg(mutex = Array("argument")) var another: String) extends CommandLineTaskTesting // argument should be required
+
+@clp(description = "", group = classOf[TestGroup], hidden = true)
+private[cmdline] case class PipelineBuildFailure
+(@arg var argument: String = "default", @arg var flag: Boolean = false) extends CommandLineTaskTesting {
+  override def build(): Unit = throw new IllegalStateException()
+}

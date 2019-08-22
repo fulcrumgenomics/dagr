@@ -24,7 +24,7 @@
 
 package dagr.core.cmdline
 
-import dagr.core.cmdline.pipelines.PipelineFour
+import dagr.core.cmdline.pipelines.{PipelineFour, PipelineBuildFailure}
 import dagr.core.tasksystem.{NoOpInJvmTask, Pipeline}
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.sopt.util.TermCode
@@ -119,7 +119,7 @@ class DagrCoreMainTest extends UnitSpec with BeforeAndAfterAll with CaptureSyste
   }
 
   it should "print the execution failure upon failure" in {
-    val (_, _, _, log) = testParse(Array[String](nameOf(classOf[PipelineFour])))
+    val (_, _, _, log) = testParse(Array[String](nameOf(classOf[PipelineBuildFailure])))
     log should include("Elapsed time:")
     log should include("dagr failed")
   }
