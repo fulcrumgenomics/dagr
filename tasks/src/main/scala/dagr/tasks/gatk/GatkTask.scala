@@ -23,18 +23,43 @@
  */
 package dagr.tasks.gatk
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
+import java.util.jar.JarInputStream
 
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
-import dagr.tasks.{DagrDef, JarTask}
-import DagrDef.{PathToFasta, PathToIntervals}
+import dagr.tasks.JarTask
+import com.fulcrumgenomics.commons.CommonsDef._
 
 import scala.collection.mutable.ListBuffer
 
 object GatkTask {
   val GatkJarPathConfigKey = "gatk.jar"
+
+  /** Attempts to determine the major version from the GATK Jar. */
+  def majorVersion(jar: FilePath): Int = {
+    val in    = new JarInputStream(Files.newInputStream(jar))
+    val attrs = in.getManifest.getMainAttributes
+    in.close()
+
+    if (attrs.containsKey("Implementation-Version")) {
+      attrs.getValue("Implementation-Version").takeWhile(_ != '.').toInt
+    }
+    else {
+      attrs.getValue("Main-Class") match {
+        case "org.broadinstitute.sting.gatk.CommandLineGATK"  => 1
+        case "org.broadinstitute.gatk.engine.CommandLineGATK" => 3
+        case x => throw new IllegalArgumentException(s"Couldn't determind GATK version from jar $jar")
+      }
+    }
+  }
+
+  /** The path to the "standard" GATK jar. */
+  lazy val GatkJarPath: FilePath = Configuration.configure[Path](GatkTask.GatkJarPathConfigKey)
+
+  /** The major version of the "standard" GATK jar. */
+  lazy val GatkMajorVersion: Int = majorVersion(GatkJarPath)
 }
 
 
@@ -49,12 +74,18 @@ abstract class GatkTask(val walker: String,
   requires(Cores(1), Memory("4g"))
 
   override def args: Seq[Any] = {
-    val buffer = ListBuffer[Any]()
-    buffer.appendAll(jarArgs(this.gatkJar, jvmMemory=this.resources.memory))
-    buffer.append("-T", this.walker)
+    val buffer  = ListBuffer[Any]()
+    val jvmArgs = if (gatkMajorVersion >= 4) bamCompression.map(c => s"-Dsamjdk.compression_level=$c") else None
+    buffer.appendAll(jarArgs(this.gatkJar, jvmMemory=this.resources.memory, jvmArgs=jvmArgs))
+
+    if (gatkMajorVersion < 4) buffer += "-T"
+    buffer += this.walker
+
+    if (gatkMajorVersion < 4) bamCompression.foreach(c => buffer.append("--bam_compression", c))
+
     buffer.append("-R", this.ref.toAbsolutePath.toString)
     intervals.foreach(il => buffer.append("-L", il.toAbsolutePath.toString))
-    bamCompression.foreach(c => buffer.append("--bam_compression", c))
+
     addWalkerArgs(buffer)
     buffer.toSeq
   }
@@ -62,5 +93,16 @@ abstract class GatkTask(val walker: String,
   /** Can be overridden to use a specific GATK jar. */
   protected def gatkJar: Path = configure[Path](GatkTask.GatkJarPathConfigKey)
 
+  /** The version of GATK being used by this task. */
+  protected lazy val gatkMajorVersion: Int = {
+    val jar = gatkJar
+    if (jar == GatkTask.GatkJarPath) GatkTask.GatkMajorVersion
+    else GatkTask.majorVersion(jar)
+  }
+
+  /** Adds arguments specific to the walker. */
   protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit
+
+  /** Helper function to select an argument name for pre vs. post V4 naming. */
+  protected def either(preV4Name: String, postV4Name: String): String = if (gatkMajorVersion < 4) preV4Name else postV4Name
 }
