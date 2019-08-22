@@ -48,11 +48,12 @@ class HaplotypeCaller(ref: PathToFasta,
  extends GatkTask("HaplotypeCaller", ref, intervals=intervals) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
+    // Args common between versions
+    buffer.append("-I", bam.toAbsolutePath)
 
     gatkMajorVersion match {
       case n if n <  4 =>
         // Args for versions 1-3
-        buffer.append("-I", bam.toAbsolutePath)
         buffer.append("-o", vcf.toAbsolutePath)
         buffer.append("--minPruning", minPruning)
         buffer.append("--maxNumHaplotypesInPopulation", maxHaplotypes)
@@ -75,7 +76,6 @@ class HaplotypeCaller(ref: PathToFasta,
 
       case n if n >= 4 =>
         // Args for version 4
-        buffer.append("-I", bam.toAbsolutePath)
         buffer.append("-O", vcf.toAbsolutePath)
         buffer.append("--min-pruning", minPruning)
         buffer.append("--max-num-haplotypes-in-population", "200")

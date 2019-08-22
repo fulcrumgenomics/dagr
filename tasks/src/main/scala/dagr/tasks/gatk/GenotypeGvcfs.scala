@@ -54,14 +54,14 @@ class GenotypeGvcfs private (ref: PathToFasta,
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     // Args that are common to all versions
-    dbSnpVcf.foreach(v => buffer.append("--dbsnp", v.toAbsolutePath.toString))
-    gvcfs.foreach(gvcf => buffer.append("-V", gvcf.toAbsolutePath.toString))
+    dbSnpVcf.foreach(v => buffer.append("--dbsnp", v.toAbsolutePath))
+    gvcfs.foreach(gvcf => buffer.append("-V", gvcf.toAbsolutePath))
 
     gatkMajorVersion match {
       case n if n < 4  =>
-        buffer.append("--out", vcf.toAbsolutePath.toString)
+        buffer.append("--out", vcf.toAbsolutePath)
       case n if n >= 4 =>
-        buffer.append("--output", vcf.toAbsolutePath.toString)
+        buffer.append("--output", vcf.toAbsolutePath)
     }
   }
 }
