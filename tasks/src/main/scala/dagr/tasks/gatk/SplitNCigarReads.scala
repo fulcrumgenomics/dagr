@@ -37,7 +37,13 @@ class SplitNCigarReads(val in: PathToBam, val out: PathToBam, ref:PathToFasta, b
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-I", in)
-    buffer.append("-o", out)
-    buffer.append("-U", "ALLOW_N_CIGAR_READS")
+
+    gatkMajorVersion match {
+      case n if n < 4 =>
+        buffer.append("-o", out)
+        buffer.append("-U", "ALLOW_N_CIGAR_READS")
+      case n if n >= 4 =>
+        buffer.append("-O", out)
+    }
   }
 }

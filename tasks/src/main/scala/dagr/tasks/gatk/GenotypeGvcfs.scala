@@ -50,9 +50,18 @@ class GenotypeGvcfs private (ref: PathToFasta,
                              val dbSnpVcf: Option[PathToVcf] = None)
   extends GatkTask("GenotypeGVCFs", ref, intervals=intervals) {
 
+  require(gvcfs.length == 1 || gatkMajorVersion < 4, "GenotypeGVCFs only supports one GVCF at a time with GATK version 4+.")
+
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
-    dbSnpVcf.foreach(v => buffer.append("--dbsnp", v.toAbsolutePath.toString))
-    gvcfs.foreach(gvcf => buffer.append("-V", gvcf.toAbsolutePath.toString))
-    buffer.append("-o", vcf.toAbsolutePath.toString)
+    // Args that are common to all versions
+    dbSnpVcf.foreach(v => buffer.append("--dbsnp", v.toAbsolutePath))
+    gvcfs.foreach(gvcf => buffer.append("-V", gvcf.toAbsolutePath))
+
+    gatkMajorVersion match {
+      case n if n < 4  =>
+        buffer.append("--out", vcf.toAbsolutePath)
+      case n if n >= 4 =>
+        buffer.append("--output", vcf.toAbsolutePath)
+    }
   }
 }
