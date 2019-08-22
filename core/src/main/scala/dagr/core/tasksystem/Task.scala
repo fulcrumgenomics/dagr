@@ -34,7 +34,7 @@ import scala.util.control.Breaks._
 object Task {
 
   /** Marker trait for empty tasks. */
-  sealed trait EmptyTask extends Task
+  trait EmptyTask extends Task
 
   /** A task that does nothing. */
   def empty: Task = new EmptyTask {
@@ -165,7 +165,10 @@ trait Task extends Dependable {
   private[core] def taskInfo : TaskExecutionInfo = _taskInfo.getOrElse(unreachable(s"Task id should be defined for task '$name'"))
 
   /** The name of the task. */
-  var name: String = getClass.getSimpleName
+  var name: String = try { getClass.getSimpleName } catch {
+    case ex: java.lang.InternalError =>
+      throw new RuntimeException("Is your class internal? See: https://github.com/scala/bug/issues/2034", ex)
+  }
 
   /* The set of tasks that this task depends on. */
   private val dependsOnTasks    = new ListBuffer[Task]()

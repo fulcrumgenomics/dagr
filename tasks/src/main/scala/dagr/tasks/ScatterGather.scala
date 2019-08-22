@@ -24,7 +24,8 @@
 
 package dagr.tasks
 
-import dagr.core.tasksystem.{Pipeline, SimpleInJvmTask, Task}
+import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import dagr.core.tasksystem.{FixedResources, Pipeline, Schedulable, SimpleInJvmTask, Task, UnitTask}
 
 import scala.collection.mutable.ListBuffer
 
@@ -53,9 +54,43 @@ object ScatterGather {
     def sources: Option[Seq[Source]]
   }
 
+  /** Wraps a set of results as a [[Partitioner]] that produces those results as partitions. */
+  private class FixedPartitioner[Result](results: Iterable[Result]) extends SimpleInJvmTask with Partitioner[Result] {
+    var partitions: Option[Seq[Result]] = None
+    override def run(): Unit = this.partitions = Some(results.toIndexedSeq)
+  }
+
+  /** Wraps a single [[Task]] as a [[Partitioner]] that produces a single partition (the task). */
+  private class SingletonPartitioner[Result <: Task](result: Result) extends Partitioner[Result] {
+    val partitions: Option[Seq[Result]] = Some(Seq(result))
+    override def getTasks: Iterable[_ <: Task] = Some(result)
+  }
+
+
+  // Developer note: this class cannot be inside Scatter.  See: https://github.com/scala/bug/issues/2034
+  /** Marker trait for [[Scatter.empty]]. */
+  private[tasks] final class EmptyScatter[Result] extends Scatter[Result] with Task.EmptyTask {
+    name = "Scatter.empty"
+    def map[NextResult <: Task](f: Result => NextResult) : Scatter[NextResult] = Scatter.empty[NextResult]
+    def flatMap[NextResult](f: Result => Scatter[NextResult]) : Scatter[NextResult] = Scatter.empty[NextResult]
+    def gather[NextResult <: Task](f: Seq[Result] => NextResult) : Gather[Result,NextResult] = Gather.empty[Result,NextResult]
+    def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] = Scatter.empty[(Key, Seq[Result])]
+    override def getTasks: Iterable[_ <: Task] = None
+  }
+
   /** Provides a factory method to create a [[Scatter]] object from a [[Partitioner]]. */
   object Scatter {
     def apply[Result](partitioner: Partitioner[Result]): Scatter[Result] = partitioner.scatter
+
+    /** Any empty [[Scatter]].  Can be used when calling `flatMap` on a non-empty [[Scatter]] to stop mapping a specific
+      * object. */
+    def empty[Result]: Scatter[Result] = new EmptyScatter
+
+    /** Wrap a single result into a Scatter, so that it can be flattened by [[Scatter.flatMap()]]. */
+    def apply[Result <: Task](result: Result): Scatter[Result] = new SingletonPartitioner(result).scatter
+
+    /** Builds a [[Scatter]] from a fixed sequence of results. */
+    def apply[Result](partitions: Iterable[Result]): Scatter[Result] = new FixedPartitioner(partitions).scatter
   }
 
   /**
@@ -107,11 +142,26 @@ object ScatterGather {
     private[ScatterGather] var sources: Option[Seq[Source]] = None
   }
 
+  object Gather {
+    def empty[Source, Result <: Task]: Gather[Source, Result] = new Gather[Source, Result] {
+      name = "Gather.empty"
+      override def getTasks: Iterable[_ <: Task] = None
+    }
+  }
+
   /** Implementation of a Gather that performs a single All->One gather operation. */
   private class SingleGather[Source, Result <: Task](f: Seq[Source] => Result) extends Gather[Source,Result] {
     override def getTasks: Iterable[_ <: Task] = sources match {
       case None    => throw new IllegalStateException("Gather.getTasks called before sources populated.")
       case Some(a) => Some(f(a))
+    }
+  }
+
+  /** Wraps a [[Gather]] whose sources are set immediately prior to execution. */
+  private class GatherWrapper[Source, Result <: Task](gather: Gather[Source, Result], toSources: () => Seq[Source]) extends Task {
+    override def getTasks: Iterable[_ <: Task] = {
+      gather.sources = Some(toSources())
+      Some(gather)
     }
   }
 
@@ -134,8 +184,14 @@ object ScatterGather {
 
     override def getTasks: Iterable[_ <: Task] = Some(partitioner)
 
-    override def gather[NextResult <: Task](f: Seq[Result] => NextResult): Gather[Result,NextResult] =
-      throw new UnsupportedOperationException("gather not supported on an unmapped Scatter")
+    override def gather[NextResult <: Task](f: Seq[Result] => NextResult): Gather[Result,NextResult] = {
+      val gather = new SingleGather[Result,NextResult](f)
+      val toSources = () => partitioner.partitions.getOrElse {
+        throw new IllegalStateException(s"partitioner.partitions called before partitions populated.")
+      }
+      this ==> new GatherWrapper(gather, toSources)
+      gather
+    }
 
     override def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] = {
       val grouper = new GroupByPartitioner[Result, Key](partitioner, f)
@@ -277,6 +333,7 @@ object ScatterGather {
         wrapper.partitioner.partitions.getOrElse {
           throw new IllegalStateException("Scatter/Gather pipeline trying to build before scatters populated.")
         }
+      case _: EmptyScatter[Result] => Seq.empty
       case _scatter => throw new IllegalStateException(s"Unknown scatter: ${_scatter.getClass.getSimpleName}")
     }
   }
