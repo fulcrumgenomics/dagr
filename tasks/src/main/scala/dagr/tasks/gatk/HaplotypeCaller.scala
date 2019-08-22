@@ -36,6 +36,7 @@ class HaplotypeCaller(ref: PathToFasta,
                       val bam: PathToBam,
                       val vcf: PathToVcf,
                       val maxAlternateAlleles: Int = 3,
+                      val maxHaplotypes: Int = 200,
                       val minPruning: Int = 3,
                       val contaminationFraction: Double = 0.0,
                       val rnaMode: Boolean = false,
@@ -47,27 +48,46 @@ class HaplotypeCaller(ref: PathToFasta,
  extends GatkTask("HaplotypeCaller", ref, intervals=intervals) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
+    // Arguments that are the same for all supported versions
     buffer.append("-I", bam.toAbsolutePath)
     buffer.append("-o", vcf.toAbsolutePath)
-    buffer.append(either("--minPruning", "--min-pruning"), minPruning)
-    buffer.append(either("--maxNumHaplotypesInPopulation", "--max-num-haplotypes-in-population"), "200")
-    buffer.append(either("--emitRefConfidence", "--emit-ref-confidence"), "GVCF")
-    buffer.append(either("--max_alternate_alleles", "--max-alternate-alleles"), maxAlternateAlleles)
-    buffer.append(either("--contamination_fraction_to_filter", "--contamination-fraction-to-filter"), contaminationFraction)
-    ploidy.foreach(p => buffer.append(either("--sample_ploidy", "--sample-ploidy"), p))
-    if (useNativePairHmm) buffer.append("-pairHMM", either("VECTOR_LOGLESS_CACHING", "FASTEST_AVAILABLE"))
 
-    if (gatkMajorVersion < 4) {
-      buffer.append("-variant_index_parameter", "128000")
-      buffer.append("-variant_index_type", "LINEAR")
-      maxReadsInRegionPerSample.foreach(n => buffer.append("--maxReadsInRegionPerSample", n))
-      minReadsPerAlignmentStart.foreach(n => buffer.append("--minReadsPerAlignmentStart", n))
-    }
+    gatkMajorVersion match {
+      case n if n <  4 =>
+        // Args for versions 1-3
+        buffer.append("--minPruning", minPruning)
+        buffer.append("--maxNumHaplotypesInPopulation", maxHaplotypes)
+        buffer.append("--emitRefConfidence", "GVCF")
+        buffer.append("--max_alternate_alleles", maxAlternateAlleles)
+        buffer.append("--contamination_fraction_to_filter", contaminationFraction)
+        ploidy.foreach(p => buffer.append("--sample_ploidy", p))
+        if (useNativePairHmm) buffer.append("-pairHMM", "VECTOR_LOGLESS_CACHING")
 
-    if (rnaMode) {
-      buffer.append(either("-dontUseSoftClippedBases", "--dont-use-soft-clipped-bases"))
-      buffer.append(either("-stand_call_conf", "-stand-call-conf"), 20)
-      if (gatkMajorVersion < 4) buffer.append("-stand_emit_conf", 20)
+        buffer.append("-variant_index_parameter", "128000")
+        buffer.append("-variant_index_type", "LINEAR")
+        maxReadsInRegionPerSample.foreach(n => buffer.append("--maxReadsInRegionPerSample", n))
+        minReadsPerAlignmentStart.foreach(n => buffer.append("--minReadsPerAlignmentStart", n))
+
+        if (rnaMode) {
+          buffer.append("-dontUseSoftClippedBases")
+          buffer.append("-stand_call_conf", 20)
+          buffer.append("-stand_emit_conf", 20)
+        }
+
+      case n if n >= 4 =>
+        // Args for version 4
+        buffer.append("--min-pruning", minPruning)
+        buffer.append("--max-num-haplotypes-in-population", "200")
+        buffer.append("--emit-ref-confidence", "GVCF")
+        buffer.append("--max-alternate-alleles", maxAlternateAlleles)
+        buffer.append("--contamination-fraction-to-filter", contaminationFraction)
+        ploidy.foreach(p => buffer.append("--sample-ploidy", p))
+        if (useNativePairHmm) buffer.append("-pairHMM", "FASTEST_AVAILABLE")
+
+        if (rnaMode) {
+          buffer.append("--dont-use-soft-clipped-bases")
+          buffer.append("-stand-call-conf", 20)
+        }
     }
   }
 }

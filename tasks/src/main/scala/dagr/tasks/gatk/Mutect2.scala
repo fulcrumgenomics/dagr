@@ -24,8 +24,8 @@
 package dagr.tasks.gatk
 
 import dagr.core.tasksystem.FixedResources
-import dagr.tasks.DagrDef
-import DagrDef.{PathToBam, PathToFasta, PathToIntervals, PathToVcf}
+import com.fulcrumgenomics.commons.CommonsDef._
+import htsjdk.samtools.SamReaderFactory
 
 import scala.collection.mutable.ListBuffer
 
@@ -43,11 +43,28 @@ class Mutect2(val tumorBam: PathToBam,
              ) extends GatkTask(walker="MuTect2", ref=ref, intervals=Some(intervals)) with FixedResources {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("-I:tumor",  tumorBam)
-    buffer.append("-I:normal", normalBam)
-    buffer.append("-o", output)
-    buffer.append("--max_alt_allele_in_normal_fraction",    maxAltAlleleInNormalFraction)
-    buffer.append("--max_alt_alleles_in_normal_count",      maxAltAlleleInNormalCount)
-    buffer.append("--max_alt_alleles_in_normal_qscore_sum", maxAltAlleleInNormalBqSum)
+    gatkMajorVersion match {
+      case n if n < 4 =>
+        buffer.append("-I:tumor",  tumorBam)
+        buffer.append("-I:normal", normalBam)
+        buffer.append("-o", output)
+        buffer.append("--max_alt_allele_in_normal_fraction",    maxAltAlleleInNormalFraction)
+        buffer.append("--max_alt_alleles_in_normal_count",      maxAltAlleleInNormalCount)
+        buffer.append("--max_alt_alleles_in_normal_qscore_sum", maxAltAlleleInNormalBqSum)
+      case n if n >= 4 =>
+        buffer.append("-I", tumorBam)
+        buffer.append("-I", normalBam)
+        sampleNames(normalBam).foreach { n => buffer.append("--normal-sample", n) }
+        buffer.append("-O", output)
+    }
+  }
+
+  /** Gets the unique set of samples names in the RG headers of a BAM. */
+  private def sampleNames(bam: PathToBam): Seq[String] = {
+    val in = SamReaderFactory.make().open(bam)
+    val rgs = in.getFileHeader.getReadGroups
+    in.close()
+
+    rgs.flatMap(rg => Option(rg.getSample)).toIndexedSeq.distinct
   }
 }

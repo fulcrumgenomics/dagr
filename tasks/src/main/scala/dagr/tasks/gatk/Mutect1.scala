@@ -51,6 +51,8 @@ class Mutect1(val tumorBam: PathToBam,
              ) extends GatkTask(walker="MuTect", ref=ref, intervals=Some(intervals)) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
+    require(gatkMajorVersion < 4, s"Mutect v1 is not supported in GATK v${gatkMajorVersion}.")
+
     buffer.append("-o",   callStatsOutput)
     buffer.append("-vcf", vcfOutput)
     dbsnpVcf.foreach(vcf => buffer.append("--dbsnp", vcf))

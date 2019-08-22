@@ -95,6 +95,7 @@ class RealignerTargetCreator(val in: Seq[PathToBam],
                              intervals: Option[PathToIntervals])
   extends GatkTask(walker = "RealignerTargetCreator", ref = ref, intervals = intervals) {
 
+  require(gatkMajorVersion < 4, s"RealignerTargetCreator is not supported in GATK v$gatkMajorVersion.")
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     in.foreach(bam => buffer.append("-I", bam))
     buffer.append("-o", out)
@@ -110,6 +111,8 @@ class IndelRealigner(val in: Seq[PathToBam],
                      val targetIntervals: FilePath,
                      bamCompression: Option[Int] = None)
   extends GatkTask(walker = "IndelRealigner", ref = ref, bamCompression = bamCompression) {
+
+  require(gatkMajorVersion < 4, s"IndelRealigner is not supported in GATK v$gatkMajorVersion.")
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     in.foreach(bam => buffer.append("-I", bam))

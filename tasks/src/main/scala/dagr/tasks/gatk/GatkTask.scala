@@ -24,6 +24,7 @@
 package dagr.tasks.gatk
 
 import java.nio.file.{Files, Path}
+import java.util.jar.Attributes.Name
 import java.util.jar.JarInputStream
 
 import dagr.core.config.Configuration
@@ -37,20 +38,23 @@ import scala.collection.mutable.ListBuffer
 object GatkTask {
   val GatkJarPathConfigKey = "gatk.jar"
 
+  private[gatk] val ImplementationVersion = new Name("Implementation-Version")
+  private[gatk] val MainClass             = new Name("Main-Class")
+
   /** Attempts to determine the major version from the GATK Jar. */
   def majorVersion(jar: FilePath): Int = {
     val in    = new JarInputStream(Files.newInputStream(jar))
     val attrs = in.getManifest.getMainAttributes
     in.close()
 
-    if (attrs.containsKey("Implementation-Version")) {
-      attrs.getValue("Implementation-Version").takeWhile(_ != '.').toInt
+    if (attrs.containsKey(ImplementationVersion)) {
+      attrs.getValue(ImplementationVersion).takeWhile(_ != '.').toInt
     }
     else {
-      attrs.getValue("Main-Class") match {
+      attrs.getValue(MainClass) match {
         case "org.broadinstitute.sting.gatk.CommandLineGATK"  => 1
         case "org.broadinstitute.gatk.engine.CommandLineGATK" => 3
-        case x => throw new IllegalArgumentException(s"Couldn't determind GATK version from jar $jar")
+        case x => throw new IllegalArgumentException(s"Couldn't determine GATK version from jar $jar")
       }
     }
   }
@@ -102,7 +106,4 @@ abstract class GatkTask(val walker: String,
 
   /** Adds arguments specific to the walker. */
   protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit
-
-  /** Helper function to select an argument name for pre vs. post V4 naming. */
-  protected def either(preV4Name: String, postV4Name: String): String = if (gatkMajorVersion < 4) preV4Name else postV4Name
 }
