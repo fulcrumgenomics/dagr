@@ -84,4 +84,7 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
 
   /** True if we this pipeline is tracking this direct ancestor task, false otherwise. */
   def contains(task: Task): Boolean = tasks.contains(task)
+
+  /** Builds an empty task for use within this pipeline. */
+  def emptyTask: Task = Task.empty
 }
