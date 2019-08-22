@@ -44,6 +44,7 @@ class DeleteBam(val bam: Path*) extends SimpleInJvmTask {
       PathUtil.extensionOf(b) match {
         case Some(".bam") =>
           paths += PathUtil.pathTo(bam.toString + ".bai")
+          paths += PathUtil.pathTo(bam.toString + ".csi")
           paths += PathUtil.replaceExtension(b, ".bai")
         case Some(".cram") =>
           paths += PathUtil.pathTo(bam.toString + ".crai")
