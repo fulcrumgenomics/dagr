@@ -36,6 +36,7 @@ import com.fulcrumgenomics.commons.CommonsDef._
 import scala.collection.mutable.ListBuffer
 
 object GatkTask {
+  /** The config path to the primary GATK Jar. */
   val GatkJarPathConfigKey = "gatk.jar"
 
   private[gatk] val ImplementationVersion = new Name("Implementation-Version")
