@@ -48,8 +48,8 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
   override def afterAll(): Unit = Logger.level = LogLevel.Info
   def buildTaskManager: TaskManager = new TaskManager(taskManagerResources = SystemResources.infinite, scriptsDirectory = None, sleepMilliseconds=1)
 
-  def tmp(): Path = {
-    val path = Files.createTempFile("testScatterGather.", ".txt")
+  def tmp(prefix: Option[String] = None): Path = {
+    val path = Files.createTempFile(prefix.getOrElse("testScatterGather."), ".txt")
     path.toFile.deleteOnExit()
     path
   }
@@ -60,7 +60,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     def run(): Unit = {
       val lines = Io.readLines(input).toSeq
-      val paths = lines.map(_ => tmp())
+      val paths = lines.indices.map(i => tmp(prefix=Some(s"$i-")))
       lines.zip(paths) foreach { case(line, path) => Io.writeLines(path, Seq(line))}
       this.partitions = Some(paths)
     }
@@ -136,7 +136,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true)
+    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
 
     val sum1 = Io.readLines(sumOfCounts).next().toInt
     val sum2 = Io.readLines(sumOfSquares).next().toInt
@@ -230,7 +230,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true)
+    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
 
     val libs          = Io.readLines(libCounts).next().toInt
     val samples       = Io.readLines(sampleCounts).next().toInt
@@ -307,7 +307,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true)
+    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
 
     val totalWordCount = Io.readLines(totalWordCountOutput).next().toInt
     val wordCountFreq  = Io.readLines(wordCountFreqOutput).map { line =>
@@ -345,7 +345,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true)
+    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
 
     val sumFlatMap = Io.readLines(sumOfCountsFlatMap).next().toInt
 
@@ -387,7 +387,126 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true)
+    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
+
+    val outLines = Io.readLines(countsByWordLengthOut).toList
+    outLines.map { line =>
+      val Array(wordLength: String, count: String) = line.split("\t")
+      (wordLength.toInt, count.toInt)
+    }.sortBy(_._1) should contain theSameElementsInOrderAs Seq((3, 9), (4, 3), (5, 3))
+  }
+
+  private case class CountLines(paths: Seq[Path], output: Path) extends SimpleInJvmTask {
+    override def run(): Unit = Io.writeLines(output, Seq(paths.map(Io.readLines).size.toString))
+  }
+
+  it should "scatter, flatMap (with Scatter.empty)" in {
+    val lines = Seq("one", "one two", "one two three", "one two three four", "one two three four five")
+
+    // setup the input and output
+    val input = tmp()
+    val output = tmp()
+    Io.writeLines(input, lines)
+
+    val pipeline = new Pipeline() {
+      override def build(): Unit = {
+        // the initial scatter: scatters across lines
+        val scatter: Scatter[Path] = Scatter(SplitByLine(input=input))
+
+        scatter
+          .flatMap { path =>
+            val value = path.getFileName.toString.split('-').head.toInt
+            if (value % 2 == 0) Scatter.empty[Path] else Scatter(SplitLineByWord(path))
+          }
+          .gather { paths: Seq[Path] => CountLines(paths, output) }
+
+        root ==> scatter
+      }
+    }
+
+    val taskManager = buildTaskManager
+    taskManager.addTask(pipeline)
+    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
+
+    val outLines = Io.readLines(output).toList
+    // original lines #2 and #4 (2 + 4 = 6words)
+    outLines.map(_.toInt).sorted should contain theSameElementsInOrderAs Seq(6)
+  }
+
+  it should "scatter, flatMap (with Scatter.empty and Scatter.apply)" in {
+    val lines = Seq("one", "one two", "one two three", "one two three four", "one two three four five")
+
+    // setup the input and output
+    val input = tmp()
+    val output = tmp()
+    Io.writeLines(input, lines)
+
+    val pipeline = new Pipeline() {
+      override def build(): Unit = {
+        // the initial scatter: scatters across lines
+        val scatter: Scatter[Path] = Scatter(SplitByLine(input=input))
+
+        scatter
+          .flatMap { path =>
+            val value = path.getFileName.toString.split('-').head.toInt
+            if (value % 2 == 0) Scatter.empty[CountWords] else Scatter(CountWords(path, tmp()))
+          }
+          .gather { tasks => SumNumbers(tasks.map(_.output), output) }
+
+        root ==> scatter
+      }
+    }
+
+    val taskManager = buildTaskManager
+    taskManager.addTask(pipeline)
+    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
+
+    val outLines = Io.readLines(output).toList
+    // original lines #2 and #4 (2 + 4 = 6words)
+    outLines.map(_.toInt).sorted should contain theSameElementsInOrderAs Seq(6)
+  }
+
+  it should "create a scatter from an iterable" in {
+    val lines = Seq("one", "one two", "one two three", "one two three four", "one two three four five")
+    val paths = lines.map { line =>
+      val path = tmp()
+      Io.writeLines(path, Some(line))
+      path
+    }
+
+    // setup the input and output
+    val input = tmp()
+    val countsByWordLengthOut = tmp()
+    Io.writeLines(input, lines)
+
+    val pipeline = new Pipeline() {
+      override def build(): Unit = {
+        // the initial scatter: scatters across lines
+        val scatter: Scatter[Path] = Scatter(paths)
+
+        // scatter from flatMap: each line is scattered across words, then flatMap makes a scatter across all words (all lines)
+        val scatterByWordFlatMap: Scatter[Path] = scatter.flatMap { pathToLine =>
+          val scatter = Scatter(SplitLineByWord(pathToLine))
+          root ==> scatter
+          scatter
+        }
+
+        // group by word length
+        val groupedByWordLength = scatterByWordFlatMap.groupBy { pathToWord => Io.readLines(pathToWord).next().length }
+
+        // map: count how many occurrences of words of a given length
+        val countsByWordLength = groupedByWordLength.map { case (wordLength, tasks) => WriteNumberTuple(numbers=(wordLength, tasks.length), output=tmp()) }
+
+        // gather: concatenate them all
+        countsByWordLength.gather { tasks => Concat(inputs = tasks.map(_.output), output = countsByWordLengthOut) }
+
+        root ==> scatter
+      }
+    }
+
+    val taskManager = buildTaskManager
+    taskManager.addTask(pipeline)
+    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
 
     val outLines = Io.readLines(countsByWordLengthOut).toList
     outLines.map { line =>
