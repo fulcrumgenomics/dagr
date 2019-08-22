@@ -136,7 +136,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
+    taskManager.runToCompletion(true).values.foreach(_.status shouldBe TaskStatus.SUCCEEDED)
 
     val sum1 = Io.readLines(sumOfCounts).next().toInt
     val sum2 = Io.readLines(sumOfSquares).next().toInt
@@ -230,7 +230,8 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
+
+    taskManager.runToCompletion(true).values.foreach(_.status shouldBe TaskStatus.SUCCEEDED)
 
     val libs          = Io.readLines(libCounts).next().toInt
     val samples       = Io.readLines(sampleCounts).next().toInt
@@ -307,7 +308,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
+    taskManager.runToCompletion(true).values.foreach(_.status shouldBe TaskStatus.SUCCEEDED)
 
     val totalWordCount = Io.readLines(totalWordCountOutput).next().toInt
     val wordCountFreq  = Io.readLines(wordCountFreqOutput).map { line =>
@@ -345,7 +346,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
 
     val taskManager = buildTaskManager
     taskManager.addTask(pipeline)
-    taskManager.runToCompletion(true).foreach { case (_, info) => info.status shouldBe TaskStatus.SUCCEEDED }
+    taskManager.runToCompletion(true).values.foreach(_.status shouldBe TaskStatus.SUCCEEDED)
 
     val sumFlatMap = Io.readLines(sumOfCountsFlatMap).next().toInt
 
@@ -361,6 +362,7 @@ class ScatterGatherTests extends UnitSpec with LazyLogging with BeforeAndAfterAl
     Io.writeLines(input, lines)
 
     val pipeline = new Pipeline() {
+      name = "Pipeline"
       override def build(): Unit = {
         // the initial scatter: scatters across lines
         val scatter: Scatter[Path] = Scatter(SplitByLine(input=input))

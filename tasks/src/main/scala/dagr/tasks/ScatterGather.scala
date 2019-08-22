@@ -30,14 +30,14 @@ import dagr.core.tasksystem.{FixedResources, Pipeline, Schedulable, SimpleInJvmT
 import scala.collection.mutable.ListBuffer
 
 /**
- * Provides a set of objects and classes for composing Scatter/Gather tasks and pipelines.
- */
+  * Provides a set of objects and classes for composing Scatter/Gather tasks and pipelines.
+  */
 object ScatterGather {
 
   /**
-   * A type of Task that, when run, partitions some kind of input, and produces one or more outputs
-   * of type Result that should be parallelized (scattered) over.
-   */
+    * A type of Task that, when run, partitions some kind of input, and produces one or more outputs
+    * of type Result that should be parallelized (scattered) over.
+    */
   trait Partitioner[Result] extends Task {
     /** The resulting partitions after this task has been run */
     def partitions: Option[Seq[Result]]
@@ -46,12 +46,57 @@ object ScatterGather {
   }
 
   /**
-    * A type of Task that, when run, re-partitions some kind of input, and produces one or more outputs
-    * of type Result that should be parallelized (scattered) over.
+    * Implementation of a [[Scatter]] that is just a thinly veiled wrapper around the given fixed partitions to operate
+    * on.
     */
-  trait RePartitioner[Source <: Task, Result] extends Partitioner[Result] {
-    /** The [[Source]] tasks that this task will re-partition and transform into one or more [[Result]]s. */
-    def sources: Option[Seq[Source]]
+  private class PartitionsWrapper[Result](val partitions: Iterable[Result]) extends Scatter[Result] {
+    override def getTasks: Iterable[_ <: Task] = Some(this)
+    override def map[NextResult <: Task](f: Result => NextResult): Scatter[NextResult] = {
+      val sub = new FixedPrimarySubScatter(partitions, f)
+      this ==> sub
+      sub
+    }
+
+    override def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] = {
+      val partitioner = new FixedPartitioner(this.partitions)
+      val grouper = new GroupByPartitioner[Result, Key](partitioner, f)
+      this ==> grouper.scatter
+      grouper.scatter
+    }
+
+    override def gather[NextResult <: Task](f: Seq[Result] => NextResult): Gather[Result,NextResult] = {
+      val gather = new SingleGather[Result,NextResult](f)
+      this ==> new GatherWrapper(gather, () => this.partitions.toIndexedSeq)
+      gather
+    }
+  }
+
+  /**
+    * Implementation of a [[Scatter]] that is just a thinly veiled wrapper around the [[Partitioner]] being used to
+    * generate the set of partitions to operate on.
+    */
+  private class PartitionerWrapper[Result](val partitioner: Partitioner[Result]) extends Scatter[Result] {
+    override def getTasks: Iterable[_ <: Task] = Some(partitioner)
+    override def map[NextResult <: Task](f: Result => NextResult): Scatter[NextResult] = {
+      val sub = new LazyPrimarySubScatter(partitioner, f)
+      this ==> sub
+      sub
+    }
+
+    override def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] = {
+      val grouper = new GroupByPartitioner[Result, Key](partitioner, f)
+      this ==> grouper.scatter
+      grouper.scatter
+    }
+
+    override def gather[NextResult <: Task](f: Seq[Result] => NextResult): Gather[Result,NextResult] = {
+      val gather = new SingleGather[Result,NextResult](f)
+      val toSources = () => partitioner.partitions.getOrElse {
+        throw new IllegalStateException(s"partitioner.partitions called before partitions populated.")
+      }
+      this ==> new GatherWrapper(gather, toSources)
+      gather
+    }
   }
 
   /** Wraps a set of results as a [[Partitioner]] that produces those results as partitions. */
@@ -72,14 +117,16 @@ object ScatterGather {
   private[tasks] final class EmptyScatter[Result] extends Scatter[Result] with Task.EmptyTask {
     name = "Scatter.empty"
     def map[NextResult <: Task](f: Result => NextResult) : Scatter[NextResult] = Scatter.empty[NextResult]
-    def flatMap[NextResult](f: Result => Scatter[NextResult]) : Scatter[NextResult] = Scatter.empty[NextResult]
-    def gather[NextResult <: Task](f: Seq[Result] => NextResult) : Gather[Result,NextResult] = Gather.empty[Result,NextResult]
-    def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] = Scatter.empty[(Key, Seq[Result])]
+    override def flatMap[NextResult](f: Result => Scatter[NextResult]) : Scatter[NextResult] = Scatter.empty[NextResult]
+    override def gather[NextResult <: Task](f: Seq[Result] => NextResult) : Gather[Result,NextResult] = Gather.empty[Result,NextResult]
+    override def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] = Scatter.empty[(Key, Seq[Result])]
     override def getTasks: Iterable[_ <: Task] = None
   }
 
   /** Provides a factory method to create a [[Scatter]] object from a [[Partitioner]]. */
   object Scatter {
+
+    /** Builds a [[Scatter]] from a [[Partitioner]]. */
     def apply[Result](partitioner: Partitioner[Result]): Scatter[Result] = partitioner.scatter
 
     /** Any empty [[Scatter]].  Can be used when calling `flatMap` on a non-empty [[Scatter]] to stop mapping a specific
@@ -94,18 +141,18 @@ object ScatterGather {
   }
 
   /**
-   * One of the two main types that implement Scatter/Gather, Scatter provides methods
-   * for mapping the currently scattered type to a new type by running a task in parallel
-   * on each of the scattered parts.
-   */
+    * One of the two main types that implement Scatter/Gather, Scatter provides methods
+    * for mapping the currently scattered type to a new type by running a task in parallel
+    * on each of the scattered parts.
+    */
   sealed trait Scatter[Result] extends Task {
     /**
-     * Produces a new [[Scatter]] from the existing scatter. Takes a function that maps an individual
-     * object of type Result to a [[Task]] of type NextResult.  During scatter/gather operation this function will
-     * be invoked with each Result, to manufacture tasks of type NextResult.
-     *
-     * The resulting Scatter[NextResult] can be further mapped or gathered (or both!).
-     */
+      * Produces a new [[Scatter]] from the existing scatter. Takes a function that maps an individual
+      * object of type Result to a [[Task]] of type NextResult.  During scatter/gather operation this function will
+      * be invoked with each Result, to manufacture tasks of type NextResult.
+      *
+      * The resulting Scatter[NextResult] can be further mapped or gathered (or both!).
+      */
     def map[NextResult <: Task](f: Result => NextResult) : Scatter[NextResult]
 
     /**
@@ -116,13 +163,15 @@ object ScatterGather {
       * The manufactured tasks of type NextResult will be flattened such that they can be further individually mapped or
       * gathered (or both!).
       */
-    def flatMap[NextResult](f: Result => Scatter[NextResult]) : Scatter[NextResult]
+    def flatMap[NextResult](f: Result => Scatter[NextResult]) : Scatter[NextResult] =
+      this.map(f).flatMap[NextResult](identity)
 
     /**
-     * Produces a [[Gather]] object which will be used at runtime to manufacture a [[Task]] of type NextResult
-     * which can gather things of type Result.
-     */
-    def gather[NextResult <: Task](f: Seq[Result] => NextResult) : Gather[Result,NextResult]
+      * Produces a [[Gather]] object which will be used at runtime to manufacture a [[Task]] of type NextResult
+      * which can gather things of type Result.
+      */
+    def gather[NextResult <: Task](f: Seq[Result] => NextResult) : Gather[Result,NextResult] =
+      throw new UnsupportedOperationException("gather not supported on an unmapped Scatter")
 
     /**
       * Produces a new [[Scatter]] from the existing scatter.  Partitions the the scattered objects of type Result
@@ -132,12 +181,13 @@ object ScatterGather {
       *
       * The resulting Scatter[(Key, Seq[Result])] can be further mapped or gathered (or both!).
       */
-    def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])]
+    def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] =
+      throw new UnsupportedOperationException("groupBy not supported on an unmapped Scatter")
   }
 
   /**
-   * Represents a gather operation in a scatter/gather pipeline.
-   */
+    * Represents a gather operation in a scatter/gather pipeline.
+    */
   sealed trait Gather[Source, Result <: Task] extends Task {
     private[ScatterGather] var sources: Option[Seq[Source]] = None
   }
@@ -173,40 +223,6 @@ object ScatterGather {
         case None             => throw new IllegalStateException(s"partitioner.partitions called before partitions populated.")
         case Some(_partition) => this.partitions = Some(_partition.groupBy(f).toSeq)
       }
-    }
-  }
-
-  /**
-  * Implementation of a Scatter that is just a thinly veiled wrapper around the Scatterer
-  * being used to generate the set of scatters/partitions to operate on.
-  */
-  private class PartitionerWrapper[Result](val partitioner: Partitioner[Result]) extends Scatter[Result] {
-
-    override def getTasks: Iterable[_ <: Task] = Some(partitioner)
-
-    override def gather[NextResult <: Task](f: Seq[Result] => NextResult): Gather[Result,NextResult] = {
-      val gather = new SingleGather[Result,NextResult](f)
-      val toSources = () => partitioner.partitions.getOrElse {
-        throw new IllegalStateException(s"partitioner.partitions called before partitions populated.")
-      }
-      this ==> new GatherWrapper(gather, toSources)
-      gather
-    }
-
-    override def groupBy[Key](f: Result => Key) : Scatter[(Key, Seq[Result])] = {
-      val grouper = new GroupByPartitioner[Result, Key](partitioner, f)
-      this ==> grouper.scatter
-      grouper.scatter
-    }
-
-    override def flatMap[NextResult](f: Result => Scatter[NextResult]) : Scatter[NextResult] = {
-      this.map(f).flatMap(identity)
-    }
-
-    override def map[NextResult <: Task](f: Result => NextResult): Scatter[NextResult] = {
-      val sub = new PrimarySubScatter(partitioner, f)
-      this ==> sub
-      sub
     }
   }
 
@@ -268,16 +284,19 @@ object ScatterGather {
   }
 
   /**
-    * A type of Scatter that is used to represent the first round of Scatter operation after the
-    * [[Partitioner]] has created the partitions.  It's tasks are generated using the scatter partitions
-    * as input, and is also responsible for chaining together sub-scatters.
+    * A type of Scatter that is used to represent the first round of Scatter operation after the sources have been
+    * created.  Its tasks are generated using the scatter sources as input, and is also responsible for chaining
+    * together sub-scatters.
     */
-  private class PrimarySubScatter[Source, Result <: Task](partitioner: Partitioner[Source], f: Source => Result) extends Pipeline with SubScatter[Result] {
-    override def build(): Unit = {
-      val sources: Seq[Source] = partitioner.partitions.getOrElse {
-        throw new IllegalStateException("Scatter/Gather pipeline trying to build before scatters populated.")
-      }
+  private sealed trait PrimarySubScatter[Source, Result <: Task] extends Pipeline with SubScatter[Result] {
+    /** The sources for the scatter. They will be accessed only when this [[Pipeline]] is being built to generate
+      * the resulting tasks.  */
+    protected def sources: Iterable[Source]
 
+    /** The method to apply to each source to produce a result. */
+    protected def f: Source => Result
+
+    override def build(): Unit = {
       // Create the list of tasks and chain of sub-scatterers
       sources.map(f).foreach { task: Result =>
         this.tasks += task
@@ -286,6 +305,20 @@ object ScatterGather {
       }
 
       connect()
+    }
+  }
+
+  /** A type of [[PrimarySubScatter]] that Scatters a fixed sequence of sources. */
+  private class FixedPrimarySubScatter[Source, Result <: Task](protected val sources: Iterable[Source],
+                                                               protected val f: Source => Result) extends PrimarySubScatter[Source, Result]
+
+  /** A type of [[PrimarySubScatter]] that Scatters the partitions created by the [[Partitioner]]. */
+  private class LazyPrimarySubScatter[Source, Result <: Task](partitioner: Partitioner[Source],
+                                                              protected val f: Source => Result) extends PrimarySubScatter[Source, Result] {
+    protected def sources: Iterable[Source] = {
+      partitioner.partitions.getOrElse {
+        throw new IllegalStateException("Scatter/Gather pipeline trying to build before scatters populated.")
+      }
     }
   }
 
@@ -304,6 +337,15 @@ object ScatterGather {
     }
     override def getTasks: Iterable[_ <: Task] =
       throw new UnsupportedOperationException("getTasks is not supported and should never be called on sub-scatters.")
+  }
+
+  /**
+    * A type of Task that, when run, re-partitions some kind of input, and produces one or more outputs
+    * of type Result that should be parallelized (scattered) over.
+    */
+  trait RePartitioner[Source <: Task, Result] extends Partitioner[Result] {
+    /** The [[Source]] tasks that this task will re-partition and transform into one or more [[Result]]s. */
+    def sources: Option[Seq[Source]]
   }
 
   /**
