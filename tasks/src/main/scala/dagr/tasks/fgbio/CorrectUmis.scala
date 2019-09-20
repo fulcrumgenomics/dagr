@@ -32,10 +32,10 @@ import scala.collection.mutable.ListBuffer
 
 case class CorrectUmis(in: PathToBam,
                        out: PathToBam,
-                       rejects: Option[PathToBam] = None,
-                       metrics: Option[FilePath] = None,
                        maxMismatches: Int,
                        minDistance: Int,
+                       rejects: Option[PathToBam] = None,
+                       metrics: Option[FilePath] = None,
                        umis: Seq[String] = Seq.empty,
                        umiFiles: Seq[FilePath] = Seq.empty,
                        umiTag: Option[String] = None,
@@ -45,10 +45,10 @@ case class CorrectUmis(in: PathToBam,
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
     buffer.append("-o", out)
-    rejects.foreach {r => buffer.append("-r", r) }
-    metrics.foreach {M => buffer.append("-M", M) }
     buffer.append("-m", maxMismatches)
     buffer.append("-d", minDistance)
+    rejects.foreach {r => buffer.append("-r", r) }
+    metrics.foreach {m => buffer.append("-M", m) }
     if (umis.nonEmpty)     { buffer.append("-u"); buffer.append(umis: _*)     }
     if (umiFiles.nonEmpty) { buffer.append("-U"); buffer.append(umiFiles: _*) }
     umiTag.foreach { t => buffer.append("-t", t) }
