@@ -57,6 +57,7 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
                           var useAdvancedGcOptions: Boolean = true,
                           var validationStringency: Option[ValidationStringency] = Some(ValidationStringency.SILENT),
                           var useAsyncIo: Boolean = false,
+                          var useJdkInflater: Option[Boolean] = None,
                           var compressionLevel: Option[Int] = None,
                           var createIndex: Option[Boolean] = Some(true),
                           var createMd5File: Option[Boolean] = None,
@@ -88,8 +89,9 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
 
     buffer += commandName
     validationStringency.foreach(v => buffer.append("VALIDATION_STRINGENCY=" + v.name()))
-    createIndex.foreach(v => buffer.append("CREATE_INDEX=" + v))
-    createMd5File.foreach(v =>  buffer.append("CREATE_MD5_FILE=" + v))
+    createIndex.foreach(c => buffer.append("CREATE_INDEX=" + c))
+    createMd5File.foreach(c =>  buffer.append("CREATE_MD5_FILE=" + c))
+    useJdkInflater.foreach(u => buffer.append("USE_JDK_INFLATER=" + u))
 
     addPicardArgs(buffer)
     buffer.toList
@@ -113,4 +115,7 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
     this.validationStringency = Some(validationStringency)
     this
   }
+
+  /** Sets whether we use the JDK inflater or not. */
+  def withJdkInflater(inflate: Boolean = true) : this.type = { this.useJdkInflater = Some(inflate); this; }
 }
