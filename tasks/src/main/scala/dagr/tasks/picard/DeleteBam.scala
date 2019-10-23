@@ -52,6 +52,6 @@ class DeleteBam(val bam: Path*) extends SimpleInJvmTask {
       }
     }
 
-    paths.filter(Files.exists(_)).foreach(Files.delete)
+    paths.foreach(Files.deleteIfExists)
   }
 }
