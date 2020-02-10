@@ -49,7 +49,8 @@ object Bwa extends Configuration {
                      mergeBamAlignmentMem: String = "2G",
                      fifoBufferMem: String = "512M",
                      processAltMappings: Boolean = false,
-                     orientation: PairOrientation = PairOrientation.FR
+                     orientation: PairOrientation = PairOrientation.FR,
+                     basesPerBatch: Option[Int] = None
                     ): Pipe[SamOrBam,SamOrBam] = {
     val alt = PathUtil.pathTo(s"${ref}.alt")
     val doAlt = Files.exists(alt) && processAltMappings
@@ -57,7 +58,7 @@ object Bwa extends Configuration {
 
     val samToFastq = SamToFastq(in=unmappedBam, out=Io.StdOut).requires(Cores(samToFastqCores), Memory(samToFastqMem))
     val fqBuffer   = new FifoBuffer[Fastq].requires(memory=fifoMem)
-    val bwaMem     = new BwaMem(fastq=Io.StdIn, ref=ref, minThreads=minThreads, maxThreads=maxThreads, memory=Memory(bwaMemMemory))
+    val bwaMem     = new BwaMem(fastq=Io.StdIn, ref=ref, basesPerBatch=basesPerBatch, minThreads=minThreads, maxThreads=maxThreads, memory=Memory(bwaMemMemory))
     val bwaBuffer  = new FifoBuffer[Sam].requires(memory=fifoMem)
     val altPipe    = if (doAlt) new BwaK8AltProcessor(altFile=alt) | new FifoBuffer[Sam].requires(memory=fifoMem) else Pipes.empty[Sam]
     val mergeBam   = new MergeBamAlignment(unmapped=unmappedBam, mapped=Io.StdIn, out=mappedBam, ref=ref, sortOrder=sortOrder, orientation=orientation)
