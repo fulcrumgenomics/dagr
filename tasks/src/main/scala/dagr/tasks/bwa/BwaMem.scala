@@ -43,6 +43,7 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
              clippingPenalties: Option[(Int,Int)] = None,
              minScore: Option[Int] = None,
              smartPairing: Boolean = true,
+             basesPerBatch: Option[Int] = None,
              minThreads: Int = 1,
              maxThreads: Int = 32,
              memory: Memory = Memory("8G")
@@ -64,6 +65,7 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
     gapExtensionPenalties.foreach { case (del, ins) => buffer.append("-E", s"$del,$ins") }
     clippingPenalties.foreach { case (five, three) => buffer.append("-L", s"$five,$three") }
     minScore.foreach(s => buffer.append("-T", s))
+    basesPerBatch.foreach(n => buffer.append("-K", n))
 
     buffer.append(ref, fastq)
     out.foreach(f => buffer.append("> " + f))
