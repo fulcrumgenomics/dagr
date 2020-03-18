@@ -388,7 +388,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
   /** Invokes `getTasks` on the task associated with the graph node.
     *
-    * (1) In the case that `getTasks` returns the same exact task, check for cycles and verify it is a [[UnitTask]].  Since
+    * (1) In the case that `getTasks` returns the same exact task, it verifies it is a [[UnitTask]].  Since
     * the task already has an execution node, it must have already passed to [[addTask()]].
     *
     * (2) In the case that `getTasks` returns a different task, or more than one task, set the submission date of the node,
@@ -412,8 +412,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         false
       case x :: Nil if x == node.task => // one task and it returned itself
         logger.debug(f"invokeGetTasks 2 ${node.task.name} : ${tasks.map(_.name).mkString(", ")}")
+        // Developer note: removing the check for cycles here because we should have checked for cycles when the task
+        // was added!
         // check for cycles only when we have a unit task for which calling [[getTasks] returns itself.
-        checkForCycles(task = node.task)
+        // checkForCycles(task = node.task)
         // verify we have a UnitTask
         node.task match {
           case _: UnitTask =>
