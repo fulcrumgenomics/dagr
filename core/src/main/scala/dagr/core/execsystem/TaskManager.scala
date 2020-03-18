@@ -132,8 +132,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
                   logDirectory: Option[Path]                 = None,
                   scheduler: Scheduler                       = TaskManagerDefaults.defaultScheduler,
                   simulate: Boolean                          = false,
-                  sleepMilliseconds: Int                     = 10
+                  sleepMilliseconds: Int                     = 250
 ) extends TaskManagerLike with TaskTracker with FinalStatusReporter with LazyLogging {
+
+  private var curSleepMilliseconds: Int = sleepMilliseconds
 
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
   protected val actualLogsDirectory  = logDirectory getOrElse Io.makeTempDir("logs")
@@ -571,6 +573,14 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     logger.debug("stepExecution: finishing one round of execution")
     logger.debug("stepExecution: found " + runningTasks.size + " running tasks and " + tasksToSchedule.size + " tasks to schedule")
 
+    // Update the current sleep time: exponential reduction if we could do **anything**, otherwise linear increase.
+    if (canDoAnything) {
+      curSleepMilliseconds = curSleepMilliseconds / 2
+    }
+    else {
+      curSleepMilliseconds = Math.min(sleepMilliseconds, curSleepMilliseconds + (sleepMilliseconds / 10))
+    }
+
     (
       readyTasks,
       tasksToSchedule.keys,
@@ -584,7 +594,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     while (!allDone) {
       val (readyTasks, tasksToSchedule, runningTasks, _) = stepExecution()
 
-      Thread.sleep(sleepMilliseconds)
+      logger.info(s"Sleeping ${curSleepMilliseconds}ms")
+      if (curSleepMilliseconds > 0) Thread.sleep(curSleepMilliseconds)
 
       // check if we have only completed or orphan all tasks
       allDone = graphNodesInStatesFor(List(ORPHAN, COMPLETED)).size == graphNodes.size
