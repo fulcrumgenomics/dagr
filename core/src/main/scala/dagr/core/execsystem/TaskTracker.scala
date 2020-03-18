@@ -66,22 +66,21 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
   private val idToTask: mutable.Map[TaskId, Task] = mutable.Map[TaskId, Task]()
   private val idToNode: mutable.Map[TaskId, GraphNode] = mutable.Map[TaskId, GraphNode]()
 
-  override def addTask(task: Task): TaskId = {
-    addTask(task=task, enclosingNode=None, ignoreExists=false)
-  }
-
+  /** Adds a task to be managed, but does not check for cycles, or that the next identifier is currently used.  This
+    * should be performed by the caller.
+    */
   private def addTaskNoChecking(task: Task, enclosingNode: Option[GraphNode] = None): TaskId = {
     // set the task id
     val id = yieldAndThen(nextId) {nextId += 1}
     // set the task info
     require(task._taskInfo.isEmpty) // should not have any info!
     val info = new TaskExecutionInfo(
-      task=task,
-      taskId=id,
-      status=UNKNOWN,
-      script=scriptPathFor(task=task, id=id, attemptIndex=1),
-      logFile=logPathFor(task=task, id=id, attemptIndex=1),
-      submissionDate=Some(Instant.now())
+      task           = task,
+      taskId         = id,
+      status         = UNKNOWN,
+      script         = scriptPathFor(task=task, id=id, attemptIndex=1),
+      logFile        = logPathFor(task=task, id=id, attemptIndex=1),
+      submissionDate = Some(Instant.now())
     )
     task._taskInfo = Some(info)
 
@@ -98,33 +97,10 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     id
   }
 
-  /** Adds a task to be managed
-  *
-  * Throws an [[IllegalArgumentException]] if a cycle was found after logging each strongly connected component with
-  * a cycle in the graph.
-  *
-  * @param ignoreExists true if we just return the task id for already added tasks, false if we are to throw an [[IllegalArgumentException]]
-  * @param task the given task.
-  * @return the task identifier.
-  */
-  protected[execsystem] def addTask(task: Task, enclosingNode: Option[GraphNode], ignoreExists: Boolean = false): TaskId = {
-    // Make sure the id we will assign the task are not being tracked.
-    if (idToTask.contains(nextId)) throw new IllegalArgumentException(s"Task '${task.name}' with id '$nextId' was already added!")
-
-    taskFor(task) match {
-      case Some(id) if ignoreExists => id
-      case Some(id) => throw new IllegalArgumentException(s"Task '${task.name}' with id '$id' was already added!")
-      case None =>
-        // check for cycles
-        checkForCycles(task = task)
-        // add the task
-        addTaskNoChecking(task, enclosingNode)
-    }
-  }
-
-  /** Adds tasks to be managed
+  /** Adds tasks to be managed.
     *
     * @param tasks the given tasks.
+    * @param enclosingNode the graph node of the parent task that generated this task (if any)
     * @param ignoreExists true if we just return the task id for already added tasks, false if we are to throw an [[IllegalArgumentException]]
     * @return the task identifiers.
     */
@@ -145,9 +121,11 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     tasks.map { task => taskFor(task).getOrElse(addTaskNoChecking(task, enclosingNode)) }
   }
 
-  override def addTasks(tasks: Task*): Seq[TaskId] = {
-    this.addTasks(tasks, enclosingNode=None, ignoreExists=false)
-  }
+  /** Adds a task to be managed. */
+  override def addTask(task: Task): TaskId = addTasks(task).head
+
+  /** Adds one or more tasks to be managed. */
+  override def addTasks(tasks: Task*): Seq[TaskId] = this.addTasks(tasks, enclosingNode=None, ignoreExists=false)
 
   override def taskFor(id: TaskId): Option[Task] = idToTask.get(id)
 

@@ -81,10 +81,22 @@ object TaskManagerDefaults extends LazyLogging {
 object TaskManager extends LazyLogging {
   import dagr.core.execsystem.TaskManagerDefaults._
 
+  /** The initial time to wait between scheduling tasks. */
+  val InitialSleepMillis: Int                    = 100
+  /** The minimum time to wait between scheduling tasks. */
+  val MinSleepMillis: Int                        = 10
+  /** The maximum time to wait between scheduling tasks. */
+  val MaxSleepMillis: Int                        = 1000
+  /** The increased amount time to wait between scheduling tasks after nothing can be done (linear increase). */
+  val StepSleepMillis: Int                       = 50
+  /** The scaling factor to reduce (divide) the time by to wait between scheduling tasks (exponential backoff). */
+  val BackoffSleepFactor: Float                  = 2f
+  /** The maximum time between two attempts to task scheduling attempts after which a warning is logged. */
+  val SlowStepTimeSeconds: Int                   = 30
+
   /** Runs a given task to either completion, failure, or inability to schedule.  This will terminate tasks that were still running before returning.
    *
    * @param task the task to run
-   * @param sleepMilliseconds the time to wait in milliseconds to wait between trying to schedule tasks.
    * @param taskManagerResources the set of task manager resources, otherwise we use the default
    * @param scriptsDirectory the scripts directory, otherwise we use the default
    * @param logDirectory the log directory, otherwise we use the default
@@ -93,7 +105,6 @@ object TaskManager extends LazyLogging {
    * @return a bi-directional map from the set of tasks to their execution information.
    */
   def run(task: Task,
-          sleepMilliseconds: Int = 1000,
           taskManagerResources: Option[SystemResources] = Some(defaultTaskManagerResources),
           scriptsDirectory: Option[Path] = None,
           logDirectory: Option[Path] = None,
@@ -106,8 +117,7 @@ object TaskManager extends LazyLogging {
       scriptsDirectory     = scriptsDirectory,
       logDirectory         = logDirectory,
       scheduler            = scheduler.getOrElse(defaultScheduler),
-      simulate             = simulate,
-      sleepMilliseconds    = sleepMilliseconds
+      simulate             = simulate
     )
 
     taskManager.addTask(task = task)
@@ -115,6 +125,7 @@ object TaskManager extends LazyLogging {
 
     taskManager.taskToInfoBiMapFor
   }
+
 }
 
 /** A manager of tasks.
@@ -126,18 +137,16 @@ object TaskManager extends LazyLogging {
   * @param logDirectory         the log directory, otherwise a temporary directory will be used
   * @param scheduler            the scheduler, otherwise we use the default
   * @param simulate             true if we are to simulate running tasks, false otherwise
-  * @param sleepMilliseconds    the time to wait in milliseconds to wait between trying to schedule tasks.
   */
 class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.defaultTaskManagerResources,
                   scriptsDirectory: Option[Path]             = None,
                   logDirectory: Option[Path]                 = None,
                   scheduler: Scheduler                       = TaskManagerDefaults.defaultScheduler,
-                  simulate: Boolean                          = false,
-                  sleepMilliseconds: Int                     = 250
+                  simulate: Boolean                          = false
+
 ) extends TaskManagerLike with TaskTracker with FinalStatusReporter with LazyLogging {
 
-  private var curSleepMilliseconds: Int = sleepMilliseconds
-  private val slowStepTimeSeconds: Int = 30
+  private var curSleepMilliseconds: Int = TaskManager.InitialSleepMillis
 
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
   protected val actualLogsDirectory  = logDirectory getOrElse Io.makeTempDir("logs")
@@ -579,10 +588,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
     // Update the current sleep time: exponential reduction if we could do **anything**, otherwise linear increase.
     if (canDoAnything) {
-      curSleepMilliseconds = curSleepMilliseconds / 2
+      curSleepMilliseconds = Math.max(TaskManager.MinSleepMillis, (curSleepMilliseconds / TaskManager.BackoffSleepFactor).toInt)
     }
     else {
-      curSleepMilliseconds = Math.min(sleepMilliseconds, curSleepMilliseconds + (sleepMilliseconds / 10))
+      curSleepMilliseconds = Math.min(TaskManager.MaxSleepMillis, curSleepMilliseconds + TaskManager.StepSleepMillis)
     }
 
     (
@@ -603,9 +612,9 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
       // Warn if the single step in execution "took a long time"
       val stepExecutionDuration = Duration.between(startTime, Instant.now()).getSeconds
-      if (stepExecutionDuration > slowStepTimeSeconds) {
+      if (stepExecutionDuration > TaskManager.SlowStepTimeSeconds) {
         logger.warning("*" * 80)
-        logger.warning(s"A single step in execution was > ${slowStepTimeSeconds}s (${stepExecutionDuration}s).")
+        logger.warning(s"A single step in execution was > ${TaskManager.SlowStepTimeSeconds}s (${stepExecutionDuration}s).")
         val infosByStatus: Map[execsystem.TaskStatus.Value, Iterable[TaskExecutionInfo]] = this.taskToInfoBiMapFor.values.groupBy(_.status)
         TaskStatus.values.filter(infosByStatus.contains).foreach { status =>
           logger.warning(s"Found ${infosByStatus(status).size} tasks with status: $status")

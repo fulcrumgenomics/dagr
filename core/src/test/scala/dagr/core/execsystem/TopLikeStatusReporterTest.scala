@@ -57,10 +57,9 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     }
   }
 
-  private def getDefaultTaskManager(sleepMilliseconds: Int = 10): TaskManager = new TaskManager(
+  private def getDefaultTaskManager(): TaskManager = new TaskManager(
     taskManagerResources = SystemResources.infinite,
-    scriptsDirectory = None,
-    sleepMilliseconds = sleepMilliseconds
+    scriptsDirectory = None
   )
 
   "Terminal" should "support ANSI codes" in {
@@ -156,8 +155,7 @@ class TopLikeStatusReporterTest extends UnitSpec with CaptureSystemStreams with 
     val printMethod: String => Unit = (str: String) => output.append(str)
     val taskManager = new TaskManager(
       taskManagerResources = SystemResources(1.0, Long.MaxValue, Long.MaxValue), // one task at a time
-      scriptsDirectory = None,
-      sleepMilliseconds = 10
+      scriptsDirectory = None
     )
     val reporter = new TopLikeStatusReporter(taskManager = taskManager, print = printMethod) with TestTerminal
 

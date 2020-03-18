@@ -80,7 +80,12 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
 
   /** Recursively navigates dependencies, starting from the supplied task, and add all children to this.tasks. */
   private def addChildren(task : Task) : Unit = {
-    // 1. find all tasks connected to this task
+    // Developer note: we may have very deep dependency graphs, so this implementation avoids stack overflows
+    // Developer note: we use a Set here so that we do not recurse on the same task twice.
+    // Suppose we have `A ==> (B :: C)` and `B ==> C`.  Even thought this could be simplified to `A ==> B ==> C`, that's
+    // up to the caller, and we post-processing of the DAG.  So when `addChildren` gets called on `A`, it recurses on
+    // `B` and `C`.  Since `C` depends on `C`, without the uniqueness check we recurse on `C` in the `addChildren`
+    // call on `B`.
     val toVisit: mutable.Set[Task] = mutable.HashSet[Task](task)
     while (toVisit.nonEmpty) {
       val nextTask: Task = toVisit.head
