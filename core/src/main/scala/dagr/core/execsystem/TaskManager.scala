@@ -425,10 +425,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         // we will make this task dependent on the tasks it creates...
         if (tasks.contains(node.task)) throw new IllegalStateException(s"Task [${node.task.name}] contained itself in the list returned by getTasks")
         // track the new tasks. If they are already added, that's fine too.
-        val taskIds: Seq[TaskId] = tasks.map { task => addTask(task = task, enclosingNode = Some(node), ignoreExists = true) }
+        val taskIds: Seq[TaskId] = addTasks(tasks, enclosingNode = Some(node), ignoreExists = true)
         // make this node dependent on those tasks
         taskIds.map(taskId => node.addPredecessors(this(taskId)))
-        // we may need to update precedessors if a returned task was already completed
+        // we may need to update predecessors if a returned task was already completed
         if (tasks.flatMap(t => graphNodeFor(t)).exists(_.state == GraphNodeState.COMPLETED)) updatePredecessors()
         // TODO: we could check each new task to see if they are in the PREDECESSORS_AND_UNEXPANDED state
         true

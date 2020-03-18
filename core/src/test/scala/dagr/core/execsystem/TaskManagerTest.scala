@@ -97,7 +97,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   "TaskManager" should "not overwrite an existing task when adding a task, or throw an IllegalArgumentException when ignoreExists is false" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
     val taskManager: TestTaskManager = getDefaultTaskManager()
-    taskManager.addTasks(tasks=Seq(task, task), ignoreExists=true) shouldBe List(0, 0)
+    taskManager.addTasks(tasks=Seq(task, task), enclosingNode=None, ignoreExists=true) shouldBe List(0, 0)
     an[IllegalArgumentException] should be thrownBy taskManager.addTask(task=task, enclosingNode=None, ignoreExists=false)
   }
 

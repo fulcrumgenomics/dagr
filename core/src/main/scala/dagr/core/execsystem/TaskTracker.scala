@@ -70,19 +70,46 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     addTask(task=task, enclosingNode=None, ignoreExists=false)
   }
 
+  private def addTaskNoChecking(task: Task, enclosingNode: Option[GraphNode] = None): TaskId = {
+    // set the task id
+    val id = yieldAndThen(nextId) {nextId += 1}
+    // set the task info
+    require(task._taskInfo.isEmpty) // should not have any info!
+    val info = new TaskExecutionInfo(
+      task=task,
+      taskId=id,
+      status=UNKNOWN,
+      script=scriptPathFor(task=task, id=id, attemptIndex=1),
+      logFile=logPathFor(task=task, id=id, attemptIndex=1),
+      submissionDate=Some(Instant.now())
+    )
+    task._taskInfo = Some(info)
+
+    // create the graph node
+    val node = predecessorsOf(task=task) match {
+      case None => new GraphNode(task=task, predecessorNodes=Nil, state=GraphNodeState.ORPHAN, enclosingNode=enclosingNode)
+      case Some(predecessors) => new GraphNode(task=task, predecessorNodes=predecessors, enclosingNode=enclosingNode)
+    }
+
+    // update the lookups
+    idToTask.put(id, task)
+    idToNode.put(id, node)
+
+    id
+  }
+
   /** Adds a task to be managed
-    *
-    * Throws an [[IllegalArgumentException]] if a cycle was found after logging each strongly connected component with
-    * a cycle in the graph.
-    *
-    * @param ignoreExists true if we just return the task id for already added tasks, false if we are to throw an [[IllegalArgumentException]]
-    * @param task the given task.
-    * @return the task identifier.
-    */
+  *
+  * Throws an [[IllegalArgumentException]] if a cycle was found after logging each strongly connected component with
+  * a cycle in the graph.
+  *
+  * @param ignoreExists true if we just return the task id for already added tasks, false if we are to throw an [[IllegalArgumentException]]
+  * @param task the given task.
+  * @return the task identifier.
+  */
   protected[execsystem] def addTask(task: Task, enclosingNode: Option[GraphNode], ignoreExists: Boolean = false): TaskId = {
     // Make sure the id we will assign the task are not being tracked.
     if (idToTask.contains(nextId)) throw new IllegalArgumentException(s"Task '${task.name}' with id '$nextId' was already added!")
-    if (idToNode.contains(nextId)) throw new IllegalArgumentException(s"Task '${task.name}' with id '$nextId' was already added!")
 
     taskFor(task) match {
       case Some(id) if ignoreExists => id
@@ -90,32 +117,8 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
       case None =>
         // check for cycles
         checkForCycles(task = task)
-
-        // set the task id
-        val id = yieldAndThen(nextId) {nextId += 1}
-        // set the task info
-        require(task._taskInfo.isEmpty) // should not have any info!
-        val info = new TaskExecutionInfo(
-          task=task,
-          taskId=id,
-          status=UNKNOWN,
-          script=scriptPathFor(task=task, id=id, attemptIndex=1),
-          logFile=logPathFor(task=task, id=id, attemptIndex=1),
-          submissionDate=Some(Instant.now())
-        )
-        task._taskInfo = Some(info)
-
-        // create the graph node
-        val node = predecessorsOf(task=task) match {
-          case None => new GraphNode(task=task, predecessorNodes=Nil, state=GraphNodeState.ORPHAN, enclosingNode=enclosingNode)
-          case Some(predecessors) => new GraphNode(task=task, predecessorNodes=predecessors, enclosingNode=enclosingNode)
-        }
-
-        // update the lookups
-        idToTask.put(id, task)
-        idToNode.put(id, node)
-
-        id
+        // add the task
+        addTaskNoChecking(task, enclosingNode)
     }
   }
 
@@ -125,12 +128,25 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     * @param ignoreExists true if we just return the task id for already added tasks, false if we are to throw an [[IllegalArgumentException]]
     * @return the task identifiers.
     */
-  protected[execsystem] def addTasks(tasks: Iterable[Task], enclosingNode: Option[GraphNode] = None, ignoreExists: Boolean = false): List[TaskId] = {
-    tasks.map(task => addTask(task=task, enclosingNode=enclosingNode, ignoreExists=ignoreExists)).toList
+  protected[execsystem] def addTasks(tasks: Seq[Task], enclosingNode: Option[GraphNode] = None, ignoreExists: Boolean = false): Seq[TaskId] = {
+    // Make sure the id we will assign the task are not being tracked.
+    if (idToTask.contains(nextId)) throw new IllegalArgumentException(s"Task id '$nextId' was already added!")
+
+    val tasksToAdd = tasks.flatMap { task =>
+      taskFor(task) match {
+        case Some(_) if ignoreExists => None
+        case Some(id) => throw new IllegalArgumentException(s"Task '${task.name}' with id '$id' was already added!")
+        case None     => Some(task)
+      }
+    }
+
+    checkForCycles(tasksToAdd:_*)
+
+    tasks.map { task => taskFor(task).getOrElse(addTaskNoChecking(task, enclosingNode)) }
   }
 
   override def addTasks(tasks: Task*): Seq[TaskId] = {
-    tasks.map(task => addTask(task, enclosingNode=None, ignoreExists=false))
+    this.addTasks(tasks, enclosingNode=None, ignoreExists=false)
   }
 
   override def taskFor(id: TaskId): Option[Task] = idToTask.get(id)
@@ -259,17 +275,17 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     *
     * @param task a task in the graph to check.
     */
-  protected def checkForCycles(task: Task): Unit = {
+  protected def checkForCycles(task: Task*): Unit = {
     // check for cycles
-    if (Task.hasCycle(task)) {
+    if (Task.hasCycle(task:_*)) {
       logger.error("Task was part of a graph that had a cycle")
-      for (component <- Task.findStronglyConnectedComponents(task = task)) {
+      for (component <- Task.findStronglyConnectedComponents(task = task:_*)) {
         if (Task.isComponentACycle(component = component)) {
           logger.error("Tasks were part of a strongly connected component with a cycle: "
             + component.map(t => s"[${t.name}]").mkString(", "))
         }
       }
-      throw new IllegalArgumentException(s"Task was part of a graph that had a cycle [${task.name}]")
+      throw new IllegalArgumentException(s"Task(s) had cyclical dependencies [${task.map(_.name).mkString(",")}]")
     }
   }
 
