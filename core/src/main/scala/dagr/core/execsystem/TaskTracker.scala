@@ -207,7 +207,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
 
   override def taskToInfoBiMapFor: BiMap[Task, TaskExecutionInfo] = {
     val map: BiMap[Task, TaskExecutionInfo] = new BiMap[Task, TaskExecutionInfo]()
-    idToTask.foreach { case (id, task) => map.add(task, task.taskInfo) }
+    idToTask.foreach { case (_, task) => map.add(task, task.taskInfo) }
     map
   }
 

@@ -24,13 +24,14 @@
 package dagr.core.execsystem
 
 import java.nio.file.Path
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import dagr.core.DagrDef._
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.tasksystem._
 import com.fulcrumgenomics.commons.collection.BiMap
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
+import dagr.core.execsystem
 
 /** The resources needed for the task manager */
 object SystemResources {
@@ -136,6 +137,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 ) extends TaskManagerLike with TaskTracker with FinalStatusReporter with LazyLogging {
 
   private var curSleepMilliseconds: Int = sleepMilliseconds
+  private val slowStepTimeSeconds: Int = 30
 
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
   protected val actualLogsDirectory  = logDirectory getOrElse Io.makeTempDir("logs")
@@ -594,7 +596,22 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   override def runToCompletion(failFast: Boolean): BiMap[Task, TaskExecutionInfo] = {
     var allDone = false
     while (!allDone) {
+
+      // Step the execution once
+      val startTime = Instant.now()
       val (readyTasks, tasksToSchedule, runningTasks, _) = stepExecution()
+
+      // Warn if the single step in execution "took a long time"
+      val stepExecutionDuration = Duration.between(startTime, Instant.now()).getSeconds
+      if (stepExecutionDuration > slowStepTimeSeconds) {
+        logger.warning("*" * 80)
+        logger.warning(s"A single step in execution was > ${slowStepTimeSeconds}s (${stepExecutionDuration}s).")
+        val infosByStatus: Map[execsystem.TaskStatus.Value, Iterable[TaskExecutionInfo]] = this.taskToInfoBiMapFor.values.groupBy(_.status)
+        TaskStatus.values.filter(infosByStatus.contains).foreach { status =>
+          logger.warning(s"Found ${infosByStatus(status).size} tasks with status: $status")
+        }
+        logger.warning("*" * 80)
+      }
 
       logger.info(s"Sleeping ${curSleepMilliseconds}ms")
       if (curSleepMilliseconds > 0) Thread.sleep(curSleepMilliseconds)
