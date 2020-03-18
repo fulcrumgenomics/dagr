@@ -348,7 +348,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       logger.debug("updateOrphans: found an orphan task [" + node.task.name + "] that has [" +
         predecessorsOf(task=node.task).getOrElse(Nil).size + "] predecessors")
       node.addPredecessors(predecessorsOf(task=node.task).get)
-      logger.debug("updateOrphans: orphan task [" + node.task.name + "] now has [" + node.predecessors.size + "] predecessors")
+      logger.debug("updateOrphans: orphan task [" + node.task.name + "] now has [" + node.numPredecessors + "] predecessors")
       // update its state
       node.state = PREDECESSORS_AND_UNEXPANDED
     })
@@ -365,11 +365,11 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private def updatePredecessors(): Unit = {
     var hasMore = false
     for (node <- graphNodesWithPredecessors) {
-      node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED && TaskStatus.isTaskDone(p.taskInfo.status, failedIsDone=false)).map(p => node.removePredecessor(p))
-      logger.debug("updatePredecessors: examining task [" + node.task.name + "] for predecessors: " + node.hasPredecessor)
+      node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED && TaskStatus.isTaskDone(p.taskInfo.status, failedIsDone=false)).foreach(p => node.removePredecessor(p))
+      //logger.debug("updatePredecessors: examining task [" + node.task.name + "] for predecessors: " + node.hasPredecessor)
       // - if this node has already been expanded and now has no predecessors, then move it to the next state.
       // - if it hasn't been expanded and now has no predecessors, it should get expanded later
-      if (!node.hasPredecessor) logger.debug(s"updatePredecessors: has node state: ${node.state}")
+      //if (!node.hasPredecessor) logger.debug(s"updatePredecessors: has node state: ${node.state}")
       if (!node.hasPredecessor && node.state == ONLY_PREDECESSORS) {
         val taskInfo = node.taskInfo
         node.task match {
@@ -379,7 +379,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
             taskInfo.status = TaskStatus.SUCCEEDED
             hasMore = true // try again for all successors, since we have more nodes that have completed
         }
-        logger.debug(s"updatePredecessors: task [${node.task.name}] now has node state [${node.state}] and status [${taskInfo.status}]")
+        //logger.debug(s"updatePredecessors: task [${node.task.name}] now has node state [${node.state}] and status [${taskInfo.status}]")
       }
     }
 
@@ -613,7 +613,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         logger.warning("*" * 80)
       }
 
-      logger.info(s"Sleeping ${curSleepMilliseconds}ms")
+      logger.debug(s"Sleeping ${curSleepMilliseconds}ms")
       if (curSleepMilliseconds > 0) Thread.sleep(curSleepMilliseconds)
 
       // check if we have only completed or orphan all tasks
