@@ -132,7 +132,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
                   logDirectory: Option[Path]                 = None,
                   scheduler: Scheduler                       = TaskManagerDefaults.defaultScheduler,
                   simulate: Boolean                          = false,
-                  sleepMilliseconds: Int                     = 250
+                  sleepMilliseconds: Int                     = 10
 ) extends TaskManagerLike with TaskTracker with FinalStatusReporter with LazyLogging {
 
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
