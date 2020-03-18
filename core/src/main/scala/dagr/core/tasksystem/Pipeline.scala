@@ -28,6 +28,8 @@ import java.nio.file.Path
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.LazyLogging
 
+import scala.collection.mutable
+
 /** Simple trait to track tasks within a pipeline */
 abstract class Pipeline(val outputDirectory: Option[Path] = None,
                         private var prefix: Option[String] = None,
@@ -78,9 +80,15 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
 
   /** Recursively navigates dependencies, starting from the supplied task, and add all children to this.tasks. */
   private def addChildren(task : Task) : Unit = {
-    task.tasksDependingOnThisTask.filterNot(tasks.contains).foreach { child =>
-      tasks += child
-      addChildren(child)
+    // 1. find all tasks connected to this task
+    val toVisit: mutable.Set[Task] = mutable.HashSet[Task](task)
+    while (toVisit.nonEmpty) {
+      val nextTask: Task = toVisit.head
+      toVisit -= nextTask
+      nextTask.tasksDependingOnThisTask.filterNot(tasks.contains).foreach { child =>
+        tasks += child
+        toVisit += child
+      }
     }
   }
 
