@@ -25,8 +25,9 @@
 package dagr.core.execsystem
 
 import dagr.core.UnitSpec
+import org.scalatest.OptionValues
 
-class ResourceSetTest extends UnitSpec {
+class ResourceSetTest extends UnitSpec with OptionValues {
   "ResourceSet.isEmpty" should "return true for the empty resource set" in {
     ResourceSet.empty.isEmpty shouldBe true
   }
@@ -42,5 +43,31 @@ class ResourceSetTest extends UnitSpec {
     running.memory.value shouldBe 10
     running = running - Cores(10)
     running.cores.value shouldBe 0
+  }
+
+  it should "subset resources" in {
+    // doc examples
+    ResourceSet(4.5, 10).subset(Cores(1), Cores(5), Memory(10)).value shouldBe ResourceSet(4, 10)
+    ResourceSet(4.5, 10).subset(Cores(1), Cores(5.1), Memory(10)).value shouldBe ResourceSet(4.5, 10)
+    ResourceSet(1.5, 10).subset(Cores(1), Cores(5), Memory(10)).value shouldBe ResourceSet(1, 10)
+    ResourceSet(1.5, 10).subset(Cores(1.5), Cores(5), Memory(10)).value shouldBe ResourceSet(1.5, 10)
+
+    val resources = ResourceSet(10, 10)
+    resources.subset(ResourceSet(10, 10)).value shouldBe ResourceSet(10, 10)
+    resources.subset(ResourceSet(10.5, 10)).isDefined shouldBe false
+    resources.subset(ResourceSet(9.5, 10)).value shouldBe ResourceSet(9.5, 10)
+    resources.subset(ResourceSet(5, 5)).value shouldBe ResourceSet(5, 5)
+    resources.subset(ResourceSet(4.5, 5)).value shouldBe ResourceSet(4.5, 5)
+
+    val halfACore = ResourceSet(0.5, 10)
+    halfACore.subset(ResourceSet(0.5, 10)).value shouldBe ResourceSet(0.5, 10)
+    halfACore.subset(Cores(0.25), Cores(0.5), Memory(10)).value shouldBe ResourceSet(0.5, 10)
+    halfACore.subset(Cores(0.5), Cores(1), Memory(10)).value shouldBe ResourceSet(0.5, 10)
+    halfACore.subset(Cores(0.1), Cores(1), Memory(10)).value shouldBe ResourceSet(0.1, 10)
+    halfACore.subset(Cores(0.51), Cores(1), Memory(10)).isDefined shouldBe false
+    halfACore.subset(Cores(0.25), Cores(0.3), Memory(10)).value shouldBe ResourceSet(0.3, 10)
+
+    val fiveAndAHalfCores = ResourceSet(5.5, 10)
+    fiveAndAHalfCores.subset(Cores(1.2), Cores(5.8), Memory(10)).value shouldBe ResourceSet(5.5, 10)
   }
 }

@@ -56,13 +56,30 @@ case class ResourceSet(cores: Cores = Cores.none, memory: Memory = Memory.none) 
 
   /**
     * Constructs a subset of this resource set with a fixed amount of memory and a variable
-    * number of cores. Will greedily assign the highest number of cores possible.
+    * number of cores. Will greedily assign the highest number of cores possible.  If the maximum cores is a whole
+    * number, then a whole number will be returned, unless the minimum cores (which can be a fractional number of cores)
+    * is the only valid value.  If the maximum cores is not a whole number, then the maximum fractional amount will be
+    * returned.
+    *
+    * Example 1: minCores=1, maxCores=5, this.cores=4.5, then 4 cores will be returned.
+    * Example 2: minCores=1, maxCores=5.1, this.cores=4.5, then 4.5 cores will be returned.
+    * Example 3: minCores=1, maxCores=5, this.cores=1.5, then 1 core will be returned.
+    * Example 4: minCores=1.5, maxCores=5, this.cores=1.5, then 1.5 cores will be returned.
     */
   def subset(minCores: Cores, maxCores: Cores, memory: Memory) : Option[ResourceSet] = {
-    val min = minCores.value
-    val max = maxCores.value
-    val cores = Range.BigDecimal.inclusive(max, min, -1).find(cores => subset(Cores(cores.doubleValue), memory).isDefined)
-    cores.map(c => ResourceSet(Cores(c.doubleValue), memory))
+    if (!subsettable(ResourceSet(minCores, memory))) None else {
+      val coresValue = {
+        if (maxCores.value == math.floor(maxCores.value)) { // return a whole number
+          val minValue = Math.floor(Math.min(this.cores.value, maxCores.value))
+          if (minValue < minCores.value) minCores.value else minValue
+        } else { // any fractional number will do
+          Math.min(this.cores.value, maxCores.value)
+        }
+      }
+      val resourceSet = ResourceSet(Cores(coresValue), memory)
+      require(subsettable(resourceSet))
+      Some(resourceSet)
+    }
   }
 
   /**
