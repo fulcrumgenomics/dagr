@@ -316,7 +316,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     graphNodes.filter(node => GraphNodeState.hasPredecessors(node.state))
   }
 
-  protected def forallGraphNodes(states: Set[GraphNodeState.Value]): Boolean = {
+  protected def allGraphNodesInStates(states: Set[GraphNodeState.Value]): Boolean = {
     graphNodes.forall(n => states.contains(n.state))
   }
 

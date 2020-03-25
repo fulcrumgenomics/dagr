@@ -630,7 +630,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       if (curSleepMilliseconds > 0) Thread.sleep(curSleepMilliseconds)
 
       // check if we have only completed or orphan tasks
-      allDone = forallGraphNodes(Set(ORPHAN, COMPLETED))
+      allDone = allGraphNodesInStates(Set(ORPHAN, COMPLETED))
 
       if (!allDone && runningTasks.isEmpty && tasksToSchedule.isEmpty) {
         if (readyTasks.nonEmpty) {

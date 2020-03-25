@@ -69,8 +69,13 @@ case class ResourceSet(cores: Cores = Cores.none, memory: Memory = Memory.none) 
   def subset(minCores: Cores, maxCores: Cores, memory: Memory) : Option[ResourceSet] = {
     if (!subsettable(ResourceSet(minCores, memory))) None else {
       val coresValue = {
-        if (maxCores.value == math.floor(maxCores.value)) { // return a whole number
+        // Try to return a whole number value if maxCores is a whole number.  If no whole number exists that is greater
+        // than or equal to minCores, then just use minCores (which could be fractional).  If maxCores is fractional,
+        // then return a fractional value.
+        if (maxCores.value.isValidInt) {
+          // Get the number of cores, but rounded down to get a whole number value
           val minValue = Math.floor(Math.min(this.cores.value, maxCores.value))
+          // If the number rounded down is smaller than the min-cores, then just return the min-cores
           if (minValue < minCores.value) minCores.value else minValue
         } else { // any fractional number will do
           Math.min(this.cores.value, maxCores.value)
