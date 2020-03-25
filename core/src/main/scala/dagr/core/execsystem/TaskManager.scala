@@ -33,6 +33,8 @@ import com.fulcrumgenomics.commons.collection.BiMap
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import dagr.core.execsystem
 
+import scala.annotation.tailrec
+
 /** The resources needed for the task manager */
 object SystemResources {
   /** Creates a new SystemResources that is a copy of an existing one. */
@@ -326,20 +328,21 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     */
   private def updateCompletedTasks(): Map[TaskId, (Int, Boolean)] = {
     val completedTasks: Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks()
-    val emptyTasks = graphNodesInStateFor(GraphNodeState.NO_PREDECESSORS).filter(_.task.isInstanceOf[Task.EmptyTask]).toSeq
-    val completedTaskIds = completedTasks.keys ++ emptyTasks.map(_.taskId)
+    val emptyTasks = graphNodesInStateFor(GraphNodeState.NO_PREDECESSORS).filter(_.task.isInstanceOf[Task.EmptyTask])
 
     emptyTasks.foreach { node =>
       node.taskInfo.status = TaskStatus.SUCCEEDED
+      processCompletedTask(node.taskId)
       logger.debug("updateCompletedTasks: empty task [" + node.task.name + "] completed")
     }
 
-    completedTaskIds.foreach { taskId =>
+    completedTasks.keysIterator.foreach { taskId =>
       processCompletedTask(taskId)
       val name   = this(taskId).task.name
       val status = this(taskId).taskInfo.status
       logger.debug("updateCompletedTasks: task [" + name + "] completed with task status [" + status + "]")
     }
+
     completedTasks
   }
 
@@ -371,9 +374,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     *  to have no predecessors: [[NO_PREDECESSORS]].  If we find the former case, we need to perform this procedure again,
     *  since some tasks go strait to succeeded and we may have successor tasks (children) that can now execute.
     */
+  @tailrec
   private def updatePredecessors(): Unit = {
     var hasMore = false
-    for (node <- graphNodesWithPredecessors) {
+    graphNodesWithPredecessors.foreach { node =>
       node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED && TaskStatus.isTaskDone(p.taskInfo.status, failedIsDone=false)).foreach(p => node.removePredecessor(p))
       //logger.debug("updatePredecessors: examining task [" + node.task.name + "] for predecessors: " + node.hasPredecessor)
       // - if this node has already been expanded and now has no predecessors, then move it to the next state.
@@ -559,8 +563,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     val runningTasks: Map[UnitTask, ResourceSet] = runningTasksMap
 
     // get the tasks that are eligible for execution (tasks with no dependents)
-    val (emptyTasks: List[Task], readyTasks: List[Task]) = {
-      graphNodesInStateFor(NO_PREDECESSORS).map(_.task).toList.partition(_.isInstanceOf[Task.EmptyTask])
+    val (emptyTasks: Seq[Task], readyTasks: Seq[Task]) = {
+      graphNodesInStateFor(NO_PREDECESSORS).map(_.task).toSeq.partition(_.isInstanceOf[Task.EmptyTask])
     }
     logger.debug(s"stepExecution: found ${readyTasks.size} readyTasks tasks and ${emptyTasks.size} empty tasks")
 
@@ -625,8 +629,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       logger.debug(s"Sleeping ${curSleepMilliseconds}ms")
       if (curSleepMilliseconds > 0) Thread.sleep(curSleepMilliseconds)
 
-      // check if we have only completed or orphan all tasks
-      allDone = graphNodesInStatesFor(List(ORPHAN, COMPLETED)).size == graphNodes.size
+      // check if we have only completed or orphan tasks
+      allDone = allGraphNodesInStates(Set(ORPHAN, COMPLETED))
 
       if (!allDone && runningTasks.isEmpty && tasksToSchedule.isEmpty) {
         if (readyTasks.nonEmpty) {

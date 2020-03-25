@@ -28,7 +28,7 @@ import java.time.Instant
 
 import com.fulcrumgenomics.commons.CommonsDef._
 import com.fulcrumgenomics.commons.collection.BiMap
-import com.fulcrumgenomics.commons.util.LazyLogging
+import com.fulcrumgenomics.commons.util.{LazyLogging, SimpleCounter}
 import dagr.core.DagrDef._
 import dagr.core.execsystem.TaskStatus._
 import dagr.core.tasksystem.Task
@@ -176,6 +176,8 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
     */
   def graphNodes: Iterable[GraphNode] = idToNode.values
 
+  def numGraphNodes: Int = idToNode.size
+
   override def apply(id: TaskId): GraphNode = {
     this.graphNodeFor(id=id) match {
       case Some(node) => node
@@ -268,9 +270,7 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
   }
 
   /** Returns true if all the predecessors of this task are known (have been added), false otherwise. */
-  protected def allPredecessorsAdded(task: Task): Boolean = {
-    predecessorsOf(task = task).nonEmpty
-  }
+  protected def allPredecessorsAdded(task: Task): Boolean = predecessorsOf(task = task).nonEmpty
 
   /** Gets the predecessor graph nodes of the given task in the execution graph.
    *
@@ -315,4 +315,9 @@ trait TaskTracker extends TaskManagerLike with LazyLogging {
   protected def graphNodesWithPredecessors: Iterable[GraphNode] = {
     graphNodes.filter(node => GraphNodeState.hasPredecessors(node.state))
   }
+
+  protected def allGraphNodesInStates(states: Set[GraphNodeState.Value]): Boolean = {
+    graphNodes.forall(n => states.contains(n.state))
+  }
+
 }
