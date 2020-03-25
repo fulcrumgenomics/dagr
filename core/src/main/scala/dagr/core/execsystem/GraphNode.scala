@@ -43,7 +43,7 @@ class GraphNode(var task: Task,
                 var state: GraphNodeState.Value = GraphNodeState.PREDECESSORS_AND_UNEXPANDED,
                 val enclosingNode: Option[GraphNode] = None) extends BaseGraphNode {
 
-  private val _predecessors = new ListBuffer[GraphNode]()
+  private val _predecessors = new scala.collection.mutable.LinkedHashSet[GraphNode]()
 
   _predecessors ++= predecessorNodes
 
@@ -93,9 +93,12 @@ class GraphNode(var task: Task,
     addPredecessors(predecessor.toSeq:_*)
   }
 
+  /** Gets the number of predecessors */
+  def numPredecessors: Int = _predecessors.size
+
   /** Get the predecessors
    *
    * @return the current set of predecessors, if any
    */
-  def predecessors: List[GraphNode] = _predecessors.toList
+  def predecessors: Iterable[GraphNode] = _predecessors
 }

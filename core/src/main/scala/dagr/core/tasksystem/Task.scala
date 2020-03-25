@@ -26,6 +26,7 @@ package dagr.core.tasksystem
 import com.fulcrumgenomics.commons.CommonsDef.unreachable
 import dagr.core.execsystem.TaskExecutionInfo
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
@@ -57,39 +58,40 @@ object Task {
     * @param task the task to begin search.
     * @return true if the DAG to which this task belongs has a cycle, false otherwise.
     */
-  private[core] def hasCycle(task: Task): Boolean = {
-    findStronglyConnectedComponents(task).exists(component => isComponentACycle(component))
+  private[core] def hasCycle(task: Task*): Boolean = {
+    findStronglyConnectedComponents(task:_*).exists(component => isComponentACycle(component))
   }
 
   /** Finds all the strongly connected components of the graph to which this task is connected.
     *
     * Uses Tarjan's algorithm: https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
     *
-    * @param task a task in the graph to check.
+    * @param task one or more tasks in the graph to check.
     * @return the set of strongly connected components.
     */
-  private[core] def findStronglyConnectedComponents(task: Task): Set[Set[Task]] = {
+  private[core] def findStronglyConnectedComponents(task: Task*): Iterator[Set[Task]] = {
 
     // 1. find all tasks connected to this task
     val visited: mutable.Set[Task] = new mutable.HashSet[Task]()
-    val toVisit: mutable.Set[Task] = mutable.HashSet[Task](task)
+    val toVisit: mutable.Set[Task] = mutable.HashSet[Task](task:_*)
 
     while (toVisit.nonEmpty) {
       val nextTask: Task = toVisit.head
       toVisit -= nextTask
-      (nextTask.tasksDependedOn.toList ::: nextTask.tasksDependingOnThisTask.toList).foreach(t => if (!visited.contains(t)) toVisit += t)
+      nextTask.tasksDependedOn.foreach(t => if (!visited.contains(t)) toVisit += t)
+      nextTask.tasksDependingOnThisTask.foreach(t => if (!visited.contains(t)) toVisit += t)
       visited += nextTask
     }
 
     // 2. Runs Tarjan's strongly connected components algorithm
     val data: TarjanData = new TarjanData
-    visited.filterNot(data.indexes.contains).foreach(v => findStronglyConnectedComponent(v, data))
+    visited.iterator.filterNot(data.indexes.contains).foreach(v => findStronglyConnectedComponent(v, data))
 
     // return all the components
-    data.components.map(component => component.toSet).toSet
+    data.components.iterator.filter(_.nonEmpty).map(component => component.toSet)
   }
 
-  /** Indicates if a given set of tasks that are strongly connected components contains a cycle. This is the
+  /** Indicates if a given set of tasks contain a cycle that is a strongly connected component. This is the
     * case if the set size is greater than one, or the task is depends on itself.  See [[Task.findStronglyConnectedComponents()]]
     * for how to retrieve strongly connected components from a task.
     *
@@ -101,8 +103,8 @@ object Task {
     else {
       component.headOption match {
         case Some(task) =>
-          task.tasksDependedOn.toSet.contains(task) ||
-          task.tasksDependingOnThisTask.toSet.contains(task)
+          task.tasksDependedOn.iterator.contains(task) ||
+          task.tasksDependingOnThisTask.iterator.contains(task)
         case _ => false
       }
     }
@@ -118,30 +120,35 @@ object Task {
     data.onStack += v
 
     // Consider successors of v
-    for(w <- v.tasksDependedOn) {  // could alternatively use task.getTasksDependingOnThisTask
+    for (w <- v.tasksDependedOn) {  // could alternatively use task.getTasksDependingOnThisTask
       if (!data.indexes.contains(w)) {
         // Successor w has not yet been visited; recurse on it
         findStronglyConnectedComponent(w, data)
-        data.lowLink.put(v, math.min(data.lowLink.get(v).get, data.lowLink.get(w).get))
+        data.lowLink.put(v, math.min(data.lowLink(v), data.lowLink(w)))
       }
       else if (data.onStack(w)) {
         // Successor w is in stack S and hence in the current SCC
-        data.lowLink.put(v, math.min(data.lowLink.get(v).get, data.lowLink.get(w).get))
+        data.lowLink.put(v, math.min(data.lowLink(v), data.lowLink(w)))
       }
     }
 
     // If v is a root node, pop the stack and generate an SCC
-    if (data.indexes.get(v).get == data.lowLink.get(v).get) {
+    if (data.indexes(v) == data.lowLink(v)) {
       val component: mutable.Set[Task] = new mutable.HashSet[Task]()
-      breakable {
-        while (data.stack.nonEmpty) {
-          val w: Task = data.stack.pop()
-          data.onStack -= w
-          component += w
-          if (w == v) break
-        }
-      }
-      data.components += component
+      buildComponent(data, v, component)
+      if (component.nonEmpty) data.components += component
+    }
+  }
+
+  @tailrec
+  private def buildComponent(data: TarjanData, v: Task, component: mutable.Set[Task]): Unit = {
+    if (data.onStack.isEmpty) ()
+    else {
+      val w: Task = data.stack.pop()
+      data.onStack -= w
+      component += w
+      if (w == v) ()
+      else buildComponent(data, v, component)
     }
   }
 }
@@ -190,9 +197,9 @@ trait Task extends Dependable {
   /** Removes this as a dependency for other */
   override def !=>(other: Dependable): Unit = other.headTasks.foreach(_.removeDependency(this))
 
-  override def headTasks: Iterable[Task] = Seq(this)
-  override def tailTasks: Iterable[Task] = Seq(this)
-  override def allTasks: Iterable[Task]  = Seq(this)
+  override def headTasks: Iterable[Task] = Some(this)
+  override def tailTasks: Iterable[Task] = Some(this)
+  override def allTasks: Iterable[Task]  = Some(this)
 
   /**
      * Removes a dependency by removing the supplied task from the list of dependencies for this task

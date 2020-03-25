@@ -28,6 +28,8 @@ import java.nio.file.Path
 import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.LazyLogging
 
+import scala.collection.mutable
+
 /** Simple trait to track tasks within a pipeline */
 abstract class Pipeline(val outputDirectory: Option[Path] = None,
                         private var prefix: Option[String] = None,
@@ -78,8 +80,21 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
 
   /** Recursively navigates dependencies, starting from the supplied task, and add all children to this.tasks. */
   private def addChildren(task : Task) : Unit = {
-    tasks ++= task.tasksDependingOnThisTask
-    task.tasksDependingOnThisTask.foreach(addChildren)
+    // Developer note: we may have very deep dependency graphs, so this implementation avoids stack overflows
+    // Developer note: we use a Set here so that we do not recurse on the same task twice.
+    // Suppose we have `A ==> (B :: C)` and `B ==> C`.  Even thought this could be simplified to `A ==> B ==> C`, that's
+    // up to the caller, and we post-processing of the DAG.  So when `addChildren` gets called on `A`, it recurses on
+    // `B` and `C`.  Since `C` depends on `C`, without the uniqueness check we recurse on `C` in the `addChildren`
+    // call on `B`.
+    val toVisit: mutable.Set[Task] = mutable.HashSet[Task](task)
+    while (toVisit.nonEmpty) {
+      val nextTask: Task = toVisit.head
+      toVisit -= nextTask
+      nextTask.tasksDependingOnThisTask.filterNot(tasks.contains).foreach { child =>
+        tasks += child
+        toVisit += child
+      }
+    }
   }
 
   /** True if we this pipeline is tracking this direct ancestor task, false otherwise. */

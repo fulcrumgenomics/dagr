@@ -56,10 +56,9 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   override def beforeAll(): Unit = Logger.level = LogLevel.Fatal
   override def afterAll(): Unit = Logger.level = LogLevel.Info
 
-  def getDefaultTaskManager(sleepMilliseconds: Int = 10): TestTaskManager = new TaskManager(
+  def getDefaultTaskManager(): TestTaskManager = new TaskManager(
     taskManagerResources = SystemResources.infinite,
-    scriptsDirectory = None,
-    sleepMilliseconds = sleepMilliseconds
+    scriptsDirectory = None
   ) with TestTaskManager
 
   private def runSchedulerOnce(taskManager: TestTaskManager,
@@ -97,8 +96,8 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   "TaskManager" should "not overwrite an existing task when adding a task, or throw an IllegalArgumentException when ignoreExists is false" in {
     val task: UnitTask = new ShellCommand("exit", "0") withName "exit 0" requires ResourceSet.empty
     val taskManager: TestTaskManager = getDefaultTaskManager()
-    taskManager.addTasks(tasks=Seq(task, task), ignoreExists=true) shouldBe List(0, 0)
-    an[IllegalArgumentException] should be thrownBy taskManager.addTask(task=task, enclosingNode=None, ignoreExists=false)
+    taskManager.addTasks(tasks=Seq(task, task), enclosingNode=None, ignoreExists=true) shouldBe List(0, 0)
+    an[IllegalArgumentException] should be thrownBy taskManager.addTasks(tasks=Seq(task), enclosingNode=None, ignoreExists=false)
   }
 
   it should "get the task status for only tracked tasks" in {
@@ -190,7 +189,6 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   def runSimpleEndToEnd(task: UnitTask = new ShellCommand("exit", "0") withName "exit 0", simulate: Boolean): Unit = {
     val map: BiMap[Task, TaskExecutionInfo] = TaskManager.run(
       task                 = task,
-      sleepMilliseconds    = 10,
       taskManagerResources = Some(SystemResources.infinite),
       scriptsDirectory     = None,
       simulate             = simulate,
@@ -222,7 +220,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     val longTask: UnitTask = new ShellCommand("sleep", "1000") withName "sleep 1000"
     val failedTask: UnitTask = new ShellCommand("exit", "1") withName "exit 1"
 
-    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds=1)
+    val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTasks(longTask, failedTask)
     taskManager.runToCompletion(failFast=true)
     taskManager.taskStatusFor(failedTask).value should be(TaskStatus.FAILED_COMMAND)
@@ -233,7 +231,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   it should "not schedule and run tasks that have failed dependencies" in {
     val List(a, b, c) = List(0,1,0).map(c => new ShellCommand("exit", c.toString))
     a ==> b ==> c
-    val tm = getDefaultTaskManager(sleepMilliseconds=1)
+    val tm = getDefaultTaskManager()
     tm.addTasks(a, b, c)
     tm.runToCompletion(failFast=false)
     tm.taskStatusFor(a).value shouldBe TaskStatus.SUCCEEDED
@@ -247,7 +245,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
   it should "not schedule and run tasks that have failed dependencies and complete all when failed tasks are manually succeeded" in {
     val List(a, b, c) = List(0,1,0).map(c => new ShellCommand("exit", c.toString))
     a ==> b ==> c
-    val tm = getDefaultTaskManager(sleepMilliseconds=1)
+    val tm = getDefaultTaskManager()
     tm.addTasks(a, b, c)
     tm.runToCompletion(failFast=false)
     tm.taskStatusFor(a).value shouldBe TaskStatus.SUCCEEDED
@@ -882,7 +880,6 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
       TaskManager.run(
         new HungryPipeline,
-        sleepMilliseconds = 1,
         taskManagerResources = Some(SystemResources(systemCores, Resource.parseSizeToBytes("8g").toLong, 0.toLong)),
         failFast=true
       )
@@ -915,7 +912,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     }
 
     // add the tasks to the task manager
-    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTasks(tasks)
 
     // run the tasks
@@ -948,7 +945,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     }
 
     // add the tasks to the task manager
-    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTasks(pipeline)
 
     // run the tasks
@@ -987,7 +984,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
     // NB: the execution is really: root ==> firstTask ==> secondTask
 
     // add the tasks to the task manager
-    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTasks(outerPipeline)
 
     // run the tasks
@@ -1022,7 +1019,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
   it should "mark a task as failed when one of its children fails" in {
     val parent = new ParentFailTask()
-    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTask(parent)
     taskManager.runToCompletion(failFast=true)
     Seq(parent.child, parent).foreach { task =>
@@ -1037,7 +1034,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
 
   it should "mark a pipeline as failed when one of its children fails" in {
     val pipeline = new FailPipeline()
-    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTask(pipeline)
     taskManager.runToCompletion(failFast=true)
     Seq(pipeline.child, pipeline).foreach { task =>
@@ -1055,7 +1052,7 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
       tasks += pipeline
       pipeline
     }
-    val taskManager: TestTaskManager = getDefaultTaskManager(sleepMilliseconds = 1)
+    val taskManager: TestTaskManager = getDefaultTaskManager()
     taskManager.addTask(root)
     taskManager.runToCompletion(failFast=true)
     tasks.foreach { task =>

@@ -125,13 +125,13 @@ class DependableTest extends UnitSpec {
     k.tasksDependedOn should contain theSameElementsAs Seq(i)
   }
 
-  "Pipeline.root" should "return the same things as Pipeline from the *tasks methods" in {
+  "Pipeline.root" should "return the same things as Pipeline from the *tasks methods*" in {
     val pipeline = new Pipeline() {
       override def build() = root ==> (A :: B :: C) ==> (X :: Y :: Z)
     }
 
-    pipeline.root.headTasks shouldBe pipeline.headTasks
-    pipeline.root.tailTasks shouldBe pipeline.tailTasks
-    pipeline.root.allTasks  shouldBe pipeline.allTasks
+    pipeline.root.headTasks.toList should contain theSameElementsInOrderAs pipeline.headTasks
+    pipeline.root.tailTasks.toList should contain theSameElementsInOrderAs pipeline.tailTasks
+    pipeline.root.allTasks.toList  should contain theSameElementsInOrderAs pipeline.allTasks
   }
 }

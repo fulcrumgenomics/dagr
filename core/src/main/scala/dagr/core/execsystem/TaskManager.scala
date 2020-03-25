@@ -24,13 +24,16 @@
 package dagr.core.execsystem
 
 import java.nio.file.Path
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import dagr.core.DagrDef._
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.tasksystem._
 import com.fulcrumgenomics.commons.collection.BiMap
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
+import dagr.core.execsystem
+
+import scala.annotation.tailrec
 
 /** The resources needed for the task manager */
 object SystemResources {
@@ -80,10 +83,22 @@ object TaskManagerDefaults extends LazyLogging {
 object TaskManager extends LazyLogging {
   import dagr.core.execsystem.TaskManagerDefaults._
 
+  /** The initial time to wait between scheduling tasks. */
+  val InitialSleepMillis: Int                    = 100
+  /** The minimum time to wait between scheduling tasks. */
+  val MinSleepMillis: Int                        = 10
+  /** The maximum time to wait between scheduling tasks. */
+  val MaxSleepMillis: Int                        = 1000
+  /** The increased amount time to wait between scheduling tasks after nothing can be done (linear increase). */
+  val StepSleepMillis: Int                       = 50
+  /** The scaling factor to reduce (divide) the time by to wait between scheduling tasks (exponential backoff). */
+  val BackoffSleepFactor: Float                  = 2f
+  /** The maximum time between two attempts to task scheduling attempts after which a warning is logged. */
+  val SlowStepTimeSeconds: Int                   = 30
+
   /** Runs a given task to either completion, failure, or inability to schedule.  This will terminate tasks that were still running before returning.
    *
    * @param task the task to run
-   * @param sleepMilliseconds the time to wait in milliseconds to wait between trying to schedule tasks.
    * @param taskManagerResources the set of task manager resources, otherwise we use the default
    * @param scriptsDirectory the scripts directory, otherwise we use the default
    * @param logDirectory the log directory, otherwise we use the default
@@ -92,7 +107,6 @@ object TaskManager extends LazyLogging {
    * @return a bi-directional map from the set of tasks to their execution information.
    */
   def run(task: Task,
-          sleepMilliseconds: Int = 1000,
           taskManagerResources: Option[SystemResources] = Some(defaultTaskManagerResources),
           scriptsDirectory: Option[Path] = None,
           logDirectory: Option[Path] = None,
@@ -105,8 +119,7 @@ object TaskManager extends LazyLogging {
       scriptsDirectory     = scriptsDirectory,
       logDirectory         = logDirectory,
       scheduler            = scheduler.getOrElse(defaultScheduler),
-      simulate             = simulate,
-      sleepMilliseconds    = sleepMilliseconds
+      simulate             = simulate
     )
 
     taskManager.addTask(task = task)
@@ -114,6 +127,7 @@ object TaskManager extends LazyLogging {
 
     taskManager.taskToInfoBiMapFor
   }
+
 }
 
 /** A manager of tasks.
@@ -125,15 +139,16 @@ object TaskManager extends LazyLogging {
   * @param logDirectory         the log directory, otherwise a temporary directory will be used
   * @param scheduler            the scheduler, otherwise we use the default
   * @param simulate             true if we are to simulate running tasks, false otherwise
-  * @param sleepMilliseconds    the time to wait in milliseconds to wait between trying to schedule tasks.
   */
 class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.defaultTaskManagerResources,
                   scriptsDirectory: Option[Path]             = None,
                   logDirectory: Option[Path]                 = None,
                   scheduler: Scheduler                       = TaskManagerDefaults.defaultScheduler,
-                  simulate: Boolean                          = false,
-                  sleepMilliseconds: Int                     = 250
+                  simulate: Boolean                          = false
+
 ) extends TaskManagerLike with TaskTracker with FinalStatusReporter with LazyLogging {
+
+  private var curSleepMilliseconds: Int = TaskManager.InitialSleepMillis
 
   private val actualScriptsDirectory = scriptsDirectory getOrElse Io.makeTempDir("scripts")
   protected val actualLogsDirectory  = logDirectory getOrElse Io.makeTempDir("logs")
@@ -313,20 +328,21 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     */
   private def updateCompletedTasks(): Map[TaskId, (Int, Boolean)] = {
     val completedTasks: Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks()
-    val emptyTasks = graphNodesInStateFor(GraphNodeState.NO_PREDECESSORS).filter(_.task.isInstanceOf[Task.EmptyTask]).toSeq
-    val completedTaskIds = completedTasks.keys ++ emptyTasks.map(_.taskId)
+    val emptyTasks = graphNodesInStateFor(GraphNodeState.NO_PREDECESSORS).filter(_.task.isInstanceOf[Task.EmptyTask])
 
     emptyTasks.foreach { node =>
       node.taskInfo.status = TaskStatus.SUCCEEDED
+      processCompletedTask(node.taskId)
       logger.debug("updateCompletedTasks: empty task [" + node.task.name + "] completed")
     }
 
-    completedTaskIds.foreach { taskId =>
+    completedTasks.keysIterator.foreach { taskId =>
       processCompletedTask(taskId)
       val name   = this(taskId).task.name
       val status = this(taskId).taskInfo.status
       logger.debug("updateCompletedTasks: task [" + name + "] completed with task status [" + status + "]")
     }
+
     completedTasks
   }
 
@@ -344,7 +360,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
       logger.debug("updateOrphans: found an orphan task [" + node.task.name + "] that has [" +
         predecessorsOf(task=node.task).getOrElse(Nil).size + "] predecessors")
       node.addPredecessors(predecessorsOf(task=node.task).get)
-      logger.debug("updateOrphans: orphan task [" + node.task.name + "] now has [" + node.predecessors.size + "] predecessors")
+      logger.debug("updateOrphans: orphan task [" + node.task.name + "] now has [" + node.numPredecessors + "] predecessors")
       // update its state
       node.state = PREDECESSORS_AND_UNEXPANDED
     })
@@ -358,14 +374,15 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     *  to have no predecessors: [[NO_PREDECESSORS]].  If we find the former case, we need to perform this procedure again,
     *  since some tasks go strait to succeeded and we may have successor tasks (children) that can now execute.
     */
+  @tailrec
   private def updatePredecessors(): Unit = {
     var hasMore = false
-    for (node <- graphNodesWithPredecessors) {
-      node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED && TaskStatus.isTaskDone(p.taskInfo.status, failedIsDone=false)).map(p => node.removePredecessor(p))
-      logger.debug("updatePredecessors: examining task [" + node.task.name + "] for predecessors: " + node.hasPredecessor)
+    graphNodesWithPredecessors.foreach { node =>
+      node.predecessors.filter(p => p.state == GraphNodeState.COMPLETED && TaskStatus.isTaskDone(p.taskInfo.status, failedIsDone=false)).foreach(p => node.removePredecessor(p))
+      //logger.debug("updatePredecessors: examining task [" + node.task.name + "] for predecessors: " + node.hasPredecessor)
       // - if this node has already been expanded and now has no predecessors, then move it to the next state.
       // - if it hasn't been expanded and now has no predecessors, it should get expanded later
-      if (!node.hasPredecessor) logger.debug(s"updatePredecessors: has node state: ${node.state}")
+      //if (!node.hasPredecessor) logger.debug(s"updatePredecessors: has node state: ${node.state}")
       if (!node.hasPredecessor && node.state == ONLY_PREDECESSORS) {
         val taskInfo = node.taskInfo
         node.task match {
@@ -375,7 +392,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
             taskInfo.status = TaskStatus.SUCCEEDED
             hasMore = true // try again for all successors, since we have more nodes that have completed
         }
-        logger.debug(s"updatePredecessors: task [${node.task.name}] now has node state [${node.state}] and status [${taskInfo.status}]")
+        //logger.debug(s"updatePredecessors: task [${node.task.name}] now has node state [${node.state}] and status [${taskInfo.status}]")
       }
     }
 
@@ -386,7 +403,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
   /** Invokes `getTasks` on the task associated with the graph node.
     *
-    * (1) In the case that `getTasks` returns the same exact task, check for cycles and verify it is a [[UnitTask]].  Since
+    * (1) In the case that `getTasks` returns the same exact task, it verifies it is a [[UnitTask]].  Since
     * the task already has an execution node, it must have already passed to [[addTask()]].
     *
     * (2) In the case that `getTasks` returns a different task, or more than one task, set the submission date of the node,
@@ -410,8 +427,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         false
       case x :: Nil if x == node.task => // one task and it returned itself
         logger.debug(f"invokeGetTasks 2 ${node.task.name} : ${tasks.map(_.name).mkString(", ")}")
+        // Developer note: removing the check for cycles here because we should have checked for cycles when the task
+        // was added!
         // check for cycles only when we have a unit task for which calling [[getTasks] returns itself.
-        checkForCycles(task = node.task)
+        // checkForCycles(task = node.task)
         // verify we have a UnitTask
         node.task match {
           case _: UnitTask =>
@@ -425,10 +444,10 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
         // we will make this task dependent on the tasks it creates...
         if (tasks.contains(node.task)) throw new IllegalStateException(s"Task [${node.task.name}] contained itself in the list returned by getTasks")
         // track the new tasks. If they are already added, that's fine too.
-        val taskIds: Seq[TaskId] = tasks.map { task => addTask(task = task, enclosingNode = Some(node), ignoreExists = true) }
+        val taskIds: Seq[TaskId] = addTasks(tasks, enclosingNode = Some(node), ignoreExists = true)
         // make this node dependent on those tasks
         taskIds.map(taskId => node.addPredecessors(this(taskId)))
-        // we may need to update precedessors if a returned task was already completed
+        // we may need to update predecessors if a returned task was already completed
         if (tasks.flatMap(t => graphNodeFor(t)).exists(_.state == GraphNodeState.COMPLETED)) updatePredecessors()
         // TODO: we could check each new task to see if they are in the PREDECESSORS_AND_UNEXPANDED state
         true
@@ -544,8 +563,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     val runningTasks: Map[UnitTask, ResourceSet] = runningTasksMap
 
     // get the tasks that are eligible for execution (tasks with no dependents)
-    val (emptyTasks: List[Task], readyTasks: List[Task]) = {
-      graphNodesInStateFor(NO_PREDECESSORS).map(_.task).toList.partition(_.isInstanceOf[Task.EmptyTask])
+    val (emptyTasks: Seq[Task], readyTasks: Seq[Task]) = {
+      graphNodesInStateFor(NO_PREDECESSORS).map(_.task).toSeq.partition(_.isInstanceOf[Task.EmptyTask])
     }
     logger.debug(s"stepExecution: found ${readyTasks.size} readyTasks tasks and ${emptyTasks.size} empty tasks")
 
@@ -571,6 +590,14 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     logger.debug("stepExecution: finishing one round of execution")
     logger.debug("stepExecution: found " + runningTasks.size + " running tasks and " + tasksToSchedule.size + " tasks to schedule")
 
+    // Update the current sleep time: exponential reduction if we could do **anything**, otherwise linear increase.
+    if (canDoAnything) {
+      curSleepMilliseconds = Math.max(TaskManager.MinSleepMillis, (curSleepMilliseconds / TaskManager.BackoffSleepFactor).toInt)
+    }
+    else {
+      curSleepMilliseconds = Math.min(TaskManager.MaxSleepMillis, curSleepMilliseconds + TaskManager.StepSleepMillis)
+    }
+
     (
       readyTasks,
       tasksToSchedule.keys,
@@ -582,12 +609,28 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   override def runToCompletion(failFast: Boolean): BiMap[Task, TaskExecutionInfo] = {
     var allDone = false
     while (!allDone) {
+
+      // Step the execution once
+      val startTime = Instant.now()
       val (readyTasks, tasksToSchedule, runningTasks, _) = stepExecution()
 
-      Thread.sleep(sleepMilliseconds)
+      // Warn if the single step in execution "took a long time"
+      val stepExecutionDuration = Duration.between(startTime, Instant.now()).getSeconds
+      if (stepExecutionDuration > TaskManager.SlowStepTimeSeconds) {
+        logger.warning("*" * 80)
+        logger.warning(s"A single step in execution was > ${TaskManager.SlowStepTimeSeconds}s (${stepExecutionDuration}s).")
+        val infosByStatus: Map[execsystem.TaskStatus.Value, Iterable[TaskExecutionInfo]] = this.taskToInfoBiMapFor.values.groupBy(_.status)
+        TaskStatus.values.filter(infosByStatus.contains).foreach { status =>
+          logger.warning(s"Found ${infosByStatus(status).size} tasks with status: $status")
+        }
+        logger.warning("*" * 80)
+      }
 
-      // check if we have only completed or orphan all tasks
-      allDone = graphNodesInStatesFor(List(ORPHAN, COMPLETED)).size == graphNodes.size
+      logger.debug(s"Sleeping ${curSleepMilliseconds}ms")
+      if (curSleepMilliseconds > 0) Thread.sleep(curSleepMilliseconds)
+
+      // check if we have only completed or orphan tasks
+      allDone = allGraphNodesInStates(Set(ORPHAN, COMPLETED))
 
       if (!allDone && runningTasks.isEmpty && tasksToSchedule.isEmpty) {
         if (readyTasks.nonEmpty) {
