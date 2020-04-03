@@ -102,4 +102,10 @@ abstract class Pipeline(val outputDirectory: Option[Path] = None,
 
   /** Builds an empty task for use within this pipeline. */
   def emptyTask: Task = Task.empty
+
+  /** Sets the prefix of this pipeline. */
+  def withPrefix(prefix: String) : this.type = { this.prefix = Some(prefix); this }
+
+  /** Sets the suffix of this pipeline. */
+  def withSuffix(suffix: String) : this.type = { this.suffix = Some(suffix); this }
 }

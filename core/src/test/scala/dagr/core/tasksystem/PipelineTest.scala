@@ -76,4 +76,36 @@ class PipelineTest extends UnitSpec {
     ts shouldBe List("outerbefore.innerbefore.hello.outerafter.innerafter",
                      "outerbefore.innerbefore.world.outerafter.innerafter")
   }
+
+  it should "add prefix when provided after construction" in {
+    class TestPipeline extends Pipeline {
+      override def build(): Unit = root ==> named("hello") ==> named("world")
+    }
+    val ts = new TestPipeline().withPrefix("new_prefix.").getTasks.map(_.name).toList.sorted
+    ts shouldBe List("new_prefix.hello", "new_prefix.world")
+  }
+
+  it should "change prefix when provided after construction" in {
+    class TestPipeline extends Pipeline(prefix=Some("before."), suffix=Some(".after")) {
+      override def build(): Unit = root ==> named("hello") ==> named("world")
+    }
+    val ts = new TestPipeline().withPrefix("new_prefix.").getTasks.map(_.name).toList.sorted
+    ts shouldBe List("new_prefix.hello.after", "new_prefix.world.after")
+  }
+
+  it should "add suffix when provided after construction" in {
+    class TestPipeline extends Pipeline {
+      override def build(): Unit = root ==> named("hello") ==> named("world")
+    }
+    val ts = new TestPipeline().withSuffix(".new_suffix").getTasks.map(_.name).toList.sorted
+    ts shouldBe List("hello.new_suffix", "world.new_suffix")
+  }
+
+  it should "change suffix when provided after construction" in {
+    class TestPipeline extends Pipeline(prefix=Some("before."), suffix=Some(".after")) {
+      override def build(): Unit = root ==> named("hello") ==> named("world")
+    }
+    val ts = new TestPipeline().withSuffix(".new_suffix").getTasks.map(_.name).toList.sorted
+    ts shouldBe List("before.hello.new_suffix", "before.world.new_suffix")
+  }
 }
