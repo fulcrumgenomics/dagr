@@ -43,48 +43,6 @@ import dagr.core.tasksystem.Pipeline
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success}
 
-
-/** A little class so that we don't have to rely on SystemUtils from org.apache.commons:commons-lang3.
-  *
-  * This implementation is duplicated from `com.fulcrumgenomics.cmdline.SystemUtils`.
-  */
-private[dagr] object SystemUtils {
-  /** The OS name prefixes for Linux */
-  private val LinuxNamePrefixes: Seq[String] = Seq("Linux", "LINUX")
-  /** The OS name prefixes for Mac */
-  private val MacNamePrefixes: Seq[String]   = Seq("Mac")
-  /** The current OS name. */
-  private val OsName: Option[String]         = getSystemProperty("os.name")
-  /** The current OS architecture */
-  private val OsArch: Option[String]         = getSystemProperty("os.arch")
-  /** The current OS version */
-  private val OsVersion: Option[String]      = getSystemProperty("os.version")
-
-  /** Gets a system property.  Returns None if not found or not allowed to look at. */
-  private def getSystemProperty(property: String): Option[String] = {
-    try {
-      Option(System.getProperty(property))
-    } catch { case _: SecurityException => None } // not allowed to look at this property
-  }
-
-  /** True if this OS is Linux, false otherwise. */
-  private val IsOsLinux: Boolean = LinuxNamePrefixes.exists(prefix => OsName.exists(_.startsWith(prefix)))
-  /** True if this OS is Mac, false otherwise. */
-  private val IsOsMac: Boolean   = MacNamePrefixes.exists(prefix => OsName.exists(_.startsWith(prefix)))
-  /** Returns true if the architecture is the given name, false otherwise. */
-  private def IsOsArch(name: String): Boolean = OsArch.contains(name)
-  /** Returns true if the operating system version starts with the given version string, false otherwise. */
-  private def IsOsVersion(prefix: String): Boolean = OsVersion.exists(_.startsWith(prefix))
-
-  /** True if the current system supports the Intel Inflater and Deflater, false otherwise. */
-  val IntelCompressionLibrarySupported: Boolean = {
-    if (!SystemUtils.IsOsLinux && !SystemUtils.IsOsMac) false
-    else if (SystemUtils.IsOsArch("ppc64le")) false
-    else if (SystemUtils.IsOsMac && SystemUtils.IsOsVersion("10.14.")) false // FIXME: https://github.com/Intel-HLS/GKL/issues/101
-    else true
-  }
-}
-
 object DagrCoreMain extends Configuration {
   /** The packages we wish to include in our command line **/
   protected def getPackageList: List[String] = {

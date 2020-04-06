@@ -25,7 +25,7 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
-import dagr.core.cmdline.SystemUtils
+import com.fulcrumgenomics.commons.util.SystemUtil.IntelCompressionLibrarySupported
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
@@ -60,8 +60,8 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
                           var useAdvancedGcOptions: Boolean = true,
                           var validationStringency: Option[ValidationStringency] = Some(ValidationStringency.SILENT),
                           var useAsyncIo: Boolean = false,
-                          var useJdkDeflater: Option[Boolean] = Some(!SystemUtils.IntelCompressionLibrarySupported),
-                          var useJdkInflater: Option[Boolean] = Some(!SystemUtils.IntelCompressionLibrarySupported),
+                          var useJdkDeflater: Option[Boolean] = Some(!IntelCompressionLibrarySupported),
+                          var useJdkInflater: Option[Boolean] = Some(!IntelCompressionLibrarySupported),
                           var compressionLevel: Option[Int] = None,
                           var createIndex: Option[Boolean] = Some(true),
                           var createMd5File: Option[Boolean] = None,
