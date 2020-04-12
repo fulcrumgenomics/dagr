@@ -25,6 +25,7 @@ package dagr.tasks.picard
 
 import java.nio.file.Path
 
+import com.fulcrumgenomics.commons.util.SystemUtil.IntelCompressionLibrarySupported
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
@@ -48,6 +49,8 @@ object PicardTask {
   * @param useAdvancedGcOptions use advanced garbage collection parameters.
   * @param validationStringency set the default validation stringency for Picard.
   * @param useAsyncIo true if we are to use asynchronous IO, false otherwise.
+  * @param useJdkDeflater true if we are to use the JDK deflater, false if we are to use an alternate deflater (Intel).
+  * @param useJdkInflater true if we are to use the JDK inflater, false if we are to use an alternate inflater (Intel).
   * @param compressionLevel the compress level to use.
   * @param createIndex true if we are to create an index, false otherwise.
   * @param createMd5File true if we are to create an Md5 file, false otherwise.
@@ -57,7 +60,8 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
                           var useAdvancedGcOptions: Boolean = true,
                           var validationStringency: Option[ValidationStringency] = Some(ValidationStringency.SILENT),
                           var useAsyncIo: Boolean = false,
-                          var useJdkInflater: Option[Boolean] = None,
+                          var useJdkDeflater: Option[Boolean] = Some(!IntelCompressionLibrarySupported),
+                          var useJdkInflater: Option[Boolean] = Some(!IntelCompressionLibrarySupported),
                           var compressionLevel: Option[Int] = None,
                           var createIndex: Option[Boolean] = Some(true),
                           var createMd5File: Option[Boolean] = None,
@@ -91,6 +95,7 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
     validationStringency.foreach(v => buffer.append("VALIDATION_STRINGENCY=" + v.name()))
     createIndex.foreach(c => buffer.append("CREATE_INDEX=" + c))
     createMd5File.foreach(c =>  buffer.append("CREATE_MD5_FILE=" + c))
+    useJdkDeflater.foreach(u => buffer.append("USE_JDK_DEFLATER=" + u))
     useJdkInflater.foreach(u => buffer.append("USE_JDK_INFLATER=" + u))
 
     addPicardArgs(buffer)
@@ -115,6 +120,9 @@ abstract class PicardTask(var jvmArgs: List[String] = Nil,
     this.validationStringency = Some(validationStringency)
     this
   }
+
+  /** Sets whether we use the JDK deflater or not. */
+  def withJdkDeflater(deflate: Boolean = true) : this.type = { this.useJdkDeflater = Some(deflate); this; }
 
   /** Sets whether we use the JDK inflater or not. */
   def withJdkInflater(inflate: Boolean = true) : this.type = { this.useJdkInflater = Some(inflate); this; }
