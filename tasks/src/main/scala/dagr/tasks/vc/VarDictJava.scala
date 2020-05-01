@@ -125,6 +125,7 @@ private class VarDictJava(tumorBam: PathToBam,
                           minimumAltReads: Option[Int] = None,
                           pileupMode: Boolean = false,
                           countNsInTotalDepth: Boolean = false,
+                          fisher: Boolean = false,
                           minThreads: Int = VarDictJava.MinimumThreads,
                           maxThreads: Int = VarDictJava.MaximumThreads,
                           memory: Memory = VarDictJava.DefaultMemory
@@ -163,6 +164,7 @@ private class VarDictJava(tumorBam: PathToBam,
     minimumQuality.foreach(buffer.append("-q", _)) // The minimum base quality for a "good call".
     maximumMismatches.foreach(buffer.append("-m", _)) // Maximum number of mismatches for reads to be included, otherwise they will be filtered.
     if (countNsInTotalDepth) buffer.append("-K") // Count Ns in the total depth ("DP" field).
+    if (fisher) buffer.append("--fisher") // Changes R script (teststrandbias.R and testsomatic.R) to Java implementation of Fisher exact test. Requires VarDictJava version 1.8.0 (b772179) or later.
     buffer.append("-th", resources.cores.toInt) // The number of threads.
     buffer.append(bed)
 
@@ -314,7 +316,9 @@ class VarDictJavaEndToEnd
  @arg(flag='T', doc="The maximum # of threads with which to run.") maxThreads: Int = VarDictJava.MaximumThreads,
  @arg(flag='a', doc="Output all sites, including reference calls.") allSites: Boolean = false,
  @arg(flag='A', doc="Output all variants at the same genomic site.") allVariants: Boolean = false,
- @arg(flag='N', doc="Count No-calls (Ns) in the total depth tag (DP)") countNsInTotalDepth: Boolean = false) extends Pipeline {
+ @arg(flag='N', doc="Count No-calls (Ns) in the total depth tag (DP)") countNsInTotalDepth: Boolean = false,
+ @arg(flag='F', doc="Experimental feature: Use Java implementation of Fisher exact test (previously R Scripts: teststrandbias.R and testsomatic.R). Requires VarDictJava version 1.8.0 (b772179) or later.") fisher: Boolean = false
+) extends Pipeline {
 
   if (allSites) require(pileupMode, "pileup-mode is required when all-sites is used.")
   require(!(normalBam.isEmpty && normalName.nonEmpty), "Normal name cannot be given without a normal BAM file.")
@@ -345,14 +349,14 @@ class VarDictJavaEndToEnd
       pileupMode          = pileupMode,
       countNsInTotalDepth = countNsInTotalDepth,
       minThreads          = minThreads,
-      maxThreads          = maxThreads
+      maxThreads          = maxThreads,
+      fisher              = fisher
     )
 
     val removeRefEqAltRows = if (allSites) Pipes.empty[Text] else new ShellCommand("awk", "{if ($6 != $7) print}") with PipeWithNoResources[Text, Text]
 
     val testAndStreamToVcf = normalBam match {
       case None =>
-        val bias         = new ShellCommand(VarDictJava.TestStrandBias.toString) with PipeWithNoResources[Text, Text]
         val var2VcfValid = new Var2VcfValid(
           sampleName                        = _tumorName,
           includeNonPfVariants              = includeNonPfVariants,
@@ -365,10 +369,12 @@ class VarDictJavaEndToEnd
           minimumAf                         = minimumAf,
           printEndTag                       = false
         )
-        (bias | var2VcfValid)
+        if (fisher) var2VcfValid else {
+          val bias = new ShellCommand(VarDictJava.TestStrandBias.toString) with PipeWithNoResources[Text, Text]
+          (bias | var2VcfValid)
+        }
       case Some(_normalBam) =>
         val _normalName   = normalName.getOrElse(VarDictJava.extractSampleName(bam = _normalBam))
-        val somatic       = new ShellCommand(VarDictJava.TestSomatic.toString) with PipeWithNoResources[Text, Text]
         val var2VcfPaired = new Var2VcfPaired(
           tumorName                         = _tumorName,
           normalName                        = _normalName,
@@ -381,7 +387,10 @@ class VarDictJavaEndToEnd
           minimumHighQualityAltDepth        = minimumHighQualityAltDepth,
           minimumAf                         = minimumAf
         )
-        (somatic | var2VcfPaired)
+        if (fisher) var2VcfPaired else {
+          val somatic = new ShellCommand(VarDictJava.TestSomatic.toString) with PipeWithNoResources[Text, Text]
+          (somatic | var2VcfPaired)
+        }
     }
 
     val sortVcf = new SortVcf(in = tmpVcf, out = out, dict = Some(dict))
