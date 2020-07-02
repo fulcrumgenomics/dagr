@@ -290,6 +290,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   private[execsystem] def processCompletedTask(taskId: TaskId, doRetry: Boolean = true): Unit = {
     val node      = this(taskId)
     val taskInfo  = node.taskInfo
+    logger.debug("processCompletedTask")
     logTaskMessage(taskInfo=taskInfo)
     val updateNodeToCompleted: Boolean = if (TaskStatus.isTaskFailed(taskStatus = taskInfo.status) && doRetry) {
       val retryTask = taskInfo.task match {
@@ -327,20 +328,21 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     * @return for each completed task, a map from a task identifier to a tuple of the exit code and the status of the `onComplete` method
     */
   private def updateCompletedTasks(): Map[TaskId, (Int, Boolean)] = {
-    val completedTasks: Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks()
-    val emptyTasks = graphNodesInStateFor(GraphNodeState.NO_PREDECESSORS).filter(_.task.isInstanceOf[Task.EmptyTask])
-
-    emptyTasks.foreach { node =>
+    // Get the tasks that are not eligible to be scheduled/executed, and have no predecessors (can be completed).
+    val toCompleteTasks = graphNodesInStateFor(GraphNodeState.NO_PREDECESSORS).filterNot(_.task.isInstanceOf[UnitTask])
+    toCompleteTasks.foreach { node =>
       node.taskInfo.status = TaskStatus.SUCCEEDED
       processCompletedTask(node.taskId)
-      logger.debug("updateCompletedTasks: empty task [" + node.task.name + "] completed")
+      logger.debug("updateCompletedTasks: to-complete task [" + node.task.name + "] completed")
     }
 
+    // Get the tasks that have been executed to completion.
+    val completedTasks: Map[TaskId, (Int, Boolean)] = taskExecutionRunner.completedTasks()
     completedTasks.keysIterator.foreach { taskId =>
       processCompletedTask(taskId)
       val name   = this(taskId).task.name
       val status = this(taskId).taskInfo.status
-      logger.debug("updateCompletedTasks: task [" + name + "] completed with task status [" + status + "]")
+      logger.debug("updateCompletedTasks: unit task [" + name + "] completed with task status [" + status + "]")
     }
 
     completedTasks
@@ -562,17 +564,22 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     // get the running tasks to estimate currently used resources
     val runningTasks: Map[UnitTask, ResourceSet] = runningTasksMap
 
-    // get the tasks that are eligible for execution (tasks with no dependents)
-    val (emptyTasks: Seq[Task], readyTasks: Seq[Task]) = {
-      graphNodesInStateFor(NO_PREDECESSORS).map(_.task).toSeq.partition(_.isInstanceOf[Task.EmptyTask])
+    // get the tasks that are eligible for execution (tasks with no dependents).  UnitTasks should be scheduled for
+    // execution, while other tasks (such as EmptyTask) should be treated as though they are "RUNNING".
+    val (toScheduleTasks: Seq[UnitTask], readyToComplete: Seq[UnitTask]) = {
+      graphNodesInStateFor(NO_PREDECESSORS).map(_.task).toSeq.partition {
+        case _: UnitTask => true
+        case _           => false
+      }
     }
-    logger.debug(s"stepExecution: found ${readyTasks.size} readyTasks tasks and ${emptyTasks.size} empty tasks")
+    logger.debug(s"stepExecution: found ${toScheduleTasks.size} toScheduleTasks tasks")
+    logger.debug(s"stepExecution: found ${readyToComplete.size} readyToComplete tasks")
 
     // get the list of tasks to schedule
     val tasksToSchedule: Map[UnitTask, ResourceSet] = if (!canDoAnything) Map.empty else {
       val tasks = scheduler.schedule(
         runningTasks = runningTasks,
-        readyTasks   = readyTasks.filter(_.isInstanceOf[UnitTask]).map(_.asInstanceOf[UnitTask]),
+        readyTasks   = toScheduleTasks,
         systemCores  = taskManagerResources.cores,
         systemMemory = taskManagerResources.systemMemory,
         jvmMemory    = taskManagerResources.jvmMemory
@@ -599,9 +606,9 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
     }
 
     (
-      readyTasks,
+      toScheduleTasks,
       tasksToSchedule.keys,
-      runningTasks.keys ++ emptyTasks,
+      runningTasks.keys ++ readyToComplete,
       completedTasks.keys.map(taskId => this(taskId).task)
     )
   }
