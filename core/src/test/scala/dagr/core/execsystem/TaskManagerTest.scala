@@ -1060,4 +1060,33 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
       info.status shouldBe TaskStatus.FAILED_COMMAND
     }
   }
+
+  class TaskThatRunsAnotherTask(other: Option[Task] = None) extends Task {
+    override def getTasks: Iterable[_ <: Task] = other
+  }
+
+  it should "support deeply nested tasks" in {
+    // left branch ends with a shell command
+    val leftLeaf: Task    = new ShellCommand("exit", "0") withName "left-leaf"
+    val leftMiddle: Task  = new TaskThatRunsAnotherTask(other=Some(leftLeaf)) withName "left-middle"
+    val leftBranch: Task  = new TaskThatRunsAnotherTask(other=Some(leftMiddle)) withName "left-branch"
+
+    // right branch ends with a no-op
+    val rightLeaf: Task   = new TaskThatRunsAnotherTask(other=None) withName "right-leaf"
+    val rightMiddle: Task = new TaskThatRunsAnotherTask(other=Some(rightLeaf)) withName "right-middle"
+    val rightBranch: Task = new TaskThatRunsAnotherTask(other=Some(rightMiddle)) withName "right-branch"
+
+    val root: Task = Task.empty withName "root"
+    root ==> (leftBranch :: rightBranch)
+
+    val taskManager: TestTaskManager = getDefaultTaskManager()
+    taskManager.addTasks(root, leftBranch, rightBranch)
+    taskManager.runToCompletion(failFast=true)
+
+    val tasks = Seq(root, leftLeaf, leftMiddle, leftBranch, rightLeaf, rightMiddle, rightBranch)
+    tasks.foreach { task =>
+      val info : TaskExecutionInfo = taskManager.taskExecutionInfoFor(task).value
+      info.status shouldBe TaskStatus.SUCCEEDED
+    }
+  }
 }
