@@ -1060,4 +1060,47 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
       info.status shouldBe TaskStatus.FAILED_COMMAND
     }
   }
+
+  class TaskThatRunsAnotherTask(other: Option[Task] = None) extends Task {
+    override def getTasks: Iterable[_ <: Task] = other
+  }
+
+  it should "support deeply nested tasks" in {
+    Seq(0, 1, 2).foreach { state =>
+      // left branch ends with a shell command
+      val leftLeaf: Task    = new ShellCommand("exit", "0") withName "left-leaf"
+      val leftMiddle: Task  = new TaskThatRunsAnotherTask(other=Some(leftLeaf)) withName "left-middle"
+      val leftBranch: Task  = new TaskThatRunsAnotherTask(other=Some(leftMiddle)) withName "left-branch"
+
+      // right branch ends with a no-op
+      val rightLeaf: Task   = new TaskThatRunsAnotherTask(other=None) withName "right-leaf"
+      val rightMiddle: Task = new TaskThatRunsAnotherTask(other=Some(rightLeaf)) withName "right-middle"
+      val rightBranch: Task = new TaskThatRunsAnotherTask(other=Some(rightMiddle)) withName "right-branch"
+
+      val root: Task = Task.empty withName "root"
+      val taskManager: TestTaskManager = getDefaultTaskManager()
+
+      val tasks: Seq[Task] = state match {
+        case 0 => // just the left branch
+          root ==> leftBranch
+          taskManager.addTasks(root, leftBranch)
+          Seq(root, leftLeaf, leftMiddle, leftBranch)
+        case 1 => // just the right branch
+          root ==> rightBranch
+          taskManager.addTasks(root, rightBranch)
+          Seq(root, rightLeaf, rightMiddle, rightBranch)
+        case 2 => // both branches
+          root ==> (leftBranch :: rightBranch)
+          taskManager.addTasks(root, leftBranch, rightBranch)
+          Seq(root, leftLeaf, leftMiddle, leftBranch, rightLeaf, rightMiddle, rightBranch)
+        case _ => throw new IllegalArgumentException("Bug")
+      }
+      taskManager.runToCompletion(failFast = true)
+
+      tasks.foreach { task =>
+        val info: TaskExecutionInfo = taskManager.taskExecutionInfoFor(task).value
+        info.status shouldBe TaskStatus.SUCCEEDED
+      }
+    }
+  }
 }
