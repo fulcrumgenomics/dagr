@@ -44,10 +44,10 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
              minScore: Option[Int] = None,
              smartPairing: Boolean = true,
              basesPerBatch: Option[Int] = None,
+             outputAllAlignments: Boolean = false,
              minThreads: Int = 1,
              maxThreads: Int = 32,
-             memory: Memory = Memory("8G"),
-             outputAllAlignments: Boolean = false
+             memory: Memory = Memory("8G")
             ) extends ProcessTask with VariableResources with Pipe[Fastq,Sam] {
   name = "BwaMem"
 
