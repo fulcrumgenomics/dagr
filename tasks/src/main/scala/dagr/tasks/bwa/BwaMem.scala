@@ -44,10 +44,11 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
              minScore: Option[Int] = None,
              smartPairing: Boolean = true,
              basesPerBatch: Option[Int] = None,
+             outputAllAlignments: Boolean = false,
              minThreads: Int = 1,
              maxThreads: Int = 32,
              memory: Memory = Memory("8G")
-             ) extends ProcessTask with VariableResources with Pipe[Fastq,Sam] {
+            ) extends ProcessTask with VariableResources with Pipe[Fastq,Sam] {
   name = "BwaMem"
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
@@ -58,6 +59,7 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
     val buffer = ListBuffer[Any](Bwa.findBwa, "mem", "-t", resources.cores.toInt)
 
     if (smartPairing) buffer.append("-p")
+    if (outputAllAlignments) buffer.append("-a")
     minSeedLength.foreach(l => buffer.append("-k", l))
     matchScore.foreach(s => buffer.append("-A", s))
     mismatchPenalty.foreach(p => buffer.append("-B", p))
