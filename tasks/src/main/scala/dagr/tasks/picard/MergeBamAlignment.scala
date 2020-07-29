@@ -47,7 +47,8 @@ class MergeBamAlignment(unmapped: PathToBam,
                         orientation: PairOrientation = PairOrientation.FR,
                         maxGaps: Int = -1,
                         sortOrder: SortOrder = SortOrder.coordinate,
-                        useAlignerProperPairFlags: Boolean = false
+                        useAlignerProperPairFlags: Boolean = false,
+                        includeSecondaryAlignments: Boolean = true
                        )
   extends PicardTask with Pipe[SamOrBam,SamOrBam] {
   requires(Cores(1), Memory("4g"))
@@ -69,5 +70,6 @@ class MergeBamAlignment(unmapped: PathToBam,
     buffer.append("MAX_GAPS=" + maxGaps)
     buffer.append("SO=" + sortOrder.name())
     buffer.append("ALIGNER_PROPER_PAIR_FLAGS=" + useAlignerProperPairFlags)
+    buffer.append("INCLUDE_SECONDARY_ALIGNMENTS=" + includeSecondaryAlignments)
   }
 }
