@@ -25,7 +25,6 @@ package dagr.pipelines
 
 import java.nio.file.{Files, Path}
 
-//import dagr.commons.io.Io
 import dagr.core.cmdline.Pipelines
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{EitherTask, Pipeline, SimpleInJvmTask}
@@ -33,11 +32,8 @@ import dagr.sopt.{arg, clp}
 import dagr.tasks.DagrDef._
 import dagr.tasks.misc.LinkFile
 import dagr.tasks.picard.{CollectHsMetrics, DownsampleSam, DownsamplingStrategy, MergeSamFiles}
-//import htsjdk.samtools.metrics.MetricsFile
-//import _root_.picard.analysis.directed.HsMetrics
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
-//import scala.collection.JavaConversions._
 import scala.collection.mutable
 
 /**
@@ -132,18 +128,7 @@ class ContaminateAndEvaluateVBID
     }
   }
 }
-//
-///** Pops open the HS metrics file and reads out the median coverage. */
-//private class FetchMedianCoverage(hsMetrics: FilePath) extends SimpleInJvmTask {
-//  var medianCoverage: Option[Int] = None
-//
-//  override def run(): Unit = {
-//    val mfile = new MetricsFile[HsMetrics, java.lang.Integer]
-//    mfile.read(Io.toReader(hsMetrics))
-//    val median = mfile.getMetrics.map(hs => hs.MEDIAN_TARGET_COVERAGE).max
-//    this.medianCoverage = Some(median.toInt)
-//  }
-//}
+
 
 
 
