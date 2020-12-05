@@ -25,13 +25,16 @@ package dagr.pipelines
 
 import java.nio.file.{Files, Path}
 
+import dagr.commons.io.Io
 import dagr.core.cmdline.Pipelines
+import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{EitherTask, Pipeline, SimpleInJvmTask}
 import dagr.sopt.{arg, clp}
 import dagr.tasks.DagrDef._
-import dagr.tasks.misc.LinkFile
-import dagr.tasks.picard.{CollectHsMetrics, DownsampleSam, DownsamplingStrategy, MergeSamFiles}
+import dagr.tasks.bwa.BwaMem
+import dagr.tasks.misc.{DWGSim, LinkFile}
+import dagr.tasks.picard.{CollectHsMetrics, DownsampleSam, DownsamplingStrategy, MergeSamFiles, SortSam}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable
@@ -44,7 +47,7 @@ import scala.collection.mutable
   */
 @clp(description = "Example FASTQ to BAM pipeline.", group = classOf[Pipelines])
 class ContaminateAndEvaluateVBID
-(@arg(flag = "i", doc = "Input bams.") val bams: Seq[PathToBam],
+(@arg(flag = "i", doc = "Input vcfs for generating bams.") val vcfs: Seq[PathToVcf],
  @arg(flag = "r", doc = "Reference fasta.") val ref: PathToFasta,
  @arg(flag = "o", doc = "Output directory.") val out: DirPath,
  @arg(flag = "t", doc = "Target regions.") val targets: PathToIntervals,
@@ -59,17 +62,22 @@ class ContaminateAndEvaluateVBID
     val strat = Some(DownsamplingStrategy.HighAccuracy)
 
     val bam = out.resolve(prefix + ".bam")
-    val tmpBam = out.resolve(prefix + ".tmp.bam")
     val metricsPrefix: Some[DirPath] = Some(out.resolve(prefix))
     Files.createDirectories(out)
     val bamYield = new mutable.HashMap[PathToBam, Int]
+    val coverage = 10000
+    val bams:Seq[PathToBam]=vcfs.map(vcf => {
 
-    bams.map(bam => {
-      val metricPath: Path = out.resolve(prefix + bam.getFileName + ".qualityYieldMetrics")
-      val hsMetrics = new CollectHsMetrics(in = bam, ref = ref, targets = targets, prefix = Some(out.resolve(prefix)))
+      val simulate = new DWGSim(vcf = vcf, fasta = ref, outPrefix = out.resolve(prefix + vcf.getFileName + ".sim"), depth = coverage, coverageTarget = targets)
+      val bwa = new BwaMem(fastq = simulate.outputPairedFastq, ref = ref)
+      val tmpBam = out.resolve(prefix + vcf.getFileName + ".tmp.bam")
+      val sort = new SortSam(in = Io.StdIn, out = tmpBam, sortOrder = SortOrder.coordinate) with Configuration {
+        requires(Cores(2), Memory("2G"))
+      }
 
-      val fetchMedian = new FetchMedianCoverage(metricPath)
-      root ==> hsMetrics ==> fetchMedian ==> SimpleInJvmTask(bamYield.put(bam, fetchMedian.medianCoverage.getOrElse(0)))
+      root ==> simulate ==> (bwa | sort)
+
+      tmpBam
     })
 
     val pairsOfBam = for (x <- bams; y <- bams) yield (x, y)
