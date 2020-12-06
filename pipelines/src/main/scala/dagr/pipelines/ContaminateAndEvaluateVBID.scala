@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016 Fulcrum Genomics LLC
+ * Copyright (c) 2020 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,13 +28,14 @@ import java.nio.file.{Files, Path}
 import dagr.commons.io.Io
 import dagr.core.cmdline.Pipelines
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Cores, Memory}
-import dagr.core.tasksystem.{EitherTask, Pipeline, SimpleInJvmTask}
+import dagr.core.execsystem.{Cores, Memory, ResourceSet}
+import dagr.core.tasksystem.{EitherTask, FixedResources, NoOpInJvmTask, Pipeline, ProcessTask}
 import dagr.sopt.{arg, clp}
 import dagr.tasks.DagrDef._
 import dagr.tasks.bwa.BwaMem
+import dagr.tasks.gatk.LeftAlignAndTrimVariants
 import dagr.tasks.misc.{DWGSim, LinkFile}
-import dagr.tasks.picard.{CollectHsMetrics, DownsampleSam, DownsamplingStrategy, MergeSamFiles, SortSam}
+import dagr.tasks.picard.{DownsampleSam, DownsamplingStrategy, MergeSamFiles, SortSam}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable
@@ -54,28 +55,62 @@ class ContaminateAndEvaluateVBID
  @arg(flag = "p", doc = "Output file prefix.") val prefix: String,
  @arg(flag = "c", doc = "Contamination levels to evaluate.") val contaminations: Seq[Double],
  @arg(flag = "d", doc = "Depth values to evaluate.") val depths: Seq[Integer],
- @arg(flag = "m", doc = "Number of markers to use.") val markers: Seq[Integer]
+ @arg(flag = "m", doc = "Number of markers to use.") val markers: Seq[Integer],
+ @arg(name = "header", doc = "header line for dp.") val dpHeader: Path,
+ @arg(name = "dp-bed", doc = "bed file with dp values") val pathToBed: Path
 
 ) extends Pipeline(Some(out)) {
 
   override def build(): Unit = {
     val strat = Some(DownsamplingStrategy.HighAccuracy)
 
-    val bam = out.resolve(prefix + ".bam")
-    val metricsPrefix: Some[DirPath] = Some(out.resolve(prefix))
     Files.createDirectories(out)
     val bamYield = new mutable.HashMap[PathToBam, Int]
-    val coverage = 10000
+    val coverage = 100
+    val makeBamsLoop = new NoOpInJvmTask("made bams")
+
     val bams:Seq[PathToBam]=vcfs.map(vcf => {
 
-      val simulate = new DWGSim(vcf = vcf, fasta = ref, outPrefix = out.resolve(prefix + vcf.getFileName + ".sim"), depth = coverage, coverageTarget = targets)
-      val bwa = new BwaMem(fastq = simulate.outputPairedFastq, ref = ref)
-      val tmpBam = out.resolve(prefix + vcf.getFileName + ".tmp.bam")
-      val sort = new SortSam(in = Io.StdIn, out = tmpBam, sortOrder = SortOrder.coordinate) with Configuration {
-        requires(Cores(2), Memory("2G"))
+      val normalize = new LeftAlignAndTrimVariants(in=vcf, out=out.resolve(prefix + vcf.getFileName + ".normalized.vcf"), ref=ref, intervals = Some(targets), splitMultiAlleic = Some(true))
+
+      val rando = new ProcessTask with FixedResources {
+        requires(Cores(1), Memory("1G"))
+
+        override val name = "move dp over to vcf"
+
+        val outVcf=out.resolve(prefix + vcf.getFileName + ".normalized.withdp.vcf")
+        /**
+          * Abstract method that must be implemented by child classes to return a list or similar traversable
+          * list of command line elements (command name and arguments) that form the command line to be run.
+          * Individual values will be converted to Strings before being used by calling toString.
+          */
+        override def args: Seq[Any] = "bcftools" :: "annotate" ::
+          "-a" :: pathToBed ::
+          "-h" :: dpHeader ::
+          "-c" :: "CHROM,FROM,TO,dp" ::
+          "-O" :: outVcf ::
+          normalize.out :: Nil
+
+        /**
+          * Given a non-null ResourceSet representing the available resources at this moment in time
+          * return either a ResourceSet that is a subset of the available resources in which the task
+          * can run, or None if the task cannot run in the available resources.
+          *
+          * @param availableResources The system resources available to the task
+          * @return Either a ResourceSet of the desired subset of resources to run with, or None
+          */
+        override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = None
       }
 
-      root ==> simulate ==> (bwa | sort)
+
+      val simulate = new DWGSim(vcf = rando.outVcf, fasta = ref, outPrefix = out.resolve(prefix + vcf.getFileName + ".sim"), depth = coverage, coverageTarget = targets)
+      val bwa = new BwaMem(fastq = simulate.outputPairedFastq, ref = ref,maxThreads = 1, memory = Memory("2G"))
+      val tmpBam = out.resolve(prefix + vcf.getFileName + ".tmp.bam")
+      val sort = new SortSam(in = Io.StdIn, out = tmpBam, sortOrder = SortOrder.coordinate) with Configuration {
+        requires(Cores(1), Memory("2G"))
+      }
+
+      root ==> normalize ==> rando ==> simulate ==> (bwa | sort) ==> makeBamsLoop
 
       tmpBam
     })
@@ -92,8 +127,8 @@ class ContaminateAndEvaluateVBID
         // if we are to downsample x we need x to be downsampled to c/(1-c)
         // if we are to downsample y we need y to be downsampled to (1-c)/c
         // of of those two values will be less than 1.
-        val downsampleX = new DownsampleSam(in = x, out = dsX, proportion = c / (1 - c), strategy = strat).requires(Cores(1), Memory("32g"))
-        val downsampleY = new DownsampleSam(in = x, out = dsY, proportion = (1 - c) / c, strategy = strat).requires(Cores(1), Memory("32g"))
+        val downsampleX = new DownsampleSam(in = x, out = dsX, proportion = c / (1 - c), strategy = strat).requires(Cores(1), Memory("2g"))
+        val downsampleY = new DownsampleSam(in = x, out = dsY, proportion = (1 - c) / c, strategy = strat).requires(Cores(1), Memory("2g"))
 
         val copyX = new LinkFile(x, dsX)
         val copyY = new LinkFile(y, dsY)
@@ -112,7 +147,7 @@ class ContaminateAndEvaluateVBID
           "__" + c + ".bam")
         val mergedownsampled = new MergeSamFiles(in = dsX :: dsY :: Nil, out = xyContaminatedBam, sortOrder = SortOrder.coordinate)
 
-        root ==> downsample ==> mergedownsampled
+        makeBamsLoop ==> downsample ==> mergedownsampled
 
         depths filter (d => d <= resultantDepth) foreach { d => {
           val outDownsampled = out.resolve(prefix + "__" + x.getFileName + "__" + y.getFileName +
@@ -120,13 +155,13 @@ class ContaminateAndEvaluateVBID
           val downsampleMerged = new DownsampleSam(in = xyContaminatedBam, out = outDownsampled, proportion = d / resultantDepth)
 
           mergedownsampled ==> downsampleMerged
-          markers.foreach { markerCount => {}
+//          markers.foreach { markerCount => {}
 
             // subset VBID resource files to smaller number of markers
 
             // call VBID using subsetted markers
 
-          }
+//          }
 
         }
         }

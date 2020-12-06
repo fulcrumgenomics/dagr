@@ -21,50 +21,45 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.tasks.misc
+package dagr.tasks.gatk
 
 import java.nio.file.Path
 
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem.{FixedResources, ProcessTask}
-import dagr.tasks.DagrDef.{PathToFasta, PathToFastq, PathToIntervals, PathToVcf}
+import dagr.tasks.DagrDef.{PathToFasta, PathToIntervals}
+import dagr.tasks.{DagrDef, JarTask}
 
 import scala.collection.mutable.ListBuffer
 
+object Gatk4Task {
+  val GatkJarPathConfigKey = "gatk4.jar"
+}
+
 /**
-  * Class for running DWGSim to generate simulated sequencing data
+  * Abstract base class for tasks that involve running the GATK.
   */
-class DWGSim(val vcf: PathToVcf,
-             val fasta: PathToFasta,
-             val outPrefix: Path,
-             val depth: Int = 100,
-             val iSize: Int = 350,
-             val iSizeDev: Int = 100,
-             val readLength: Int = 151,
-             val randomSeed: Int = 42, // -1 to use current time
-             val coverageTarget: PathToIntervals
-
-            ) extends ProcessTask with Configuration with FixedResources {
-
-  requires(Cores(1), Memory("2G"))
-  private val dwgsim: Path = configureExecutable("dwgsim.executable", "dwgsim")
-
-  val outputPairedFastq: PathToFastq = outPrefix.getParent.resolve(outPrefix.getFileName + ".bfast.fastq")
+abstract class Gatk4Task(val walker: String,
+                        val ref: PathToFasta,
+                        val intervals: Option[PathToIntervals] = None,
+                        val bamCompression: Option[Int] = None)
+  extends ProcessTask with JarTask with FixedResources with Configuration {
+  requires(Cores(1), Memory("4g"))
 
   override def args: Seq[Any] = {
     val buffer = ListBuffer[Any]()
-    buffer ++= dwgsim :: Nil
-    buffer ++= "-v" :: vcf :: Nil
-    buffer ++= "-d" :: iSize :: Nil
-    buffer ++= "-s" :: iSizeDev :: Nil
-    buffer ++= "-C" :: depth :: Nil
-    buffer ++= "-1" :: readLength :: Nil
-    buffer ++= "-2" :: readLength :: Nil
-    buffer ++= "-z" :: randomSeed :: Nil
-    buffer ++= "-x" :: coverageTarget :: Nil
-    buffer ++= "-y" :: "1.0" :: Nil
-    buffer ++= fasta :: outPrefix :: Nil
-    buffer.toList
+    buffer.appendAll(jarArgs(this.gatkJar, jvmMemory=this.resources.memory))
+    buffer.append(this.walker)
+    buffer.append("-R", this.ref.toAbsolutePath.toString)
+    intervals.foreach(il => buffer.append("-L", il.toAbsolutePath.toString))
+    bamCompression.foreach(c => buffer.append("--bam_compression", c))
+    addWalkerArgs(buffer)
+    buffer
   }
+
+  /** Can be overridden to use a specific GATK jar. */
+  protected def gatkJar: Path = configure[Path](Gatk4Task.GatkJarPathConfigKey)
+
+  protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit
 }

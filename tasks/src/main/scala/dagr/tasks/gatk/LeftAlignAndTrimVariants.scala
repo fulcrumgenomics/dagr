@@ -21,13 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr.tasks.misc
+package dagr.tasks.gatk
 
-import java.nio.file.Path
+import dagr.tasks.DagrDef.{PathToFasta, PathToIntervals, PathToVcf}
 
-import dagr.core.tasksystem.ShellCommand
+import scala.collection.mutable.ListBuffer
 
 /**
-  * Uses the shell to (soft) link a file or directory to another alias
+  * Runs the GATK walker that normalizes variants and optionally splits multiallelic sites into multiple, biallelic ones
   */
-class LinkFile(val from: Path, val to: Path) extends ShellCommand("ln", "-sf", from.toString, to.toString)
+class LeftAlignAndTrimVariants(val in: PathToVcf, val out: PathToVcf, ref: PathToFasta, intervals: Option[PathToIntervals], splitMultiAlleic: Option[Boolean])
+  extends Gatk4Task(walker = "LeftAlignAndTrimVariants", ref = ref, intervals = intervals) {
+
+  override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
+    buffer.append("-V", in)
+    buffer.append("-O", out)
+    splitMultiAlleic foreach { _ => buffer.append("--split-multi-allelics")}
+  }
+}
