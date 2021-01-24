@@ -4,3 +4,6 @@
 
 # Build tool specific
 target
+
+# jEnv
+.java-version

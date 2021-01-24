@@ -24,18 +24,13 @@
 package dagr.core.execsystem
 
 import oshi.SystemInfo
-import oshi.hardware.platform.mac.MacHardwareAbstractionLayer
 
 /** Manipulates system resources */
 object Resource {
   private val hal = new SystemInfo().getHardware
 
   /** Total number of cores in the system */
-  val systemCores : Cores =
-    if (hal.isInstanceOf[MacHardwareAbstractionLayer])
-      Cores(this.hal.getProcessor.getPhysicalProcessorCount)
-    else
-      Cores(this.hal.getProcessor.getLogicalProcessorCount)
+  val systemCores: Cores = Cores(this.hal.getProcessor.getLogicalProcessorCount)
 
   /** The total amount of memory in the system. */
   val systemMemory: Memory = new Memory(this.hal.getMemory.getTotal)
