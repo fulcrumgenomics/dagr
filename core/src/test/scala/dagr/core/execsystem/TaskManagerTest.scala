@@ -1102,5 +1102,22 @@ class TaskManagerTest extends UnitSpec with OptionValues with LazyLogging with B
         info.status shouldBe TaskStatus.SUCCEEDED
       }
     }
+
+  "TaskManager.roundCoresForLogging" should "round resource cores for legibility in log emissions" in {
+    TaskManager.roundCoresForLogging(Cores(4)).toString                 shouldBe "4.0"
+    TaskManager.roundCoresForLogging(Cores(4.0)).toString               shouldBe "4.0"
+    TaskManager.roundCoresForLogging(Cores(4.3)).toString               shouldBe "4.3"
+    TaskManager.roundCoresForLogging(Cores(4.300000000000001)).toString shouldBe "4.3"
+    TaskManager.roundCoresForLogging(Cores(4.301000000000001)).toString shouldBe "4.3"
+    TaskManager.roundCoresForLogging(Cores(4.320000000000001)).toString shouldBe "4.32"
+  }
+
+  it should "round to a higher level of precision when asked" in {
+    TaskManager.roundCoresForLogging(Cores(4), scale = 3).toString                 shouldBe "4.0"
+    TaskManager.roundCoresForLogging(Cores(4.0), scale = 3).toString               shouldBe "4.0"
+    TaskManager.roundCoresForLogging(Cores(4.3), scale = 3).toString               shouldBe "4.3"
+    TaskManager.roundCoresForLogging(Cores(4.300000000000001), scale = 3).toString shouldBe "4.3"
+    TaskManager.roundCoresForLogging(Cores(4.301000000000001), scale = 3).toString shouldBe "4.301"
+    TaskManager.roundCoresForLogging(Cores(4.320000000000001), scale = 3).toString shouldBe "4.32"
   }
 }

@@ -26,13 +26,14 @@ package dagr.core.execsystem
 import java.nio.file.Path
 import java.time.{Duration, Instant}
 
-import dagr.core.DagrDef._
-import com.fulcrumgenomics.commons.util.LazyLogging
-import dagr.core.tasksystem._
 import com.fulcrumgenomics.commons.collection.BiMap
 import com.fulcrumgenomics.commons.io.{Io, PathUtil}
+import com.fulcrumgenomics.commons.util.LazyLogging
+import dagr.core.DagrDef._
 import dagr.core.execsystem
+import dagr.core.tasksystem._
 
+import scala.BigDecimal.RoundingMode.{HALF_UP => HalfUp}
 import scala.annotation.tailrec
 
 /** The resources needed for the task manager */
@@ -70,7 +71,8 @@ case class SystemResources(cores: Cores, systemMemory: Memory, jvmMemory: Memory
 object TaskManagerDefaults extends LazyLogging {
   def defaultTaskManagerResources: SystemResources = {
     val resources = SystemResources(cores=None, totalMemory=None) // Let the apply method figure it all out
-    logger.info("Defaulting System Resources to " + resources.cores.value + " cores and " + Resource.parseBytesToSize(resources.systemMemory.value) + " memory")
+    val cores     = TaskManager.roundCoresForLogging(resources.cores)
+    logger.info("Defaulting System Resources to " + cores.toString + " cores and " + Resource.parseBytesToSize(resources.systemMemory.value) + " memory")
     logger.info("Defaulting JVM Resources to " + Resource.parseBytesToSize(resources.jvmMemory.value) + " memory")
     resources
   }
@@ -128,6 +130,10 @@ object TaskManager extends LazyLogging {
     taskManager.taskToInfoBiMapFor
   }
 
+  /** Round the number of cores to <scale> precision and return as a [[Double]]. */
+  def roundCoresForLogging(cores: Cores, scale: Int = 2): Double = {
+    BigDecimal(cores.value).setScale(scale, HalfUp).toDouble
+  }
 }
 
 /** A manager of tasks.
@@ -158,7 +164,8 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
   import GraphNodeState._
   import TaskStatus._
 
-  logger.info(s"Executing with ${taskManagerResources.cores} cores and ${taskManagerResources.systemMemory.prettyString} system memory.")
+  private val coresRounded: Double = TaskManager.roundCoresForLogging(taskManagerResources.cores)
+  logger.info(s"Executing with $coresRounded cores and ${taskManagerResources.systemMemory.prettyString} system memory.")
   logger.info("Script files will be written to: " + actualScriptsDirectory)
   logger.info("Logs will be written to: " + actualLogsDirectory)
 
@@ -187,9 +194,9 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
 
   /** Logs a message for the given task. */
   private def logTaskMessage(taskInfo: TaskExecutionInfo): Unit = {
-    val cores  = taskInfo.resources.cores.toString
+    val cores  = TaskManager.roundCoresForLogging(taskInfo.resources.cores)
     val memory = taskInfo.resources.memory.prettyString
-    logger.info(s"'${taskInfo.task.name}' ${taskInfo.status} on attempt #${taskInfo.attemptIndex} with $cores cores and $memory memory")
+    logger.info(f"'${taskInfo.task.name}' ${taskInfo.status} on attempt #${taskInfo.attemptIndex} with $cores cores and $memory memory")
   }
 
   /** Replace the original task with the replacement task and update
@@ -659,7 +666,7 @@ class TaskManager(taskManagerResources: SystemResources = TaskManagerDefaults.de
               case t: Schedulable => t.minResources(new ResourceSet(taskManagerResources.cores, taskManagerResources.systemMemory))
               case _ => None
             }
-            val cores = resources.map(_.cores.toString).getOrElse("?")
+            val cores  = resources.map(_resources => TaskManager.roundCoresForLogging(_resources.cores).toString).getOrElse("?")
             val memory = resources.map(_.memory.prettyString).getOrElse("?")
             logger.error(s"Task with name '${readyTask.name}' requires $cores cores and $memory memory (task schedulable type: $resourcesType)")
           }
