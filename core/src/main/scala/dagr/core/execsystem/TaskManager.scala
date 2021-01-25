@@ -71,10 +71,9 @@ case class SystemResources(cores: Cores, systemMemory: Memory, jvmMemory: Memory
 object TaskManagerDefaults extends LazyLogging {
   def defaultTaskManagerResources: SystemResources = {
     val resources = SystemResources(cores=None, totalMemory=None) // Let the apply method figure it all out
-    val cores     = resources.cores.value
     val sysMemory = Resource.parseBytesToSize(resources.systemMemory.value)
     val jvmMemory = Resource.parseBytesToSize(resources.jvmMemory.value)
-    logger.info(f"Defaulting System Resources to $cores%.2f cores and $sysMemory memory")
+    logger.info(f"Defaulting System Resources to ${resources.cores.value}%.2f cores and $sysMemory memory")
     logger.info(s"Defaulting JVM Resources to $jvmMemory memory")
     resources
   }
