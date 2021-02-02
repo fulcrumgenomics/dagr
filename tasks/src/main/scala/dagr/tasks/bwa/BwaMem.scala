@@ -45,6 +45,7 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
              smartPairing: Boolean = true,
              basesPerBatch: Option[Int] = None,
              outputAllAlignments: Boolean = false,
+             splitAlignTakeFivePrime: Boolean = false,
              minThreads: Int = 1,
              maxThreads: Int = 32,
              memory: Memory = Memory("8G")
@@ -60,6 +61,7 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
 
     if (smartPairing) buffer.append("-p")
     if (outputAllAlignments) buffer.append("-a")
+    if (splitAlignTakeFivePrime) buffer.append("-5")
     minSeedLength.foreach(l => buffer.append("-k", l))
     matchScore.foreach(s => buffer.append("-A", s))
     mismatchPenalty.foreach(p => buffer.append("-B", p))
