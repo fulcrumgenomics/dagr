@@ -23,6 +23,8 @@
  */
 package dagr.tasks.gatk
 
+import java.nio.file.Path
+
 import dagr.tasks.DagrDef.{PathToFasta, PathToIntervals, PathToVcf}
 
 import scala.collection.mutable.ListBuffer
@@ -30,12 +32,16 @@ import scala.collection.mutable.ListBuffer
 /**
   * Runs the GATK walker that normalizes variants and optionally splits multiallelic sites into multiple, biallelic ones
   */
-class LeftAlignAndTrimVariants(val in: PathToVcf, val out: PathToVcf, ref: PathToFasta, splitMultiAlleic: Option[Boolean])
-  extends Gatk4Task(walker = "LeftAlignAndTrimVariants", ref = Some(ref)) {
+class VariantsToTable(val in: PathToVcf, val out: Path, fields: Seq[String], intervals: Option[PathToIntervals])
+  extends Gatk4Task(walker = "VariantsToTable", intervals = intervals) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-V", in)
     buffer.append("-O", out)
-    splitMultiAlleic foreach { _ => buffer.append("--split-multi-allelics") }
+    fields.foreach { f => {
+      buffer append "-F"
+      buffer append f
+    }
+    }
   }
 }

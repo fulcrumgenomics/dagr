@@ -25,20 +25,21 @@ package dagr.pipelines
 
 import java.nio.file.{Files, Path}
 
-import dagr.commons.io.Io
+import dagr.commons.io.{Io, PathUtil}
 import dagr.core.cmdline.Pipelines
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.tasksystem.{EitherTask, FixedResources, NoOpInJvmTask, Pipeline, ProcessTask}
+import dagr.core.tasksystem.{EitherTask, FixedResources, Linker, NoOpInJvmTask, Pipeline, ProcessTask}
 import dagr.sopt.{arg, clp}
 import dagr.tasks.DagrDef._
 import dagr.tasks.bwa.BwaMem
-import dagr.tasks.gatk.LeftAlignAndTrimVariants
-import dagr.tasks.misc.{DWGSim, LinkFile}
+import dagr.tasks.gatk.{CountVariants, DownsampleVariants, Gatk4Task, GatkTask, IndexVariants, LeftAlignAndTrimVariants, VariantsToTable}
+import dagr.tasks.misc.{DWGSim, LinkFile, VerifyBamId}
 import dagr.tasks.picard.{DownsampleSam, DownsamplingStrategy, MergeSamFiles, SortSam}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 /**
   * Downsample Bams to create composite contaminated bams,
@@ -56,8 +57,8 @@ class ContaminateAndEvaluateVBID
  @arg(flag = "c", doc = "Contamination levels to evaluate.") val contaminations: Seq[Double],
  @arg(flag = "d", doc = "Depth values to evaluate.") val depths: Seq[Integer],
  @arg(flag = "m", doc = "Number of markers to use.") val markers: Seq[Integer],
- @arg(name = "header", doc = "header line for dp.") val dpHeader: Path,
- @arg(name = "dp-bed", doc = "bed file with dp values") val pathToBed: Path
+ @arg(flag = "R", doc = "VBID vcf resource.") val vbidResource: PathToVcf,
+ @arg(flag = "H", doc = "header line for dp.") val dpHeader: Path
 
 ) extends Pipeline(Some(out)) {
 
@@ -69,51 +70,33 @@ class ContaminateAndEvaluateVBID
     val coverage = 100
     val makeBamsLoop = new NoOpInJvmTask("made bams")
 
-    val bams:Seq[PathToBam]=vcfs.map(vcf => {
+    val bams: Seq[PathToBam] = vcfs.map(vcf => {
 
-      val normalize = new LeftAlignAndTrimVariants(in=vcf, out=out.resolve(prefix + vcf.getFileName + ".normalized.vcf"), ref=ref, intervals = Some(targets), splitMultiAlleic = Some(true))
+      val toTable = new VariantsToTable(in = vcf, out = out.resolve(prefix + vcf.getFileName + ".table"), fields = "CHROM" :: "POS" :: "HET" :: "HOM-VAR" :: Nil, intervals = Some(targets))
+      val makeBed = new MakePLBed(table = toTable.out, out = out.resolve(prefix + "PL.bed"))
 
-      val rando = new ProcessTask with FixedResources {
-        requires(Cores(1), Memory("1G"))
+      val rando = new CopyPS_FromBedToVcf(in = vcf, out = out.resolve(prefix + vcf.getFileName + ".with.pl.vcf"),
+        dpHeader = dpHeader, pathToBed = makeBed.out)
 
-        override val name = "move dp over to vcf"
-
-        val outVcf=out.resolve(prefix + vcf.getFileName + ".normalized.withdp.vcf")
-        /**
-          * Abstract method that must be implemented by child classes to return a list or similar traversable
-          * list of command line elements (command name and arguments) that form the command line to be run.
-          * Individual values will be converted to Strings before being used by calling toString.
-          */
-        override def args: Seq[Any] = "bcftools" :: "annotate" ::
-          "-a" :: pathToBed ::
-          "-h" :: dpHeader ::
-          "-c" :: "CHROM,FROM,TO,dp" ::
-          "-O" :: outVcf ::
-          normalize.out :: Nil
-
-        /**
-          * Given a non-null ResourceSet representing the available resources at this moment in time
-          * return either a ResourceSet that is a subset of the available resources in which the task
-          * can run, or None if the task cannot run in the available resources.
-          *
-          * @param availableResources The system resources available to the task
-          * @return Either a ResourceSet of the desired subset of resources to run with, or None
-          */
-        override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = None
-      }
-
-
-      val simulate = new DWGSim(vcf = rando.outVcf, fasta = ref, outPrefix = out.resolve(prefix + vcf.getFileName + ".sim"), depth = coverage, coverageTarget = targets)
-      val bwa = new BwaMem(fastq = simulate.outputPairedFastq, ref = ref,maxThreads = 1, memory = Memory("2G"))
+      val normalize = new LeftAlignAndTrimVariants(in = rando.out, out = out.resolve(prefix + vcf.getFileName + ".normalized.vcf"), ref = ref, splitMultiAlleic = Some(true))
+      val index = new IndexVariants(in = normalize.out)
+      val simulate = new DWGSim(vcf = normalize.out, fasta = ref, outPrefix = out.resolve(prefix + vcf.getFileName + ".sim"), depth = coverage, coverageTarget = targets)
+      val bwa = new BwaMem(fastq = simulate.outputPairedFastq, ref = ref, maxThreads = 1, memory = Memory("2G"))
       val tmpBam = out.resolve(prefix + vcf.getFileName + ".tmp.bam")
       val sort = new SortSam(in = Io.StdIn, out = tmpBam, sortOrder = SortOrder.coordinate) with Configuration {
         requires(Cores(1), Memory("2G"))
       }
 
-      root ==> normalize ==> rando ==> simulate ==> (bwa | sort) ==> makeBamsLoop
+      root ==> toTable ==> makeBed ==> rando ==> normalize ==> index ==> simulate ==> (bwa | sort) ==> makeBamsLoop
+
+
+      //  ~/gatk/gatk  SelectVariants -V test2HG003_GRCh38_1_22_v4.2_benchmark.vcf.gz.normalized.vcf -O test2.vcf --sites-only-vcf-output
 
       tmpBam
     })
+
+    val countVariants = new CountVariants(vbidResource, out.resolve(prefix + ".vbid.count"))
+    root ==> countVariants
 
     val pairsOfBam = for (x <- bams; y <- bams) yield (x, y)
 
@@ -155,24 +138,72 @@ class ContaminateAndEvaluateVBID
           val downsampleMerged = new DownsampleSam(in = xyContaminatedBam, out = outDownsampled, proportion = d / resultantDepth)
 
           mergedownsampled ==> downsampleMerged
-//          markers.foreach { markerCount => {}
 
+          markers.foreach { markerCount => {
             // subset VBID resource files to smaller number of markers
 
-            // call VBID using subsetted markers
+            // this need to happen after the tool is run...need to figure out how to do that
+            val outDownsampledResource = out.resolve(prefix + "__" + vbidResource.getFileName +
+              "__" + markerCount + ".vcf")
 
-//          }
+            val downsample = new DownsampleVariants(
+              in = vbidResource,
+              output = outDownsampledResource,
+              proportion = 1)
 
+            val vbid = new VerifyBamId(
+              vcf = outDownsampledResource,
+              bam = xyContaminatedBam,
+              out = out.resolve(PathUtil.replaceExtension(xyContaminatedBam, s".${markerCount}_markers.selfSM"))
+            )
+
+            (downsampleMerged :: countVariants) ==>
+              Linker(countVariants, downsample)((f, c) => c.downsampleProportion = markerCount / f.count) ==>
+              vbid
+          }
+          }
         }
         }
       })
-
     }
     }
   }
 }
 
+// copies the value from the bed file to the vcf
+// removed the PS field (since it's invalid)
+private class CopyPS_FromBedToVcf(val in: PathToVcf,
+                                  val out: PathToVcf,
+                                  val pathToBed: Path,
+                                  val dpHeader: Path
+                                 ) extends ProcessTask with FixedResources with Configuration {
+  requires(Cores(1), Memory("1G"))
 
+  private val bcftools: Path = configureExecutable("bcftools.executable", "bcftools")
+
+  override def args: Seq[Any] = bcftools :: "annotate" ::
+    "-a" :: pathToBed ::
+    "-h" :: dpHeader ::
+    "-c" :: "CHROM,FROM,TO,pl" ::
+    "-x" :: "FORMAT/PS" :: // remove the PS field since it's invalid
+    "--force" :: // needed since the input file is corrupt.
+    "-o" :: out ::
+    in :: Nil
+}
+
+// copies the value from the bed file to the vcf
+private class MakePLBed(val table: Path,
+                        val out: Path
+                       ) extends ProcessTask with FixedResources with Configuration {
+  requires(Cores(1), Memory("1G"))
+
+  private val awk: Path = configureExecutable("awk.executable", "awk")
+
+  quoteIfNecessary = false
+
+  override def args: Seq[Any] = awk :: raw"""'BEGIN{OFS="\t"; } NR>1{print $$1,$$2-1, $$2, $$3+2*$$4}'""" ::
+    table.toAbsolutePath :: ">" :: out.toAbsolutePath :: Nil
+}
 
 
 

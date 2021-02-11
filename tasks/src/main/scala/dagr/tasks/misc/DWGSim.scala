@@ -63,8 +63,7 @@ class DWGSim(val vcf: PathToVcf,
     buffer ++= "-2" :: readLength :: Nil
     buffer ++= "-z" :: randomSeed :: Nil
     buffer ++= "-x" :: coverageTarget :: Nil
-    buffer ++= "-y" :: "1.0" :: Nil
-    buffer ++= fasta :: outPrefix :: Nil
+    buffer ++= fasta :: outPrefix :: Nil //these two arguments must be last
     buffer.toList
   }
 }

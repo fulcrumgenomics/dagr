@@ -30,12 +30,10 @@ import scala.collection.mutable.ListBuffer
 /**
   * Runs the GATK walker that normalizes variants and optionally splits multiallelic sites into multiple, biallelic ones
   */
-class LeftAlignAndTrimVariants(val in: PathToVcf, val out: PathToVcf, ref: PathToFasta, splitMultiAlleic: Option[Boolean])
-  extends Gatk4Task(walker = "LeftAlignAndTrimVariants", ref = Some(ref)) {
+class IndexVariants(val in: PathToVcf)
+  extends Gatk4Task(walker = "IndexFeatureFile") {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("-V", in)
-    buffer.append("-O", out)
-    splitMultiAlleic foreach { _ => buffer.append("--split-multi-allelics") }
+    buffer.append("-I", in)
   }
 }
