@@ -78,21 +78,21 @@ class ContaminateAndEvaluateVBID
       val rando = new CopyPS_FromBedToVcf(in = vcf, out = out.resolve(prefix + vcf.getFileName + ".with.pl.vcf"),
         dpHeader = dpHeader, pathToBed = makeBed.out)
 
-      val normalize = new LeftAlignAndTrimVariants(in = rando.out, out = out.resolve(prefix + vcf.getFileName + ".normalized.vcf"), ref = ref, splitMultiAlleic = Some(true))
+      val subsetToPL = new subsetToPL(in=rando.out, out=out.resolve(prefix + vcf.getFileName + ".subsetToPL.vcf"))
+      val normalize = new LeftAlignAndTrimVariants(in = subsetToPL.out, out = out.resolve(prefix + vcf.getFileName + ".normalized.vcf"), ref = ref, splitMultiAlleic = Some(true))
       val index = new IndexVariants(in = normalize.out)
       val simulate = new DWGSim(vcf = normalize.out, fasta = ref, outPrefix = out.resolve(prefix + vcf.getFileName + ".sim"), depth = coverage, coverageTarget = targets)
-      val bwa = new BwaMem(fastq = simulate.outputPairedFastq, ref = ref, maxThreads = 1, memory = Memory("2G"))
-      val tmpBam = out.resolve(prefix + vcf.getFileName + ".tmp.bam")
-      val sort = new SortSam(in = Io.StdIn, out = tmpBam, sortOrder = SortOrder.coordinate) with Configuration {
+      val bwa = new BwaMem(fastq = simulate.outputPairedFastq, out=Some(out.resolve(prefix + vcf.getFileName + ".tmp.bam")) ,
+        ref = ref, maxThreads = 1, memory = Memory("2G"))
+      val sort = new SortSam(in = bwa.out.get, out = out.resolve(prefix + vcf.getFileName + ".sorted.bam"), sortOrder = SortOrder.coordinate) with Configuration {
         requires(Cores(1), Memory("2G"))
       }
 
-      root ==> toTable ==> makeBed ==> rando ==> normalize ==> index ==> simulate ==> (bwa | sort) ==> makeBamsLoop
+      root ==> toTable ==> makeBed ==> rando ==> subsetToPL ==>
+        normalize ==> index ==> simulate ==> bwa ==> sort ==> makeBamsLoop
 
 
-      //  ~/gatk/gatk  SelectVariants -V test2HG003_GRCh38_1_22_v4.2_benchmark.vcf.gz.normalized.vcf -O test2.vcf --sites-only-vcf-output
-
-      tmpBam
+      sort.out
     })
 
     val countVariants = new CountVariants(vbidResource, out.resolve(prefix + ".vbid.count"))
@@ -185,11 +185,28 @@ private class CopyPS_FromBedToVcf(val in: PathToVcf,
     "-a" :: pathToBed ::
     "-h" :: dpHeader ::
     "-c" :: "CHROM,FROM,TO,pl" ::
-    "-x" :: "FORMAT/PS" :: // remove the PS field since it's invalid
+    "-x" :: "FORMAT" :: // remove the FORMAT Field
+    "-x" :: "^INFO/pl" :: // no need for all these annotations anyway
     "--force" :: // needed since the input file is corrupt.
     "-o" :: out ::
     in :: Nil
 }
+
+
+// copies the value from the bed file to the vcf
+// removed the PS field (since it's invalid)
+private class subsetToPL(val in: PathToVcf, val out: Path
+                        ) extends ProcessTask with FixedResources with Configuration {
+  requires(Cores(1), Memory("1G"))
+
+  private val bcftools: Path = configureExecutable("bcftools.executable", "bcftools")
+
+  override def args: Seq[Any] = bcftools :: "view" ::
+    "-i" :: "pl!=\".\"" ::
+    "-o" :: out ::
+    in :: Nil
+}
+
 
 // copies the value from the bed file to the vcf
 private class MakePLBed(val table: Path,
