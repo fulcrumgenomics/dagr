@@ -34,8 +34,8 @@ class LeftAlignAndTrimVariants(val in: PathToVcf, val out: PathToVcf, ref: PathT
   extends Gatk4Task(walker = "LeftAlignAndTrimVariants", ref = Some(ref)) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("-V", in)
-    buffer.append("-O", out)
-    splitMultiAlleic foreach { _ => buffer.append("--split-multi-allelics") }
+    buffer.addOne("-V").addOne(in)
+    buffer.addOne("-O").addOne(out)
+    splitMultiAlleic foreach { _ => buffer.addOne("--split-multi-allelics") }
   }
 }

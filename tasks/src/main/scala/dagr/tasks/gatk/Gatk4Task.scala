@@ -52,12 +52,13 @@ abstract class Gatk4Task(val walker: String,
   override def args: Seq[Any] = {
     val buffer = ListBuffer[Any]()
     buffer.appendAll(jarArgs(this.gatkJar, jvmMemory = this.resources.memory))
-    buffer.append(this.walker)
-    ref.foreach { r => buffer.append("-R", r.toAbsolutePath.toString) }
-    intervals.foreach(il => buffer.append("-L", il.toAbsolutePath.toString))
-    bamCompression.foreach(c => buffer.append("--bam_compression", c))
+    buffer.addOne(this.walker)
+    ref.foreach { r => buffer.addOne("-R").addOne(r.toAbsolutePath.toString) }
+    intervals.foreach(il => buffer.addOne("-L").addOne(il.toAbsolutePath.toString))
+    bamCompression.foreach(c => buffer.addOne("--bam_compression").addOne(c))
     addWalkerArgs(buffer)
-    buffer
+
+    buffer.toSeq
   }
 
   /** Can be overridden to use a specific GATK jar. */

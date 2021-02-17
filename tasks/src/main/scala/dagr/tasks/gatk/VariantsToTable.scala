@@ -36,11 +36,10 @@ class VariantsToTable(val in: PathToVcf, val out: Path, fields: Seq[String], int
   extends Gatk4Task(walker = "VariantsToTable", intervals = intervals) {
 
   override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
-    buffer.append("-V", in)
-    buffer.append("-O", out)
+    buffer.addOne("-V").addOne(in)
+    buffer.addOne("-O").addOne(out)
     fields.foreach { f => {
-      buffer append "-F"
-      buffer append f
+      buffer addOne "-F" addOne f
     }
     }
   }

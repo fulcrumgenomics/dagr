@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2021 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@ import picard.analysis.CollectQualityYieldMetrics.QualityYieldMetrics
 /** In JVM Task that pulls the total number of reads from the quality yield metrics file. */
 class GetYield(qualityYieldMetrics: Path) extends SimpleInJvmTask {
   this.name = "GetYield"
-  var count: Integer = 0
+  var count: Long = 0
 
   override def run(): Unit = {
     val metrics = MetricsFile.readBeans(qualityYieldMetrics.toFile).get(0).asInstanceOf[QualityYieldMetrics]
