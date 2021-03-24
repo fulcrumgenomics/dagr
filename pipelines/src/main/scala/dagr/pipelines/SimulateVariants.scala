@@ -178,7 +178,7 @@ class SimulateVariants
     private val cat: Path = configureExecutable("cat.executable", "cat")
 
     override def args: Seq[Any] = cat ::
-      ins.map{in => in.toAbsolutePath} ::
+      ins.map{in => in.toAbsolutePath}.mkString ::
       ">" ::
       out.toAbsolutePath ::
       Nil
