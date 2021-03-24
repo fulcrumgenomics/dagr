@@ -25,12 +25,13 @@ package dagr.pipelines
 
 import java.nio.file.{Files, Path}
 
+import com.fulcrumgenomics.commons.io.PathUtil
 import com.fulcrumgenomics.sopt.{arg, clp}
 import dagr.core.cmdline.Pipelines
 import dagr.core.config.Configuration
 import dagr.core.execsystem.{Cores, Memory}
 import dagr.core.tasksystem._
-import dagr.tasks.DagrDef._
+import dagr.tasks.DagrDef.{PathToIntervals, _}
 import dagr.tasks.bwa.BwaMem
 import dagr.tasks.gatk._
 import dagr.tasks.misc.DWGSim
@@ -70,15 +71,37 @@ class SimulateVariants
       val subsetToPL = new subsetToPL(in = rando.out, out = out.resolve(prefix + vcf.getFileName + ".subsetToPL.vcf"))
       val normalize = new LeftAlignAndTrimVariants(in = subsetToPL.out, out = out.resolve(prefix + vcf.getFileName + ".normalized.vcf"), ref = ref, splitMultiAlleic = Some(true))
       val index = new IndexVariants(in = normalize.out)
-      val simulate = new DWGSim(vcf = normalize.out, fasta = ref, outPrefix = out.resolve(prefix + vcf.getFileName + ".sim"), depth = coverage, coverageTarget = targets)
-      val bwa = new myBwaMem(fastq = simulate.outputPairedFastq, out = Some(out.resolve(prefix + vcf.getFileName + ".tmp.sam")), ref = ref)
+
+
+      root ==> toTable ==> makeBed ==> rando ==> subsetToPL ==> normalize ==> index
+
+      val simulate:Seq[DWGSim] = Range(0, 22).map {chr => {
+        val subsetBed = new Grep(in = targets, what = s"'^chr${chr + 1}\t'", out = out.resolve(prefix + PathUtil.removeExtension(targets.getFileName) + s".chr${chr + 1}.bed"))
+        root ==> subsetBed
+
+        val sim = new DWGSim(vcf = normalize.out,
+          fasta = ref,
+          outPrefix = out.resolve(prefix + vcf.getFileName + s".chr${chr + 1}.sim"),
+          depth = coverage,
+          coverageTarget = subsetBed.out)
+
+        (index::subsetBed) ==> sim
+
+        sim
+      }}
+
+      val mergeFastas = new Concatenate(ins = simulate map { fastq => out.resolve(fastq.outputPairedFastq) },
+        out = out.resolve(prefix + vcf.getFileName + ".sim.bfast.fastq"))
+
+      val bwa = new myBwaMem(fastq = mergeFastas.out, out = Some(out.resolve(prefix + vcf.getFileName + ".tmp.sam")), ref = ref)
+
+      simulate.map(sim => sim ==> mergeFastas)
+
       val sort = new SortSam(in = bwa.out.get, out = out.resolve(prefix + vcf.getFileName + ".sorted.bam"), sortOrder = SortOrder.coordinate) with Configuration {
         requires(Cores(1), Memory("2G"))
       }
 
-      root ==> toTable ==> makeBed ==> rando ==> subsetToPL ==>
-        normalize ==> index ==> simulate ==> bwa ==> sort
-
+      mergeFastas ==> bwa ==> sort
       sort.out
     })
   }
@@ -123,6 +146,46 @@ class SimulateVariants
 
 
   // copies the value from the bed file to the vcf
+  private class Grep(val in: Path,
+                          val what: String,
+                            val out: Path
+                           ) extends ProcessTask with FixedResources with Configuration {
+    requires(Cores(1), Memory("1G"))
+
+    private val grep: Path = configureExecutable("grep.executable", "grep")
+
+    quoteIfNecessary = false
+
+    override def args: Seq[Any] = grep ::
+      what ::
+      in.toAbsolutePath ::
+      ">" ::
+      out.toAbsolutePath ::
+      "||" ::
+      "touch" ::
+      out.toAbsolutePath ::
+      Nil
+  }
+
+  // copies the value from the bed file to the vcf
+  private class Concatenate(val ins: Seq[Path],
+                            val out: Path
+                           ) extends ProcessTask with FixedResources with Configuration {
+    requires(Cores(1), Memory("1G"))
+
+    quoteIfNecessary = false
+
+    private val cat: Path = configureExecutable("cat.executable", "cat")
+
+    override def args: Seq[Any] = cat ::
+      ins.map{in => in.toAbsolutePath} ::
+      ">" ::
+      out.toAbsolutePath ::
+      Nil
+  }
+
+
+  // copies the value from the bed file to the vcf
   private class MakePLBed(val table: Path,
                           val out: Path
                          ) extends ProcessTask with FixedResources with Configuration {
@@ -145,6 +208,8 @@ class SimulateVariants
       out = out,
       ref = ref,
       maxThreads = 2,
-      memory = Memory("4G"))
+      memory = Memory("4G")) {
+    quoteIfNecessary = false
+  }
 
 }
