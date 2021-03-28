@@ -29,24 +29,30 @@ import java.nio.file.Path
 import scala.sys.process._
 
 object ProcessTask {
-  val SpecialCharacters : String = """ `"\#()!~&<>|;*?""" + '\t' + '$'
+  val SpecialCharacters: String = """ `"\#()!~&<>|;*?""" + '\t' + '$'
   private val SpecialsAndSingleQuote = SpecialCharacters + "'"
   private val Escape = """\"""
 
   /** Determines if the argument has any special characters in it, and if so quotes the whole string. */
-  def quoteIfNecessary(arg: String): String = {
-    val hasSingleQuotes = arg.contains("'")
-    val hasSpecials     = arg.exists(ch => SpecialCharacters.contains(ch))
+  def quoteIfNecessary(anyArg: Any ): String = {
+    anyArg match {
+      case Unquotable(x) => x.toString
+      case _ => {
+        val arg = anyArg.toString
 
-    (hasSingleQuotes, hasSpecials) match {
-      case (false, false) => arg
-      case (true,  false) => arg.replace("'", """\'""") // just escape the single quotes
-      case (false, true ) => "'" + arg + "'" // just single quote the whole string
-      case (true,  true ) => arg.map(ch => if (SpecialsAndSingleQuote.contains(ch)) Escape + ch else ch).mkString("")
+        val hasSingleQuotes = arg.contains("'")
+        val hasSpecials = arg.exists(ch => SpecialCharacters.contains(ch))
+
+        (hasSingleQuotes, hasSpecials) match {
+          case (false, false) => arg
+          case (true, false) => arg.replace("'", """\'""") // just escape the single quotes
+          case (false, true) => "'" + arg + "'" // just single quote the whole string
+          case (true, true) => arg.map(ch => if (SpecialsAndSingleQuote.contains(ch)) Escape + ch else ch).mkString("")
+        }
+      }
     }
   }
 }
-
 /** A task that can execute a set of commands in its own process, and does not generate any new tasks.
   */
 trait ProcessTask extends UnitTask {
@@ -64,8 +70,8 @@ trait ProcessTask extends UnitTask {
     * @return the command string.
     */
   private[core] def commandLine: String = {
-    if (quoteIfNecessary) args.map(arg => ProcessTask.quoteIfNecessary(arg.toString)).mkString(" ")
-    else args.mkString(" ")
+    val mapped = if (quoteIfNecessary) args.map(arg => ProcessTask.quoteIfNecessary(arg)) else args
+    mapped.mkString(" ")
   }
 
   /** Write the command to the script and get a process to run.

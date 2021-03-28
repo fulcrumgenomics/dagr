@@ -25,18 +25,22 @@ package dagr.pipelines
 
 import java.nio.file.{Files, Path}
 
-import com.fulcrumgenomics.commons.io.PathUtil
+import dagr.core.tasksystem.Pipe
+import com.fulcrumgenomics.commons.io.{Io, PathUtil}
 import com.fulcrumgenomics.sopt.{arg, clp}
 import dagr.core.cmdline.Pipelines
 import dagr.core.config.Configuration
-import dagr.core.execsystem.{Cores, Memory}
+import dagr.core.execsystem.{Cores, Memory, ResourceSet}
 import dagr.core.tasksystem._
 import dagr.tasks.DagrDef.{PathToIntervals, _}
+import dagr.tasks.DataTypes.Bed
 import dagr.tasks.bwa.BwaMem
 import dagr.tasks.gatk._
 import dagr.tasks.misc.DWGSim
 import dagr.tasks.picard.SortSam
 import htsjdk.samtools.SAMFileHeader.SortOrder
+
+import scala.collection.mutable.ListBuffer
 
 /**
   * generate bams based on input vcfs
@@ -53,14 +57,35 @@ class SimulateVariants
 
 ) extends Pipeline(Some(out)) {
 
-  var bams: Seq[PathToBam] = Nil
-
   override def build(): Unit = {
 
     Files.createDirectories(out)
     val coverage = depth
 
-    bams = vcfs.map(vcf => {
+    val noop = new Noop()
+
+    val beds: Seq[Path] = Range(0, 22).map { chr => {
+      val subsetBed = new Grep(in = targets, what = s"^chr${chr + 1}\t", out = out.resolve(prefix + PathUtil.removeExtension(targets.getFileName) + s".chr${chr + 1}.bed"))
+      subsetBed.name += s".chr${chr + 1}"
+
+      root ==> subsetBed
+
+      val slopBed = new BedtoolsSlop(in = subsetBed.out,
+        bases = 500,
+        ref = ref)
+
+      val mergeBed = new BedtoolsMerge(out = Some(PathUtil.replaceExtension(subsetBed.out, ".slop.bed")))
+
+      val bedSlopMerge: Pipe[Bed, Bed] = slopBed | mergeBed
+      bedSlopMerge.name = s"BedSlopMerge.chr${chr + 1}"
+
+      subsetBed ==> bedSlopMerge ==> noop
+
+      mergeBed.out.get
+    }
+    }
+
+    val bams = vcfs.map(vcf => {
 
       val toTable = new VariantsToTable(in = vcf, out = out.resolve(prefix + vcf.getFileName + ".table"), fields = "CHROM" :: "POS" :: "HET" :: "HOM-VAR" :: Nil, intervals = Some(targets))
       val makeBed = new MakePLBed(table = toTable.out, out = out.resolve(prefix + "PL.bed"))
@@ -73,22 +98,23 @@ class SimulateVariants
       val index = new IndexVariants(in = normalize.out)
 
 
-      root ==> toTable ==> makeBed ==> rando ==> subsetToPL ==> normalize ==> index
+      noop ==> toTable ==> makeBed ==> rando ==> subsetToPL ==> normalize ==> index
 
-      val simulate:Seq[DWGSim] = Range(0, 22).map {chr => {
-        val subsetBed = new Grep(in = targets, what = s"'^chr${chr + 1}\t'", out = out.resolve(prefix + PathUtil.removeExtension(targets.getFileName) + s".chr${chr + 1}.bed"))
-        root ==> subsetBed
+      val simulate: Seq[DWGSim] = beds.zipWithIndex.map{ case (bed, chr) => {
 
         val sim = new DWGSim(vcf = normalize.out,
           fasta = ref,
           outPrefix = out.resolve(prefix + vcf.getFileName + s".chr${chr + 1}.sim"),
           depth = coverage,
-          coverageTarget = subsetBed.out)
+          coverageTarget = bed)
 
-        (index::subsetBed) ==> sim
+        sim.name += s".chr${chr + 1}"
+        noop ==> sim
+        index ==> sim
 
         sim
-      }}
+      }
+      }
 
       val mergeFastas = new Concatenate(ins = simulate map { fastq => out.resolve(fastq.outputPairedFastq) },
         out = out.resolve(prefix + vcf.getFileName + ".sim.bfast.fastq"))
@@ -147,21 +173,19 @@ class SimulateVariants
 
   // copies the value from the bed file to the vcf
   private class Grep(val in: Path,
-                          val what: String,
-                            val out: Path
-                           ) extends ProcessTask with FixedResources with Configuration {
+                     val what: String,
+                     val out: Path
+                    ) extends ProcessTask with FixedResources with Configuration {
     requires(Cores(1), Memory("1G"))
 
     private val grep: Path = configureExecutable("grep.executable", "grep")
 
-    quoteIfNecessary = false
-
     override def args: Seq[Any] = grep ::
       what ::
       in.toAbsolutePath ::
-      ">" ::
+      Unquotable(">") ::
       out.toAbsolutePath ::
-      "||" ::
+      Unquotable("||") ::
       "touch" ::
       out.toAbsolutePath ::
       Nil
@@ -173,17 +197,55 @@ class SimulateVariants
                            ) extends ProcessTask with FixedResources with Configuration {
     requires(Cores(1), Memory("1G"))
 
-    quoteIfNecessary = false
-
     private val cat: Path = configureExecutable("cat.executable", "cat")
 
     override def args: Seq[Any] = cat ::
-      ins.map{in => in.toAbsolutePath} mkString " " ::
-      ">" ::
+      ins.map { in => in.toAbsolutePath }.toList :::
+      Unquotable(">") ::
       out.toAbsolutePath ::
       Nil
   }
 
+  // adds bases to the end of bed intervals
+  abstract class Bedtools(val in: Path,
+                          val tool: String,
+                          val out: Option[Path]
+                         ) extends ProcessTask with FixedResources with Configuration with Pipe[Bed, Bed] {
+    requires(Cores(1), Memory("1G"))
+
+    private val bedtools: Path = configureExecutable("bedtools.executable", "bedtools")
+
+    def otherArgs: List[Any] = Nil
+
+    override def args: Seq[Any] = {
+      val buffer = ListBuffer[Any](bedtools, tool, "-i", in.toAbsolutePath)
+
+      buffer.appendAll(otherArgs)
+      out.foreach(f => buffer.addOne(Unquotable(">")).addOne(f))
+
+      buffer.toList
+    }
+  }
+
+  // adds bases to the end of bed intervals
+  private class BedtoolsSlop(override val in: Path,
+                             val bases: Int,
+                             val ref: PathToFasta,
+                             override val out: Option[Path] = None
+                            ) extends Bedtools(in = in, out = out, tool = "slop") {
+
+    private val genome = PathUtil.replaceExtension(ref, ".genome")
+
+    override def otherArgs: List[Any] =
+      "-b" :: bases ::
+        "-g" :: genome ::
+        Nil
+  }
+
+  // merges bedfile
+  private class BedtoolsMerge(override val in: Path = Io.StdIn,
+                              override val out: Option[Path] = None
+                             ) extends Bedtools(in = in, out = out, tool = "merge") {}
 
   // copies the value from the bed file to the vcf
   private class MakePLBed(val table: Path,
@@ -193,12 +255,16 @@ class SimulateVariants
 
     private val awk: Path = configureExecutable("awk.executable", "awk")
 
-    quoteIfNecessary = false
-
-    override def args: Seq[Any] = awk :: raw"""'BEGIN{OFS="\t"; } NR>1{print $$1,$$2-1, $$2, $$3+2*$$4}'""" ::
-      table.toAbsolutePath :: ">" :: out.toAbsolutePath :: Nil
+    override def args: Seq[Any] = awk :: Unquotable(raw"""'BEGIN{OFS="\t"; } NR>1{print $$1,$$2-1, $$2, $$3+2*$$4}'""") ::
+      table.toAbsolutePath :: Unquotable(">") :: out.toAbsolutePath :: Nil
   }
 
+  private class Noop() extends ProcessTask {
+
+    override def args: Seq[Any] = Nil
+
+    override def pickResources(availableResources: ResourceSet): Option[ResourceSet] = None
+  }
 
   private class myBwaMem(val fastq: PathToFastq,
                          val out: Option[PathToBam],

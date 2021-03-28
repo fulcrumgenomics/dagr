@@ -49,5 +49,6 @@ package object tasks {
     class Fastq private()
     class Text private()
     class Binary private()
+    class Bed private()
   }
 }

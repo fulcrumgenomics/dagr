@@ -38,9 +38,9 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
              minSeedLength: Option[Int] = None,
              matchScore: Option[Int] = None,
              mismatchPenalty: Option[Int] = None,
-             gapOpenPenalties: Option[(Int,Int)] = None,
-             gapExtensionPenalties: Option[(Int,Int)] = None,
-             clippingPenalties: Option[(Int,Int)] = None,
+             gapOpenPenalties: Option[(Int, Int)] = None,
+             gapExtensionPenalties: Option[(Int, Int)] = None,
+             clippingPenalties: Option[(Int, Int)] = None,
              minScore: Option[Int] = None,
              smartPairing: Boolean = true,
              basesPerBatch: Option[Int] = None,
@@ -49,29 +49,29 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
              minThreads: Int = 1,
              maxThreads: Int = 32,
              memory: Memory = Memory("8G")
-            ) extends ProcessTask with VariableResources with Pipe[Fastq,Sam] {
+            ) extends ProcessTask with VariableResources with Pipe[Fastq, Sam] {
   name = "BwaMem"
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
-    resources.subset(minCores=Cores(minThreads), maxCores=Cores(maxThreads), memory=memory)
+    resources.subset(minCores = Cores(minThreads), maxCores = Cores(maxThreads), memory = memory)
   }
 
   override def args: Seq[Any] = {
     val buffer = ListBuffer[Any](Bwa.findBwa, "mem", "-t", resources.cores.toInt)
 
-    if (smartPairing) buffer.append("-p")
-    if (outputAllAlignments) buffer.append("-a")
-    if (splitAlignTakeFivePrime) buffer.append("-5")
-    minSeedLength.foreach(l => buffer.append("-k", l))
-    matchScore.foreach(s => buffer.append("-A", s))
-    mismatchPenalty.foreach(p => buffer.append("-B", p))
-    gapOpenPenalties.foreach      { case (del, ins) => buffer.append("-O", s"$del,$ins") }
-    gapExtensionPenalties.foreach { case (del, ins) => buffer.append("-E", s"$del,$ins") }
-    clippingPenalties.foreach { case (five, three) => buffer.append("-L", s"$five,$three") }
-    minScore.foreach(s => buffer.append("-T", s))
-    basesPerBatch.foreach(n => buffer.append("-K", n))
+    if (smartPairing) buffer.addOne("-p")
+    if (outputAllAlignments) buffer.addOne("-a")
+    if (splitAlignTakeFivePrime) buffer.addOne("-5")
+    minSeedLength.foreach(l => buffer.appendAll("-k" :: l :: Nil))
+    matchScore.foreach(s => buffer.appendAll("-A" :: s :: Nil))
+    mismatchPenalty.foreach(p => buffer.appendAll("-B" :: p :: Nil))
+    gapOpenPenalties.foreach { case (del, ins) => buffer.appendAll("-O" :: s"$del,$ins" :: Nil) }
+    gapExtensionPenalties.foreach { case (del, ins) => buffer.appendAll("-E" :: s"$del,$ins" :: Nil) }
+    clippingPenalties.foreach { case (five, three) => buffer.appendAll("-L" :: s"$five,$three" :: Nil) }
+    minScore.foreach(s => buffer.appendAll("-T" :: s :: Nil))
+    basesPerBatch.foreach(n => buffer.appendAll("-K" :: n :: Nil))
 
-    buffer.append(ref, fastq)
+    buffer.appendAll(ref :: fastq :: Nil)
     out.foreach(f => buffer.addOne(">").addOne(f))
 
     buffer.toList
