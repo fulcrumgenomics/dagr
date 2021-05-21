@@ -56,7 +56,8 @@ class IlluminaBasecallsToSam(basecallsDir: DirPath,
                              maxReadsInRamPerTile: Option[Int] = Some(500000),
                              firstTile: Option[Int] = None,
                              tileLimit: Option[Int] = None,
-                             tmpDir: Option[DirPath] = None
+                             tmpDir: Option[DirPath] = None,
+                             sort: Option[Boolean] = None
                             ) extends PicardTask with VariableResources with JvmRanOutOfMemory {
 
   protected val byMemoryPerThread: Memory = Memory("1GB")
@@ -88,6 +89,7 @@ class IlluminaBasecallsToSam(basecallsDir: DirPath,
     buffer += "READ_STRUCTURE=" + readStructure.toString
     buffer += "LIBRARY_PARAMS=" + libraryParamsFile
     buffer += "INCLUDE_NON_PF_READS=" + includeNonPfReads
+    sort.foreach(buffer += "SORT=" + _)
     if (ignoreUnexpectedBarcodes) buffer += "IGNORE_UNEXPECTED_BARCODES=true"
     if (adapterPairs.isEmpty) buffer += "ADAPTERS_TO_CHECK=null"
     else adapterPairs.foreach(buffer += "ADAPTERS_TO_CHECK=" + _)
