@@ -1,10 +1,10 @@
 sudo: required
-dist: trusty
+dist: bionic
 language: scala
 scala:
 - 2.12.2
 jdk:
-- oraclejdk8
+- openjdk8
 script:
 - sbt +clean coverage +test && sbt coverageReport coverageAggregate
 - find $HOME/.sbt -name "*.lock" | xargs rm
