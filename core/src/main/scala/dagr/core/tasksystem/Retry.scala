@@ -24,11 +24,11 @@
 
 package dagr.core.tasksystem
 
-import java.nio.file.Files
-
+import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.LazyLogging
 import dagr.core.execsystem._
-import com.fulcrumgenomics.commons.io.Io
+
+import java.nio.file.Files
 
 /** A trait to facilitate retry a task when it has failed. */
 trait Retry {
@@ -44,7 +44,10 @@ trait Retry {
 /**
   * A trait to facilitate retrying a task with more memory.
   */
-trait MemoryRetry extends Retry with FixedResources {
+trait MemoryRetry extends Retry with FixedResources with LazyLogging {
+  /** returns the maximum number iterations to retry. */
+  def maxNumIterations: Int = 10
+
   /** Given the current memory, returns the next memory to retry this task with, or None, if the task
     * should not be retried.
     */
@@ -64,7 +67,9 @@ trait MemoryRetry extends Retry with FixedResources {
     */
   override final def retry(systemResources: SystemResources, taskInfo: TaskExecutionInfo): Boolean = {
     if (taskInfo.resources.memory != this.resources.memory) throw new IllegalStateException("Scheduled memory does not equal current memory")
-    if (ranOutOfMemory(taskInfo)) {
+    logger.debug("maxNumIterations=" + maxNumIterations + " taskInfo.attemptIndex=" + taskInfo.attemptIndex)
+
+    if (ranOutOfMemory(taskInfo) && taskInfo.attemptIndex <= maxNumIterations) {
       val maximumMemory = if (useSystemMemory) systemResources.systemMemory else systemResources.jvmMemory
       nextMemory(this.resources.memory)
         .filter { _ <= maximumMemory }
