@@ -26,7 +26,7 @@
 package dagr.tasks.picard
 
 import dagr.core.execsystem.{Cores, Memory, ResourceSet}
-import dagr.core.tasksystem.{LinearMemoryRetry, VariableResources}
+import dagr.core.tasksystem.{MemoryDoublingRetry, VariableResources}
 import dagr.tasks.DagrDef.{DirPath, FilePath, PathPrefix}
 
 import scala.collection.mutable.ListBuffer
@@ -51,13 +51,10 @@ class ExtractIlluminaBarcodes(basecallsDir: DirPath,
                               minThreads: Int = 4,
                               maxThreads: Int = 16,
                               override val prefix: Option[PathPrefix] = None
-                             ) extends PicardTask with PicardMetricsTask with VariableResources with LinearMemoryRetry {
+                             ) extends PicardTask with PicardMetricsTask with VariableResources with MemoryDoublingRetry {
   requires(Cores(minThreads), Memory("4G"))
 
   private val _barcodesDir: DirPath = prefix.map(_.getParent).getOrElse(basecallsDir)
-
-  /** returns the maximum number iterations to retry. */
-  override def maxNumIterations: Int = 3
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
     resources.subset(
