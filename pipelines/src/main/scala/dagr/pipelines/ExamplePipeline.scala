@@ -33,6 +33,8 @@ import dagr.tasks.DagrDef
 import dagr.tasks.bwa.BwaMem
 import dagr.tasks.picard.{CollectHsMetrics, DeleteBam, MarkDuplicates, SortSam}
 import DagrDef.{DirPath, PathToFasta, PathToFastq, PathToIntervals}
+import dagr.core.config.Configuration
+import dagr.core.execsystem.{Cores, Memory}
 import htsjdk.samtools.SAMFileHeader.SortOrder
 
 /**
@@ -54,8 +56,10 @@ class ExamplePipeline
     Files.createDirectories(out)
 
     val bwa   = new BwaMem(fastq=fastq, ref=ref)
-    val sort  = new SortSam(in=Io.StdIn, out=tmpBam, sortOrder=SortOrder.coordinate)
-    val mark  = new MarkDuplicates(inputs=Seq(tmpBam), out=Some(bam), prefix=metricsPrefix)
+    val sort  = new SortSam(in=Io.StdIn, out=tmpBam, sortOrder=SortOrder.coordinate) with Configuration {
+      requires(Cores(2), Memory("2G"))}
+    val mark  = new MarkDuplicates(inputs=Seq(tmpBam), out=Some(bam), prefix=metricsPrefix)with Configuration {
+      requires(Cores(1), Memory("2G"))}
     val rmtmp = new DeleteBam(tmpBam)
 
     root ==> (bwa | sort) ==> mark ==> rmtmp

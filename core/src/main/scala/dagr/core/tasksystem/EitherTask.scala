@@ -24,8 +24,11 @@
 package dagr.core.tasksystem
 
 object EitherTask {
+
   sealed trait Choice
-  object Left  extends Choice
+
+  object Left extends Choice
+
   object Right extends Choice
 
   /**
@@ -48,17 +51,33 @@ object EitherTask {
     * @param goLeft an expression that returns a Boolean, with true indicating Left and false indicating Right
     */
   def of(left: Task, right: Task, goLeft: => Boolean): EitherTask = new EitherTask(left, right, () => if (goLeft) Left else Right)
+
+  def of(left: Iterable[Task], right: Iterable[Task], goLeft: => Boolean): EitherTask = {
+
+    val leftPipeline = new Pipeline {
+      def build(): Unit = {
+        left.foreach(root ==> _)
+      }
+    }
+    val rightPipeline = new Pipeline {
+      def build(): Unit = {
+        right.foreach(root ==> _)
+      }
+    }
+
+    new EitherTask(leftPipeline, rightPipeline, () => if (goLeft) Left else Right)
+  }
 }
 
 /** A task that returns either the left or right task based on a deferred choice. The choice function is
   * not evaluated until all dependencies have been met and the `EitherTask` needs to make a decision about
-  * which task to return from [[getTasks].
+  * which task to return from [[getTasks]].
   *
-  * @param left the left task.
-  * @param right the right task
+  * @param left   the left task.
+  * @param right  the right task
   * @param choice an expression that returns either Left or Right when invoked
   */
-class EitherTask private (private val left: Task, private val right: Task, private val choice: () => EitherTask.Choice) extends Task {
+class EitherTask private(private val left: Task, private val right: Task, private val choice: () => EitherTask.Choice) extends Task {
   /** Decides which task to return based on `choice` at execution time. */
   override def getTasks: Iterable[Task] = Seq(if (choice() eq EitherTask.Left) left else right)
 }

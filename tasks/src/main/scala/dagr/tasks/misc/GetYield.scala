@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2021 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,34 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr
+package dagr.tasks.misc
 
-/**
- * Package object to store all the typedefs for various basic types that are
- * used throughout workflows.
- */
-package object tasks {
-  ///////////////////////////////////////////////////////////////////
-  // Units of memory
-  ///////////////////////////////////////////////////////////////////
-  type Bytes = BigInt
-  type Megabytes = BigInt
-  type Gigabytes = BigInt
+import java.nio.file.Path
 
-  /**
-    * Object containing phantom types that define streaming/piping data types. These types are never meant
-    * to be instantiated, but exist purely to allow type checking of tasks that are strung together
-    * using pipes.
-    */
-  object DataTypes {
-    // Developer note: all these classes have private default constructors so that they cannot be instantiated
-    class SamOrBam private[DataTypes]()
-    class Sam private() extends SamOrBam
-    class Bam private() extends SamOrBam
-    class Vcf private()
-    class Fastq private()
-    class Text private()
-    class Binary private()
-    class Bed private()
+import dagr.core.tasksystem.SimpleInJvmTask
+import htsjdk.samtools.metrics.MetricsFile
+import picard.analysis.CollectQualityYieldMetrics.QualityYieldMetrics
+
+/** In JVM Task that pulls the total number of reads from the quality yield metrics file. */
+class GetYield(qualityYieldMetrics: Path) extends SimpleInJvmTask {
+  this.name = "GetYield"
+  var count: Long = 0
+
+  override def run(): Unit = {
+    val metrics = MetricsFile.readBeans(qualityYieldMetrics.toFile).get(0).asInstanceOf[QualityYieldMetrics]
+    count = metrics.PF_READS
   }
 }

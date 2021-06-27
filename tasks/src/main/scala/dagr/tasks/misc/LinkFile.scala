@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,34 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr
+package dagr.tasks.misc
+
+import java.nio.file.Path
+
+import dagr.core.tasksystem.ShellCommand
 
 /**
- * Package object to store all the typedefs for various basic types that are
- * used throughout workflows.
- */
-package object tasks {
-  ///////////////////////////////////////////////////////////////////
-  // Units of memory
-  ///////////////////////////////////////////////////////////////////
-  type Bytes = BigInt
-  type Megabytes = BigInt
-  type Gigabytes = BigInt
-
-  /**
-    * Object containing phantom types that define streaming/piping data types. These types are never meant
-    * to be instantiated, but exist purely to allow type checking of tasks that are strung together
-    * using pipes.
-    */
-  object DataTypes {
-    // Developer note: all these classes have private default constructors so that they cannot be instantiated
-    class SamOrBam private[DataTypes]()
-    class Sam private() extends SamOrBam
-    class Bam private() extends SamOrBam
-    class Vcf private()
-    class Fastq private()
-    class Text private()
-    class Binary private()
-    class Bed private()
-  }
-}
+  * Uses the shell to (soft) link a file or directory to another alias
+  */
+class LinkFile(val from: Path, val to: Path) extends ShellCommand("ln", "-sf", from.toString, to.toString)

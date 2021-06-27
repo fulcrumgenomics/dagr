@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2015 Fulcrum Genomics LLC
+ * Copyright (c) 2016 Fulcrum Genomics LLC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,34 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package dagr
+package dagr.tasks.gatk
+
+import dagr.tasks.DagrDef.{PathToFasta, PathToIntervals, PathToVcf}
+
+import scala.collection.mutable.ListBuffer
 
 /**
- * Package object to store all the typedefs for various basic types that are
- * used throughout workflows.
- */
-package object tasks {
-  ///////////////////////////////////////////////////////////////////
-  // Units of memory
-  ///////////////////////////////////////////////////////////////////
-  type Bytes = BigInt
-  type Megabytes = BigInt
-  type Gigabytes = BigInt
+  * Runs the GATK walker that normalizes variants and optionally splits multiallelic sites into multiple, biallelic ones
+  */
+class LeftAlignAndTrimVariants(val in: PathToVcf, val out: PathToVcf, ref: PathToFasta, splitMultiAlleic: Option[Boolean])
+  extends Gatk4Task(walker = "LeftAlignAndTrimVariants", ref = Some(ref)) {
 
-  /**
-    * Object containing phantom types that define streaming/piping data types. These types are never meant
-    * to be instantiated, but exist purely to allow type checking of tasks that are strung together
-    * using pipes.
-    */
-  object DataTypes {
-    // Developer note: all these classes have private default constructors so that they cannot be instantiated
-    class SamOrBam private[DataTypes]()
-    class Sam private() extends SamOrBam
-    class Bam private() extends SamOrBam
-    class Vcf private()
-    class Fastq private()
-    class Text private()
-    class Binary private()
-    class Bed private()
+  override protected def addWalkerArgs(buffer: ListBuffer[Any]): Unit = {
+    buffer.addOne("-V").addOne(in)
+    buffer.addOne("-O").addOne(out)
+    splitMultiAlleic foreach { _ => buffer.addOne("--split-multi-allelics") }
   }
 }
