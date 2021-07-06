@@ -72,7 +72,7 @@ class BwaMem(fastq: PathToFastq = Io.StdIn,
     basesPerBatch.foreach(n => buffer.append("-K", n))
 
     buffer.append(ref, fastq)
-    out.foreach(f => buffer.append("> " + f))
+    out.foreach(f => buffer.append(">", f))
 
     buffer.toList
   }
