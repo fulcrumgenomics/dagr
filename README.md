@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/fulcrumgenomics/dagr.svg?branch=master)](https://travis-ci.com/fulcrumgenomics/dagr)
+[![Build Status](https://github.com/fulcrumgenomics/dagr/workflows/unit%20tests/badge.svg)](https://github.com/fulcrumgenomics/dagr/actions?query=workflow%3A%22unit+tests%22)
 [![Coverage Status](https://codecov.io/github/fulcrumgenomics/dagr/coverage.svg?branch=master)](https://codecov.io/github/fulcrumgenomics/dagr?branch=master)
 [![Code Review](https://api.codacy.com/project/badge/grade/52e1d786d9784c7192fae2f8e853fa34)](https://www.codacy.com/app/contact_32/dagr)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.fulcrumgenomics/dagr_2.13/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.fulcrumgenomics/dagr_2.13)
