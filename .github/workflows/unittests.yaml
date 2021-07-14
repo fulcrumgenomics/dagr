@@ -1,8 +1,6 @@
 name: unit tests
 
-on:
-  push:
-  pull_request:
+on: [push, pull_request]
 
 jobs:
   test:
@@ -13,17 +11,15 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Scala
-        uses: olafurpg/setup-scala@v1
+        uses: olafurpg/setup-scala@v12
         with:
-          java-version: openjdk@8
-        env:
-          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+          java-version: adopt-openj9@1.8.0-292
       - name: Unit Tests
         run: |
+          set -e
           sbt +clean coverage +test && sbt coverageReport coverageAggregate
           find $HOME/.sbt -name "*.lock" | xargs rm
           find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
-          #bash <(curl -s https://codecov.io/bash) -c -F unittests -f '!*.txt'
       - name: Code Coverage
         uses: codecov/codecov-action@v1
         with:
@@ -31,12 +27,12 @@ jobs:
           fail_ci_if_error: true # optional (default = false)
           verbose: true # optional (default = false)
       - name: Cache .ivy2
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: ~/.ivy2
           key: ${{ runner.os }}-ivy2-${{ hashFiles('**/build.sbt') }}
       - name: Cache .sbt
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: ~/.sbt
           key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.properties') }}
@@ -53,12 +49,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Scala
-        uses: olafurpg/setup-scala@v1
+        uses: olafurpg/setup-scala@v12
         with:
-          java-version: openjdk@8
-        env:
-          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+          java-version: adopt-openj9@1.8.0-292
       - name: Upload to Sonatype
         run: |
           sbt +publish
-
