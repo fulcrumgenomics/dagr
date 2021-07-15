@@ -89,7 +89,7 @@ object Resource {
   * @tparam T the type of number the value is expressed in, e.g. Long or Double
   * @tparam R self-referential type required to make all the operators work nicely
   */
-sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit numeric :Numeric[T]) {
+sealed abstract class Resource[T, R <: Resource[T,R]](val value: T)(implicit numeric: Numeric[T]) {
   if (numeric.toDouble(value) <  0) {
     throw new IllegalArgumentException(s"Cannot have negative resource. ${getClass.getSimpleName}=" + value)
   }

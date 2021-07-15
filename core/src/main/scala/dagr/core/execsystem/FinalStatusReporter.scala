@@ -24,13 +24,23 @@
 
 package dagr.core.execsystem
 
+import java.nio.file.{Files, Path, Paths}
+import java.time.format.DateTimeFormatter
+import java.time.{Duration, Instant, ZoneId}
+
+import com.fulcrumgenomics.commons.CommonsDef.DirPath
 import com.fulcrumgenomics.commons.collection.BiMap
+import com.fulcrumgenomics.commons.io.Io
 import com.fulcrumgenomics.commons.util.StringUtil._
 import com.fulcrumgenomics.commons.util.TimeUtil._
+import dagr.core.DagrDef.TaskId
+import dagr.core.execsystem.GraphNodeState.GraphNodeState
+import dagr.core.execsystem.TaskStatus.TaskStatus
 import dagr.core.tasksystem.Task
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+
 
 /** Provides a method to provide an execution report for a task tracker */
 trait FinalStatusReporter {
@@ -98,5 +108,82 @@ trait FinalStatusReporter {
     taskStatusCountTable.append(keys.map(_.toString))
     taskStatusCountTable.append(keys.map(status => taskStatusMap.getOrElse(status, 0).toString))
     loggerMethod("\n" + columnIt(taskStatusCountTable.toList, delimiter))
+  }
+}
+
+/** Stores some useful information about a task, as read from an execution report.  */
+case class TaskInfo
+(
+  report: Option[Path],
+  id: TaskId,
+  name: String,
+  status: TaskStatus,
+  cores: Cores,
+  memory: Memory,
+  submissionDate: Instant,
+  startDate: Instant,
+  endDate: Instant,
+  executionTime: Duration,
+  wallClockTime: Duration,
+  script: Path,
+  log: Path,
+  attempts: Int,
+  graphNodeState: GraphNodeState
+) {
+  /** True if this a [[Pipeline]], false if a [[UnitTask]]. */
+  def isPipeline: Boolean = !log.toFile.exists()
+  private val _id: Int = this.id.toInt
+  override def hashCode(): Int = _id  // works, since ids should be unique, and speeds up this method!
+}
+
+object TaskInfo {
+  private val TimeStampFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
+
+  private def fromDate(date: String): Instant = Instant.from(TimeStampFormatter.parse(date))
+
+  private def fromDuration(duration: String): Duration = {
+    duration.split(':').map(_.toInt) match {
+      case Array(hours, minutes, seconds) => Duration.ofSeconds(seconds + 60 * (minutes + 60 * hours))
+      case _ => throw new IllegalArgumentException(s"Could not parse duration: $duration")
+    }
+  }
+
+  /** Parses a line from an execution report. */
+  def apply(line: String, report: Option[Path] = None, logsDir: Option[DirPath] = None): TaskInfo = {
+    val fields = line.split("\\s{2,}")
+    require(fields.length == 14, s"Expected 14 fields, found ${fields.length}: ${fields.toList}")
+
+    val log    = Paths.get(fields(11)) match {
+      case _log if Files.exists(_log) && !Files.isRegularFile(_log) && Files.isReadable(_log) => _log
+      case _log => logsDir.map(_.resolve(_log.getFileName)).getOrElse(_log)
+    }
+
+    new TaskInfo(
+      report         = report,
+      id             = fields(0).toInt,
+      name           = fields(1).replace(' ', '_'),
+      status         = TaskStatus.withName(fields(2)),
+      cores          = Cores(fields(3).toDouble),
+      memory         = Memory(fields(4)),
+      submissionDate = fromDate(fields(5)),
+      startDate      = fromDate(fields(6)),
+      endDate        = fromDate(fields(7)),
+      executionTime  = fromDuration(fields(8)),
+      wallClockTime  = fromDuration(fields(9)),
+      script         = Paths.get(fields(10)),
+      log            = log,
+      attempts       = fields(12).toInt,
+      graphNodeState = GraphNodeState.withName(fields(13))
+    )
+  }
+
+  /** Slurps in the lines from an execution report. */
+  def from(report: Path, logsDir: Option[DirPath] = None): Iterator[TaskInfo] = {
+    Io.readLines(report)
+      .drop(1) // header line
+      .map(_.trim) // leading and trailing whitespace exist
+      .takeWhile(_.nonEmpty) // hacky way of finding the end of the file
+      .filterNot(_.contains(" NA ")) // hacky way to find tasks with no start date
+      .map(line => TaskInfo(line, report=Some(report), logsDir=logsDir))
   }
 }
