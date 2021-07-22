@@ -28,6 +28,7 @@ import dagr.tasks.DataTypes.{Fastq, SamOrBam}
 import dagr.tasks.DagrDef
 import DagrDef.{PathToBam, PathToFastq}
 import dagr.core.execsystem.{Cores, Memory}
+import htsjdk.samtools.SAMFileHeader.SortOrder
 import htsjdk.samtools.util.FastqQualityFormat
 
 import scala.collection.mutable.ListBuffer
@@ -42,7 +43,8 @@ class FastqToSam(fastq1: PathToFastq,
                  readGroupName: Option[String] = None,
                  stripUnpairedMateNumber: Boolean = true,
                  useSequentialFastqs: Boolean = false,
-                 qualityFormat: Option[FastqQualityFormat] = None)
+                 qualityFormat: Option[FastqQualityFormat] = None,
+                 sortOrder: Option[SortOrder] = Some(SortOrder.queryname))
   extends PicardTask with Pipe[Fastq,SamOrBam] {
   requires(Cores(1), Memory("2G"))
 
@@ -59,6 +61,6 @@ class FastqToSam(fastq1: PathToFastq,
     library.foreach(lb => buffer.append("LB=" + lb))
     if (useSequentialFastqs) buffer.append("USE_SEQUENTIAL_FASTQS=true")
     buffer.append("STRIP_UNPAIRED_MATE_NUMBER=" + stripUnpairedMateNumber)
-    buffer.append("SO=queryname")
+    sortOrder.foreach(so => buffer.append("SO=" + so.name))
   }
 }
