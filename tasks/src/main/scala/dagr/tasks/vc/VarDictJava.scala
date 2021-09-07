@@ -317,6 +317,7 @@ class VarDictJavaEndToEnd
  @arg(flag='a', doc="Output all sites, including reference calls.") allSites: Boolean = false,
  @arg(flag='A', doc="Output all variants at the same genomic site.") allVariants: Boolean = false,
  @arg(flag='N', doc="Count No-calls (Ns) in the total depth tag (DP)") countNsInTotalDepth: Boolean = false,
+ @arg(flag='E', doc="If true, add an INFO tag for the variant's end (END)") printEndTag: Boolean = false,
  @arg(flag='F', doc="Experimental feature: Use Java implementation of Fisher exact test (previously R Scripts: teststrandbias.R and testsomatic.R). Requires VarDictJava version 1.8.0 (b772179) or later.") fisher: Boolean = false
 ) extends Pipeline {
 
@@ -367,7 +368,7 @@ class VarDictJavaEndToEnd
           minimumDepth                      = minimumDepth,
           minimumHighQualityAltDepth        = minimumHighQualityAltDepth,
           minimumAf                         = minimumAf,
-          printEndTag                       = false
+          printEndTag                       = printEndTag
         )
         if (fisher) var2VcfValid else {
           val bias = new ShellCommand(VarDictJava.TestStrandBias.toString) with PipeWithNoResources[Text, Text]
