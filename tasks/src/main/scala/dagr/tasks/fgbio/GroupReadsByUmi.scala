@@ -46,6 +46,8 @@ class GroupReadsByUmi(val in:  PathToBam,
                       val minMapQ: Option[Int] = None,
                       val strategy: AssignmentStrategy = AssignmentStrategy.Adjacency,
                       val edits: Option[Int] = None,
+                      val minUmiLength: Option[Int] = None,
+                      val allowInterContig: Boolean = false,
                       tmpDir: Option[DirPath] = None) extends FgBioTask(tmpDir=tmpDir) with Pipe[SamOrBam, SamOrBam] {
 
   /** Implement this to add the tool-specific arguments */
@@ -58,6 +60,8 @@ class GroupReadsByUmi(val in:  PathToBam,
     minMapQ.foreach(m => buffer.append("-m", m))
     buffer.append("-s", strategy.toString.toLowerCase)
     edits.foreach(e => buffer.append("-e", e))
+    minUmiLength.foreach(m => buffer.append("-l", m))
+    if (allowInterContig) buffer.append("-x")
     tmpDir.foreach(d => buffer.append(s"--tmp-dir=${d}"))
   }
 }
