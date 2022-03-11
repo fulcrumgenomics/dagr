@@ -44,7 +44,7 @@ releaseProcess := Seq[ReleaseStep](
 // For the aggregate (root) jar, override the name.  For the sub-projects,
 // see the build.sbt in each project folder.
 ////////////////////////////////////////////////////////////////////////////////////////////////
-assemblyJarName in assembly := "dagr-" + version.value + ".jar"
+assembly / assemblyJarName := "dagr-" + version.value + ".jar"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Sonatype settings
@@ -58,7 +58,7 @@ lazy val sonatypeSettings = Seq(
       else
         Some("releases"  at nexus + "service/local/staging/deploy/maven2")
     },
-    publishArtifact in Test := false,
+    Test / publishArtifact := false,
     pomIncludeRepository := { _ => false },
     // For Travis CI - see http://www.cakesolutions.net/teamblogs/publishing-artefacts-to-oss-sonatype-nexus-using-sbt-and-travis-ci
     credentials ++= (for {
@@ -88,31 +88,32 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://www.fulcrumgenomics.com")),
   homepage             := Some(url("http://github.com/fulcrumgenomics/dagr")),
   startYear            := Some(2015),
-  scalaVersion         := "2.13.0",
-  crossScalaVersions   := Seq("2.12.8", "2.13.0"),
+  scalaVersion         := "2.13.8",
+  crossScalaVersions   := Seq("2.13.8"),
   scalacOptions        ++= Seq("-target:jvm-1.8", "-deprecation"),
-  scalacOptions in (Compile, doc) ++= docScalacOptions,
-  scalacOptions in (Test, doc) ++= docScalacOptions,
+  Compile / doc / scalacOptions ++= docScalacOptions,
+  Test / doc/ scalacOptions  ++= docScalacOptions,
+  useCoursier          := false,
   autoAPIMappings := true,
-  testOptions in Test  += Tests.Argument(TestFrameworks.ScalaTest, "-h", Option(System.getenv("TEST_HTML_REPORTS")).getOrElse(htmlReportsDirectory)),
-  testOptions in Test  += Tests.Argument("-l", "LongRunningTest"), // ignores long running tests
+  Test / testOptions  += Tests.Argument(TestFrameworks.ScalaTest, "-h", Option(System.getenv("TEST_HTML_REPORTS")).getOrElse(htmlReportsDirectory)),
+  Test / testOptions  += Tests.Argument("-l", "LongRunningTest"), // ignores long running tests
   // uncomment for full stack traces
   //testOptions in Test  += Tests.Argument("-oD"),
-  fork in Test         := true,
+  Test / fork          := true,
   resolvers            += Resolver.jcenterRepo,
   resolvers            += Resolver.sonatypeRepo("public"),
   resolvers            += Resolver.mavenLocal,
   shellPrompt          := { state => "%s| %s> ".format(GitCommand.prompt.apply(state), version.value) },
   coverageExcludedPackages := "<empty>;dagr\\.tasks.*;dagr\\.pipelines.*",
   updateOptions        := updateOptions.value.withCachedResolution(true),
-  javaOptions in Test += "-Ddagr.color-status=false",
+  Test / javaOptions   += "-Ddagr.color-status=false",
   // Needed to avoid "sbt.ForkMain failed with exit code 137"
   //in Travis with `sudo: false`.
   // See https://github.com/sbt/sbt/issues/653
   // and https://github.com/travis-ci/travis-ci/issues/3775
-  javaOptions in Test += "-Xmx1G",
+  Test / javaOptions += "-Xmx1G",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8" % "test->*" excludeAll ExclusionRule(organization="org.junit", name="junit"),
-  assemblyJarName in assembly := s"${name.value}-${version.value}.jar"
+  assembly / assemblyJarName  := s"${name.value}-${version.value}.jar"
 ) ++ Defaults.coreDefaultSettings ++ sonatypeSettings
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -123,15 +124,15 @@ lazy val core = Project(id="dagr-core", base=file("core"))
   .settings(description := "Core methods and classes to execute tasks in dagr.")
   .settings(
     libraryDependencies ++= Seq(
-      "com.fulcrumgenomics" %%  "commons"           %  "1.1.0-43c062d-SNAPSHOT",
-      "com.fulcrumgenomics" %%  "sopt"              %  "1.0.0",
-      "com.github.dblock"   %   "oshi-core"         %  "3.3",
+      "com.fulcrumgenomics" %%  "commons"           %  "1.4.0",
+      "com.fulcrumgenomics" %%  "sopt"              %  "1.1.0",
+      "com.github.oshi"     %   "oshi-core"         % "6.1.4",
       "org.scala-lang"      %   "scala-reflect"     %  scalaVersion.value,
       "org.scala-lang"      %   "scala-compiler"    %  scalaVersion.value,
       "org.reflections"     %   "reflections"       %  "0.9.10",
-      "com.typesafe"        %   "config"            %  "1.3.2",
+      "com.typesafe"        %   "config"            %  "1.4.2",
       "javax.servlet"       %   "javax.servlet-api" %  "3.1.0",
-      "jline"               %   "jline"             %  "2.14.2"
+      "jline"               %   "jline"             %  "2.14.6"
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
@@ -151,8 +152,8 @@ lazy val tasks = Project(id="dagr-tasks", base=file("tasks"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "com.github.samtools"       % "htsjdk"     % "2.16.1" excludeAll(htsjdkAndPicardExcludes: _*),
-      "com.github.broadinstitute" % "picard"     % "2.18.16" excludeAll(htsjdkAndPicardExcludes: _*)
+      "com.github.samtools"       % "htsjdk"     % "2.24.1" excludeAll(htsjdkAndPicardExcludes: _*),
+      "com.github.broadinstitute" % "picard"     % "2.26.11" excludeAll(htsjdkAndPicardExcludes: _*)
     )
   )
   .disablePlugins(sbtassembly.AssemblyPlugin)
@@ -171,8 +172,8 @@ lazy val pipelines = Project(id="dagr-pipelines", base=file("pipelines"))
 // root (dagr) project
 ////////////////////////////////////////////////////////////////////////////////////////////////
 lazy val assemblySettings = Seq(
-  test in assembly     := {},
-  logLevel in assembly := Level.Info
+  assembly / test     := {},
+  assembly / logLevel := Level.Info
 )
 lazy val root = Project(id="dagr", base=file("."))
   .settings(commonSettings: _*)
@@ -216,4 +217,5 @@ val customMergeStrategy: String => MergeStrategy = {
     MergeStrategy.first
   case _ => MergeStrategy.deduplicate
 }
-assemblyMergeStrategy in assembly := customMergeStrategy
+
+assembly / assemblyMergeStrategy := customMergeStrategy
