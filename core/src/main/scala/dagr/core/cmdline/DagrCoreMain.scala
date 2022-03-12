@@ -279,8 +279,7 @@ class DagrCoreMain extends LazyLogging {
         }
         new DagrScriptManager().loadScripts(
           scripts,
-          Files.createTempDirectory(PathUtil.pathTo(System.getProperty("java.io.tmpdir")), "dagrScripts"),
-          quiet = false
+          Files.createTempDirectory(PathUtil.pathTo(System.getProperty("java.io.tmpdir")), "dagrScripts")
         )
       case _ => false
     }

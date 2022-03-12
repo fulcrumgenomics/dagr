@@ -26,17 +26,17 @@
 
 package dagr.core.cmdline
 
-import java.net.{URL, URLClassLoader}
-import java.nio.file.Path
-
-import com.fulcrumgenomics.commons.io.Io
-import com.fulcrumgenomics.commons.util.{LazyLogging, LogLevel}
 import com.fulcrumgenomics.commons.CommonsDef._
+import com.fulcrumgenomics.commons.io.Io
+import com.fulcrumgenomics.commons.util.LazyLogging
 import org.reflections.util.ClasspathHelper
 
-import scala.reflect.internal.util.{FakePos, NoPosition, Position, StringOps}
+import java.net.{URL, URLClassLoader}
+import java.nio.file.Path
+import scala.reflect.internal.util.Position
 import scala.tools.nsc.io.PlainFile
-import scala.tools.nsc.reporters.AbstractReporter
+import scala.reflect.internal.Reporter
+import scala.tools.nsc.reporters.{FilteringReporter}
 import scala.tools.nsc.{Global, Settings}
 
 object DagrScriptManager {
@@ -60,89 +60,22 @@ object DagrScriptManager {
     * NSC (New Scala Compiler) reporter which logs to Log4J.
     * Heavily based on scala/src/compiler/scala/tools/nsc/reporters/ConsoleReporter.scala
     */
-  private class DagrReporter(val settings: Settings, val quiet: Boolean = false) extends AbstractReporter with LazyLogging {
-    def displayPrompt(): Unit = {
-      throw new UnsupportedOperationException("Unable to prompt the user.  Prompting should be off.")
-    }
+  private class DagrReporter(val settings: Settings) extends FilteringReporter with LazyLogging {
+    var errors: Int = 0
+    var warnings: Int = 0
+    var infos: Int = 0
 
-    /**
-      * Displays the message at position with severity.
-      * @param posIn Position of the event in the file that generated the message.
-      * @param msg Message to display.
-      * @param severity Severity of the event.
-      */
-    def display(posIn: Position, msg: String, severity: Severity): Unit = {
-      severity.count += 1
-      val level = severity match {
-        case INFO => LogLevel.Info
-        case WARNING => LogLevel.Warning
-        case ERROR => LogLevel.Error
-      }
-
-      val p2 = Option(posIn) match {
-        case None => NoPosition
-        case Some(p) if p.isDefined => p.finalPosition //posIn.inUltimateSource(posIn.source)
-        case Some(p) => p
-      }
-
-      p2 match {
-        case FakePos(fmsg) =>
-          printMessage(level, s"$fmsg $msg")
-        case NoPosition =>
-          printMessage(level, msg)
-        case pos: Position =>
-          val file = pos.source.file
-          printMessage(level, file.name + ":" + pos.line + ": " + msg)
-          printSourceLine(level, pos)
-      }
-    }
-
-    /**
-      * Prints the source code line of an event followed by a pointer within the line to the error.
-      * @param level Severity level.
-      * @param pos Position in the file of the event.
-      */
-    private def printSourceLine(level: LogLevel, pos: Position): Unit = {
-      printMessage(level, pos.lineContent.stripLineEnd)
-      printColumnMarker(level, pos)
-    }
-
-    /**
-      * Prints the column marker of the given position.
-      * @param level Severity level.
-      * @param pos Position in the file of the event.
-      */
-    private def printColumnMarker(level: LogLevel, pos: Position): Unit = {
-      if (pos.isDefined) {
-        printMessage(level, " " * (pos.column - 1) + "^")
-      }
-    }
-
-    /**
-      * Prints a summary count of warnings and errors.
-      */
-    def printSummary(): Unit = {
-      if (WARNING.count > 0)
-        printMessage(LogLevel.Warning, StringOps.countElementsAsString(WARNING.count, "warning") + " found")
-      if (ERROR.count > 0)
-        printMessage(LogLevel.Error, StringOps.countElementsAsString(ERROR.count, "error") + " found")
-    }
-
-    /**
-      * Prints the message at the severity level.
-      * @param level Severity level.
-      * @param message Message content.
-      */
-    private def printMessage(level: LogLevel, message: String): Unit = {
-      if (!quiet) {
-        level match {
-          case LogLevel.Debug   => logger.debug(message)
-          case LogLevel.Info    => logger.info(message)
-          case LogLevel.Warning => logger.warning(message)
-          case LogLevel.Error   => logger.error(message)
-          case LogLevel.Fatal   => logger.fatal(message)
-          case _ => throw new DagrScriptManagerException(s"Could not determine log level: $level")
-        }
+    override def doReport(pos: Position, msg: String, severity: Severity): Unit = {
+      severity match {
+        case Reporter.INFO    =>
+          infos += 1
+          logger.info(msg)
+        case Reporter.WARNING =>
+          warnings += 1
+          logger.warning(msg)
+        case Reporter.ERROR   =>
+          errors += 1
+          logger.error(msg)
       }
     }
   }
@@ -156,7 +89,7 @@ private[core] class DagrScriptManager extends LazyLogging {
     * Compiles and loads the scripts in the files into the current classloader.
     * Heavily based on scala/src/compiler/scala/tools/ant/Scalac.scala
     */
-  def loadScripts(scripts: Iterable[Path], tempDir: Path, quiet: Boolean = true): Unit = {
+  def loadScripts(scripts: Iterable[Path], tempDir: Path): Unit = {
     // Make sure the scripts actually exist and we can write to the tempDir
     Io.assertReadable(scripts)
     Io.assertWritableDirectory(tempDir)
@@ -173,29 +106,26 @@ private[core] class DagrScriptManager extends LazyLogging {
         settings.classpath.append(url.getPath)
       })
 
-      val reporter = new DagrReporter(settings, quiet)
+      val reporter = new DagrReporter(settings)
       val compiler: Global = new Global(settings, reporter)
       val run = new compiler.Run
 
-      if (!quiet) {
-        logger.info("Compiling %s Dagr Script%s".format(scripts.size, plural(scripts.size)))
-        logger.debug("Compilation directory: " + settings.outdir.value)
-      }
+      logger.info("Compiling %s Dagr Script%s".format(scripts.size, plural(scripts.size)))
+      logger.debug("Compilation directory: " + settings.outdir.value)
       run.compileFiles(scripts.toList.map(script => new PlainFile(script.toFile)))
 
       // add `tempDir` to the classpath
       if (!reporter.hasErrors) addToClasspath(urls = Seq(tempDir.toUri.toURL))
 
-      reporter.printSummary()
       if (reporter.hasErrors) {
-        val msg = "Compile of %s failed with %d error%s".format(scripts.mkString(", "), reporter.ERROR.count, plural(reporter.ERROR.count))
+        val msg = "Compile of %s failed with %d error%s".format(scripts.mkString(", "), reporter.errors, plural(reporter.errors))
         throw new DagrScriptManagerException(msg)
       }
-      else if (reporter.WARNING.count > 0) {
-        if (!quiet) logger.warning("Compile succeeded with %d warning%s".format(reporter.WARNING.count, plural(reporter.WARNING.count)))
+      else if (reporter.warnings > 0) {
+        logger.warning("Compile succeeded with %d warning%s".format(reporter.warnings, plural(reporter.warnings)))
       }
       else {
-        if (!quiet) logger.info("Compilation complete")
+        logger.info("Compilation complete")
       }
     }
   }
