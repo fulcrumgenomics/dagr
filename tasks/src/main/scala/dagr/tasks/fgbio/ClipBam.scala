@@ -40,7 +40,9 @@ class ClipBam(val input: PathToBam,
               val readOneThreePrime: Option[Int] = None,
               val readTwoFivePrime: Option[Int] = None,
               val readTwoThreePrime: Option[Int] = None,
-              val clipOverlappingReads: Option[Boolean] = None
+              val clipOverlappingReads: Option[Boolean] = None,
+              val clipBasesPastMate: Option[Boolean] = None,
+              val sortOrder: Option[String] = None
              ) extends FgBioTask {
 
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
@@ -56,6 +58,8 @@ class ClipBam(val input: PathToBam,
     readTwoFivePrime.foreach  (d => buffer.append("--read-two-five-prime", d))
     readTwoThreePrime.foreach (e => buffer.append("--read-two-three-prime", e))
     clipOverlappingReads.foreach(o => buffer.append("--clip-overlapping-reads", o))
+    clipBasesPastMate.foreach   (c => buffer.append("--clip-bases-past-mate", c))
+    sortOrder.foreach           (s => buffer.append("--sort-order", s))
   }
 }
 
