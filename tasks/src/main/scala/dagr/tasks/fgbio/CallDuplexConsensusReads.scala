@@ -33,15 +33,16 @@ import scala.collection.mutable.ListBuffer
 
 class CallDuplexConsensusReads(val in: PathToBam,
                                val out: PathToBam,
-                               val readNamePrefix:      Option[String] = None,
-                               val readGroupId:         Option[String] = None,
-                               val errorRatePreUmi:     Option[Int]    = None,
-                               val errorRatePostUmi:    Option[Int]    = None,
-                               val minInputBaseQuality: Option[Int]    = None,
-                               val minReads:            Seq[Int]       = Seq.empty,
-                               val maxReadsPerStrand:   Option[Int]    = None,
-                               val minThreads: Int                     = 1,
-                               val maxThreads: Int                     = 32
+                               val readNamePrefix:      Option[String]            = None,
+                               val readGroupId:         Option[String]            = None,
+                               val errorRatePreUmi:     Option[Int]               = None,
+                               val errorRatePostUmi:    Option[Int]               = None,
+                               val minInputBaseQuality: Option[Int]               = None,
+                               val minReads:            Seq[Int]                  = Seq.empty,
+                               val maxReadsPerStrand:   Option[Int]               = None,
+                               val minThreads: Int                                = 1,
+                               val maxThreads: Int                                = 32,
+                               val consensusCallOverlappingBases: Option[Boolean] = None
                               ) extends FgBioTask with VariableResources with Pipe[SamOrBam,SamOrBam] {
 
   override def pickResources(resources: ResourceSet): Option[ResourceSet] = {
@@ -60,7 +61,8 @@ class CallDuplexConsensusReads(val in: PathToBam,
       buffer.append("-M")
       buffer.append(minReads:_*)
     }
-    maxReadsPerStrand.foreach   (x => buffer.append("--max-reads-per-strand", x))
+    maxReadsPerStrand.foreach            (x => buffer.append("--max-reads-per-strand", x))
+    consensusCallOverlappingBases.foreach(c => buffer.append("--consensus-call-overlapping-bases", c))
     buffer.append("--threads", resources.cores.toInt)
   }
 }
