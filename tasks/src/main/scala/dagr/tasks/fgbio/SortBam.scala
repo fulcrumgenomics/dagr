@@ -42,7 +42,7 @@ class SortBam(val in: PathToBam,
   override protected def addFgBioArgs(buffer: ListBuffer[Any]): Unit = {
     buffer.append("-i", in)
     buffer.append("-o", out)
-    sortOrder.foreach(so => buffer.append("-s", sortOrder))
+    sortOrder.foreach(so => buffer.append("-s", so))
     maxInMemory.foreach(m => buffer.append("-m", m))
   }
 }
